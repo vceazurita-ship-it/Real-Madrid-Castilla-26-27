@@ -42,6 +42,8 @@ import { HUECOS } from "@/lib/data-analisis/once";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { posesionesDe } from "@/lib/comparativa-posesion";
 import { aObjetos, DOCS_OPTA, traeOpta } from "@/lib/opta";
+import { planoDeExtremos, regateDelDuelo, type RegateDelDuelo } from "@/lib/duelos-regate";
+import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
 import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
@@ -423,6 +425,8 @@ export default function DuelosPage() {
   const aMano = useMemo(() => normalizaDuelos(guardado), [guardado]);
 
   const referencias = useMemo(() => referenciasPorPuesto(jugadores ?? []), [jugadores]);
+  /* Los extremos de la categoría en el plano del regate (17/11/2026): para el duelo lateral–extremo. */
+  const planoRegate = useMemo(() => planoDeExtremos(jugadores ?? []), [jugadores]);
 
   /* Los dos onces se arman en lib/duelos-onces.ts, el mismo código que usa el informe del partido. */
   const nuestros = useMemo(() => nuestrosDe(jugadores ?? [], players), [jugadores, players]);
@@ -494,6 +498,11 @@ export default function DuelosPage() {
   const { conPareja: duelos, fueraDeSitioEn } = useMemo(
     () => separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo),
     [onceNuestro, onceSuyo, referencias],
+  );
+  /* Las bandas que hay que doblar (17/11/2026): su extremo desequilibrante y nuestro lateral por debajo de su media. */
+  const enRojo = useMemo(
+    () => new Set(duelos.filter((d) => regateDelDuelo(d, planoRegate, jugadores ?? [])?.alerta).map((d) => d.def.clave)),
+    [duelos, planoRegate, jugadores],
   );
 
   /*
@@ -808,6 +817,7 @@ export default function DuelosPage() {
                       equipo={equipoVisto}
                       elegido={elegido}
                       onElige={eligeYMuestra}
+                      enRojo={modo === "nuestro" ? undefined : enRojo}
                     />
                     <div className="mt-2 flex flex-wrap gap-4 text-xs text-white/45">
                       <span className="inline-flex items-center gap-1.5">
@@ -821,6 +831,11 @@ export default function DuelosPage() {
                           <span className="h-0.5 w-4" style={{ background: COLOR[v] }} /> {ROTULO[v]}
                         </span>
                       ))}
+                      {modo !== "nuestro" && enRojo.size > 0 && (
+                        <span className="inline-flex items-center gap-1.5">
+                          <span className="h-0.5 w-4" style={{ background: ROJO_ALERTA }} /> Doblar la banda (su extremo desborda y nuestro lateral está bajo su media)
+                        </span>
+                      )}
                       {/* La clave de los «P73» de las tarjetas, siempre a la vista:
                           la explicación larga de abajo se puede apagar (19/10/2026). */}
                       <span className="basis-full sm:basis-auto sm:ml-auto">P73 = mejor que el 73 % de los de su puesto (P100, el mejor)</span>
@@ -876,7 +891,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
-                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} />
                         ))}
                     </div>
                   </div>
@@ -894,7 +909,7 @@ export default function DuelosPage() {
                       </summary>
                       <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                         {pocos.map((d) => (
-                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} />
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} />
                         ))}
                       </div>
                     </details>
@@ -971,6 +986,7 @@ function Campo({
   equipo,
   elegido,
   onElige,
+  enRojo,
 }: {
   once: Record<string, JugadorDuelo | undefined>;
   suyo: Record<string, JugadorDuelo | undefined>;
@@ -980,6 +996,8 @@ function Campo({
   equipo: string;
   elegido: string | null;
   onElige: (clave: string) => void;
+  /** Duelos lateral–extremo con su extremo desequilibrante y nuestro lateral por debajo de su media (17/11/2026). */
+  enRojo?: Set<string>;
 }) {
   const estrecho = useSyncExternalStore(suscribeEstrecho, esEstrecho, anchoServidor);
   const [tocada, setTocada] = useState<string | null>(null);
@@ -1086,12 +1104,12 @@ function Campo({
               y1={a.y}
               x2={b.x}
               y2={b.y}
-              stroke={COLOR[d.veredicto]}
+              stroke={enRojo?.has(d.def.clave) ? ROJO_ALERTA : COLOR[d.veredicto]}
               strokeWidth={es ? 6 : 4}
               strokeLinecap="round"
               opacity={elegido && !es ? 0.35 : 0.95}
             >
-              <title>{`${d.def.titulo}: ${ROTULO[d.veredicto]}${d.balance !== null ? ` (${firmaN(d.balance)})` : ""}`}</title>
+              <title>{`${d.def.titulo}: ${ROTULO[d.veredicto]}${d.balance !== null ? ` (${firmaN(d.balance)})` : ""}${enRojo?.has(d.def.clave) ? " · doblar la vigilancia: su extremo desborda y nuestro lateral gana menos duelos que la media" : ""}`}</title>
             </line>
           </g>
         );
@@ -1793,6 +1811,7 @@ function Tarjeta({
   modo,
   roboDe,
   huecoDe,
+  regate,
 }: {
   d: ResultadoDuelo;
   activo: boolean;
@@ -1801,10 +1820,13 @@ function Tarjeta({
   modo: Modo;
   roboDe: Map<string, RoboJugador>;
   huecoDe: Map<string, string>;
+  /** Sólo en los duelos lateral–extremo: su extremo en el plano del regate (17/11/2026). */
+  regate?: RegateDelDuelo | null;
 }) {
   const [verParejas, setVerParejas] = useState(false);
   const [pareja, setPareja] = useState<number | null>(null);
-  const color = COLOR[d.veredicto];
+  /* Extremo desequilibrante contra un lateral por debajo de su media: el duelo, en rojo. */
+  const color = regate?.alerta && modo !== "nuestro" ? ROJO_ALERTA : COLOR[d.veredicto];
 
   const noEsMediapunta = (j: JugadorDuelo) => {
     const puesto = puestoNatural(j);
@@ -1943,6 +1965,8 @@ function Tarjeta({
       ))}
 
       <div className="mt-4">{bloquesDe(d, modo, equipo, roboDe)}</div>
+
+      {regate && modo !== "nuestro" && <PlanoRegate r={regate} />}
 
       {d.altura && (
         <p className="mt-3 text-xs text-white/45">
