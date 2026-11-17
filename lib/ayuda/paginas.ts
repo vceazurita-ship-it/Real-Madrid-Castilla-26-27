@@ -870,8 +870,17 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Nota del scout", es: "Media de las fichas del scout (cinco competencias, escala 0-10) y su tramo" },
           {
             que: "Línea de rendimiento de cada ficha",
-            es: "La nota media de sus 3 últimos partidos con nota y el % de minutos, de Valoraciones",
-            cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′). Sin partidos, no sale",
+            es: "La nota media de sus 3 últimos partidos con nota («últ. 3») y el % de minutos, de Valoraciones; la cifra va en tinta y su color en el punto de al lado. La base sale una vez bajo las cifras («de los N′ posibles»). Debajo, en cada ficha del Castilla, «Notas» abre Valoraciones con él abierto y «Comparativa», su fila en Comparativa categoría",
+            cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′); quien no ha jugado, 0 %. Sin partidos, no sale",
+          },
+          {
+            que: "Jugadores",
+            es: "«N de campo + M porteros» y cuántos de los de campo tienen seguimiento: la misma base que el aviso de arriba",
+            cuenta: "La mediana de seguimientos por jugador es la misma función que en el Dashboard Seguimiento (con los de 0 dentro, a un decimal)",
+          },
+          {
+            que: "Fichas o lista",
+            es: "Mientras no se elige, lista en el móvil y fichas en el resto, y el selector marca la que se ve; la elección se recuerda en el aparato",
           },
           {
             que: "Seguir con él",
@@ -919,7 +928,7 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
   {
     ruta: "/individual_proc",
