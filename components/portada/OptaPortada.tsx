@@ -31,6 +31,7 @@ import { COMPARADO, ORO, colorPercentil, tinta } from "@/components/data/grafica
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { trackModuleVisit } from "@/lib/module-usage";
+import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { nombreEquipo, partidosDe, valorEquipo, type Fila } from "@/lib/opta-analisis";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
@@ -43,7 +44,7 @@ const AYUDA: Record<string, string> = {
   ExpG: "goles esperados · más es mejor",
   ExpGAg: "goles esperados que concede · menos es mejor",
   PPDA: "pases que deja dar antes de presionar · menos es más presión",
-  xGSetPly: "córner y falta, sin penaltis · tendencia: pocos remates por partido",
+  xGSetPly: "córner y falta, sin penaltis",
 };
 
 /**
@@ -51,17 +52,32 @@ const AYUDA: Record<string, string> = {
  * a balón parado y cuántos córners lleva cada uno en la temporada, de la misma
  * fila de Opta del equipo. Sin las dos columnas, no sale nada.
  */
-function baseAbp(fila: Fila | undefined): string {
-  if (!fila) return "";
+function baseAbp(fila: Fila | undefined, partidos: number): { remates: number | null; texto: string } {
+  if (!fila) return { remates: null, texto: "" };
   const ocasiones = valorEquipo(fila, "ChncSetPl", "total");
   const corners = valorEquipo(fila, "Corners", "total");
-  /* 16/11/2026 (marketing): cada cifra con su base: son totales de la temporada, no por partido. */
+  /* 16/11/2026 (marketing): cada cifra con su base: son totales de la temporada, no por partido.
+     17/11/2026 (ronda 21, análisis): con los partidos al lado, que es lo que dice por qué es tendencia. */
   const partes = [
-    ocasiones != null ? `${Math.round(ocasiones)} ocasiones a balón parado` : "",
-    corners != null ? `${Math.round(corners)} córners a favor` : "",
+    ocasiones != null ? `${Math.round(ocasiones)} remates a balón parado` : "",
+    corners != null ? `${Math.round(corners)} córners` : "",
   ].filter(Boolean);
-  return partes.length ? `${partes.join(" y ")} en la temporada` : "";
+  if (!partes.length) return { remates: null, texto: "" };
+  return {
+    remates: ocasiones == null ? null : Math.round(ocasiones),
+    texto: `${partes.join(" y ")} en ${partidos} ${partidos === 1 ? "partido" : "partidos"}`,
+  };
 }
+
+/** «grupo de 20 equipos»: la única forma de decir la población en todo el bloque (17/11/2026, ronda 21). */
+const grupoDe = (n: number) => `grupo de ${n} equipos`;
+
+/**
+ * Las filas que se leen como tendencia: el xG a balón parado sale de uno o dos
+ * remates por partido, y unas décimas lo mueven varios puestos. Se marca en el
+ * propio gráfico (puntos huecos y el rótulo), no sólo en el texto.
+ */
+const ES_TENDENCIA = new Set(["xGSetPly"]);
 
 /** Las cuatro de la tarjeta, todas por partido. */
 const CLAVE: MetricaLab[] = [
@@ -93,6 +109,8 @@ export function OptaPortada() {
   }, [opta, idRival, suyo]);
   const filaNuestra = opta?.equipos.find((e) => e.teamId === CASTILLA_OPTA);
   const filaSuya = rival ? opta?.equipos.find((e) => e.teamId === idRival) : undefined;
+  /* Los partidos de cada uno, para la base del balón parado. */
+  const jugadosSuyos = useMemo(() => (opta && idRival ? partidosDe(opta.partidos, idRival).length : 0), [opta, idRival]);
 
   if (cargando) {
     /* El alto de la tarjeta de verdad (cabecera y cuerpo): que la portada no salte al llegar. */
@@ -108,7 +126,22 @@ export function OptaPortada() {
   const hasta = hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = nuestro[0]?.pos.deCuantos ?? 0;
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
-  const conclusiones = rival ? lecturas(nuestro, suyo, rival) : [];
+  const conclusiones = rival ? lecturas(nuestro, suyo, rival, baseAbp(filaSuya, jugadosSuyos).texto) : [];
+  const poblacion = grupoDe(deCuantos);
+
+  /*
+   * 17/11/2026 (ronda 21, marketing): cada fila abre «Un equipo de un vistazo»
+   * de Análisis de datos con el rival ya elegido. La pantalla no lee la URL
+   * para esto: se deja el nombre en la elección compartida de sus lecturas
+   * (`ponEquipoElegido`) al pulsar, y `?equipo=` queda en el enlace para quien
+   * lo copie.
+   */
+  const equipoFila = rival || "Real Madrid Castilla";
+  const hrefFila = `/data-analisis?area=equipo&equipo=${encodeURIComponent(equipoFila)}`;
+  const abreFila = () => {
+    ponEquipoElegido(equipoFila);
+    trackModuleVisit("/data-analisis");
+  };
 
   /*
    * 17/11/2026 (ronda 20, los tres jueces): el bloque es el ÚNICO sitio de
@@ -125,10 +158,10 @@ export function OptaPortada() {
       <CabeceraBloque
         icono={Database}
         titulo={rival ? `${rival} frente a nosotros` : "El Castilla en el grupo"}
-        sub={`Opta · media por partido en ${jugados} ${jugados === 1 ? "partido" : "partidos"} · puesto entre los ${deCuantos} del grupo`}
+        sub={`Opta · media por partido en ${jugados} ${jugados === 1 ? "partido" : "partidos"} · puesto en el ${poblacion}`}
         accion={
           <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/60">
-            <SelloFuente fuente="opta" poblacion={`grupo (${deCuantos} equipos)`} hasta={hasta ? `hasta el ${hasta}` : undefined} />
+            <SelloFuente fuente="opta" poblacion={poblacion} hasta={hasta ? `hasta el ${hasta}` : undefined} />
           </p>
         }
       />
@@ -166,7 +199,7 @@ export function OptaPortada() {
           ) : null}
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-3 w-px bg-white/40" />
-            mediana del grupo
+            mediana del {poblacion}
           </span>
           <span className="ml-auto font-semibold text-white/60">a la derecha, mejor →</span>
         </div>
@@ -174,27 +207,51 @@ export function OptaPortada() {
         <ul className="mt-3 divide-y divide-white/[0.06]">
           {nuestro.map((x) => {
             const r = suyo.find((s) => s.a === x.a);
-            const base = x.a === "xGSetPly" ? [baseAbp(filaNuestra), rival ? baseAbp(filaSuya) : ""].filter(Boolean) : [];
+            const tendencia = ES_TENDENCIA.has(x.a);
+            const bN = tendencia ? baseAbp(filaNuestra, jugados) : null;
+            const bS = tendencia && rival ? baseAbp(filaSuya, jugadosSuyos) : null;
             return (
-              <li key={x.a} className="grid min-w-0 gap-x-4 gap-y-2 py-3 sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto] sm:items-center" title={x.comoLeer}>
-                <div className="min-w-0">
-                  <p className="text-[14px] font-semibold leading-tight text-white/90">{x.nombre}</p>
-                  {AYUDA[x.a] ? <p className="mt-0.5 text-[12px] leading-snug text-white/60">{AYUDA[x.a]}</p> : null}
-                </div>
+              <li key={x.a}>
+                <Link
+                  href={hrefFila}
+                  onClick={abreFila}
+                  title={`${x.comoLeer} Abre ${equipoFila} en Análisis de datos.`}
+                  className="group -mx-2 grid min-w-0 gap-x-4 gap-y-2 rounded-xl px-2 py-3 transition-colors hover:bg-white/[0.03] sm:grid-cols-[minmax(0,190px)_minmax(0,1fr)_auto_16px] sm:items-center"
+                >
+                  <span className="block min-w-0">
+                    <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="text-[14px] font-semibold leading-tight text-white/90">{x.nombre}</span>
+                      {tendencia ? (
+                        <span
+                          className="rounded-full border px-1.5 py-px text-[11px] font-semibold uppercase tracking-[0.08em]"
+                          style={{ borderColor: "rgba(217,119,6,.45)", color: "var(--rmcf-gold-ink)" }}
+                        >
+                          Tendencia
+                        </span>
+                      ) : null}
+                    </span>
+                    {AYUDA[x.a] ? <span className="mt-0.5 block text-[12px] leading-snug text-white/60">{AYUDA[x.a]}</span> : null}
+                  </span>
 
-                <Pista nuestro={x} suyo={rival ? r : undefined} />
+                  <Pista nuestro={x} suyo={rival ? r : undefined} hueca={tendencia} />
 
-                <div className="flex items-baseline justify-between gap-4 tabular-nums sm:justify-end">
-                  <Valor x={x} color={ORO} />
-                  {rival && r ? <Valor x={r} color={COMPARADO} /> : null}
-                </div>
+                  <span className="flex items-baseline justify-between gap-4 tabular-nums sm:justify-end">
+                    <Valor x={x} color={ORO} />
+                    {rival && r ? <Valor x={r} color={COMPARADO} /> : null}
+                  </span>
 
-                {base.length ? (
-                  <p className="text-[12px] leading-snug text-white/60 sm:col-span-3">
-                    Castilla: {base[0]}
-                    {base[1] ? ` · ${rival}: ${base[1]}` : ""}
-                  </p>
-                ) : null}
+                  <ChevronRight className="hidden h-4 w-4 text-white/35 transition-transform group-hover:translate-x-0.5 group-hover:text-white/70 sm:block" aria-hidden />
+
+                  {/* 17/11/2026 (ronda 21, análisis): la base de la tendencia, en la misma fila del gráfico. */}
+                  {bN?.texto || bS?.texto ? (
+                    <span className="block text-[12px] leading-snug text-white/65 sm:col-span-4">
+                      <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>Pocos remates, léase como tendencia:</span>{" "}
+                      {bN?.texto ? `Castilla, ${bN.texto}` : ""}
+                      {bN?.texto && bS?.texto ? " · " : ""}
+                      {bS?.texto ? `${rival}, ${bS.texto}` : ""}
+                    </span>
+                  ) : null}
+                </Link>
               </li>
             );
           })}
@@ -243,7 +300,7 @@ export function OptaPortada() {
  * (derecha) del grupo, con el tercio de abajo en naranja tenue, el de arriba
  * en verde tenue, la mediana en el centro y un punto por equipo.
  */
-function Pista({ nuestro, suyo }: { nuestro: FilaLab; suyo?: FilaLab }) {
+function Pista({ nuestro, suyo, hueca = false }: { nuestro: FilaLab; suyo?: FilaLab; hueca?: boolean }) {
   const lugar = (x: FilaLab) => {
     const { puesto, deCuantos } = x.pos;
     if (!puesto || deCuantos < 2) return null;
@@ -264,16 +321,17 @@ function Pista({ nuestro, suyo }: { nuestro: FilaLab; suyo?: FilaLab }) {
         ) : null}
       </div>
       <span className="absolute left-1/2 top-0 h-full w-px bg-white/40" />
+      {/* Tendencia (17/11/2026, ronda 21): el punto hueco dice en el propio gráfico que es poca muestra. */}
       {b != null ? (
         <span
           className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--portada-sup-2)]"
-          style={{ left: `${b}%`, background: COMPARADO }}
+          style={hueca ? { left: `${b}%`, border: `3px solid ${COMPARADO}`, background: "var(--portada-sup-2)" } : { left: `${b}%`, background: COMPARADO }}
         />
       ) : null}
       {a != null ? (
         <span
           className="absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full ring-2 ring-[var(--portada-sup-2)]"
-          style={{ left: `${a}%`, background: ORO }}
+          style={hueca ? { left: `${a}%`, border: `3px solid ${ORO}`, background: "var(--portada-sup-2)" } : { left: `${a}%`, background: ORO }}
         />
       ) : null}
     </div>
@@ -341,7 +399,7 @@ const FRASES: Record<string, { fuerte: string; flojo: string; accion: string; hr
  * las más extremas, con la nuestra al lado. Si ninguna se sale de la media,
  * no se dice nada (la tabla ya lo cuenta).
  */
-function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string): Lectura[] {
+function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTendencia: string): Lectura[] {
   const salen: Lectura[] = [];
 
   for (const r of suyo) {
@@ -362,8 +420,9 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string): Lectura[]
 
     salen.push({
       a: r.a,
-      titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º de ${deCuantos}`,
-      base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}`,
+      /* 17/11/2026 (ronda 21, análisis): la población con la misma fórmula que el subtítulo y la leyenda. */
+      titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º del ${grupoDe(deCuantos)}`,
+      base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
       accion: frase.accion,
       href: frase.href(rival),
       /* Lo que es una amenaza del rival, en naranja; por donde se le puede hacer daño, en verde. */

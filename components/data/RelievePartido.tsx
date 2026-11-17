@@ -680,7 +680,7 @@ export function RelievePartido({
         )}
       </div>
       {!compacto && (
-        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "rgba(8,10,20,0.82)", color: "rgba(255,255,255,0.85)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
+        <div className="pointer-events-none absolute bottom-[calc(150px*var(--k,1)+12px)] right-4 hidden w-[400px] rounded-xl px-3 py-2 text-xs lg:block" style={{ background: "#080A14", color: "rgba(255,255,255,0.85)", border: "1px solid rgba(255,255,255,0.14)", bottom: "calc(min(15vw, 150px) + 14px)" }}>
           <p className="flex justify-between font-semibold">
             <span style={{ color: css(colB) }}>← {b.nombre}</span>
             <span style={{ color: css(colA) }}>{a.nombre} →</span>
@@ -697,8 +697,9 @@ export function RelievePartido({
         </div>
       )}
       {!compacto && (
-        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[230px] rounded-xl px-3 py-2 shadow-xl sm:left-6 lg:block" style={{ background: "rgba(8,10,20,0.82)", backdropFilter: "blur(8px)", border: "1px solid rgba(255,255,255,0.1)", color: "#FFFFFF" }}>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.55)" }}>Hasta el {minuto}′</p>
+        /* 17/11/2026 (ronda 21, portada): fondo opaco y sin desenfoque (se leía mal sobre el relieve y parpadeaba en Mac); letra de 12 px como mínimo. */
+        <div className="pointer-events-none absolute left-4 top-[100px] hidden max-w-[240px] rounded-xl px-3 py-2 shadow-xl sm:left-6 lg:block" style={{ background: "#080A14", border: "1px solid rgba(255,255,255,0.14)", color: "#FFFFFF" }}>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em]" style={{ color: "rgba(255,255,255,0.72)" }}>{minuto >= Math.floor(fin) ? "El partido entero" : `Hasta el ${minuto}′`}</p>
           <p className="font-mono text-base font-bold tabular-nums">
             xG <span style={{ color: css(colA) }}>{xgA.toFixed(2).replace(".", ",")}</span> – <span style={{ color: css(colB) }}>{xgB.toFixed(2).replace(".", ",")}</span>
           </p>
@@ -709,7 +710,7 @@ export function RelievePartido({
             </p>
           )}
           {terrMax && (
-            <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.55)" }}>
+            <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.72)" }}>
               Máximo hasta el {minuto}′: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
           )}

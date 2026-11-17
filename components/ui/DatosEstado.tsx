@@ -145,6 +145,28 @@ export function DatosEstado() {
     };
   }, [ruta]);
 
+  /*
+  | 17/11/2026 (ronda 21, jueces de la portada): la hora de la ÚLTIMA bajada
+  | que ha acabado, aunque otras sigan en marcha. La portada pide una docena de
+  | cosas y una de ellas (el seguimiento, Apps Script en frío) tarda: con
+  | `acabadoEn`, que sólo se apunta cuando ya no queda ninguna, la cabecera se
+  | quedaba girando sin hora mientras la pantalla ya estaba pintada.
+  */
+  const [llegadaEn, setLlegadaEn] = useState<number | null>(null);
+  const bajandoAntes = useRef(0);
+
+  useEffect(() => {
+    const llega = estado.bajando < bajandoAntes.current;
+
+    bajandoAntes.current = estado.bajando;
+
+    if (!llega) return;
+
+    const t = window.setTimeout(() => setLlegadaEn(Date.now()), 0);
+
+    return () => window.clearTimeout(t);
+  }, [estado.bajando]);
+
   /* «Actualizado hace X min»: el reloj de la pantalla, nunca Date.now() en el render. */
   const actualizado = (desde: number) => {
     const min = Math.max(0, Math.round((ahora - desde) / 60_000));
@@ -221,6 +243,32 @@ export function DatosEstado() {
         <RefreshCw size={12} />
         {/* Que se entienda sin pasar el ratón (10/11/2026, jueces): qué ha cambiado y qué hace el botón. */}
         <span className="hidden sm:inline">La hoja trae cambios · </span>Recargar para verlos
+      </button>
+    );
+  }
+
+  /*
+  | Sin copia y con algo ya llegado: la hora de lo que se ve, y el icono gira
+  | mientras queda algo por llegar. Si eso que falta pasa de 20 s, se sigue
+  | diciendo la hora (lo que se ve es de entonces); pulsar lo baja todo de
+  | nuevo, y el título cuenta que una parte no ha contestado.
+  */
+  if (hayBajada && estado.masVieja === null && llegadaEn !== null && ahora > 0) {
+    const hora = new Date(Math.min(llegadaEn, ahora)).toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" });
+
+    return (
+      <button
+        type="button"
+        onClick={todoFresco}
+        className="hidden items-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] text-white/55 transition hover:border-white/20 hover:text-white/80 sm:inline-flex"
+        title={
+          cansado
+            ? `Datos de las ${hora}. Una parte de esta pantalla tarda más de 20 segundos en llegar: pulsa para volver a bajarlo todo.`
+            : `Datos de las ${hora}. Aún llega alguna parte de esta pantalla.`
+        }
+      >
+        <RefreshCw size={12} className={cansado ? "" : "animate-spin"} aria-hidden />
+        Datos de las {hora}
       </button>
     );
   }

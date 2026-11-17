@@ -39,6 +39,7 @@ import {
   type RespuestaPortada,
 } from "@/lib/portada/proximo-partido"
 import { mismoEquipo } from "@/lib/data-analisis/nombres"
+import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida"
 import { useEscudos } from "@/hooks/useEscudos"
 import { useOptaLigero } from "@/hooks/useOptaLigero"
 import { CASTILLA_OPTA } from "@/lib/opta"
@@ -130,15 +131,18 @@ function siglaEquipo(nombre: string) {
  */
 function FichaRival({
   ficha,
+  empuja = true,
 }: {
   ficha: {
     nombre: string
     liga: { puesto: number; deCuantos: number; puntos: number; jugados: number } | null
     ultimos: NonNullable<EquipoPortada["ultimos"]>
   }
+  /** Sin vídeos debajo, la ficha se queda arriba y el pie abajo; con ellos (semana del rival), todo seguido. */
+  empuja?: boolean
 }) {
   return (
-    <div className="relative mb-auto px-5 pt-5 sm:px-6 sm:pt-6">
+    <div className={`relative px-5 pt-5 sm:px-6 sm:pt-6 ${empuja ? "mb-auto" : ""}`}>
       <p className="text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: "#F7D98B" }}>
         El rival · BeSoccer
       </p>
@@ -161,7 +165,8 @@ function FichaRival({
 
       {ficha.ultimos.length > 0 && (
         <div className="mt-3">
-          <p className="text-[12px] leading-snug" style={{ color: "rgba(255,255,255,.85)" }}>
+          {/* 17/11/2026 (ronda 21, análisis): más grande y más claro sobre la foto en el móvil. */}
+          <p className="text-[13px] font-medium leading-snug" style={{ color: "rgba(255,255,255,.94)" }}>
             Sus últimos {ficha.ultimos.length} · el más reciente, a la derecha · C en casa, F fuera
           </p>
           {/* En una fila también en móvil (expertos: se partían 4 + 1). */}
@@ -374,7 +379,7 @@ export default function Home() {
     for (const fila of seguimientoCastilla) cuenta.set(fila.ID_JUGADOR, (cuenta.get(fila.ID_JUGADOR) ?? 0) + 1)
 
     const orden = [...plantilla]
-      .map((j) => ({ nombre: j.nombre, veces: cuenta.get(j.id) ?? 0 }))
+      .map((j) => ({ id: j.id, nombre: j.nombre, veces: cuenta.get(j.id) ?? 0 }))
       .filter((j) => j.nombre)
       .sort((a, b) => a.veces - b.veces || a.nombre.localeCompare(b.nombre, "es"))
 
@@ -383,6 +388,25 @@ export default function Home() {
   }, [plantilla, seguimientoCastilla])
 
   const menosSeguido = menosSeguidos[0] ?? null
+
+  /*
+  | 17/11/2026 (ronda 21, análisis): «1 seguimiento» es poco frente a qué. La
+  | mediana de seguimientos por jugador de la misma plantilla (jugadores de
+  | campo del Castilla: sin porteros, `esDeSeguimiento`), con los que no
+  | llevan ninguno contados como cero.
+  */
+  const medianaSeguimientos = useMemo(() => {
+    if (!plantilla.length || !seguimientoCastilla.length) return null
+
+    const cuenta = new Map<string, number>()
+
+    for (const fila of seguimientoCastilla) cuenta.set(fila.ID_JUGADOR, (cuenta.get(fila.ID_JUGADOR) ?? 0) + 1)
+
+    const veces = plantilla.map((j) => cuenta.get(j.id) ?? 0).sort((a, b) => a - b)
+    const mitad = Math.floor(veces.length / 2)
+
+    return veces.length % 2 ? veces[mitad] : (veces[mitad - 1] + veces[mitad]) / 2
+  }, [plantilla, seguimientoCastilla])
 
   /* Y los de los últimos 30 días, de esos mismos registros. El reloj se mira
      en un efecto (ver `ahora`), nunca en el render. */
@@ -670,7 +694,8 @@ export default function Home() {
   /* El sello de cada cifra: fuente, población y hasta dónde llega. */
   const selloDe = (fuente: "opta" | "wyscout", deCuantos: number, partidos: number) => ({
     fuente,
-    poblacion: deCuantos ? `grupo (${deCuantos} equipos)` : undefined,
+    /* 17/11/2026 (ronda 21): la misma fórmula que el bloque del rival. */
+    poblacion: deCuantos ? `grupo de ${deCuantos} equipos` : undefined,
     hasta: fuente === "opta" ? hastaDeOpta || undefined : undefined,
     partidos,
   })
@@ -689,8 +714,11 @@ export default function Home() {
 
           {/* pb-24: el botón flotante de herramientas no tapa la última fila (30/10/2026).
               Y margen a la derecha: tapaba el borde de la tarjeta del partido.
-              16/11/2026 (rediseño): el mismo aire entre todos los bloques. */}
-          <section className="space-y-6 px-4 py-4 pb-24 sm:space-y-8 sm:px-6 sm:py-6 sm:pb-24 xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
+              16/11/2026 (rediseño): el mismo aire entre todos los bloques.
+              17/11/2026 (ronda 21, fútbol): en el móvil el ⋮ (36 px a 8 px del
+              borde) montaba sobre el canto derecho de las tarjetas: pr-12
+              deja su carril libre; desde sm vuelve el margen de siempre. */}
+          <section className="space-y-6 pl-4 pr-12 py-4 pb-24 sm:space-y-8 sm:px-6 sm:py-6 sm:pb-24 xl:space-y-10 xl:py-10 xl:pb-24 xl:pl-10 xl:pr-[76px]">
             {admin && (
               /* Control segmentado: una sola pieza con dos opciones. */
               <div role="tablist" className="portada-celda inline-flex gap-1 p-1">
@@ -751,8 +779,12 @@ export default function Home() {
                   }}
                 >
                   <Link
-                    href={rivalSemana ? "/data-analisis?area=equipo" : "/data-analisis"}
-                    onClick={() => trackModuleVisit("/data-analisis")}
+                    href={rivalSemana ? `/data-analisis?area=equipo&equipo=${encodeURIComponent(rivalSemana.nombre)}` : "/data-analisis"}
+                    onClick={() => {
+                      /* 17/11/2026 (ronda 21): «Un equipo de un vistazo» abre con este rival ya elegido. */
+                      if (rivalSemana) ponEquipoElegido(rivalSemana.nombre)
+                      trackModuleVisit("/data-analisis")
+                    }}
                     aria-label={rivalSemana ? `${rivalSemana.nombre} de un vistazo, en Análisis de datos` : "Análisis de datos"}
                     title={
                       rivalSemana
@@ -798,10 +830,10 @@ export default function Home() {
                   <div aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(216,180,90,.8), transparent)" }} />
 
                   {/* 11/11/2026 (fútbol): arriba, la ficha del rival de BeSoccer. */}
-                  {fichaRival && <FichaRival ficha={fichaRival} />}
+                  {fichaRival && <FichaRival ficha={fichaRival} empuja={!rivalSemana} />}
 
                   {rivalSemana && !fichaRival && (
-                    <p className="fuente-club relative mb-auto px-5 pt-5 text-[28px] font-bold uppercase leading-none sm:px-6 sm:pt-6" style={{ color: "#fff" }}>
+                    <p className="fuente-club relative px-5 pt-5 text-[28px] font-bold uppercase leading-none sm:px-6 sm:pt-6" style={{ color: "#fff" }}>
                       {rivalSemana.nombre}
                     </p>
                   )}
@@ -812,31 +844,32 @@ export default function Home() {
                     El resto de la semana, lo nuestro: goles frente a lo esperado.
                   */}
                   {rivalSemana ? (
-                    <div className="relative px-5 pb-5 pt-6 sm:px-6 sm:pb-6">
+                    <>
                       {/*
                         17/11/2026 (ronda 20, los tres jueces): fuera de aquí las
-                        cifras de Opta (genera, concede, posesión y el aviso de su
-                        balón parado): salían otra vez en «Opta de un vistazo».
-                        La tarjeta se queda con lo de BeSoccer y el vídeo; las
-                        cifras, una sola vez, en el gráfico de abajo.
+                        cifras de Opta (salían otra vez en «el rival frente a
+                        nosotros»). La tarjeta se queda con lo de BeSoccer y el vídeo.
+                        17/11/2026 (análisis): sus goles y los que le hacen, a un
+                        toque (el modal de vídeo de siempre), una sola vez.
+                        Ronda 21 (fútbol): los vídeos van justo debajo de sus
+                        últimos 5, uno por fila (no se cortan en 390 px), y el
+                        enlace a Análisis de datos al pie: en escritorio ya no
+                        queda un hueco de foto sin dato entre la forma y el vídeo.
                       */}
-                      <p className="flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1">
+                      {/* Hijo directo de la tarjeta: `[&>div]` le quita el puntero; los vídeos lo recuperan dentro. */}
+                      <div className="relative px-5 pt-5 sm:px-6">
+                        <div className="pointer-events-auto">
+                          <VideosDelRival key={rivalSemana.nombre} rival={rivalSemana.nombre} apilado />
+                        </div>
+                      </div>
+
+                      <p className="relative mt-auto flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
                         <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.92)" }}>
                           Cómo juega, en Análisis de datos
                           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
                         </span>
                       </p>
-
-                      {/*
-                        17/11/2026 (análisis): sus goles y los que le hacen, a un
-                        toque desde la misma tarjeta (el modal de vídeo de
-                        siempre). En la semana del rival salen aquí y no en la
-                        columna del partido: una sola vez.
-                      */}
-                      <div className="pointer-events-auto relative mt-4">
-                        <VideosDelRival key={rivalSemana.nombre} rival={rivalSemana.nombre} />
-                      </div>
-                    </div>
+                    </>
                   ) : cargandoTarjeta ? (
                     /* Mientras llegan las cifras: una línea que lo dice, no dos títulos sobre un fondo vacío (30/10/2026). */
                     <div className="relative px-5 pb-5 pt-16 sm:px-6 sm:pb-6" aria-busy="true">
@@ -1056,21 +1089,46 @@ export default function Home() {
                 />
               </div>
 
+              {/*
+                17/11/2026 (ronda 21, análisis y marketing): cada uno con su
+                ficha y su seguimiento (`?player=` + `pestana=seguimiento`, que
+                es lo que lee /individual) y la mediana con la que se compara.
+              */}
               {!errorSeguimiento && menosSeguidos.length > 1 && (
-                <div className="mt-4 flex flex-wrap items-center gap-2">
-                  <span className="text-[12.5px] font-semibold text-white/65">Los que menos llevan:</span>
-                  {menosSeguidos.map((j) => (
-                    <Link
-                      key={j.nombre}
-                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}`}
-                      onClick={() => trackModuleVisit("/individual")}
-                      className="portada-celda portada-viva inline-flex min-h-9 items-center gap-1.5 px-3 text-[13px] font-semibold text-white/85"
-                      style={{ borderRadius: 999 }}
-                    >
-                      {j.nombre}
-                      <span className="tabular-nums text-white/55">{j.veces}</span>
-                    </Link>
-                  ))}
+                <div className="portada-celda mt-4 p-3.5 sm:p-4">
+                  <p className="text-[13px] leading-snug text-white/70">
+                    <span className="font-semibold text-white/90">Los que menos seguimientos llevan</span>
+                    {medianaSeguimientos != null
+                      ? ` · la mediana de la plantilla es ${coma(medianaSeguimientos, Number.isInteger(medianaSeguimientos) ? 0 : 1)} ${medianaSeguimientos === 1 ? "seguimiento" : "seguimientos"} por jugador (${totalJugadores} jugadores de campo, sin porteros)`
+                      : ""}
+                  </p>
+                  <ul className="mt-2.5 grid gap-1.5 sm:grid-cols-3">
+                    {menosSeguidos.map((j) => (
+                      <li key={j.nombre} className="flex min-w-0 items-center gap-1.5">
+                        <Link
+                          href={`/individual?player=${encodeURIComponent(j.id)}&nombre=${encodeURIComponent(j.nombre)}`}
+                          onClick={() => trackModuleVisit("/individual")}
+                          className="portada-viva inline-flex min-h-10 min-w-0 flex-1 items-center justify-between gap-2 rounded-xl border border-white/10 px-3 text-[13.5px] font-semibold text-white/90"
+                          title={`Ficha de ${j.nombre}`}
+                        >
+                          <span className="truncate">{j.nombre}</span>
+                          <span className="shrink-0 tabular-nums text-white/60">
+                            {j.veces}
+                          </span>
+                        </Link>
+                        <Link
+                          href={`/individual?player=${encodeURIComponent(j.id)}&pestana=seguimiento`}
+                          onClick={() => trackModuleVisit("/individual")}
+                          className="portada-viva inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2.5 text-[12.5px] font-semibold"
+                          style={{ color: "var(--rmcf-gold-ink)" }}
+                          title={`Los seguimientos de ${j.nombre}`}
+                        >
+                          Seguimiento
+                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
                 </div>
               )}
 

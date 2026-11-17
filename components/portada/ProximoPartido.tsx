@@ -33,6 +33,7 @@ import { chipInk } from "@/lib/theme";
 import { useAdmin } from "@/hooks/useAdmin";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA } from "@/lib/opta";
+import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
 import {
   contenidosDelDia,
   diaEnMadrid,
@@ -252,6 +253,22 @@ export function ProximoPartido() {
   const conRival = (ruta: string) =>
     idRival ? `${ruta}?rival=${encodeURIComponent(idRival)}` : ruta;
 
+  /*
+  | 17/11/2026 (ronda 21, marketing): «Duelos» y «Sus jugadores» con las dos
+  | llaves, `?rival=ID` (la de la app) y `?equipo=NOMBRE` (la que leen hoy
+  | esas pantallas): abren con el rival elegido lean la que lean.
+  */
+  const conAmbos = (ruta: string) => {
+    const q = new URLSearchParams();
+
+    if (idRival) q.set("rival", idRival);
+    if (nombreRival) q.set("equipo", nombreRival);
+
+    const s = q.toString();
+
+    return s ? `${ruta}?${s}` : ruta;
+  };
+
   const enlacePlantilla = conEquipo("/rivals");
 
   /*
@@ -279,7 +296,7 @@ export function ProximoPartido() {
               : []),
             { href: conRival("/abp-pizarra"), texto: "PDF y vídeo ABP por jugador", title: "La pizarra de balón parado: «PDF por jugador» para mandarlo por WhatsApp" },
             { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${nombreRival}` },
-            { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}` },
+            { href: conAmbos("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}` },
           ],
         }
       : pasados !== null && pasados >= 1 && pasados <= 2 && anterior
@@ -654,9 +671,9 @@ export function ProximoPartido() {
                 { href: conRival("/scout-rival-collective"), texto: "Scout colectivo", title: `El informe colectivo de ${nombreRival}` },
                 { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}, a favor y en contra` },
                 { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
-                { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
+                { href: conAmbos("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
                 /* 17/11/2026: «Sus jugadores», no «Individual» (se confundía con nuestras fichas de «Atajos»). */
-                { href: conEquipo("/scout-rival-individual"), texto: "Sus jugadores", title: `Los vídeos de los jugadores de ${nombreRival}` },
+                { href: conAmbos("/scout-rival-individual"), texto: "Sus jugadores", title: `Los vídeos de los jugadores de ${nombreRival}` },
                 /* Antes, un botón suelto al pie de la portada sin contexto (30/10/2026). */
                 ...(admin ? [{ href: "/coding?ambito=rival", texto: "Coding", title: `Marcar y cortar los clips de ${nombreRival}` }] : []),
               ].filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
@@ -958,8 +975,12 @@ function Clasificacion({ informe, jugados = 0 }: { informe: RespuestaPortada | n
 
   return (
     <Link
-      href="/data-analisis?area=equipo"
-      onClick={() => trackModuleVisit("/data-analisis")}
+      href={`/data-analisis?area=equipo&equipo=${encodeURIComponent("Real Madrid Castilla")}`}
+      onClick={() => {
+        /* 17/11/2026 (ronda 21): abría con el próximo rival aunque el título promete el Castilla. */
+        ponEquipoElegido("Real Madrid Castilla");
+        trackModuleVisit("/data-analisis");
+      }}
       className="portada-celda portada-viva group flex min-w-0 flex-col gap-2 p-4"
       title="El Castilla de un vistazo, en Data Análisis"
     >
