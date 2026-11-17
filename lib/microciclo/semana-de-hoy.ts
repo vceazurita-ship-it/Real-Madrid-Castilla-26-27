@@ -63,6 +63,48 @@ export function mdDelDia(dia: string, fechas: Iterable<string>): string {
   return n >= 1 && n <= MD_MAXIMO ? `MD-${n}` : "";
 }
 
+/**
+ * EL MD DE LOS CALENDARIOS (17/11/2026, r20, jueces). /calendar_general y
+ * /micro_calendar ponían MD distintos al mismo día (el 21/11, «Libre» en uno
+ * y «MD+1» en otro; el 01/12, «MD+2» y «MD-5»). Una sola regla para los dos:
+ * «MD» el día del partido; «MD+1» el día después; «MD+2» el segundo día
+ * después, salvo que el siguiente partido esté a dos días o menos; si no,
+ * «MD-n» hasta el próximo (como `mdDelDia`).
+ */
+export function mdDelCalendario(dia: string, fechas: Iterable<string>): string {
+  if (!esIso(dia)) return "";
+
+  const lista = fechasDePartido(fechas);
+
+  if (lista.includes(dia)) return "MD";
+
+  const anterior = [...lista].reverse().find((f) => f < dia);
+  const proximo = lista.find((f) => f > dia);
+  const despues = anterior ? aDias(dia) - aDias(anterior) : Infinity;
+  const antes = proximo ? aDias(proximo) - aDias(dia) : Infinity;
+
+  if (despues === 1) return "MD+1";
+  if (despues === 2 && antes > 2) return "MD+2";
+
+  return antes >= 1 && antes <= MD_MAXIMO ? `MD-${antes}` : "";
+}
+
+/**
+ * El MD que se pinta en un día SIN sesión de los calendarios: MD, MD+1, MD+2
+ * y MD-1 a MD-5 siempre; MD-6 en adelante, sólo en la semana en curso (de hoy
+ * al próximo partido): los de semanas lejanas eran ruido.
+ */
+export function mdALaVista(dia: string, fechas: Iterable<string>, hoy: string): string {
+  const md = mdDelCalendario(dia, fechas);
+  const n = /^MD-(\d+)$/.exec(md);
+
+  if (!n || Number(n[1]) <= 5) return md;
+
+  const proximo = esIso(hoy) ? fechasDePartido(fechas).find((f) => f >= hoy) : undefined;
+
+  return proximo && dia >= hoy && dia <= proximo ? md : "";
+}
+
 /** Lo mínimo de una fila de la hoja de registro para armar la semana. */
 export type FilaSemana = {
   micro: number;

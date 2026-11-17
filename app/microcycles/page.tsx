@@ -1333,10 +1333,10 @@ export default function Page() {
         "Diversidad": s.length ? Math.min((new Set(s.map((r) => r.tipo).filter(Boolean)).size / maxDiv) * 10, 10) : 0,
       } as Record<string, number>;
     });
-    const salida: Record<string, { media: number; n: number }> = {};
+    const salida: Record<string, { media: number; n: number; de: number }> = {};
     for (const eje of ["Evaluación", "Intensidad", "Exig. cog.", "Diversidad"]) {
       const v = porMicro.map((p) => p[eje]).filter((n) => n > 0);
-      if (v.length >= 3) salida[eje] = { media: avg(v), n: v.length };
+      if (v.length >= 3) salida[eje] = { media: avg(v), n: v.length, de: porMicro.length };
     }
     return salida;
   }, [micros, micro, microStats, rows]);
@@ -1398,7 +1398,13 @@ export default function Page() {
   */
   const repartoFases = useMemo(() => {
     const cuenta = new Map<string, number>();
+    /* 17/11/2026 (r20): «ABP» y «ABP Defensivo» salían como dos fases. Van
+       juntas como «ABP», con su lado al pie; se guarda el nombre crudo para filtrar. */
+    const lados = new Map<string, number>();
+    const crudo = new Map<string, Set<string>>();
+    const canonFase = (p: string) => (/abp|bal[oó]n\s+parado/i.test(p) ? "ABP" : p);
     let global = 0;
+    let conFase = 0;
 
     for (const r of work) {
       const partes = String(r.fase ?? "")
@@ -1410,17 +1416,47 @@ export default function Page() {
 
       const peso = 1 / partes.length;
 
+      if (partes.some((p) => !/^global/i.test(p))) conFase++;
+
       for (const p of partes) {
-        if (/^global/i.test(p)) global += peso;
-        else cuenta.set(p, (cuenta.get(p) ?? 0) + peso);
+        if (/^global/i.test(p)) {
+          global += peso;
+          continue;
+        }
+
+        const c = canonFase(p);
+
+        cuenta.set(c, (cuenta.get(c) ?? 0) + peso);
+        if (!crudo.has(c)) crudo.set(c, new Set());
+        crudo.get(c)!.add(String(r.fase ?? "").trim());
+        if (c === "ABP") {
+          const lado = /defens/i.test(p) ? "defensivo" : "ofensivo";
+
+          lados.set(lado, (lados.get(lado) ?? 0) + peso);
+        }
       }
     }
 
     const lista = [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+    /* 17/11/2026 (r20): si TODAS las fases eran pequeñas, se juntaban todas y
+       el anillo salía con una sola porción («Otras 100 %»). Sólo se juntan con
+       alguna grande al lado y al menos dos pequeñas. */
     const pequenas = lista.filter(([, n]) => n <= 1);
+    const juntar = pequenas.length >= 2 && pequenas.length < lista.length;
+    const detalle = (nombre: string) =>
+      nombre === "ABP" && lados.size > 1 ? [...lados.entries()].map(([k, n]) => `${k} ${fmt1(n)}`) : [];
+    const filtroDe = (nombre: string) => {
+      const set = crudo.get(nombre);
+
+      return set && set.size === 1 ? [...set][0] : null;
+    };
     const datos = [
-      ...lista.filter(([, n]) => n > 1 || pequenas.length < 2).map(([nombre, valor]) => ({ nombre, valor, otras: [] as string[] })),
-      ...(pequenas.length >= 2 ? [{ nombre: "Otras", valor: pequenas.reduce((s, [, n]) => s + n, 0), otras: pequenas.map(([n]) => n) }] : []),
+      ...lista
+        .filter(([, n]) => !juntar || n > 1)
+        .map(([nombre, valor]) => ({ nombre, valor, otras: detalle(nombre), filtro: filtroDe(nombre) })),
+      ...(juntar
+        ? [{ nombre: "Otras", valor: pequenas.reduce((s, [, n]) => s + n, 0), otras: pequenas.map(([n]) => n), filtro: null as string | null }]
+        : []),
     ];
     const claves = [...cuenta.keys()];
     const canon = [
@@ -1431,7 +1467,7 @@ export default function Page() {
     ];
     const faltan = claves.length ? canon.filter((c) => !claves.some((k) => c.re.test(k))).map((c) => c.nombre) : [];
 
-    return { datos, global, total: work.length, enAnillo: datos.reduce((s, d) => s + d.valor, 0), faltan, principal: lista[0] ?? null };
+    return { datos, global, total: work.length, conFase, enAnillo: datos.reduce((s, d) => s + d.valor, 0), faltan, principal: lista[0] ?? null };
   }, [work]);
 
   const tipoMetrics = useMemo(() => groupBy("tipo", work), [work]);
@@ -1944,8 +1980,10 @@ export default function Page() {
   | Posesión no se hizo») es una lectura de la semana, con su día. Misma regla
   | que «no se hizo» en cada día (lib/sesion-dia/conexion.ts, `enlaza`).
   */
+  /* 17/11/2026 (r20, jueces): una lectura por día, con el verbo en el titular
+     («Lunes: no hicimos el Juego de Posesión previsto»). */
   const lecturasDeLaSemana = useMemo(() => {
-    const noHechas: string[] = [];
+    const out: { icon: LucideIcon; text: string; tone: string; peso: number; titular?: string }[] = [];
 
     for (const d of diasDelMicro) {
       const equipos = sesionDeFecha(almacenEquipos?.sesiones, d.fecha);
@@ -1953,22 +1991,31 @@ export default function Page() {
       if (!equipos) continue;
 
       const enlace = enlaza(equipos.tareas, d.plan);
+      const noHechas: string[] = [];
+      const nombres: string[] = [];
 
       d.plan.forEach((p, k) => {
-        if (!enlace.includes(k)) noHechas.push(`${p.codigo} ${nombreVisible(p.tipo, p.contenidoPrincipal, p.formato)}`.trim());
+        if (enlace.includes(k)) return;
+        const nombre = nombreVisible(p.tipo, p.contenidoPrincipal, p.formato);
+
+        noHechas.push(`${p.codigo} ${nombre}`.trim());
+        nombres.push(nombre);
+      });
+
+      if (!noHechas.length) continue;
+
+      const dia = new Date(`${d.fecha}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long" });
+
+      out.push({
+        icon: ListChecks,
+        tone: "text-white/60",
+        peso: 75,
+        titular: `${dia.charAt(0).toUpperCase()}${dia.slice(1)}: no hicimos ${nombres.length === 1 && nombres[0] ? `el ${nombres[0]} previsto` : `${nombres.length} tareas previstas`}`,
+        text: `${noHechas.join(", ")}: ${noHechas.length === 1 ? "estaba" : "estaban"} en el plan de la sesión de ${d.plan.length} tareas y no ${noHechas.length === 1 ? "se hizo" : "se hicieron"}.`,
       });
     }
 
-    return noHechas.length
-      ? [
-          {
-            icon: ListChecks,
-            tone: "text-white/60",
-            peso: 75,
-            text: `${noHechas.join(", ")}: ${noHechas.length === 1 ? "no se hizo" : "no se hicieron"} en la sesión, aunque ${noHechas.length === 1 ? "estaba" : "estaban"} en el plan.`,
-          },
-        ]
-      : [];
+    return out;
   }, [diasDelMicro, almacenEquipos]);
 
   const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
@@ -2028,7 +2075,7 @@ export default function Page() {
         <div className="flex-1 min-w-0">
           <Topbar />
 
-          <section className="px-4 sm:px-8 pb-12 pt-6 sm:pt-10">
+          <section className="px-4 max-[420px]:pr-12 sm:px-8 pb-12 pt-6 sm:pt-10">
             {/* ---------------- Header ---------------- */}
 
             <div className="mb-6">
@@ -2671,36 +2718,67 @@ export default function Page() {
                   </Panel>
                 )}
 
-                {[...lecturasDeLaSemana, ...lecturas].length > 0 && (
-                  <div className="order-1 rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
-                    <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
-                      <Sparkles className="h-5 w-5 text-[#C8A96B]" />
-                      Lecturas del periodo
-                    </h2>
+                {/*
+                | 17/11/2026 (r20, jueces): el Resumen abre con la carga por MD (la
+                | orden de la semana). Las lecturas pasan a dos tarjetas con el verbo
+                | en el titular; el resto, plegado.
+                */}
+                {[...lecturasDeLaSemana, ...lecturas].length > 0 && (() => {
+                  const todas = [...lecturasDeLaSemana, ...lecturas]
+                    .map((l, k) => ({ icon: l.icon, tone: l.tone, peso: l.peso, text: l.text, titular: "titular" in l ? l.titular : undefined, k }))
+                    .sort((a, b) => b.peso - a.peso || a.k - b.k);
+                  const partir = (l: (typeof todas)[number]) => {
+                    if (l.titular) return { t: l.titular, c: l.text };
+                    const corte = l.text.search(/[:.](\s|$)/);
 
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
-                      {[...lecturasDeLaSemana, ...lecturas].map((i, idx) => {
-                        const Icon = i.icon;
+                    return corte > 0 && corte <= 80 ? { t: l.text.slice(0, corte), c: l.text.slice(corte + 1).trim() } : { t: l.text, c: "" };
+                  };
 
-                        return (
-                          <div key={idx} className="flex items-start gap-3">
-                            <Icon
-                              className={`mt-0.5 h-4 w-4 shrink-0 ${i.tone}`}
-                            />
+                  return (
+                    <div className="order-2">
+                      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        {todas.slice(0, 2).map((l) => {
+                          const Icon = l.icon;
+                          const { t, c } = partir(l);
 
-                            <p className="text-sm leading-relaxed text-white/75">
-                              {i.text}
-                            </p>
+                          return (
+                            <div key={l.k} className="rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-5">
+                              <p className="flex items-start gap-2 text-base font-semibold leading-snug">
+                                <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${l.tone}`} />
+                                {t}
+                              </p>
+                              {c ? <p className="mt-2 text-sm leading-relaxed text-white/70">{c}</p> : null}
+                            </div>
+                          );
+                        })}
+                      </div>
+                      {todas.length > 2 && (
+                        <details className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+                          <summary className="cursor-pointer text-sm font-semibold text-white/75">
+                            <Sparkles className="mr-1.5 inline h-4 w-4 text-[#C8A96B]" />
+                            {todas.length - 2} {todas.length - 2 === 1 ? "lectura más" : "lecturas más"}
+                          </summary>
+                          <div className="mt-3 grid grid-cols-1 gap-x-8 gap-y-3 lg:grid-cols-2">
+                            {todas.slice(2).map((l) => {
+                              const Icon = l.icon;
+
+                              return (
+                                <div key={l.k} className="flex items-start gap-3">
+                                  <Icon className={`mt-0.5 h-4 w-4 shrink-0 ${l.tone}`} />
+                                  <p className="text-sm leading-relaxed text-white/75">{l.text}</p>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
+                        </details>
+                      )}
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
 
                 {/* items-start (16/11/2026): cada tarjeta mide lo que su contenido; el perfil
                     de dos barras ya no se estira a la altura del gráfico de al lado. */}
-                <div className="order-2 grid grid-cols-1 items-stretch xl:grid-cols-2 gap-5 sm:gap-6">
+                <div className="order-1 grid grid-cols-1 items-stretch xl:grid-cols-2 gap-5 sm:gap-6">
                   {/* 11/11/2026: sin minutos medidos el bloque no se pinta (nada de «aún sin medir»). */}
                   {hayCarga && (
                   <Panel
@@ -2884,7 +2962,7 @@ export default function Page() {
                                 {fmt1(d.value)}
                                 {ref ? (
                                   <span className="ml-1.5 font-normal text-white/55">
-                                    {firme ? `· media ${fmt1(ref.media)} en ${ref.n} micros` : `· tendencia · ${ref.n} ${ref.n === 1 ? "micro" : "micros"}`}
+                                    {firme ? `· media ${fmt1(ref.media)} en ${ref.n} micros` : `· tendencia · ${ref.n} de ${ref.de} micros con dato`}
                                   </span>
                                 ) : null}
                               </span>
@@ -2915,6 +2993,17 @@ export default function Page() {
                           </div>
                           );
                         })}
+                        {/* 17/11/2026 (r20): el rayado se explica. */}
+                        {radarData.some((d) => mediaPerfil[d.metric] && mediaPerfil[d.metric].n < 5) ? (
+                          <p className="flex items-center gap-2 text-[11px] text-white/55 sm:col-span-3">
+                            <span
+                              aria-hidden
+                              className="inline-block h-2 w-8 rounded-full opacity-60"
+                              style={{ background: "repeating-linear-gradient(135deg, #C8A96B 0 4px, transparent 4px 7px)" }}
+                            />
+                            Rayada: menos de 5 micros con dato para comparar; se lee como tendencia, no como media.
+                          </p>
+                        ) : null}
                       </div>
                     )}
 
@@ -3046,10 +3135,45 @@ export default function Page() {
                           ? `Más peso: ${repartoFases.principal[0]} (${fmt1(repartoFases.principal[1])} de ${repartoFases.total} tareas)`
                           : "Reparto por fase de juego"
                     }
-                    subtitle={`Reparto por fase de juego · ${repartoFases.total} tarea${repartoFases.total === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}${
-                      repartoFases.global > 0 ? ` · Global (${fmt1(repartoFases.global)}) va aparte: está en casi todas` : ""
+                    subtitle={`${
+                      repartoFases.global > 0
+                        ? `Fuera de Global (${fmt1(repartoFases.global)} de ${repartoFases.total}), ${repartoFases.conFase} tarea${repartoFases.conFase === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}: ${repartoFases.datos
+                            .map((f) => `${f.nombre} ${fmt1(f.valor)}`)
+                            .join(", ")}`
+                        : `Reparto por fase de juego · ${repartoFases.total} tarea${repartoFases.total === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`
                     } · una tarea con dos fases cuenta media en cada una`}
                   >
+                    {/* 17/11/2026 (r20): con menos de 6 tareas con fase el anillo no se
+                        lee; van barras horizontales con su cifra. */}
+                    {repartoFases.enAnillo > 0 && repartoFases.enAnillo < 6 ? (
+                      <div className="space-y-2">
+                        {repartoFases.datos.map((f, i) => {
+                          const max = Math.max(...repartoFases.datos.map((d) => d.valor), 1);
+
+                          return (
+                            <button
+                              key={f.nombre}
+                              onClick={() => {
+                                if (f.filtro) setFaseFilter(faseFilter === f.filtro ? "ALL" : f.filtro);
+                              }}
+                              className="grid w-full grid-cols-[minmax(0,9rem)_1fr_auto] items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/5"
+                            >
+                              <span className="min-w-0 text-sm text-white/80">
+                                {f.nombre}
+                                {f.otras.length ? <span className="block text-[11px] text-white/55">{f.otras.join(" · ")}</span> : null}
+                              </span>
+                              <span className="h-3 rounded-full bg-white/5">
+                                <span
+                                  className="block h-3 rounded-full"
+                                  style={{ width: `${(100 * f.valor) / max}%`, background: PIE_COLORS[i % PIE_COLORS.length] }}
+                                />
+                              </span>
+                              <span className="text-sm font-semibold tabular-nums">{fmt1(f.valor)}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    ) : (
                     <div className="flex flex-col lg:flex-row items-center gap-4">
                       {/* 16/11/2026: el anillo se dibuja a mano en SVG. El de recharts iba
                           diferido y animado, y en la captura de los jueces quedaba medio
@@ -3060,7 +3184,9 @@ export default function Page() {
                           activo={faseFilter}
                           total={Math.round(repartoFases.enAnillo * 10) / 10}
                           onElige={(n) => {
-                            if (n !== "Otras") setFaseFilter(faseFilter === n ? "ALL" : n);
+                            const fil = repartoFases.datos.find((d) => d.nombre === n)?.filtro;
+
+                            if (fil) setFaseFilter(faseFilter === fil ? "ALL" : fil);
                           }}
                         />
                       </div>
@@ -3070,7 +3196,7 @@ export default function Page() {
                           <button
                             key={f.nombre}
                             onClick={() => {
-                              if (f.nombre !== "Otras") setFaseFilter(faseFilter === f.nombre ? "ALL" : f.nombre);
+                              if (f.filtro) setFaseFilter(faseFilter === f.filtro ? "ALL" : f.filtro);
                             }}
                             title={f.otras.length ? f.otras.join(", ") : undefined}
                             className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/5"
@@ -3098,6 +3224,7 @@ export default function Page() {
                         ))}
                       </div>
                     </div>
+                    )}
                   </Panel>
                 </div>
               </div>

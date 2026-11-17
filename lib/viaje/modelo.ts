@@ -1377,10 +1377,16 @@ export function diasPorDistancia(
   });
 
   if (!trayecto) {
+    /* 17/11/2026 (r20, jueces): aun sin trayecto, la comida previa —unas cuatro
+       horas antes del partido, que no depende del viaje— abre el día; es una
+       cita editable, como las demás. */
+    const comidaPrevia = abajo(partido - 240, 15);
+
     return {
       conHotel: false,
       dias: [
         conCitas(diaVacio(viaje.fecha, "Día de partido"), [
+          ...(comidaPrevia >= 11 * 60 ? [cita(comidaPrevia, comidaPrevia <= 15 * 60 + 30 ? "Comida prepartido" : "Merienda prepartido", "comida")] : []),
           cita(partido - 90, "Llegada estadio", "viaje"),
           cita(partido - 30, "Calentamiento", "trabajo"),
           cita(partido, "Partido", "partido"),

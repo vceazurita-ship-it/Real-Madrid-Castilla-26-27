@@ -34,7 +34,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
-import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { diasPlanificados, mdALaVista, mdDelCalendario, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
@@ -1133,21 +1133,19 @@ export default function CalendarGeneralPage() {
 
         const sesionDia = sesionesDia.get(key);
         const hayPartido = dayAuto.some((a) => a.clase === "PARTIDO");
-        /* Más allá de la última sesión apuntada: lo que toca por el calendario. */
-        const porVenir = !sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta;
-        /* 11/11/2026: el día después del partido es libre, como propone
-           /laboratorio/microciclo («Libre sólo el día después del partido»);
-           antes salía MD-6 del partido siguiente y había dos criterios. */
-        const vispera = parseDateKey(key);
-        vispera.setDate(vispera.getDate() - 1);
-        const trasPartido = porVenir && diasDePartido.includes(dateKey(vispera));
+        /*
+        | 17/11/2026 (r20, jueces): el MD de un día sin sesión sale de la regla
+        | común de los dos calendarios (mdDelCalendario): el día después del
+        | partido es «MD+1», no «Libre», y el segundo, «MD+2».
+        */
+        const mdSinSesion = !sesionDia && !hayPartido ? mdALaVista(key, fechasDelMd, hoyKey) : "";
         const libre =
-          (!sesionDia &&
-            !hayPartido &&
-            tramoSesiones !== null &&
-            key > tramoSesiones.desde &&
-            key < tramoSesiones.hasta) ||
-          trasPartido;
+          !mdSinSesion &&
+          !sesionDia &&
+          !hayPartido &&
+          tramoSesiones !== null &&
+          key > tramoSesiones.desde &&
+          key < tramoSesiones.hasta;
 
         return {
           hasContent:
@@ -1159,7 +1157,7 @@ export default function CalendarGeneralPage() {
                   (16/11/2026: la misma regla, lib/microciclo/semana-de-hoy.ts; el de la hoja,
                   si no hay partido a la vista). Sin ninguno, «fuera de micro». */}
               {sesionDia && (() => {
-                const deducido = mdDelDia(key, fechasDelMd) || sesionDia.md;
+                const deducido = mdDelCalendario(key, fechasDelMd) || sesionDia.md;
 
                 return deducido ? (
                   <span className="siempre-oscuro whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "#1F2937", color: "#FFFFFF" }} title="MD calculado por la fecha del próximo partido (la hoja no lo trae)">
@@ -1185,30 +1183,16 @@ export default function CalendarGeneralPage() {
                   viaje se queda con el viaje (11/11/2026): un MD-1 sin sesión
                   al lado del autobús no decía nada. */}
               {/* 16/11/2026: también con viaje (el 28/11 salía sin su MD-1). */}
-              {porVenir && !trasPartido && (() => {
-                /*
-                | 17/11/2026 (jueces): todos los días del micro en curso llevan su
-                | MD (el 23/11, MD-6), y el segundo día tras un partido, «MD+2».
-                | Más allá del próximo partido, sólo la semana del partido (MD-5 a
-                | MD-1): MD-7 y MD-6 de semanas lejanas eran ruido.
-                */
-                const dosAntes = parseDateKey(key);
-
-                dosAntes.setDate(dosAntes.getDate() - 2);
-
-                const previsto = diasDePartido.includes(dateKey(dosAntes)) ? "MD+2" : mdDelDia(key, fechasDelMd);
-                const proximoPartido = hoyKey ? [...fechasDelMd].map((f) => String(f).slice(0, 10)).filter((f) => f >= hoyKey).sort()[0] : undefined;
-                const enCurso = Boolean(proximoPartido && key <= proximoPartido);
-
-                return previsto === "MD+2" || /^MD-[1-5]$/.test(previsto) || (enCurso && /^MD-\d+$/.test(previsto)) ? (
-                  <span
-                    className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
-                    title="MD previsto por la fecha del próximo partido: la hoja aún no tiene la sesión"
-                  >
-                    {previsto}
-                  </span>
-                ) : null;
-              })()}
+              {/* 17/11/2026 (r20): la regla común (mdALaVista): MD+1, MD+2, MD-1 a MD-5 y,
+                  en la semana en curso, también MD-6 en adelante. Trazo discontinuo: sin sesión. */}
+              {mdSinSesion ? (
+                <span
+                  className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
+                  title={mdSinSesion === "MD+1" ? "El día después del partido: recuperación" : "MD por la fecha de los partidos: la hoja no tiene sesión ese día"}
+                >
+                  {mdSinSesion === "MD+1" ? "MD+1 · recup." : mdSinSesion}
+                </span>
+              ) : null}
               {imageCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
                   <ImageIcon className="h-3 w-3 text-sky-300" />

@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cuentaDias, esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
-import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { diasPlanificados, mdALaVista, mdDelCalendario } from "@/lib/microciclo/semana-de-hoy";
 import { contenidoUnificado } from "@/lib/microciclo/contenidos";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useCalendario } from "@/hooks/useCalendario";
@@ -425,7 +425,7 @@ export default function MicroCalendar() {
   | común de las cuatro pantallas (hooks/useSemanaDeHoy.ts), y se dibujan con
   | borde discontinuo y «planificado».
   */
-  const { registro, fechasDePartido: fechasPartido, semana } = useSemanaDeHoy();
+  const { registro, fechasDePartido: fechasPartido, semana, hoy: hoyComun } = useSemanaDeHoy();
 
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
@@ -989,16 +989,15 @@ export default function MicroCalendar() {
             };
           }
 
-          const mdVacio = mdDelDia(key, fechasPartido);
-          const enSemana = /^MD-[1-5]$/.test(mdVacio);
-          const libre = sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
-          /* 17/11/2026 (jueces): el día después del partido es «MD+1 · recuperación», como en el creador de micros. */
-          const ayer = parseDateKey(key);
-
-          ayer.setDate(ayer.getDate() - 1);
-
-          const ayerKey = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, "0")}-${String(ayer.getDate()).padStart(2, "0")}`;
-          const trasPartido = partidoDelDia.has(ayerKey) || [...fechasPartido].some((f) => String(f).slice(0, 10) === ayerKey);
+          /*
+          | 17/11/2026 (r20, jueces): la regla común de los dos calendarios
+          | (lib/microciclo/semana-de-hoy.ts, mdALaVista): MD+1 · recuperación,
+          | MD+2 y MD-n; el 22/11 y el 23/11 ya no se quedan sin etiqueta.
+          */
+          const mdVacio = mdALaVista(key, fechasPartido, hoyComun);
+          const trasPartido = mdVacio === "MD+1";
+          const enSemana = Boolean(mdVacio) && !trasPartido;
+          const libre = !mdVacio && sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
 
           return libre || enSemana || trasPartido
             ? {
@@ -1041,7 +1040,7 @@ export default function MicroCalendar() {
         const mdHoja = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
         /* 16/11/2026: el MD sale de la regla común (lib/microciclo/semana-de-hoy.ts), la misma
            del creador de micros y de /calendar_general; el de la hoja, si no hay partido a la vista. */
-        const md = esDiaDePartido(dayTasks) ? "MD" : mdDelDia(key, fechasPartido) || mdHoja;
+        const md = esDiaDePartido(dayTasks) ? "MD" : mdDelCalendario(key, fechasPartido) || mdHoja;
         /* Todo el día sólo planificado (sin minutos ni copia de lo hecho): borde discontinuo. */
         const soloPlan = dayTasks.every((t) => t._plan) || (totalMinutes === 0 && !esDiaDePartido(dayTasks));
 

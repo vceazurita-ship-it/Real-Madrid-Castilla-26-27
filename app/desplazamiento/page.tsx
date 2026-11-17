@@ -48,12 +48,14 @@ import {
   Copy,
   Download,
   Eye,
+  Goal,
   Hotel,
   Landmark,
   Maximize2,
   Navigation,
   RotateCcw,
   Shield,
+  ShieldHalf,
   X,
   ZoomIn,
   ZoomOut,
@@ -361,6 +363,41 @@ type AccionesAviso = {
   onArregla: (aviso: AvisoHorario, cual?: "arreglo" | "otroArreglo") => void;
   onCorrige: (linea: LineaAviso) => void;
 };
+
+/**
+ * El día del partido en una línea horizontal (17/11/2026, r20, jueces): cada
+ * cita con hora, de la primera a la última, en su sitio del reloj. En el móvil
+ * se desliza de lado; el partido, en oro.
+ */
+function LineaDelDia({ viaje }: { viaje: Desplazamiento }) {
+  const dia = viaje.dias.find((d) => d.fecha === viaje.fecha);
+  const citas = (dia?.citas ?? []).filter(tieneHora).sort((a, b) => a.minuto - b.minuto);
+
+  if (citas.length < 2) return null;
+
+  const desde = citas[0].minuto;
+  const hasta = citas[citas.length - 1].minuto;
+  const tramo = Math.max(hasta - desde, 1);
+
+  return (
+    <div className="mt-4 min-w-0 overflow-x-auto pb-1" aria-label="El día del partido, cita a cita">
+      <ol className="relative flex min-w-[520px] items-start justify-between gap-2 pt-5">
+        <span aria-hidden className="absolute left-2 right-2 top-[26px] h-0.5 rounded-full bg-white/15" />
+        {citas.map((c) => {
+          const partido = c.tipo === "partido";
+
+          return (
+            <li key={c.id} className="relative flex min-w-0 flex-1 flex-col items-center text-center" title={`${aHora(c.minuto)} · ${c.texto} (${Math.round((100 * (c.minuto - desde)) / tramo)} % del día)`}>
+              <span className={`relative z-10 h-3 w-3 rounded-full border-2 ${partido ? "border-[#C8A96B] bg-[#C8A96B]" : "border-white/50 bg-[#0B0F14]"}`} />
+              <span className={`mt-1.5 text-[13px] font-semibold tabular-nums ${partido ? "text-[#C8A96B]" : "text-white"}`}>{aHora(c.minuto)}</span>
+              <span className="mt-0.5 text-[11px] leading-tight text-white/65">{c.texto}</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
 
 /** Una tarea de «Cómo va el viaje» que no es un campo vacío, con su botón (12/11/2026). */
 type TareaExtra = {
@@ -1370,7 +1407,8 @@ export default function DesplazamientoPage() {
     })();
     /*
     | Y si no hay viaje anterior a ese rival, la media de los viajes fuera de
-    | la temporada con tiempo escrito (3 o más). Sólo sirve para proponer la
+    | la temporada con tiempo escrito (desde el 17/11/2026, r20, basta uno: el
+    | horario de Majadahonda empezaba en la llegada al estadio). Sólo sirve para proponer la
     | salida: no se escribe como distancia ni tiempo del estadio, y no decide
     | hotel (con la media nunca se propone dormir fuera).
     */
@@ -1382,7 +1420,7 @@ export default function DesplazamientoPage() {
         .map((otro) => leeDuracion(String(otro.estadio?.tiempo ?? "")) ?? 0)
         .filter((m) => m > 0);
 
-      if (tiempos.length < 3) return null;
+      if (!tiempos.length) return null;
 
       const media = Math.round(tiempos.reduce((s, m) => s + m, 0) / tiempos.length);
 
@@ -2191,7 +2229,10 @@ export default function DesplazamientoPage() {
   };
 
   /* «Cómo va el viaje», plegado bajo su titular; la chapa de la cabecera lo abre (quinta vuelta). */
-  const [estadoAbierto, setEstadoAbierto] = useState(true); /* 17/11/2026 (jueces): abierto de entrada, la lista de pendientes con su botón a la vista. */
+  /* 17/11/2026 (r20, jueces): plegado de entrada salvo que haya un error; los
+     pendientes ya se nombran en el titular y no parece a medio hacer. */
+  const [estadoElegido, setEstadoAbierto] = useState<boolean | null>(null);
+  const estadoAbierto = estadoElegido ?? Boolean(recuento && recuento.errores > 0);
   const abreEstado = () => {
     setEstadoAbierto(true);
     window.setTimeout(() => irA("viaje-estado"), 30);
@@ -2499,7 +2540,7 @@ export default function DesplazamientoPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 sm:pb-6 lg:px-10">
+          <div className="min-w-0 px-4 max-[420px]:pr-12 pb-24 pt-6 sm:px-6 sm:pb-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Operativa · Desplazamiento"
               title={titular}
@@ -2513,7 +2554,7 @@ export default function DesplazamientoPage() {
                       dice «Guardado 19:25» (era la hora de otro viaje del almacén). */}
                   {viaje && !guardado && status === "saved" && !localOnly ? (
                     /* 16/11/2026 (jueces): una palabra; la explicación, en la ayuda emergente. */
-                    <span className="cursor-help rounded-full border border-white/15 px-2 py-0.5 text-[12px] text-white/60" title="Es el horario que propone la pantalla: se guarda en cuanto cambies algo. Se pueden sacar los documentos tal cual">
+                    <span className="cursor-help text-[12px] text-white/55" title="Es el horario que propone la pantalla: se guarda en cuanto cambies algo. Se pueden sacar los documentos tal cual">
                       Propuesta · aún sin guardar
                     </span>
                   ) : (
@@ -2652,6 +2693,15 @@ export default function DesplazamientoPage() {
                     <Link href={urlGolesDelEquipo(jornada?.equipo || partido.opponent)}>
                       <Button icon={Clapperboard}>Sus goles en vídeo</Button>
                     </Link>
+
+                    {/* 17/11/2026 (r20, jueces): su ABP y su plantilla, como en Microciclos. */}
+                    <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
+                      <Button icon={Goal}>Su ABP</Button>
+                    </Link>
+
+                    <Link href={`/rivals?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
+                      <Button icon={ShieldHalf}>Su plantilla</Button>
+                    </Link>
                   </>
                 )}
               </div>
@@ -2774,6 +2824,9 @@ export default function DesplazamientoPage() {
                             ))}
                           </dl>
                         )}
+
+                        {/* 17/11/2026 (r20, jueces): el día del partido en una línea de tiempo, arriba. */}
+                        <LineaDelDia viaje={viaje} />
                       </div>
                     );
                   })()}
