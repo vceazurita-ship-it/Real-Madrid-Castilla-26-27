@@ -216,11 +216,11 @@ export type RasgoCorto = {
   signo: "▲" | "▼";
   /** «Acciones de ataque exitosas 2,7». */
   corta: string;
-  /** «P91», o «más que 7 de 10» en las de menos es mejor. */
+  /** «· mejor que 9 de cada 10» o «· peor que 7 de cada 10», como /rivals (18/11/2026, ronda 22); con su separador delante. */
   marca: string;
   /** 0-100, ya en el sentido «más es mejor». */
   percentil: number;
-  /** «P91 entre 117 laterales · 1.017′ en Wyscout». */
+  /** «2,7 · mejor que 9 de cada 10 de su puesto»; contra cuántos y los minutos van en la población del jugador. */
   base: string;
 };
 
