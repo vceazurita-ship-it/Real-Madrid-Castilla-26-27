@@ -2791,8 +2791,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "El titular", es: "Cuántos valores se votaron y cuál fue el más votado, con sus votos sobre el total", cuenta: "Sale del propio documento de valores: si cambia el recuento, cambia el titular" },
           { que: "Bajo el titular", es: "Qué hacer con el documento y, a un toque, la hoja de ruta de la cultura (/team-values) y el seguimiento de los jugadores" },
-          { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye» (barra granate por antivalor con sus votos). Pulsar una lámina abre su diapositiva de conductas en la vista previa", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí" },
-          { que: "+N a otro valor (aparte)", es: "Votos a un valor afín que el recuento agrupó con el suyo; no entran en el total" },
+          { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye · votos» (barra granate por antivalor con sus votos; el nombre entero, a dos líneas si no cabe). Pulsar una lámina abre su diapositiva de conductas en la vista previa; «Seguimiento →» lleva al seguimiento de los jugadores", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí. La cabecera da las dos bases: votos a los valores y votos a los antivalores, contados aparte" },
+          { que: "Antivalores sin cifra", es: "Si un antivalor sin votos ya cuenta en otro valor (Conformismo, con 10 en Compromiso), no se repite en la lámina; el que no tiene cifra en ninguno sale con su nombre, sin barra. Las diapositivas los mantienen tal y como los escribió la plantilla" },
+          { que: "+N a otro valor (aparte)", es: "Votos a un valor afín que el recuento agrupó con el suyo; no suman al valor ni entran en el total" },
+          { que: "La unidad", es: "Siempre votos: «9 de 32 votos», igual en la lámina, en la portada y en la diapositiva de cada valor" },
         ],
       },
       {
@@ -3031,8 +3033,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las etapas",
         filas: [
           { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una (rail en escritorio)" },
-          { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las anteriores teñidas; pulsar una la abre" },
-          { que: "Láminas", es: "Los contenidos de la etapa en tarjetas numeradas, a dos columnas en escritorio" },
+          { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las ya hechas teñidas; pulsar una la abre" },
+          { que: "Hoy", es: "Si la hoja trae FECHA, la etapa en la que está la plantilla lleva «Hoy» y la pantalla abre en ella (salvo que la dirección traiga #etapa)", cuenta: "La última etapa cuya fecha ya ha llegado; FECHA como «17/11/2026», «17/11» o «2026-11-17»" },
+          { que: "Láminas", es: "Los contenidos de la etapa en tarjetas numeradas, a dos columnas en escritorio. En el Marco van plegadas bajo «El método»: lo primero es la votación" },
           { que: "Contenidos de conductas", es: "Llevan al seguimiento de los jugadores y a las conductas de cada valor en /identidad-cultura" },
           { que: "Titular de la etapa", es: "La idea de esa etapa; encima, su nombre y, si la hoja la trae, su semana real" },
           { que: "Filtro por tipo", es: "Sólo los tipos de contenido que hay en esa etapa" },
@@ -3043,8 +3046,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La votación",
         filas: [
-          { que: "Resultado de la votación", es: "Una línea con el valor más votado y su base; arriba en el Marco, al pie en las demás etapas", cuenta: "El recuento completo (barras de votos y antivalores) está sólo en /identidad-cultura" },
-          { que: "Chips de los valores", es: "Cada uno abre su diapositiva de conductas en /identidad-cultura" },
+          { que: "El gráfico de la votación (Marco)", es: "Titular con el más votado y una barra por valor con «N de 32», de más a menos; cada barra abre las conductas de ese valor en /identidad-cultura. Debajo, la fila de acciones: seguimiento de los jugadores, conductas de cada valor y el documento para la charla", cuenta: "Votos del documento de valores; los antivalores se cuentan aparte" },
+          { que: "Chips de los valores (otras etapas)", es: "Al pie, un chip por valor con sus votos («Compromiso · 8 de 32») que abre su diapositiva de conductas" },
           { que: "Ver el recuento y el documento", es: "Abre /identidad-cultura" },
         ],
       },
