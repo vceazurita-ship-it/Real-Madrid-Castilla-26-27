@@ -307,15 +307,16 @@ export function CampoZonas({
         )}
 
         {/* Cuántos hay en cada zona, en la esquina de abajo: se lee sin contar puntos. */}
-        <g fontSize={19} fontWeight={700} fill="rgba(255,255,255,0.8)" style={{ pointerEvents: "none" }}>
+        {/* 17/11/2026 (ronda 19, marketing): cifras de zona a 32 en el lienzo (unos 11 px a 390 de ancho; antes, 6). */}
+        <g fontSize={32} fontWeight={700} fill="rgba(255,255,255,0.85)" style={{ pointerEvents: "none" }}>
           {zonas.map((_, zi) =>
             carriles.map((__, ci) => {
               const lista = porCajon.get(`${zi}|${ci}`);
 
               if (!lista || lista.length === 0) return null;
 
-              const x = TERCIO * (zi + 1) - 14;
-              const y = BANDA * (ci + 1) - 14;
+              const x = TERCIO * (zi + 1) - 16;
+              const y = BANDA * (ci + 1) - 16;
 
               return (
                 <text key={`${zi}|${ci}`} x={x} y={y} textAnchor="end">
@@ -483,7 +484,7 @@ export function CampoZonas({
           tinta oscura sobre verde oscuro y la leyenda desaparecía. */}
       {leyenda && (
         <div
-          className="flex flex-wrap items-center gap-4 border-t border-white/10 px-3 py-2 text-[11px]"
+          className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-white/10 px-3 py-2 text-[12px]"
           style={{ color: "rgba(255,255,255,0.62)" }}
         >
           {leyenda}

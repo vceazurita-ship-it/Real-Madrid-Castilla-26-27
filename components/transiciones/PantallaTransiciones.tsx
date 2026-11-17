@@ -56,7 +56,12 @@ import {
   Target,
   Timer,
   Users,
+  ClipboardList,
+  Video,
 } from "lucide-react";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -88,6 +93,7 @@ import { anterioresPorFecha, ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { ContrasteOpta, OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { BarrasFrenteAMedia } from "@/components/analisis/BarrasFrenteAMedia";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import {
   BarraFiltros,
@@ -572,6 +578,12 @@ function textoGolCorto(texto: string) {
 
 export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const T = TEXTOS[modo];
+  /* 17/11/2026 (ronda 19): el próximo rival, para ver a un toque cómo le marcan o cómo marca. */
+  const { partidos: calendarioLab } = useCalendario();
+  const proximoRivalLab = useMemo(
+    () => nombreEquipo(ordenaPartidos(calendarioLab).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? ""),
+    [calendarioLab],
+  );
 
   const COLOR_ACCION = useMemo(
     () => Object.fromEntries(T.acciones.map((a) => [a.clave, a.color])) as Record<string, string>,
@@ -1189,11 +1201,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       if (modo === "perdidas" && top.zona !== "campo propio") {
         const propio = zonas.find((z) => z.zona === "campo propio");
         if (propio) frases.push(`En nuestro campo, las de más riesgo, perdimos ${propio.total} de ${total}.`);
-        if (top.zona === "campo rival" && top.total > 0) {
-          frases.push(
-            `Tarea: contrapresión tras pérdida en campo rival, contando si el rival consigue jugar el balón; referencia ${partidosVistos > 1 ? "de estos partidos" : "del partido"}, lo jugó ${top.juegan} de ${top.total} veces.`,
-          );
-        }
+        /* 17/11/2026 (ronda 19, fútbol): la tarea ya la dice el bloque «Qué entrenamos»; aquí no se repite. */
       }
     }
 
@@ -1319,6 +1327,30 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     | lo normal». Y el párrafo va en tres líneas: dónde estamos, la tarea y
     | el criterio de éxito.
     */
+    /*
+    | 17/11/2026 (ronda 19, fútbol): una cifra dentro del rango de los partidos
+    | anteriores no es carencia. La tarea sólo sale cuando queda FUERA del rango
+    | (o se aleja de la media y no hay rango con el que medirlo). Si no, el
+    | bloque dice «Sin alarma esta semana» y no propone tarea.
+    */
+    const dentroDelRango = m.rango && m.rango[0] !== m.rango[1] ? m.actual! >= Math.min(m.rango[0], m.rango[1]) && m.actual! <= Math.max(m.rango[0], m.rango[1]) : false;
+    const alarma = !mantener && !dentroDelRango;
+    const tendencia = nRef < UMBRAL_TENDENCIA_PARTIDOS;
+    const baseTitular = ` · media de ${nRef === 1 ? "un partido" : `${nRef} partidos`}${modo === "robos" ? "" : " etiquetados"}${tendencia ? ", tendencia" : ""}`;
+
+    if (!alarma) {
+      const rangoCorto = m.rango && m.rango[0] !== m.rango[1] ? `, dentro de lo normal (de ${formato(Math.min(m.rango[0], m.rango[1]))} a ${formato(Math.max(m.rango[0], m.rango[1]))})` : "";
+      return {
+        alarma: false,
+        lineas: [
+          `Lo más justo: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)} de media${rangoCorto}. Sin tarea nueva; se vigila en el próximo partido.`,
+        ],
+        titular: `${m.nombre}: ${cifra} frente a ${formato(m.media!)}${baseTitular}`,
+        rotulo: `Sin alarma esta semana${tendencia ? " · tendencia" : ""}`,
+        filtro,
+      };
+    }
+
     const situacion = mantener
       ? porDebajo
         ? `Ninguna cifra se sale de lo normal; la más justa, ligeramente por debajo de la media: ${m.nombre.toLowerCase()}, ${cifra} frente a ${formato(m.media!)}${aviso}.`
@@ -1326,6 +1358,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       : `${m.nombre}: ${cifra} frente a ${formato(m.media!)}${aviso}.`;
 
     return {
+      alarma: true,
       lineas: [
         situacion,
         `En el campo: tarea de ${tarea}${mantener ? "" : " en la semana"}, contando ${cuenta}.`,
@@ -1333,7 +1366,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       ],
       /* 08/11/2026: el titular destacado encima de la tabla. 16/11/2026: el
          partido elegido no es «hoy»: se nombra la jornada y el rival. */
-      titular: `${objetivo(formato(m.media!))}: en la ${comparativa.jornada} (${comparativa.rival}), ${cifra}`,
+      /* 17/11/2026 (ronda 19, marketing): la base de la media, también en el titular. */
+      titular: `${objetivo(formato(m.media!))}: en la ${comparativa.jornada} (${comparativa.rival}), ${cifra}${baseTitular}`,
       /* 16/11/2026 (expertos, ronda 18): el rótulo sigue el sentido del dato;
          37 robos frente a 38,4 no es «para mantenerlo». */
       rotulo: mantener ? (porDebajo ? "Qué entrenamos para corregirlo" : "Qué entrenamos para mantenerlo") : "Lo que pide trabajo esta semana",
@@ -1469,6 +1503,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     masDeTodos
       ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}`, texto: `${masDeTodos[0]}, el que más ${modo === "robos" ? "roba" : "pierde"} (${masDeTodos[1]})`, icono: Users }
       : { texto: "" },
+    /* 17/11/2026 (ronda 19, análisis y marketing): y su seguimiento y sus percentiles, con él ya elegido. */
+    masDeTodos ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
+    masDeTodos ? { href: `/data-analisis?area=individual&jugador=${encodeURIComponent(masDeTodos[0])}`, texto: "Sus percentiles", icono: BarChart3 } : { texto: "" },
+    /* El próximo rival, en su ficha de goles: cómo le marcan (17/11/2026). */
+    proximoRivalLab ? { href: urlGolesDelEquipo(proximoRivalLab, modo === "robos" ? "contra" : "favor"), texto: modo === "robos" ? `Cómo le marcan al ${proximoRivalLab}` : `Cómo marca el ${proximoRivalLab}`, icono: Video } : { texto: "" },
   ];
 
   /*
@@ -1482,6 +1521,12 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`Vídeo etiquetado · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
           {tituloCampo}
         </TituloConclusion>
+      ) : null}
+      {/* 17/11/2026 (ronda 19, fútbol): por qué aquí son menos que en Opta. */}
+      {enVisual && modo === "perdidas" ? (
+        <p className="-mt-1 mb-2 text-[12px] leading-snug text-white/60">
+          Aquí sólo cuentan las pérdidas que cambian la posesión en juego, vistas en el vídeo; Opta (en Análisis de datos) cuenta todo pase fallado, por eso da más.
+        </p>
       ) : null}
       <Panel
         title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
@@ -1557,11 +1602,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
                 </span>
-                <span>Cifras de cada zona: con ↑, las que salen hacia delante · sin flecha, el resto</span>
+                {/* 17/11/2026 (ronda 19, análisis y marketing): la flecha explicada y la base de las cifras. */}
+                <span>
+                  Cifra de cada zona: «3↑ · 5» son 3 que salen hacia delante (↑) y 5 que no · {paraCampo.length - sinSitio} de {paraCampo.length} en el campo
+                </span>
                 {/* En línea: el pie del campo es verde oscuro en los dos temas
                     y la clase se volvía tinta oscura en modo día. */}
-                {sinSitio > 0 && explicativos && (
-                  <span style={{ color: "rgba(255,255,255,0.45)" }}>{sinSitio} sin carril anotado, fuera del campo</span>
+                {sinSitio > 0 && (
+                  <span style={{ color: "rgba(255,255,255,0.6)" }}>{sinSitio} sin carril anotado: no están en el campo</span>
                 )}
               </>
             }
@@ -1714,6 +1762,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {(vista === "resumen" || enVisual) && (
             <>
             {enVisual && bloqueCampo}
+            {/* 17/11/2026 (ronda 19, análisis): en Visual, cada cifra frente a la media en barras, antes de «qué entrenamos». */}
+            {enVisual && comparativa ? (
+              <BarrasFrenteAMedia
+                metricas={comparativa.metricas}
+                anteriores={comparativa.anteriores.n}
+                titulo={`${comparativa.jornada} (${comparativa.rival}) frente a los anteriores`}
+              />
+            ) : null}
             {/* ---------------- este partido frente a los anteriores ---------------- */}
 
             {/* 29/10/2026: en el móvil se deja a la derecha el ancho del botón ⋮
@@ -1721,8 +1777,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {/* 08/11/2026: lo que pide trabajo, como titular encima de la tabla
                 (antes era un renglón más de la tabla y la última conclusión). */}
             {queToca ? (
-              <div className="mt-5 rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] px-4 py-3">
-                <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">{queToca.rotulo}</p>
+              <div className={`mt-5 rounded-2xl border px-4 py-3 ${queToca.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]"}`}>
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${queToca.alarma ? "text-amber-300" : "text-white/60"}`}>{queToca.rotulo}</p>
                 <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
                 {queToca.lineas.map((l, i) => (
                   <p key={i} className={`mt-1 text-sm leading-relaxed ${i === 0 ? "text-white/85" : "text-white/75"}`}>
@@ -1742,12 +1798,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
                 </button>
                 {/* 11/11/2026 (expertos, ronda 2): de la tarea al microciclo, donde se programa. */}
+                {queToca.alarma && (
                 <Link
                   href="/microcycles"
                   className="ml-2 mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
                 >
                   Llevarla al microciclo
                 </Link>
+                )}
               </div>
             ) : null}
 

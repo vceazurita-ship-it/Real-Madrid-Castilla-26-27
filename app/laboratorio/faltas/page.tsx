@@ -57,6 +57,10 @@ import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { BarrasFrenteAMedia } from "@/components/analisis/BarrasFrenteAMedia";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { nombreEquipo } from "@/lib/equipos";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
@@ -204,6 +208,12 @@ export default function FaltasPage() {
   */
   const [vistaPantalla, setVistaPantalla] = useVistaAnalisis("laboratorio-faltas");
   const enVisual = vistaPantalla === "visual";
+  /* 17/11/2026 (ronda 19): el próximo rival, para su balón parado a un toque. */
+  const { partidos: calendarioFaltas } = useCalendario();
+  const proximoRivalFaltas = useMemo(
+    () => nombreEquipo(ordenaPartidos(calendarioFaltas).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? ""),
+    [calendarioFaltas],
+  );
   const [filtro, setFiltro] = useState<Filtro>("todas");
   /*
   | La pretemporada, fuera salvo que se pida: los amistosos no se leen igual
@@ -545,10 +555,11 @@ export default function FaltasPage() {
 
     /* La misma forma que Robos y Pérdidas: rótulo, titular y tres líneas. */
     return {
-      rotulo: mas ? "Lo que pide trabajo esta semana" : "Qué entrenamos para mantenerlo",
+      /* 17/11/2026 (ronda 19, marketing): la tendencia, en el rótulo y no sólo en el cuerpo. */
+      rotulo: `${mas ? "Lo que pide trabajo esta semana" : "Qué entrenamos para mantenerlo"}${n < UMBRAL_TENDENCIA_PARTIDOS ? ` · tendencia, media de ${n} ${n === 1 ? "partido" : "partidos"}` : ""}`,
       titular: `${mas ? "Bajar de" : "No pasar de"} ${media} faltas en contra por partido: en la ${jornadaCorta(partido?.jornada ?? "")} (${partido?.rival ?? ""}), ${c.actual}`,
       lineas: [
-        `Cometimos ${c.actual} frente a ${media} de media de los ${n} ${n === 1 ? "anterior" : "anteriores"}${rango}${n < UMBRAL_TENDENCIA_PARTIDOS ? "; con esa muestra, tendencia" : ""}.${reparto}`,
+        `Cometimos ${c.actual} frente a ${media} de media de los ${n} ${n === 1 ? "anterior" : "anteriores"}${rango}.${reparto}`,
         `En el campo: tarea de defensa de duelos sin falta${manda ? ` en ${manda}` : ""}, contando las faltas que cometemos en cada serie.`,
         `Criterio de éxito, ${mas ? "por debajo de" : "no pasar de"} ${media} faltas en contra en el próximo partido.`,
       ],
@@ -665,6 +676,11 @@ export default function FaltasPage() {
                 setVista("lista");
                 setVistaPantalla("detalle");
               } });
+            /* 17/11/2026 (ronda 19): de nuestra falta, la ficha y el seguimiento de quien la comete. */
+            if (f.jugador && f.lado !== "ofensivo") {
+              opciones.push({ clave: "ficha", etiqueta: `Ficha de ${f.jugador}`, detalle: "Individual", icono: "grafico", href: `/individual?nombre=${encodeURIComponent(f.jugador)}` });
+              opciones.push({ clave: "seguimiento", etiqueta: `Seguimiento de ${f.jugador}`, detalle: "En su ficha", icono: "tabla", href: `/individual?nombre=${encodeURIComponent(f.jugador)}&pestana=seguimiento` });
+            }
 
             /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
             if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {
@@ -681,8 +697,10 @@ export default function FaltasPage() {
           onLado={alternaLado}
         />
 
+        {/* 17/11/2026 (ronda 19, marketing): lo que hace tocar un punto, a la vista (antes sólo al pasar el ratón). */}
+        <p className="mt-2 text-[12px] text-white/60">Toca una falta: su vídeo, Hudl y, si es nuestra, la ficha y el seguimiento de quien la comete.</p>
         {sinSitio > 0 && explicativos && (
-          <p className="mt-3 text-[11px] text-white/35">
+          <p className="mt-3 text-[11px] text-white/60">
             {sinSitio}{" "}
             {sinSitio === 1
               ? "falta no se pudo situar"
@@ -740,6 +758,8 @@ export default function FaltasPage() {
                   { href: enlaceConPartido("/laboratorio/perdidas", partido), texto: "Pérdidas de este partido", icono: Swords },
                   { href: urlPostDelPartido(partido.fecha, partido.rival), texto: `Post del partido · ${jornadaCorta(partido.jornada)}`, icono: BarChart3 },
                   { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
+                  /* 17/11/2026 (ronda 19): el balón parado del próximo rival (sus faltas a favor y en contra). */
+                  proximoRivalFaltas ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `ABP del ${proximoRivalFaltas}`, icono: Shield } : { texto: "" },
                 ]}
               />
             ) : null}
@@ -983,6 +1003,14 @@ export default function FaltasPage() {
               | tendencia) se pliegan en «Casos escasos»: en la tabla eran tres
               | de ocho y tapaban las que sí dicen algo (marketing).
               */}
+              {enVisual ? (
+                /* 17/11/2026 (ronda 19, análisis y marketing): en Visual, barras con la raya de la media y el rango; el método, una vez al pie. La tabla, en Detalle. */
+                <BarrasFrenteAMedia
+                  metricas={comparativa.metricas.filter((m) => !escasa(m)).map((m) => (m.formato ? m : { ...m, formato: numeroCorto }))}
+                  anteriores={comparativa.anteriores}
+                  titulo="Este partido frente a los anteriores"
+                />
+              ) : (
               <ComparativaPartido
                 partido={comparativa.partido}
                 anteriores={{ n: comparativa.anteriores }}
@@ -1008,6 +1036,7 @@ export default function FaltasPage() {
                 nota={`Sobre el partido entero, sin el filtro de ${filtro === "todas" ? "lado" : `«${NOMBRE_LADO[filtro]}»`} ni lo pinchado abajo. La media es por partido. Verde: mejor que la media; naranja: peor; gris: no se juzga.`}
                 className="mt-3"
               />
+              )}
               {/* 16/11/2026 (expertos, ronda 17): «Casos escasos: …» plegado no
                   decía nada; ahora es una frase con las cifras y lo que valen. */}
               {comparativa.metricas.some(escasa) ? (
