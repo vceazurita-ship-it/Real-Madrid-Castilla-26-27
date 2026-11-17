@@ -70,8 +70,14 @@ export const urlResumen = (r: ResumenRfef) => `https://www.youtube.com/watch?v=$
 let enVuelo: Promise<ResumenRfef[]> | null = null;
 
 export function cargaResumenesRfef(): Promise<ResumenRfef[]> {
-  enVuelo ??= fetch("/api/rivals/resumenes")
-    .then((r) => r.json() as Promise<{ ok?: boolean; videos?: ResumenRfef[] }>)
+  /*
+  | 17/11/2026 (ronda 21, portada): por `traeJson`, con la copia del aparato.
+  | Con `fetch` a secas la lista llegaba a veces tarde y el mismo día el móvil
+  | enseñaba «Su último partido» y el escritorio no. Se importa al llamar: este
+  | fichero lo leen también módulos de servidor (`lib/hudl-clips.ts`).
+  */
+  enVuelo ??= import("@/lib/hojaCsv")
+    .then(({ traeJson }) => traeJson<{ ok?: boolean; videos?: ResumenRfef[] }>("/api/rivals/resumenes"))
     .then((j) => (j?.ok && Array.isArray(j.videos) ? j.videos : []))
     .catch(() => {
       enVuelo = null;

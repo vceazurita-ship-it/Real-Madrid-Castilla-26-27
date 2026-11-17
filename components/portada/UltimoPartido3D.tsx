@@ -14,7 +14,9 @@ import { ArrowRight, BarChart3, FileText, Mountain } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
-import { leeJugadores } from "@/lib/opta-directo-mapas";
+import { VideoOpta } from "@/components/opta/VideoOpta";
+import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
+import { urlPostDelPartido } from "@/lib/post-partido";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 
@@ -67,21 +69,49 @@ export function UltimoPartido3D() {
       : gx < gy
         ? dxg >= 0.15 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.15 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
         : dxg >= 0.15 ? "Empate con más ocasiones nuestras." : dxg <= -0.15 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
-  /* Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y balón parado, con el dato (nosotros primero: es lo nuestro). */
-  const claves = [
+  /*
+  | Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y
+  | balón parado. 17/11/2026 (ronda 21, fútbol): cada una con su base (el
+  | dato y sobre cuántos remates o córners) y acabada en lo que se entrena
+  | («→ …»); y cada una abre el post de ESE partido en Análisis de datos.
+  */
+  const remX = n(x.ShtIncBl);
+  const remY = n(y.ShtIncBl);
+  const enRemates = (xg: unknown, rem: number) => `${coma(n(xg))} goles esperados${rem > 0 ? ` en ${rem} remates` : ""}`;
+  const tieneAbp = typeof x.xGSetPly === "number" && typeof y.xGSetPly === "number";
+  const claves: { dato: string; entrenar: string }[] = [
     dxg <= -0.15
-      ? `Concedimos más de lo que generamos (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): defensa del área y de su ataque.`
+      ? { dato: `Concedimos ${enRemates(y.ExpG, remY)} suyos; generamos ${enRemates(x.ExpG, remX)}.`, entrenar: "defensa del área: vigilancias y segunda jugada" }
       : dxg >= 0.15
-        ? `Generamos más que el rival (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): mantener la llegada.`
-        : `Ocasiones igualadas (xG ${coma(n(x.ExpG))} nuestro, ${coma(n(y.ExpG))} suyo): el detalle decidió.`,
-    n(x.PPDA) > 0
-      ? `Presión: dejamos ${coma(n(x.PPDA), 1)} pases por acción defensiva (el rival, ${coma(n(y.PPDA), 1)}); cuanto menos, más arriba se presiona.`
-      : "",
-    `Balón parado: ${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos.`,
-  ].filter(Boolean);
+        ? { dato: `Generamos ${enRemates(x.ExpG, remX)}; concedimos ${enRemates(y.ExpG, remY)} suyos.`, entrenar: "mantener las llegadas al área y afinar la última acción" }
+        : { dato: `Ocasiones igualadas: ${enRemates(x.ExpG, remX)} nuestros y ${enRemates(y.ExpG, remY)} suyos.`, entrenar: "finalización: el detalle decidió" },
+    ...(n(x.PPDA) > 0 && n(y.PPDA) > 0
+      ? [
+          n(x.PPDA) > n(y.PPDA)
+            ? { dato: `Presión: dejamos dar ${coma(n(x.PPDA), 1)} pases por acción defensiva, frente a ${coma(n(y.PPDA), 1)} del rival (menos es más presión).`, entrenar: "presionamos menos que ellos: presión tras pérdida y altura del bloque" }
+            : { dato: `Presión: dejamos dar ${coma(n(x.PPDA), 1)} pases por acción defensiva, frente a ${coma(n(y.PPDA), 1)} del rival (menos es más presión).`, entrenar: "presionamos más que ellos: sostenerla sin partirnos" },
+        ]
+      : []),
+    {
+      dato: `Balón parado: ${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos${tieneAbp ? ` (xG a balón parado ${coma(n(x.xGSetPly))} y ${coma(n(y.xGSetPly))})` : ""}.`,
+      entrenar: n(y.Corners) > n(x.Corners) ? "defensa del córner: marcas y rechace" : "nuestros córners: primer palo y segunda jugada",
+    },
+  ];
   const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: f.teamId === CASTILLA_OPTA ? "Castilla" : nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
   const fecha = doc.fecha ? diaCorto(String(doc.fecha)) : "";
   const marcador = `${nom(loc)} ${String(loc.Goal ?? "")}-${String(vis.Goal ?? "")} ${nom(vis)}`;
+  /* El post de ESTE partido (fecha y rival), y el «Con los mapas» del mismo id. */
+  const fechaIso = doc.fecha ? String(doc.fecha).slice(0, 10) : "";
+  const hrefPost = fechaIso ? urlPostDelPartido(fechaIso, nom(y)) : "/data-analisis?area=post";
+  /* Las tres ocasiones más claras del partido (de los dos), con su vídeo en Opta. */
+  const ocasiones = fechaIso
+    ? leeEventos(doc.eventos)
+        .filter((e) => (e.xG ?? 0) > 0)
+        .sort((p, q) => (q.xG ?? 0) - (p.xG ?? 0))
+        .slice(0, 3)
+        .sort((p, q) => p.segundo - q.segundo)
+    : [];
+  const nombreDe = new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j.nombre]));
 
   return (
     <section className="portada-tarjeta p-4 sm:p-6" aria-label="El último partido en 3D">
@@ -96,7 +126,7 @@ export function UltimoPartido3D() {
         }
         accion={
           <div className="flex flex-wrap gap-1.5">
-            <Link href="/data-analisis?area=post" className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+            <Link href={hrefPost} className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
               <BarChart3 className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
               Análisis del partido
             </Link>
@@ -114,9 +144,15 @@ export function UltimoPartido3D() {
       />
 
       <div className="mt-5 grid gap-2 sm:grid-cols-[1.3fr_repeat(3,1fr)]">
-        <p className="fuente-club self-center text-[22px] font-bold uppercase leading-tight" style={{ color: "var(--rmcf-gold-ink)" }}>
+        <Link
+          href={hrefPost}
+          className="group fuente-club self-center text-[22px] font-bold uppercase leading-tight underline-offset-4 hover:underline"
+          style={{ color: "var(--rmcf-gold-ink)" }}
+          title="El análisis de este partido en Análisis de datos"
+        >
           {lectura}
-        </p>
+          <ArrowRight size={16} className="ml-1 inline-block align-[-1px] transition-transform group-hover:translate-x-0.5" aria-hidden />
+        </Link>
         <div className="grid grid-cols-3 gap-2 sm:contents">
           {cifras.map(([t, a, b]) => (
             <div key={t} className="portada-celda min-w-0 px-2.5 py-2.5 sm:px-3">
@@ -133,15 +169,49 @@ export function UltimoPartido3D() {
         </div>
       </div>
 
-      <ul className="mb-4 mt-4 space-y-1.5 text-[14px] leading-snug text-white/80">
+      <ul className="mt-4 grid gap-1.5">
         {claves.map((c) => (
-          <li key={c} className="flex gap-2.5">
-            <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
-            {c}
+          <li key={c.dato}>
+            <Link
+              href={hrefPost}
+              className="portada-celda portada-viva group flex min-w-0 items-start gap-2.5 px-3 py-2.5 text-[14px] leading-snug text-white/80"
+              title="Abre el análisis de este partido"
+            >
+              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
+              <span className="min-w-0 flex-1">
+                {c.dato}{" "}
+                <span className="font-semibold text-white">
+                  <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {c.entrenar}
+                </span>
+              </span>
+              <ArrowRight size={14} className="mt-1 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" aria-hidden />
+            </Link>
           </li>
         ))}
       </ul>
-      <RelievePartido eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
+
+      {/* 17/11/2026 (ronda 21, análisis): las jugadas en vídeo (Opta), las tres ocasiones más claras del partido. */}
+      {ocasiones.length > 0 && (
+        <div className="mb-4 mt-3 flex flex-wrap items-center gap-2">
+          <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">Las ocasiones más claras, en vídeo</span>
+          {ocasiones.map((e) => {
+            const quien = nombreDe.get(e.jugadorId) || (e.teamId === CASTILLA_OPTA ? "Castilla" : corto(y));
+            return (
+              <VideoOpta
+                key={`${e.parte}-${e.segundo}-${e.jugadorId}`}
+                tipo="shots"
+                evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
+                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
+                descripcion={`Remate de ${quien}, ${e.minuto}′`}
+              />
+            );
+          })}
+        </div>
+      )}
+      {ocasiones.length === 0 && <div className="mb-4" />}
+
+      {/* 17/11/2026 (ronda 21, marketing): arranca parado en el resumen del partido entero; se reproduce al pulsar. */}
+      <RelievePartido quietoAlFinal eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
     </section>
   );
 }

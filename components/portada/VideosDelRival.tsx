@@ -28,6 +28,10 @@ import { trackModuleVisit } from "@/lib/module-usage";
 const CHIP =
   "portada-viva group flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-left text-[13.5px] font-semibold leading-tight text-[#C8A96B] hover:bg-[#C8A96B]/20";
 
+/* El rótulo y lo que enseña, en la misma línea si cabe (y si no, debajo, entero: nunca cortado). */
+const TEXTO_CHIP = "flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2";
+const SUB_CHIP = "block text-[12px] font-medium opacity-80";
+
 /* Chip suelto para la tira de accesos del área rival (AccesosDelRival). */
 const CHIP_TIRA =
   "inline-flex min-h-9 min-w-0 shrink-0 items-center whitespace-nowrap justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-center text-[13px] font-semibold leading-tight text-[#C8A96B] transition-colors hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20 sm:min-h-0";
@@ -45,8 +49,11 @@ export function VideosDelRival({
   rival,
   etiqueta = "Próximo rival · vídeo",
   tipo = "todos",
+  apilado = false,
 }: {
   rival: string;
+  /** En la tarjeta estrecha del rival (portada): un vídeo por fila en todos los tamaños. */
+  apilado?: boolean;
   /** Fuera de la portada (tira de accesos del área rival, 16/11/2026) el rival no tiene por qué ser el próximo. */
   etiqueta?: string;
   /** «abp»: desde ABP del rival, los goles a balón parado. */
@@ -55,12 +62,16 @@ export function VideosDelRival({
   const [abierto, setAbierto] = useState<LadoGoles | null>(null);
   const [sinGoles, setSinGoles] = useState(false);
   const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
+  /* 17/11/2026 (ronda 21, fútbol): hasta que llega la lista, el hueco de «Su último partido» se guarda; así el móvil y el escritorio enseñan lo mismo. */
+  const [conResumenes, setConResumenes] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
 
     cargaResumenesRfef().then((lista) => {
-      if (!cancelado) setResumenes(lista);
+      if (cancelado) return;
+      setResumenes(lista);
+      setConResumenes(true);
     });
 
     return () => {
@@ -113,26 +124,32 @@ export function VideosDelRival({
             <Clapperboard className="h-3.5 w-3.5" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
             {rival} en vídeo
           </p>
-          <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+          {/*
+            17/11/2026 (ronda 21, los tres jueces): una fila por vídeo, a todo
+            lo ancho, con lo que enseña al lado (no debajo): en la tarjeta del
+            rival (440 px en escritorio, 390 en el móvil) tres columnas cortaban
+            «Cómo le marcan · por dónde dañarle».
+          */}
+          <div className={apilado ? "grid gap-1.5" : "grid grid-cols-1 gap-1.5 sm:grid-cols-3"}>
             {!sinGoles && (
               <>
                 <button type="button" className={CHIP} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
                   <Icono />
-                  <span className="min-w-0">
+                  <span className={TEXTO_CHIP}>
                     <span className="block">{tipo === "abp" ? "Sus goles a balón parado" : "Sus goles"}</span>
-                    <span className="block text-[12px] font-medium opacity-75">lo que marca</span>
+                    <span className={SUB_CHIP}>lo que marca</span>
                   </span>
                 </button>
                 <button type="button" className={CHIP} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
                   <Icono />
-                  <span className="min-w-0">
+                  <span className={TEXTO_CHIP}>
                     <span className="block">{tipo === "abp" ? "Cómo le marcan a balón parado" : "Cómo le marcan"}</span>
-                    <span className="block text-[12px] font-medium opacity-75">por dónde dañarle</span>
+                    <span className={SUB_CHIP}>por dónde dañarle</span>
                   </span>
                 </button>
               </>
             )}
-            {ultimo && (
+            {ultimo ? (
               <a
                 href={urlResumen(ultimo)}
                 target="_blank"
@@ -141,14 +158,16 @@ export function VideosDelRival({
                 title={`Resumen de la RFEF · J${ultimo.jornada}: ${ultimo.local} ${ultimo.golesLocal}-${ultimo.golesVisitante} ${ultimo.visitante}`}
               >
                 <Icono />
-                <span className="min-w-0">
+                <span className={TEXTO_CHIP}>
                   <span className="block">Su último partido</span>
-                  <span className="block text-[12px] font-medium tabular-nums opacity-75">
+                  <span className={`${SUB_CHIP} tabular-nums`}>
                     J{ultimo.jornada} · {ultimo.golesLocal}-{ultimo.golesVisitante}
                   </span>
                 </span>
               </a>
-            )}
+            ) : !conResumenes ? (
+              <span aria-hidden className="block min-h-[52px] animate-pulse rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.06]" />
+            ) : null}
           </div>
         </div>
       )}
