@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { BellRing, Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
 
 import ConfirmDialog from "@/components/season/ConfirmDialog";
+import { confirmar } from "@/lib/avisos";
 import { useAlertas } from "@/hooks/useAlertas";
 import { nuevaAlerta, type Alerta } from "@/lib/alertas/modelo";
 import DialogoAlerta from "./DialogoAlerta";
@@ -160,6 +161,15 @@ export default function GestorAlertas() {
   };
 
   const alternarActiva = async (alerta: Alerta) => {
+    /* 17/11/2026 (ronda 20, análisis y marketing): reactivar una pregunta antes, con la tarea y a quién avisa (manda correos de verdad). */
+    if (!alerta.activa) {
+      const sigue = await confirmar({
+        titulo: `¿Reactivar «${tituloLegible(alerta.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}»?`,
+        texto: `Volverá a mandar el correo a ${nombresDestino(alerta.destinatarios, agenda, true)}.`,
+        aceptar: "Reactivar",
+      });
+      if (!sigue) return;
+    }
     setOcupada(alerta.id);
     await guardar({ ...alerta, activa: !alerta.activa });
     setOcupada(null);
@@ -244,6 +254,8 @@ export default function GestorAlertas() {
     return Number.isFinite(t) && t > ahora;
   };
   const nSilenciadas = alertas.filter((a) => !a.activa && reactivable(a)).length;
+  /* 17/11/2026 (ronda 20, fútbol): las caducadas se cuentan en el aviso de arriba, que al pie no se veían. */
+  const nCaducadas = ahora > 0 ? alertas.filter((a) => !a.activa && !reactivable(a)).length : 0;
 
   /* Si todas están silenciadas: la que saldría antes al reactivarlas. */
   const primeraAlReactivar = (() => {
@@ -346,6 +358,9 @@ export default function GestorAlertas() {
                   ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`} hasta reactivarlas.`
                   : "Hay que ponerles fecha nueva."}
             </b>
+            {nCaducadas > 0 && nSilenciadas > 0 ? (
+              <span>{nCaducadas === 1 ? " Y 1 caducada que necesita fecha nueva (abajo)." : ` Y ${nCaducadas} caducadas que necesitan fecha nueva (abajo).`}</span>
+            ) : null}
           </p>
 
           <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2">
