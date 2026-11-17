@@ -3432,8 +3432,9 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta. Pinchado, baja a la tira partido a partido; los resultados son del calendario de BeSoccer" },
           { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son, con el marcador del Castilla primero", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
-          { que: "Visual · Detalle (16/11/2026)", es: "Se abre en «Visual»: el título dice los puntos sumados de los posibles y los de los últimos cinco; debajo, la curva de puntos acumulados (cada punto del color del resultado) y la tira partido a partido. «Detalle» añade las tarjetas de goles. Se recuerda en este aparato" },
-          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha. En el móvil, una sola fila que se desliza", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
+          { que: "Visual · Detalle (16/11/2026)", es: "Se abre en «Visual»: el título dice los puntos sumados de los posibles y los de los últimos cinco; debajo, la curva de puntos acumulados (cada punto del color del resultado; tocarlo lleva a la tarjeta de ese partido) con la raya de lo que suma de media un equipo de la liga (17/11/2026). «Detalle» añade la tira partido a partido y las tarjetas de goles. Se recuerda en este aparato", cuenta: "Raya de la liga = puntos repartidos en la liga (3 con ganador, 2 si empatan) ÷ (partidos × 2), por cada partido jugado" },
+          { que: "Plan del próximo partido (17/11/2026)", es: "Bajo el subtítulo, el botón al Plan de partido de la próxima jornada con el rival ya puesto" },
+          { que: "Partido a partido (Detalle)", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha; cada uno lleva a su tarjeta. En el móvil, una sola fila que se desliza", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
           { que: "Goles a favor / en contra (Detalle)", es: "La suma grande y, debajo, una sola unidad: por partido («1,3 por partido (16 en 12) · liga 1,3 por partido, media de los 20 equipos»), con el juicio frente a la liga", cuenta: "Diferencia = nuestros goles por partido − media de la liga por partido; ▲ mejor, ▼ peor, «Como la liga» si es menor de 0,05" },
           { que: "Diferencia", es: "Goles a favor menos goles en contra" },
         ],
@@ -3442,19 +3443,19 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La lista",
         filas: [
           { que: "Buscar", es: "Por rival, partido, microciclo o fecha" },
-          { que: "Microciclo", es: "Todos los partidos, uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras. El recuento va una sola vez, al lado de los filtros («13 partidos (12 de liga y 1 sin contar en las cifras) · 12 con vídeo»)" },
+          { que: "Microciclo", es: "Todos los partidos («Todos (12 de liga + 1 de pretemporada)»), uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras. El recuento va una sola vez, al lado de los filtros («13 partidos (12 de liga y 1 sin contar en las cifras) · 12 con vídeo»)" },
           { que: "Victorias · Empates · Derrotas", es: "Filtra por resultado" },
           { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o en Coding. Si todos tienen vídeo no sale, porque no filtraría nada" },
           { que: "Ver vídeo análisis", es: "Abre el vídeo de la hoja en un pop-up, con anterior y siguiente" },
           { que: "Coding · Hudl · Grabación táctica · Resumen", es: "Debajo de cada tarjeta, con el mismo peso y lo que exista: Coding en los partidos de liga sin enlace en la hoja; Hudl abre el partido o, si aún no tiene enlace propio, la biblioteca del club (lo dice el título del botón); la grabación táctica sólo en el ordenador principal; el resumen, el de la RFEF en YouTube. Van abajo del todo, así las tarjetas de una fila quedan alineadas aunque falte alguno" },
-          { que: "Análisis post · Robos · Pérdidas · Faltas", es: "Debajo de los vídeos de cada partido jugado: «Análisis post» abre Análisis de datos en ese partido; robos, pérdidas y faltas abren su laboratorio en ese partido y sólo salen si ya está etiquetado (16/11/2026)" },
+          { que: "Estadísticas · Goles · Robos · Pérdidas · Faltas", es: "Debajo de los vídeos de cada partido jugado, como botones (44 px en el móvil): «Estadísticas» abre el post de ese partido en Análisis de datos; «Goles», nuestros goles en vídeo en Análisis de goles; robos, pérdidas y faltas abren su laboratorio en ese partido y sólo salen si ya está etiquetado (17/11/2026)" },
         ],
       },
     ],
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */
