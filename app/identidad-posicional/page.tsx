@@ -88,8 +88,9 @@ const PLURAL_PUESTO: Record<string, string> = {
   DEL: "Delanteros",
 };
 
+/* 17/11/2026 (guionista): un decimal como mucho, también en las cifras por 90′. */
 const cifraTexto = (v: number, porcentaje: boolean) =>
-  porcentaje ? `${v.toFixed(1).replace(".", ",")} %` : v.toFixed(2).replace(".", ",");
+  porcentaje ? `${v.toFixed(1).replace(".", ",")} %` : v.toFixed(1).replace(".", ",");
 
 /** Un jugador de la plantilla en el puesto: nombre corto (chip) y completo. */
 type Quien = { corto: string; nombre: string };
@@ -149,6 +150,14 @@ const QUE_CONTAR: Record<string, string> = {
   "Toques en el área de penalti/90": "toques dentro del área",
   "xG/90": "ocasiones claras generadas",
   "Acciones defensivas realizadas/90": "acciones defensivas (presión, robo, duelo)",
+};
+
+/** 17/11/2026 (marketing): una línea que explica la medida la primera vez que sale. */
+const EXPLICA: Record<string, string> = {
+  "Pases progresivos/90": "pase hacia delante que acerca mucho el balón a la portería rival",
+  "Carreras en progresión/90": "conducción que gana muchos metros hacia la portería rival",
+  "Ataque en profundidad/90": "desmarque a la espalda de la última línea",
+  "Acciones defensivas realizadas/90": "presiones, robos y duelos defensivos juntos",
 };
 
 /** «Óscar», «Óscar y Joan», «Óscar, Mario y Joan». */
@@ -410,7 +419,15 @@ export default function IdentidadPosicionalPage() {
           setData(activos);
           setOriginalData(structuredClone(activos));
         }
-        setPosicion((actual) => actual || activos[0]?.POSICION || "");
+        /* 17/11/2026 (marketing): ?puesto=central|lateral|medio|extremo|delantero
+           abre en ese puesto y ?vista=quien en «¿Quién lo ejecuta mejor?»
+           (los enlaces de Identidad de Juego). */
+        const pide = new URLSearchParams(window.location.search);
+        const familia = FAMILIAS.find(([hoja]) => hoja.test(sinTildes(pide.get("puesto") ?? "")));
+        const pedido = familia ? activos.find((fila) => familia[0].test(sinTildes(fila.POSICION ?? "")))?.POSICION : undefined;
+
+        setPosicion((actual) => actual || pedido || activos[0]?.POSICION || "");
+        if (pide.get("vista") === "quien") setVista("quien");
         setError(null);
       } catch (err) {
         if (cancelado) return;
@@ -941,8 +958,11 @@ export default function IdentidadPosicionalPage() {
     /* 16/11/2026: lo que no se mide se pliega tras «Ver los otros N» para que
        lo medido sea lo primero (salvo editando o buscando). */
     const plegar = !editing && !filtrando;
-    const medidosB = plegar ? items.filter((c) => medido(c) === 0) : items;
-    const plegados = plegar ? items.filter((c) => medido(c) === 1) : [];
+    /* 17/11/2026 (marketing): a la vista, como mucho 3 medidos por columna; el
+       resto (medidos y sin medir) tras «Ver los otros N». */
+    const todosMedidos = plegar ? items.filter((c) => medido(c) === 0) : items;
+    const medidosB = plegar ? todosMedidos.slice(0, 3) : items;
+    const plegados = plegar ? [...todosMedidos.slice(3), ...items.filter((c) => medido(c) === 1)] : [];
     const total = data.filter(
       (c) => c.POSICION === posicion && c.BLOQUE === bloque,
     ).length;
@@ -1035,7 +1055,7 @@ export default function IdentidadPosicionalPage() {
                       )}
                     />
 
-                    <FichaContenido item={item} query={query} quienes={quienes} />
+                    <FichaContenido item={item} query={query} quienes={quienes} esPrioridad={prioridad?.item.ID === item.ID} />
                   </div>
                 )}
               </li>
@@ -1054,8 +1074,11 @@ export default function IdentidadPosicionalPage() {
             <ul className="space-y-2 border-t border-white/10 px-4 py-3">
               {plegados.map((item) => (
                 <li key={item.ID} className="flex gap-3">
-                  <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-500/60" />
-                  <FichaContenido item={item} query={query} quienes={quienes} />
+                  <span
+                    aria-hidden
+                    className={cn("mt-2 h-1.5 w-1.5 shrink-0 rounded-full", medido(item) === 0 ? "bg-[#C8A96B]" : "bg-gray-500/60")}
+                  />
+                  <FichaContenido item={item} query={query} quienes={quienes} esPrioridad={prioridad?.item.ID === item.ID} />
                 </li>
               ))}
             </ul>
@@ -1166,8 +1189,10 @@ export default function IdentidadPosicionalPage() {
               tape el final de la tarjeta. */}
           <main className={cn("min-w-0 flex-1 p-4 pb-24 lg:p-8 lg:pb-24", editing && "pb-32")}>
             <div className="rounded-2xl border border-white/10 bg-gradient-to-br from-white/[0.05] to-white/[0.02] p-5 sm:p-8 lg:rounded-3xl lg:p-10">
-              <div className="flex flex-row items-start justify-between gap-4">
-                <div className="min-w-0">
+              {/* 17/11/2026 (fútbol): en el móvil, Editar va en su propia línea
+                  encima y la tarjeta de prioridad ocupa todo el ancho. */}
+              <div className="flex flex-col-reverse items-stretch gap-4 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <SectionLabel className="text-[#C8A96B]">
                     Contenidos individuales
                   </SectionLabel>
@@ -1261,6 +1286,7 @@ export default function IdentidadPosicionalPage() {
                           </p>
                         </div>
                       )}
+                      <RadiografiaPuesto cifras={cifrasPuesto} quienes={quienes} />
                       <p className="break-words text-xs text-gray-400">
                         Cifras de liga (Wyscout) de los que llevan {MINUTOS_CONTENIDO}′ o más: ▲ mejor que la
                         mediana del puesto en la categoría (raya azul) · ▼ peor · = la misma cifra · «tendencia»: menos
@@ -1276,7 +1302,7 @@ export default function IdentidadPosicionalPage() {
                   )}
                 </div>
 
-                {!editing && !loading && !error && toolbar}
+                {!editing && !loading && !error && <div className="flex justify-end sm:block">{toolbar}</div>}
               </div>
 
               {!editing && !loading && !error && totalPosicion > 0 && (
@@ -1488,6 +1514,125 @@ export default function IdentidadPosicionalPage() {
 }
 
 /*
+| 17/11/2026 (marketing): la radiografía del puesto como primera imagen. Una
+| fila por contenido medido (con balón y sin balón, cada uno con su color) y
+| una columna por jugador: ▲ por encima de la mediana del puesto, ▼ por
+| debajo, = en ella, ○ tendencia. El título es la conclusión.
+*/
+function RadiografiaPuesto({
+  cifras,
+  quienes,
+}: {
+  cifras: { item: PosicionItem; cifra: NonNullable<ReturnType<typeof cifraDelContenido>> }[];
+  quienes: Quien[];
+}) {
+  const filas = [...cifras].sort(
+    (a, b) => Number(/SIN/i.test(a.item.BLOQUE ?? "")) - Number(/SIN/i.test(b.item.BLOQUE ?? "")),
+  );
+  const nombres = Array.from(
+    new Set(filas.flatMap((f) => f.cifra.nuestros.map((j) => nombrePlantilla(j.nombre, quienes)))),
+  );
+
+  if (filas.length < 2 || nombres.length === 0) return null;
+
+  const signoDe = (f: (typeof filas)[number], quien: string) => {
+    const j = f.cifra.nuestros.find((x) => nombrePlantilla(x.nombre, quienes) === quien);
+
+    if (!j) return null;
+    if (esTendencia(j)) return "t" as const;
+
+    return comparaConMediana(j.valor, f.cifra);
+  };
+  const cuenta = nombres.map((n) => ({
+    n,
+    debajo: filas.filter((f) => {
+      const sg = signoDe(f, n);
+
+      return typeof sg === "number" && sg < 0;
+    }).length,
+    medidos: filas.filter((f) => typeof signoDe(f, n) === "number").length,
+  }));
+  const peor = [...cuenta].filter((c) => c.medidos > 0).sort((a, b) => b.debajo / b.medidos - a.debajo / a.medidos)[0];
+  const titulo =
+    peor && peor.debajo > 0
+      ? `${peor.n}, por debajo de la mediana en ${peor.debajo} de ${peor.medidos} contenidos medidos`
+      : `Todos en la mediana o por encima en los ${filas.length} contenidos medidos`;
+
+  return (
+    <figure className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
+      <figcaption>
+        <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Radiografía del puesto</span>
+        <span className="mt-1 block break-words text-sm font-semibold text-white lg:text-base">{titulo}</span>
+      </figcaption>
+      <div className="mt-3 overflow-x-auto">
+        <table className="w-full min-w-0 border-separate border-spacing-1 text-[13px]">
+          <thead>
+            <tr>
+              <th scope="col" className="sr-only">Contenido</th>
+              {nombres.map((n) => (
+                <th key={n} scope="col" className="px-1 text-center text-[12px] font-semibold text-gray-300">
+                  {n}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map((f) => {
+              const sin = /SIN/i.test(f.item.BLOQUE ?? "");
+
+              return (
+                <tr key={f.item.ID}>
+                  <th
+                    scope="row"
+                    className={cn(
+                      "border-l-2 pl-2 text-left text-[12px] font-medium leading-tight text-gray-200",
+                      sin ? "border-sky-400/60" : "border-[#C8A96B]/70",
+                    )}
+                  >
+                    {f.item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
+                  </th>
+                  {nombres.map((n) => {
+                    const sg = signoDe(f, n);
+
+                    return (
+                      <td
+                        key={n}
+                        className={cn(
+                          "h-7 min-w-[2.25rem] rounded text-center font-bold tabular-nums",
+                          sg === null
+                            ? "text-gray-500"
+                            : sg === "t"
+                              ? "text-gray-400"
+                              : sg < 0
+                                ? "bg-amber-500/15 text-amber-400"
+                                : sg > 0
+                                  ? "bg-emerald-500/15 text-emerald-400"
+                                  : "bg-white/[0.06] text-gray-200",
+                        )}
+                        aria-label={
+                          sg === null ? `${n}: sin cifra` : sg === "t" ? `${n}: tendencia` : sg < 0 ? `${n}: por debajo` : sg > 0 ? `${n}: por encima` : `${n}: en la mediana`
+                        }
+                      >
+                        {sg === null ? "" : sg === "t" ? "○" : sg < 0 ? "▼" : sg > 0 ? "▲" : "="}
+                      </td>
+                    );
+                  })}
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-gray-400">
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#C8A96B]" aria-hidden />con balón</span>
+        <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-sky-400" aria-hidden />sin balón</span>
+        <span>▲ / ▼ frente a la mediana del puesto · ○ tendencia</span>
+      </p>
+    </figure>
+  );
+}
+
+/*
 |--------------------------------------------------------------------------
 | UN CONTENIDO (30/10/2026)
 |--------------------------------------------------------------------------
@@ -1499,10 +1644,12 @@ function FichaContenido({
   item,
   query,
   quienes,
+  esPrioridad = false,
 }: {
   item: PosicionItem;
   query: string;
   quienes: Quien[];
+  esPrioridad?: boolean;
 }) {
   const jugadoresWyscout = useJugadoresWyscout();
   const texto = (
@@ -1574,6 +1721,7 @@ function FichaContenido({
     <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-[14px] leading-relaxed text-gray-300">
       <p className="break-words text-[13px] text-gray-400">
         <span className="font-semibold text-gray-200">Se mide en el partido:</span> {nombreColumna(columna)}
+        {EXPLICA[columna] && <span className="text-gray-400"> ({EXPLICA[columna]})</span>}
       </p>
       {cifra && (
         <figure className="mt-1 min-w-0">
@@ -1641,31 +1789,26 @@ function FichaContenido({
             Mediana de {cifra.n} {(PLURAL_PUESTO[cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría:{" "}
             <b className="tabular-nums text-gray-200">{cifraTexto(cifra.mediana, cifra.porcentaje)}</b>
           </p>
-          {debajo.length > 0 && (
+          {/* 17/11/2026 (marketing): la marca de «tendencia» con su leyenda al lado. */}
+          {cifra.nuestros.some(esTendencia) && (
+            <p className="mt-1 flex items-center gap-2 text-[12px] text-gray-400">
+              <span aria-hidden className="inline-block h-3 w-3 rounded-full border-2 border-gray-400" />
+              tendencia: menos de {MINIMO_INTENTOS} acciones o intentos, sin ▲/▼ ni tarea
+            </p>
+          )}
+          {debajo.length > 0 && esPrioridad && (
+            <p className="mt-2 break-words text-[13px] text-amber-400">
+              Es el de «Por dónde empezar a entrenar», arriba: allí van la tarea y el objetivo.
+            </p>
+          )}
+          {debajo.length > 0 && !esPrioridad && (
             <p className="mt-2 break-words rounded-lg border-l-2 border-amber-500/70 bg-amber-500/[0.06] px-3 py-2 text-gray-200">
               <span className="font-semibold text-white">Qué entrenamos · {yLista(debajo.map(nombre))}:</span> tarea de «
               {item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}»; contar{" "}
               {QUE_CONTAR[cifra.columna] ?? nombreColumna(cifra.columna).toLowerCase()}; objetivo de partido{" "}
               {cifra.mejorAlto ? "llegar a" : "bajar de"} {cifraTexto(cifra.mediana, cifra.porcentaje)}.
-              {/* 17/11/2026 (fútbol y marketing): de la tarea a la ficha de cada uno, a un toque. */}
-              <span className="mt-2 flex flex-wrap gap-2">
-                {debajo.map((j) => (
-                  <span key={j.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-amber-500/40 text-[13px] font-semibold">
-                    <Link
-                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=mejora`}
-                      className="px-2.5 py-0.5 text-gray-100 hover:bg-amber-500/10 hover:text-white"
-                    >
-                      Área de mejora de {nombre(j)} →
-                    </Link>
-                    <Link
-                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=seguimiento`}
-                      className="border-l border-amber-500/30 px-2.5 py-0.5 text-gray-300 hover:bg-amber-500/10 hover:text-white"
-                    >
-                      Seguimiento
-                    </Link>
-                  </span>
-                ))}
-              </span>
+              {/* 17/11/2026 (marketing): el Área de mejora y el Seguimiento van una vez
+                  por jugador, en sus chips de arriba; aquí, sólo el nombre enlazado en la barra. */}
             </p>
           )}
         </figure>
