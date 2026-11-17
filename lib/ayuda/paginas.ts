@@ -2634,9 +2634,11 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La lista",
         filas: [
           { que: "N alertas activas · próximo aviso", es: "Cuántas van a sonar y cuál es la siguiente, con su fecha" },
-          { que: "La tarjeta", es: "Tarea, cuándo sale, cada cuánto se repite, a quién va, alarma, adjuntos y cuántas veces se ha enviado" },
+          { que: "Ahora no sale ningún correo", es: "Si todas están silenciadas o caducadas, arriba un aviso en ámbar con borde e icono: cuántas hay, cuál saldría primero al reactivarlas y «Reactivar todas»" },
+          { que: "La tarjeta", es: "Tarea, cuándo sale, cada cuánto se repite, a quién va, alarma, adjuntos y cuántas veces se ha enviado. Dos destinatarios a la vista y «y N más», que despliega el resto (al pasar por encima ya dice quiénes)" },
+          { que: "Abrir … (dónde se hace)", es: "Junto a la acción principal, el enlace a la pantalla en la que se hace lo que pide la tarea: PDF individual → Individual; once o «director 11» → pizarra táctica; balón parado → pizarra ABP; informe → Microciclos; rival o plantilla → su plantilla con el rival del partido ya elegido; viaje → Desplazamiento. Si el texto no dice nada reconocible, no sale", cuenta: "Se lee del título y del mensaje de la tarea" },
           { que: "Silenciadas (N)", es: "No sale ningún correo hasta reactivarlas; agrupadas por partido. Junto al rótulo de cada partido, «Abrir a <rival>» lleva a su plantilla con el rival ya elegido" },
-          { que: "Caducadas (N)", es: "Silenciadas cuya fecha ya pasó: necesitan fecha nueva para volver a salir" },
+          { que: "Caducadas (N)", es: "Silenciadas cuya fecha ya pasó: necesitan fecha nueva para volver a salir; si ya no hacen falta, «⋯ › Borrar» (pide confirmación). Si todas llevan más de 30 días caducadas, el grupo sale plegado" },
           { que: "Sin fecha", es: "No sonará hasta editarla; si va atada al partido, espera a que haya próximo partido en el calendario" },
           { que: "Más acciones", es: "Editar, Enviar ahora, Silenciar y Borrar" },
         ],
@@ -2659,7 +2661,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "«Nadie está repasando el calendario»: «Enviar ahora» funciona, pero las programadas no suenan hasta poner el disparador horario.",
       "Es la misma herramienta que el botón flotante; esta pantalla sirve para repasarlo todo de una vez.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== CENTRO DE DATOS (12/11/2026) ==================== */

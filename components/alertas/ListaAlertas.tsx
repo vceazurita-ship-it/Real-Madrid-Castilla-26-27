@@ -208,6 +208,32 @@ export function nombresDestino(destinatarios: string[], agenda: ContactoAgenda[]
 }
 
 /**
+ * DÓNDE SE HACE CADA TAREA (17/11/2026, los tres jueces).
+ *
+ * La tarjeta lleva a la pantalla en la que se hace lo que pide, leído del
+ * título y del mensaje; con el rival del partido ya elegido si va atada a él.
+ * Si el texto no dice nada reconocible, no sale enlace (nada inventado).
+ */
+function dondeSeHace(alerta: Alerta, rival: string): { href: string; texto: string } | null {
+  const t = `${alerta.titulo} ${alerta.mensaje ?? ""}`
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "");
+  const conEquipo = (ruta: string) => (rival ? `${ruta}?equipo=${encodeURIComponent(rival)}` : ruta);
+
+  if (/\bpdf individual|\bindividual\b/.test(t)) return { href: "/individual", texto: "Abrir Individual" };
+  if (/\bonce\b|director|\b11\b|alineacion/.test(t)) return { href: "/pizarra-tactica?once=1", texto: "Abrir la pizarra táctica" };
+  if (/balon parado|\babp\b|corner/.test(t)) return { href: "/abp-pizarra", texto: "Abrir la pizarra ABP" };
+  if (/informe|previa|\bpost\b/.test(t)) return { href: "/microcycles", texto: "Abrir los informes" };
+  if (/plan de partido/.test(t)) return { href: "/match-preparation", texto: "Abrir el plan de partido" };
+  if (/rival|plantilla/.test(t)) return { href: conEquipo("/rivals"), texto: rival ? `Abrir a ${rival}` : "Abrir las plantillas rivales" };
+  if (/viaje|desplazamiento|hotel|autobus/.test(t)) return { href: "/desplazamiento", texto: "Abrir el desplazamiento" };
+  if (/microciclo|sesion|entrenamiento/.test(t)) return { href: "/microcycles", texto: "Abrir el microciclo" };
+
+  return null;
+}
+
+/**
  * Las tareas con alerta, ordenadas por lo que suena antes.
  *
  * Se usa igual en el panel del botón flotante y en la página del módulo, así
@@ -330,6 +356,20 @@ export default function ListaAlertas({
         const mensaje = alerta.mensaje?.trim() ?? "";
         const repiteTitulo =
           mensaje.toLowerCase() === alerta.titulo.trim().toLowerCase();
+
+        /* El rival del partido al que va atada (si va), para abrir lo que pide con él ya elegido. */
+        const rivalDeLaTarea = (() => {
+          if (alerta.repeticion !== "partido" || ahora === 0) return "";
+
+          const dias = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+          const s =
+            alerta.activa && fechaValida(alerta.proximoEnvio)
+              ? { cuando: new Date(alerta.proximoEnvio), dias }
+              : saldriaSiSeReactiva(alerta, partidos, new Date(ahora));
+
+          return s ? /^vs (.+?)(?: \(|$)/.exec(partidoDelAviso(partidos, s.cuando, s.dias))?.[1] ?? "" : "";
+        })();
+        const destinoTarea = dondeSeHace(alerta, rivalDeLaTarea);
 
         return (
           <article
@@ -473,10 +513,10 @@ export default function ListaAlertas({
                         onClick={() => setDestinosAbiertos(alerta.id)}
                         /* Al pasar por encima ya dice quién falta (11/11/2026). */
                         title={piezas.slice(visibles.length).join(", ")}
-                        className="ml-1.5 rounded-full border border-white/15 px-1.5 text-[12px] font-semibold text-white/75 hover:text-white"
+                        className="ml-1.5 inline-flex min-h-7 items-center rounded-full border border-white/20 px-2 text-[12.5px] font-semibold text-white/80 underline-offset-2 hover:text-white hover:underline"
                         aria-label={`Ver también a ${piezas.slice(visibles.length).join(", ")}`}
                       >
-                        +{resto}
+                        y {resto} más
                       </button>
                     ) : null}
                   </p>
@@ -573,6 +613,17 @@ export default function ListaAlertas({
                     <Pencil className="h-3.5 w-3.5" aria-hidden />
                     {caducada(alerta) ? "Ponerle fecha nueva" : "Editar"}
                   </button>
+                )}
+
+                {/* 17/11/2026: a un toque, la pantalla donde se hace lo que pide la tarea. */}
+                {destinoTarea && (
+                  <Link
+                    href={destinoTarea.href}
+                    className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                  >
+                    <span className="min-w-0 break-words leading-tight">{destinoTarea.texto}</span>
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </Link>
                 )}
 
                 <button
@@ -697,12 +748,23 @@ export default function ListaAlertas({
 
       {caducadas.length > 0 && (
         /* Abierta (07/11/2026, marketing y análisis): plegada en una línea larga parecía un error. */
-        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open>
+        /* 17/11/2026 (análisis): si todas llevan más de 30 días caducadas, plegadas: ya no hacen ruido. */
+        <details
+          className="group pt-1 @3xl:col-span-2 @6xl:col-span-3"
+          open={
+            ahora === 0 ||
+            caducadas.some((a) => {
+              const ultima = fechaValida(a.ultimoEnvio) ? new Date(a.ultimoEnvio).getTime() : NaN;
+
+              return !Number.isFinite(ultima) || ahora - ultima < 30 * 86_400_000;
+            })
+          }
+        >
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
           {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
-            Caducadas ({caducadas.length}) · necesitan fecha nueva para volver a salir
+            Caducadas ({caducadas.length}) · necesitan fecha nueva para volver a salir; si ya no hacen falta, «⋯ › Borrar»
           </summary>
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">

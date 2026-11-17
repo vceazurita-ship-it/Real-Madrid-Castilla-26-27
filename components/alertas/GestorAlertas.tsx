@@ -329,17 +329,22 @@ export default function GestorAlertas() {
         | una sola acción principal. El recuento por tipo ya lo dan los
         | títulos de «Silenciadas (3)» y «Caducadas (1)», debajo.
         */
-        <div className="rounded-2xl bg-amber-500/10 px-4 py-3 text-[13px] leading-relaxed text-amber-200">
-          <p>
+        /* 17/11/2026 (fútbol): es lo único urgente de la pantalla; con borde, icono y titular, no el mismo peso que el resto. */
+        <div className="rounded-2xl border border-amber-400/50 bg-amber-500/15 px-4 py-3.5 text-[14px] leading-relaxed text-amber-200">
+          <p className="flex items-center gap-2 text-[15px] font-bold">
+            <TriangleAlert className="h-5 w-5 shrink-0 text-amber-400" aria-hidden />
+            {nSilenciadas > 0 ? "Ahora no sale ningún correo" : "Ninguna alerta va a salir"}
+          </p>
+          <p className="mt-1">
             <b className="font-semibold">
               {/* 11/11/2026 (fútbol y marketing): qué pasa y qué pasaría, en una frase. */}
               {primeraAlReactivar && nSilenciadas > 0
                 ? nSilenciadas === 1
-                  ? `Alerta silenciada: ahora no sale ningún correo. Si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
-                  : `${nSilenciadas} alertas silenciadas: ahora no sale ningún correo. Si las reactivas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
+                  ? `1 alerta silenciada. Si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
+                  : `${nSilenciadas} alertas silenciadas. Si las reactivas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
                 : nSilenciadas > 0
-                  ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`}: no sale ningún correo hasta reactivarlas.`
-                  : "Ninguna alerta va a salir: hay que ponerles fecha nueva."}
+                  ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`} hasta reactivarlas.`
+                  : "Hay que ponerles fecha nueva."}
             </b>
           </p>
 
