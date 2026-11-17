@@ -137,6 +137,8 @@ function FichaRival({
     nombre: string
     liga: { puesto: number; deCuantos: number; puntos: number; jugados: number } | null
     ultimos: NonNullable<EquipoPortada["ultimos"]>
+    /** El próximo partido lo juega fuera de su casa (viene a la nuestra). */
+    juegaFuera: boolean
   }
   /** Sin vídeos debajo, la ficha se queda arriba y el pie abajo; con ellos (semana del rival), todo seguido. */
   empuja?: boolean
@@ -193,7 +195,7 @@ function FichaRival({
                   )}
                   {/* 17/11/2026 (fútbol): contra quién y dónde, como en los nuestros. */}
                   {p.rival && (
-                    <span className="text-[11px] font-semibold uppercase leading-tight tracking-[0.02em]" style={{ color: "rgba(255,255,255,.75)" }}>
+                    <span className="text-[12px] font-semibold uppercase leading-tight tracking-[0.02em]" style={{ color: "rgba(255,255,255,.8)" }}>
                       {siglaEquipo(p.rival)}·{p.enCasa ? "C" : "F"}
                     </span>
                   )}
@@ -201,7 +203,7 @@ function FichaRival({
               )
             })}
           </ol>
-          <ResumenUltimos ultimos={ficha.ultimos} />
+          <ResumenUltimos ultimos={ficha.ultimos} juegaFuera={ficha.juegaFuera} />
         </div>
       )}
     </div>
@@ -214,7 +216,7 @@ function FichaRival({
 | favor y en contra y, aparte, cómo le va fuera (o en casa). El marcador de
 | BeSoccer va con sus goles primero.
 */
-function ResumenUltimos({ ultimos }: { ultimos: NonNullable<EquipoPortada["ultimos"]> }) {
+function ResumenUltimos({ ultimos, juegaFuera }: { ultimos: NonNullable<EquipoPortada["ultimos"]>; juegaFuera: boolean }) {
   const goles = (m: string) => {
     const x = /^(\d+)\s*-\s*(\d+)$/.exec(m.trim())
     return x ? [Number(x[1]), Number(x[2])] as const : null
@@ -233,25 +235,22 @@ function ResumenUltimos({ ultimos }: { ultimos: NonNullable<EquipoPortada["ultim
     }
   }
   const todo = cuenta(ultimos)
-  const fuera = cuenta(ultimos.filter((p) => !p.enCasa))
-  const casa = cuenta(ultimos.filter((p) => p.enCasa))
   if (!todo.n) return null
-  const fila = (rotulo: string, c: ReturnType<typeof cuenta>) => (
-    <div className="flex items-baseline justify-between gap-3 border-t py-2 text-[13px]" style={{ borderColor: "rgba(255,255,255,.12)", color: "rgba(255,255,255,.9)" }}>
-      <span className="font-semibold uppercase tracking-[0.12em] text-[11px]" style={{ color: "rgba(255,255,255,.7)" }}>{rotulo}</span>
-      <span className="tabular-nums">
-        <span className="fuente-club text-[20px] font-bold" style={{ color: "#fff" }}>{c.pts}</span> de {c.n * 3} pts · {c.v}V {c.e}E {c.d}D
-        {c.favor != null && c.contra != null && <> · {c.favor} a favor, {c.contra} en contra</>}
-      </span>
-    </div>
-  )
+  /* Donde juega el próximo partido: si viene a nuestra casa, cómo le va fuera (y al revés). */
+  const alli = cuenta(ultimos.filter((p) => (juegaFuera ? !p.enCasa : p.enCasa)))
+  const gol = (n: number) => `${n} ${n === 1 ? "gol" : "goles"}`
 
+  /*
+  | 18/11/2026 (ronda 22, análisis): eran tres filas («Sus últimos 5», «Fuera»,
+  | «En casa») que un juez leyó como la forma repetida. Ahora UNA línea
+  | compacta bajo sus cinco fichas, con sólo lo que las fichas no dicen.
+  */
   return (
-    <div className="mt-4">
-      {fila(`Sus últimos ${todo.n}`, todo)}
-      {fuera.n > 0 && fila(`Fuera · ${fuera.n}`, fuera)}
-      {casa.n > 0 && fila(`En casa · ${casa.n}`, casa)}
-    </div>
+    <p className="mt-2 text-[13px] leading-snug tabular-nums" style={{ color: "rgba(255,255,255,.9)" }}>
+      <span className="font-semibold" style={{ color: "#fff" }}>{todo.pts} de {todo.n * 3} pts</span>
+      {todo.favor != null && todo.contra != null ? ` · ${gol(todo.favor)} a favor, ${todo.contra} en contra` : ""}
+      {alli.n > 0 && alli.n < todo.n ? ` · ${juegaFuera ? "fuera" : "en casa"}: ${alli.pts} de ${alli.n * 3}` : ""}
+    </p>
   )
 }
 
@@ -673,7 +672,7 @@ export default function Home() {
 
     if (!equipo || (!equipo.liga && !equipo.ultimos?.length)) return null
 
-    return { nombre: proximo.rival, liga: equipo.liga ?? null, ultimos: equipo.ultimos ?? [] }
+    return { nombre: proximo.rival, liga: equipo.liga ?? null, ultimos: equipo.ultimos ?? [], juegaFuera: proximo.lado === "casa" }
   }, [ahora, calendario, equiposPortada, sinCalendario])
 
   /*
@@ -818,7 +817,8 @@ export default function Home() {
                   con un enlace que la cubre por debajo del contenido.
                 */}
                 <div
-                  className="siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col justify-end overflow-hidden [&>div]:pointer-events-none [&>p]:pointer-events-none [&>span]:pointer-events-none"
+                  /* 18/11/2026 (ronda 22): en la semana del rival el contenido va centrado en la altura de la columna; con el pie empujado abajo quedaba un hueco grande de foto entre el vídeo y el pie. */
+                  className={`siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col ${rivalSemana ? "justify-center" : "justify-end"} overflow-hidden [&>div]:pointer-events-none [&>p]:pointer-events-none [&>span]:pointer-events-none`}
                   style={{
                     borderRadius: 20,
                     background:
@@ -911,7 +911,7 @@ export default function Home() {
                         </div>
                       </div>
 
-                      <p className="relative mt-auto flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 px-5 pb-5 pt-5 sm:px-6 sm:pb-6">
+                      <p className="relative flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 px-5 pb-5 pt-3 sm:px-6 sm:pb-6">
                         <span className="inline-flex shrink-0 items-center gap-1 text-[13px] font-semibold" style={{ color: "rgba(255,255,255,.92)" }}>
                           Cómo juega, en Análisis de datos
                           <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
@@ -938,7 +938,7 @@ export default function Home() {
                           </p>
 
                           <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none" style={{ color: "#fff" }}>
-                            <span className="fuente-club text-[44px] font-bold leading-none tabular-nums">{coma(nuestroXg.xg, 2)}</span>
+                            <span className="fuente-club text-[44px] font-bold leading-none tabular-nums">{coma(nuestroXg.xg, 1)}</span>
                             <span className="text-[14px]" style={{ color: "rgba(255,255,255,.9)" }}>por partido · más es mejor</span>
                           </p>
 
@@ -954,7 +954,7 @@ export default function Home() {
                           <p className="mt-2 break-words text-[12.5px] leading-snug" style={{ color: "rgba(255,255,255,.9)" }}>
                             {[
                               nuestroXg.puesto ? `${nuestroXg.puesto}º de ${nuestroXg.deCuantos} del grupo` : "",
-                              nuestroXg.mediana != null ? `mediana del grupo ${coma(nuestroXg.mediana, 2)}` : "",
+                              nuestroXg.mediana != null ? `mediana del grupo ${coma(nuestroXg.mediana, 1)}` : "",
                             ]
                               .filter(Boolean)
                               .join(" · ")}
@@ -985,7 +985,7 @@ export default function Home() {
                             {/* 16/11/2026 (análisis): la cifra grande con su cuenta pegada debajo —de dónde sale— y la leyenda del color, una vez. */}
                             <p className="mt-2 flex flex-wrap items-baseline gap-x-2 leading-none">
                               <span className="fuente-club text-[52px] font-bold leading-[0.9] tabular-nums" style={{ color }}>
-                                {`${arriba ? "+" : "−"}${coma(Math.abs(nuestroXg.diferencia), 2)}`}
+                                {`${arriba ? "+" : "−"}${coma(Math.abs(nuestroXg.diferencia), Math.abs(nuestroXg.diferencia) < 0.05 ? 2 : 1)}`}
                               </span>
                               <span className="text-[14px] font-semibold" style={{ color: "rgba(255,255,255,.95)" }}>
                                 goles por partido
@@ -1101,7 +1101,10 @@ export default function Home() {
                       : [
                           {
                             /* 16/11/2026 (marketing): abre la ficha del que menos seguimientos lleva. */
-                            href: menosSeguido ? `/individual?nombre=${encodeURIComponent(menosSeguido.nombre)}` : "/individual",
+                            /* 18/11/2026 (ronda 22): su ficha, ya en la pestaña de seguimiento. */
+                            href: menosSeguido
+                              ? `/individual?player=${encodeURIComponent(menosSeguido.id)}&nombre=${encodeURIComponent(menosSeguido.nombre)}&pestana=seguimiento`
+                              : "/individual",
                             label: "Con seguimiento",
                             value: jugadoresSeguimiento,
                             suffix: totalJugadores ? ` de ${totalJugadores}` : undefined,
@@ -1112,9 +1115,12 @@ export default function Home() {
                             destino: menosSeguido
                               ? (() => {
                                   const empatados = menosSeguidos.filter((j) => j.veces === menosSeguido.veces)
-                                  return empatados.length > 1
-                                    ? `Ficha de ${menosSeguido.nombre}: empata con ${empatados.slice(1).map((j) => j.nombre).join(" y ")} como los que menos llevan (${menosSeguido.veces} cada uno)`
-                                    : `Ficha de ${menosSeguido.nombre}, el que menos lleva (${menosSeguido.veces})`
+                                  /* 18/11/2026 (ronda 22, fútbol y guionista): «Menos seguimientos: A y B (1 cada uno; mediana 20,5)». */
+                                  const nombres = empatados.map((j) => j.nombre)
+                                  const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0]
+                                  const cuantas = empatados.length > 1 ? `${menosSeguido.veces} cada uno` : `${menosSeguido.veces}`
+                                  const mediana = medianaSeguimientos != null ? `; mediana ${coma(medianaSeguimientos, Number.isInteger(medianaSeguimientos) ? 0 : 1)}` : ""
+                                  return `Menos seguimientos: ${lista} (${cuantas}${mediana})`
                                 })()
                               : "Abrir las fichas de nuestros jugadores",
                             loading: loadingSeguimiento || cargandoPlantilla,
@@ -1145,10 +1151,9 @@ export default function Home() {
               {!errorSeguimiento && menosSeguidos.length > 1 && (
                 <div className="portada-celda mt-4 p-3.5 sm:p-4">
                   <p className="text-[13px] leading-snug text-white/70">
-                    <span className="font-semibold text-white/90">Los que menos seguimientos llevan</span>
-                    {medianaSeguimientos != null
-                      ? ` · la mediana de la plantilla es ${coma(medianaSeguimientos, Number.isInteger(medianaSeguimientos) ? 0 : 1)} ${medianaSeguimientos === 1 ? "seguimiento" : "seguimientos"} por jugador (${totalJugadores} jugadores de campo, sin porteros)`
-                      : ""}
+                    {/* 18/11/2026: la mediana va ya en la casilla de arriba; aquí no se repite. */}
+                    <span className="font-semibold text-white/90">Los {menosSeguidos.length} que menos seguimientos llevan</span>
+                    {totalJugadores ? ` · de ${totalJugadores} jugadores de campo, sin porteros` : ""}
                   </p>
                   <ul className="mt-2.5 grid gap-1.5 sm:grid-cols-3">
                     {menosSeguidos.map((j) => (

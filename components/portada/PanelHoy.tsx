@@ -333,7 +333,13 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
       <CabeceraBloque icono={Wrench} titulo="Atajos" sub="Las herramientas de todos los días y lo último que abriste" />
 
       {/* La que queda sola ocupa la fila (02/11/2026): a lo ancho en el móvil y, en la tableta, las de la última fila se reparten el hueco. */}
-      <div className={`mt-4 grid grid-cols-2 gap-2 [&>*:last-child:nth-child(odd)]:col-span-2 ${admin ? "lg:grid-cols-5 lg:[&>*:last-child:nth-child(odd)]:col-span-1" : "lg:grid-cols-4"}`}>
+      {/*
+        18/11/2026 (ronda 22, marketing): la portada se acorta. Los atajos pasan
+        de tarjetas altas con su explicación a una fila de botones (la
+        explicación queda en el `title`), y «Todas las áreas» va en la misma
+        fila en vez de en un renglón aparte.
+      */}
+      <div className="mt-4 grid grid-cols-2 gap-1.5 sm:flex sm:flex-wrap">
         {herramientas.map((h) => {
           const Icono = h.icono;
 
@@ -346,30 +352,37 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
                 if (h.completa) pantallaCompletaAlNavegar();
               }}
               title={h.desc}
-              className="portada-celda portada-viva group flex min-w-0 flex-col gap-3 p-3.5"
+              className="portada-celda portada-viva group inline-flex min-h-[44px] min-w-0 items-center gap-2 px-3 py-2 text-[13.5px] font-semibold leading-tight text-white/90"
+              style={{ borderRadius: 12 }}
             >
-              <span className="flex items-center justify-between">
-                <span className="portada-icono">
-                  <Icono className="h-[18px] w-[18px]" />
-                </span>
-                <ArrowUpRight className="h-4 w-4 text-white/30 transition-all group-hover:-translate-y-0.5 group-hover:translate-x-0.5 group-hover:text-[#D8B45A]" />
-              </span>
-              <span className="min-w-0">
-                <span className="fuente-club block break-words text-[17px] sm:text-[19px] font-bold uppercase leading-none tracking-[0.01em] text-white">{h.titulo}</span>
-                <span className="mt-1 block text-[12.5px] leading-snug text-white/60">{h.desc}</span>
-              </span>
+              <Icono className="h-4 w-4 shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+              <span className="min-w-0 break-words">{h.titulo}</span>
+              <ArrowUpRight className="ml-auto h-3.5 w-3.5 shrink-0 text-white/30 transition-all group-hover:text-[#D8B45A]" aria-hidden />
             </Link>
           );
         })}
+        {!verAreas && (
+          <button
+            type="button"
+            onClick={() => setVerAreas(true)}
+            className="portada-celda portada-viva inline-flex min-h-[44px] min-w-0 items-center gap-2 px-3 py-2 text-[13.5px] font-semibold leading-tight text-white/85"
+            style={{ borderRadius: 12 }}
+          >
+            <LayoutGrid className="h-4 w-4 shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+            Todas las áreas ({MODULES.length})
+            <ChevronRight className="ml-auto h-4 w-4 shrink-0" aria-hidden />
+          </button>
+        )}
       </div>
 
       {recientes.length > 0 && ahora > 0 && (
-        <div className="mt-4 border-t border-white/[0.07] pt-3">
-          <p className="flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
+        /* 18/11/2026 (ronda 22): en una línea que baja si no cabe, no en dos columnas. */
+        <div className="mt-3 flex flex-wrap items-center gap-x-1 gap-y-1 border-t border-white/[0.07] pt-2.5">
+          <p className="mr-1 flex items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.16em] text-white/60">
             <Clock3 className="h-3.5 w-3.5" />
-            Lo último abierto
+            Lo último
           </p>
-          <ul className="mt-2 grid gap-1.5 sm:grid-cols-2">
+          <ul className="contents">
             {recientes.map((r) => {
               const modulo = TITULOS.get(r.href)!;
               const Icono = modulo.icono;
@@ -382,7 +395,7 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
                     className="group flex min-w-0 items-center gap-2 rounded-xl px-2 py-1.5 transition-colors hover:bg-white/[0.05]"
                   >
                     <Icono className="h-4 w-4 shrink-0 text-white/45 group-hover:text-[#D8B45A]" />
-                    <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-white/85">{modulo.titulo}</span>
+                    <span className="min-w-0 truncate text-[13px] font-medium text-white/85">{modulo.titulo}</span>
                     <span className="shrink-0 text-[12px] text-white/55">{haceCuanto(r.cuando, ahora)}</span>
                   </Link>
                 </li>
@@ -396,17 +409,7 @@ function MesaDeTrabajo({ admin }: { admin: boolean }) {
         <div className="mt-4 border-t border-white/[0.07] pt-3">
           <ModulesExplorer excluir={HREFS_MESA} />
         </div>
-      ) : (
-        <button
-          type="button"
-          onClick={() => setVerAreas(true)}
-          className="portada-celda portada-viva mt-4 inline-flex min-h-[44px] w-full items-center justify-center gap-1.5 px-4 text-sm font-semibold text-white/85 sm:w-auto"
-        >
-          <LayoutGrid className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
-          Todas las áreas ({MODULES.length})
-          <ChevronRight className="h-4 w-4" aria-hidden />
-        </button>
-      )}
+      ) : null}
     </section>
   );
 }

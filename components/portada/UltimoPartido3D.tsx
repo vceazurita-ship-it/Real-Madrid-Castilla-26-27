@@ -6,16 +6,22 @@
  * El retrato 3D animado (components/data/RelievePartido) del último partido
  * del Castilla en Opta, si ya tiene su evento a evento (opta:directo:<id>, lo
  * deja el directo o «Repasar otro partido»). Si no lo tiene, no ocupa sitio.
+ *
+ * 18/11/2026 (ronda 22, los cuatro jueces): la portada se acorta. Se ven la
+ * lectura, las tres cifras (el Castilla primero, como en Análisis de datos),
+ * las tres claves, las ocasiones en vídeo y una frase con lo que dice el 3D;
+ * el 3D se queda plegado tras «Ver en 3D» y se monta al pulsar.
  */
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, FileText, Mountain } from "lucide-react";
+import { ArrowRight, BarChart3, ChevronDown, FileText, Mountain } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { VideoOpta } from "@/components/opta/VideoOpta";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
+import { retrato, territorioRetrato } from "@/lib/opta-retrato";
 import { urlPostDelPartido } from "@/lib/post-partido";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
@@ -41,8 +47,32 @@ export function UltimoPartido3D() {
     };
   }, [ultimo]);
 
+  /* El 3D, plegado hasta que se pide (18/11/2026, ronda 22). */
+  const [ver3d, setVer3d] = useState(false);
+
   const filas = aObjetos(doc?.equipos ?? null).sort((x, y) => (x.teamId === CASTILLA_OPTA ? -1 : y.teamId === CASTILLA_OPTA ? 1 : 0));
   const [x, y] = [filas[0], filas[1]];
+  const idRival = y ? String(y.teamId ?? "") : "";
+
+  /*
+  | Lo que dice el 3D, en una frase (18/11/2026, ronda 22, análisis): cuánto
+  | campo rival pisamos en el partido entero y el tramo en que más apretó el
+  | rival. Mismo cálculo que el panel del propio 3D (`territorioRetrato`, una
+  | ventana de seis minutos).
+  */
+  const territorio = useMemo(() => {
+    if (!doc?.eventos?.filas?.length || !idRival) return null;
+    const r = retrato(leeEventos(doc.eventos), CASTILLA_OPTA, idRival);
+    const total = territorioRetrato(r, null);
+    if (total == null) return null;
+    let peor: { v: number; m: number } | null = null;
+    for (let m = 5; m < r.minutos; m++) {
+      const v = territorioRetrato(r, m);
+      if (v != null && (!peor || v < peor.v)) peor = { v, m };
+    }
+    return { total, peor };
+  }, [doc, idRival]);
+
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
   /* El nombre corto, para las cifras y la leyenda del 3D («manda Castilla», no «manda Real»). */
@@ -51,15 +81,19 @@ export function UltimoPartido3D() {
   /* Un decimal (17/11/2026): la misma cifra que el 3D de debajo y que Análisis de datos («0,7 – 0,5»). */
   const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
   const pos = (f: Record<string, unknown>) => `${Math.round(n(f["Poss%"]) * (n(f["Poss%"]) <= 1 ? 100 : 1))} %`;
-  /* 16/11/2026 (fútbol): todo en el orden del marcador, el local primero, como en «Opta de un vistazo». */
+  /* El marcador, en el orden del partido (el local primero). */
   const fuera = String(x.campo ?? "").toUpperCase() === "AWAY";
   const [loc, vis] = fuera ? [y, x] : [x, y];
-  /* Tres cifras que cuentan el partido sin abrirlo: ocasiones, puntería y balón. */
+  /*
+  | Tres cifras que cuentan el partido sin abrirlo: ocasiones, puntería y balón.
+  | 18/11/2026 (ronda 22, guionista): el Castilla primero en todas, como en
+  | Análisis de datos («0,5 – 0,7 · Castilla · Tarragona»); antes iba el local.
+  */
   const cifras: [string, string, string][] = [
-    ["xG", coma(n(loc.ExpG)), coma(n(vis.ExpG))],
+    ["xG", coma(n(x.ExpG)), coma(n(y.ExpG))],
     /* 17/11/2026 (fútbol): «a puerta», con los remates totales en la base de la casilla. */
-    ["A puerta", String(n(loc.SOG)), String(n(vis.SOG))],
-    ["Posesión", pos(loc), pos(vis)],
+    ["A puerta", String(n(x.SOG)), String(n(y.SOG))],
+    ["Posesión", pos(x), pos(y)],
   ];
   const gx = n(x.Goal);
   const gy = n(y.Goal);
@@ -118,7 +152,7 @@ export function UltimoPartido3D() {
     <section className="portada-tarjeta p-4 sm:p-6" aria-label="El último partido en 3D">
       <CabeceraBloque
         icono={Mountain}
-        titulo="El último partido en 3D"
+        titulo="El último partido"
         sub={
           <>
             <span className="font-semibold text-white/85">{marcador}</span>
@@ -162,8 +196,8 @@ export function UltimoPartido3D() {
                 {a} <span className="text-white/40">–</span> {b}
               </p>
               <p className="mt-1 break-words text-[12px] leading-snug text-white/60">
-                {corto(loc)} · {corto(vis)}
-                {t === "A puerta" && n(loc.ShtIncBl) + n(vis.ShtIncBl) > 0 ? ` · de ${n(loc.ShtIncBl)} y ${n(vis.ShtIncBl)} remates` : ""}
+                {corto(x)} · {corto(y)}
+                {t === "A puerta" && remX + remY > 0 ? ` · de ${remX} y ${remY} remates` : ""}
               </p>
             </div>
           ))}
@@ -202,7 +236,8 @@ export function UltimoPartido3D() {
                 key={`${e.parte}-${e.segundo}-${e.jugadorId}`}
                 tipo="shots"
                 evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
-                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0, 2)}`}
+                /* 18/11/2026 (ronda 22, fútbol): un decimal, como el resto de la portada. */
+                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
                 descripcion={`Remate de ${quien}, ${e.minuto}′`}
               />
             );
@@ -211,8 +246,42 @@ export function UltimoPartido3D() {
       )}
       {ocasiones.length === 0 && <div className="mb-4" />}
 
-      {/* 17/11/2026 (ronda 21, marketing): arranca parado en el resumen del partido entero; se reproduce al pulsar. */}
-      <RelievePartido quietoAlFinal eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
+      {/*
+        18/11/2026 (ronda 22): la conclusión del 3D, visible; el 3D, plegado
+        tras «Ver en 3D» (se monta al pulsar y arranca parado en el resumen
+        del partido entero, como desde el 17/11).
+      */}
+      <div className="portada-celda flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3.5 py-3">
+        {territorio ? (
+          <p className="min-w-0 flex-1 basis-[260px] text-[14px] leading-snug text-white/80">
+            <span className="font-semibold text-white">
+              Campo rival pisado por el Castilla: {Math.round(territorio.total * 100)} % en todo el partido
+            </span>
+            {territorio.peor && territorio.peor.v < 0.5
+              ? ` · el ${corto(y)} apretó más hacia el ${territorio.peor.m}′ (${Math.round((1 - territorio.peor.v) * 100)} % para él)`
+              : ""}
+          </p>
+        ) : (
+          <p className="min-w-0 flex-1 basis-[260px] text-[14px] leading-snug text-white/80">Quién mandó en cada tramo y dónde llegaron los remates.</p>
+        )}
+        <button
+          type="button"
+          onClick={() => setVer3d((v) => !v)}
+          aria-expanded={ver3d}
+          className="portada-viva inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3.5 text-[13px] font-semibold"
+          style={{ color: "var(--rmcf-gold-ink)" }}
+        >
+          <Mountain className="h-4 w-4" aria-hidden />
+          {ver3d ? "Plegar el 3D" : "Ver en 3D"}
+          <ChevronDown className={`h-4 w-4 transition-transform ${ver3d ? "rotate-180" : ""}`} aria-hidden />
+        </button>
+      </div>
+
+      {ver3d ? (
+        <div className="mt-3">
+          <RelievePartido quietoAlFinal eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
+        </div>
+      ) : null}
     </section>
   );
 }

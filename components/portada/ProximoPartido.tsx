@@ -4,16 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
-import {
-  Bus,
-  ChevronRight,
-  ClipboardCheck,
-  Goal,
-  History,
-  Maximize2,
-  Trophy,
-  Users,
-} from "lucide-react";
+import { ChevronRight, History, Trophy, Users } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { CuentaAtras } from "@/components/portada/CuentaAtras";
@@ -596,7 +587,8 @@ export function ProximoPartido() {
 
         {/* Móvil: el azul ocupa la fila y debajo los otros tres en una sola fila (29/10/2026, fútbol). El hueco para el botón flotante lo da ya la portada entera (30/10/2026). Igual en tableta y portátil (02/11/2026): en fila suelta la «Pizarra táctica» se quedaba sola en otra línea. */}
         {/* 09/11/2026: fuera son cuatro accesos; en el móvil, dos por fila («Desplazamiento» no cabía en un cuarto de pantalla). */}
-        <div className={`mt-6 grid gap-2 sm:gap-2.5 ${proximo?.lado === "fuera" ? "grid-cols-2 [&>a:first-child]:col-span-2 sm:grid-cols-4 sm:[&>a:first-child]:col-span-4" : "grid-cols-3 [&>a:first-child]:col-span-3"}`}>
+        {/* 18/11/2026 (ronda 22, análisis): el azul solo; el resto de accesos del partido van en UNA botonera con los del rival (debajo), sin destinos repetidos. */}
+        <div className="mt-6 grid">
           <Link
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
@@ -607,39 +599,6 @@ export function ProximoPartido() {
             <Users className="h-[17px] w-[17px]" />
             Plantilla del rival
             <ChevronRight className="h-4 w-4 transition-transform duration-300 group-hover:translate-x-1" />
-          </Link>
-
-          <Accion
-            href={conRival("/match-preparation")}
-            icono={ClipboardCheck}
-            texto="Plan de partido"
-            title={nombreRival ? `El plan de partido contra ${nombreRival}` : undefined}
-          />
-
-          {/* El microciclo ABP no se abre por rival: es la semana de trabajo
-              entera y él mismo sabe qué partido viene. */}
-          <Accion href="/abp-microciclo" icono={Goal} texto="Microciclo ABP" />
-
-          {proximo?.lado === "fuera" && (
-            <Accion href="/desplazamiento" icono={Bus} texto="Desplazamiento" />
-          )}
-
-          {/*
-            La pizarra, a pantalla completa desde el primer clic. Se pide aquí,
-            con el gesto de la persona, porque un efecto al cargar la otra
-            página llegaría tarde: el navegador sólo la concede en un clic.
-          */}
-          <Link
-            href="/pizarra-tactica?once=1"
-            onClick={() => {
-              trackModuleVisit("/pizarra-tactica");
-              pantallaCompletaAlNavegar();
-            }}
-            title="Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1"
-            className={CLASE_ACCION}
-          >
-            <Maximize2 className="h-[17px] w-[17px] shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} />
-            Pizarra táctica
           </Link>
         </div>
 
@@ -660,14 +619,26 @@ export function ProximoPartido() {
           | rótulo. «PDF y vídeo ABP por jugador» (Hoy) y «Pizarra ABP» (Del
           | rival) llevaban los dos a /abp-pizarra.
           */
-          const enBotones = new Set(["/rivals", "/match-preparation", "/abp-microciclo", "/pizarra-tactica", "/desplazamiento"]);
+          /* 18/11/2026 (ronda 22): sólo la plantilla queda fuera (es el botón azul); el plan, el microciclo ABP, la pizarra y el viaje entran en la misma botonera. */
+          const enBotones = new Set(["/rivals"]);
 
           const deHoy = (hoyToca?.atajos ?? []).filter((atajo) => !enBotones.has(modulo(atajo.href)));
 
           const yaHoy = new Set(deHoy.map((atajo) => modulo(atajo.href)));
 
-          const delRival = proximo
+          const delRival: { href: string; texto: string; title?: string; alPulsar?: () => void }[] = proximo
             ? [
+                { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan de partido contra ${nombreRival}` },
+                /* El microciclo ABP no se abre por rival: es la semana entera y él sabe qué partido viene. */
+                { href: "/abp-microciclo", texto: "Microciclo ABP", title: "Qué se trabaja cada día a balón parado" },
+                /* La pizarra, a pantalla completa desde el primer clic (el navegador sólo la concede con el gesto). */
+                {
+                  href: "/pizarra-tactica?once=1",
+                  texto: "Pizarra táctica",
+                  title: "Abre la pizarra táctica a pantalla completa, con los dos onces puestos en 4-2-3-1",
+                  alPulsar: pantallaCompletaAlNavegar,
+                },
+                ...(proximo.lado === "fuera" ? [{ href: "/desplazamiento", texto: "Desplazamiento", title: "El viaje y el horario del desplazamiento" }] : []),
                 { href: conRival("/scout-rival-collective"), texto: "Scout colectivo", title: `El informe colectivo de ${nombreRival}` },
                 { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}, a favor y en contra` },
                 { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
@@ -688,12 +659,12 @@ export function ProximoPartido() {
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
           /* 16/11/2026 (rediseño): cada grupo con su rótulo encima y sus accesos en rejilla (dos por fila en el móvil, tres o cuatro en ancho). */
-          const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string; hoy?: boolean }[]) => (
+          const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string; hoy?: boolean; alPulsar?: () => void }[]) => (
             <div className="min-w-0">
-              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">{rotulo}</p>
+              <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-white/65">{rotulo}</p>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3 max-sm:[&>a:last-child:nth-child(odd)]:col-span-2">
                 {atajos.map((atajo) => (
-                  <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} hoy={atajo.hoy} />
+                  <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} hoy={atajo.hoy} alPulsar={atajo.alPulsar} />
                 ))}
               </div>
             </div>
@@ -726,10 +697,10 @@ export function ProximoPartido() {
                 fila(
                   hoyToca && deHoy.length > 0 ? (
                     <>
-                      Del rival · <span style={{ color: "var(--rmcf-gold-ink)" }}>lo de hoy ({hoyToca.rotulo}), primero</span>
+                      Preparar el partido · <span style={{ color: "var(--rmcf-gold-ink)" }}>lo de hoy ({hoyToca.rotulo}), primero</span>
                     </>
                   ) : (
-                    "Del rival"
+                    "Preparar el partido"
                   ),
                   [...deHoy.map((a) => ({ ...a, hoy: true })), ...delRival],
                 )}
@@ -793,45 +764,20 @@ function Escudos({
 /** El módulo que se cuenta en el acceso rápido es la ruta, sin el rival. */
 const modulo = (href: string) => href.split("?")[0];
 
-function Accion({
-  href,
-  icono: Icono,
-  texto,
-  title,
-}: {
-  href: string;
-  icono: typeof Users;
-  texto: string;
-  title?: string;
-}) {
-  return (
-    <Link
-      href={href}
-      title={title}
-      onClick={() => trackModuleVisit(modulo(href))}
-      className={CLASE_ACCION}
-    >
-      <Icono className="h-[17px] w-[17px] shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} />
-      {texto}
-    </Link>
-  );
-}
-
-/** Los accesos secundarios del partido: tarjeta pequeña, mismo canto y misma sombra que el resto de la portada. */
-const CLASE_ACCION =
-  "portada-celda portada-viva group inline-flex min-h-[52px] min-w-0 flex-col items-center justify-center gap-1 px-1.5 py-2.5 text-center text-[13px] font-semibold leading-tight text-white/85 sm:min-h-[48px] sm:flex-row sm:gap-2 sm:px-4 sm:text-[14px]";
-
 /**
  * Un acceso de la lista «Hoy toca» / «Más del rival» (16/11/2026, rediseño):
  * una fila con su flecha en vez de una píldora suelta; en el móvil, dos por
  * fila, y se lee como una lista, no como una nube de chapas.
  */
-function Atajo({ href, texto, title, hoy = false }: { href: string; texto: string; title?: string; hoy?: boolean }) {
+function Atajo({ href, texto, title, hoy = false, alPulsar }: { href: string; texto: string; title?: string; hoy?: boolean; alPulsar?: () => void }) {
   return (
     <Link
       href={href}
       title={title}
-      onClick={() => trackModuleVisit(modulo(href))}
+      onClick={() => {
+        trackModuleVisit(modulo(href));
+        alPulsar?.();
+      }}
       className={`portada-celda portada-viva group flex min-h-[44px] min-w-0 items-center justify-between gap-2 px-3 py-2 text-[13.5px] leading-tight text-white/85 ${hoy ? "font-semibold" : "font-medium"}`}
       style={hoy ? { borderRadius: 12, boxShadow: "inset 3px 0 0 #D8B45A" } : { borderRadius: 12 }}
     >

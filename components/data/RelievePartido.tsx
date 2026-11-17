@@ -723,7 +723,8 @@ export function RelievePartido({
               {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % en todo el partido</span> : null}
             </p>
           )}
-          {terrMax && (
+          {/* 18/11/2026 (ronda 22, fútbol): sólo si dice algo nuevo; con la misma cifra que la línea de arriba («89 % en el tramo final») se repetía. */}
+          {terrMax && !(terrAhora != null && Math.round(terrMax.v * 100) === Math.round(terrAhora * 100)) && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.72)" }}>
               Máximo hasta el {minuto}′: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
