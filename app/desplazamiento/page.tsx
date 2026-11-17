@@ -1368,12 +1368,35 @@ export default function DesplazamientoPage() {
 
       return null;
     })();
+    /*
+    | Y si no hay viaje anterior a ese rival, la media de los viajes fuera de
+    | la temporada con tiempo escrito (3 o más). Sólo sirve para proponer la
+    | salida: no se escribe como distancia ni tiempo del estadio, y no decide
+    | hotel (con la media nunca se propone dormir fuera).
+    */
+    const deLaMedia = (() => {
+      if (deOtroViaje) return null;
+
+      const tiempos = Object.values(store.viajes ?? {})
+        .filter((otro) => otro && otro.partidoId !== partido.id && otro.condicion !== "local")
+        .map((otro) => leeDuracion(String(otro.estadio?.tiempo ?? "")) ?? 0)
+        .filter((m) => m > 0);
+
+      if (tiempos.length < 3) return null;
+
+      const media = Math.round(tiempos.reduce((s, m) => s + m, 0) / tiempos.length);
+
+      /* Por debajo del umbral de dormir fuera (2 h): con una media no se propone hotel. */
+      return { minutos: Math.min(media, 115) };
+    })();
     const trayecto: TrayectoEstadio | null = trayectoUsable(
       ruta && ruta.par && ruta.par === parAlEstadio(conDimensiones, store.lugares) && ruta.dato
         ? ruta.dato
         : kmHoja > 0
           ? { km: Math.round(kmHoja), minutos: Math.round((kmHoja / 70) * 60) }
-          : deOtroViaje);
+          : (deOtroViaje ?? deLaMedia));
+    const conRuta = Boolean(ruta && ruta.par && ruta.par === parAlEstadio(conDimensiones, store.lugares) && ruta.dato);
+    const esMedia = !conRuta && !(kmHoja > 0) && !deOtroViaje && Boolean(deLaMedia);
     const conDistancia =
       base.condicion === "visitante" && trayecto
         ? (() => {
@@ -1383,11 +1406,14 @@ export default function DesplazamientoPage() {
               ...conDimensiones,
               conHotel: propuesta.conHotel,
               dias: propuesta.dias,
-              estadio: {
-                ...conDimensiones.estadio,
-                distancia: conDimensiones.estadio.distancia || (trayecto.km ? `${trayecto.km} km` : ""),
-                tiempo: conDimensiones.estadio.tiempo || comoDuracion(trayecto.minutos),
-              },
+              /* Con la media de la temporada no se escribe nada del estadio: no es su dato. */
+              estadio: esMedia
+                ? conDimensiones.estadio
+                : {
+                    ...conDimensiones.estadio,
+                    distancia: conDimensiones.estadio.distancia || (trayecto.km ? `${trayecto.km} km` : ""),
+                    tiempo: conDimensiones.estadio.tiempo || comoDuracion(trayecto.minutos),
+                  },
             };
           })()
         : conDimensiones;
