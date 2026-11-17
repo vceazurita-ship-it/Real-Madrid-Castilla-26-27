@@ -434,7 +434,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Ofensivo",
     resumen: "Córners y faltas a favor, acción por acción: qué se lanza, dónde cae, quién remata y cuánto peligro deja.",
     origen: "Nuestra hoja de ABP ofensivo, una fila por acción, registrada a mano. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -457,6 +457,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Se abre en la temporada (17/11/2026)", es: "La página abre con toda la temporada (sin pretemporada) y el último partido de la hoja va marcado: su columna en oro en «¿Va a mejor?», su «Acción a acción» con su vídeo, «¿Es lo de siempre?» y la ficha «El último partido» de arriba. «Ver toda la página sólo con …» deja sólo esa jornada", cuenta: "Con 5-7 acciones de un partido el campo salía casi vacío; la jornada sigue en el filtro" },
+          { que: "Conclusión (Visual)", es: "Primero la barra de cómo acaban, después el titular con el dato y «Qué entrenamos»; el resto de lecturas, plegadas tras un botón. Con menos de 15 acciones lleva la marca «tendencia»" },
+          { que: "Fuera de las cuatro zonas del área", es: "En corto, directa a barrera y sin zona apuntada van en una barra aparte, bajo el campo, con su número y su % sobre todas las acciones; «Ocupación vs. peligro» se calcula sólo con las cuatro zonas y dice su base", cuenta: "Cifras con coma decimal" },
+          { que: "Goles: hoja frente a Opta", es: "Si los goles a balón parado de la hoja (liga, jornadas etiquetadas) no coinciden con los de Opta, una línea en «¿Y frente a la categoría?» dice cuántos cuenta cada una y por qué no cuadran: la hoja es el etiquetado del cuerpo técnico (con la segunda jugada) y Opta aplica su regla de jugada a balón parado y no cuenta penaltis. En la charla, la de la hoja" },
+          { que: "Opta: orden y tendencia", es: "Las cifras de Opta van de mejor a peor puesto; un total de temporada de 0 a 3 (goles) lleva «tendencia, pocos casos» y no entra en «Lo mejor» ni «Lo peor». «Detalle en el Laboratorio» sólo sale al administrador" },
           { que: "Lo relacionado (arriba)", es: "Dos fichas a un toque: el rival del partido que se mira (oro) —sus goles en vídeo, su ABP, el plan de aquel partido y la pantalla hermana— y el próximo rival (azul) —su ABP, sus goles en vídeo, la pizarra de ABP, el microciclo y el plan—, con el rival ya elegido. Si el último partido jugado aún no está en la hoja, lo dice", cuenta: "Próximo y último partido, del calendario de BeSoccer; la llave del plan y la pizarra, de la hoja RIVALES; el ABP del rival y los goles, por nombre" },
           { que: "¿Es lo de siempre? (Visual)", es: "Este partido frente a la media, en barras: el punto es el partido (verde mejor, naranja peor; hueco si es tendencia), la raya la media y la franja del partido más bajo al más alto de los anteriores; el título dice en qué va mejor y en qué peor", cuenta: "El mismo juicio que la tabla de «Detalle»: «igual» a menos de 2 puntos o del 5 %; con menos de 15 acciones, tendencia" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: las conclusiones y, cada una con su conclusión en el título, primero dónde cae (el mapa de zonas del área; si alguna acción no tiene zona, se dice cuántas), debajo «Acción a acción» con su vídeo y el sacador y el rematador enlazados a su ficha, «¿Es lo de siempre?», cómo acaban (barra apilada: gol, ocasión, remate sin ocasión, sin remate), jornada a jornada (una columna apilada por partido, en orden de calendario, y si los 3 últimos van a mejor que los anteriores), qué tipo de acción rinde más (en el defensivo, cuál nos hace más daño; con 3 acciones o más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PDF las saca todas. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; «gol u ocasión» = Resultado_Final Gol u Ocasión. Con 4 partidos o más, los 3 últimos contra los anteriores (a menos de 5 puntos, «se mantiene»)" },
@@ -484,7 +489,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Por defecto va sin pretemporada: los amistosos de julio son contra equipos de otra categoría; se incluyen a propósito desde el filtro de competición.",
-      "Con «Todas» las jornadas, la comparativa del partido usa la última; el resto de la página suma todos los partidos.",
+      "Por defecto se ven todas las jornadas de liga: la comparativa del partido, la acción a acción y la columna en oro son de la última; el resto de la página suma todos los partidos.",
     ],
   },
   {
@@ -492,7 +497,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Defensivo",
     resumen: "Córners y faltas en contra, acción por acción: dónde nos atacan, quién nos hace daño y cuánto conceden.",
     origen: "Nuestra hoja de ABP defensivo, una fila por acción del rival. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -507,6 +512,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Se abre en la temporada (17/11/2026)", es: "La página abre con toda la temporada (sin pretemporada) y el último partido de la hoja va marcado: su columna en oro en «¿Va a mejor?», su «Acción a acción» con su vídeo, «¿Es lo de siempre?» y la ficha «El último partido» de arriba. «Ver toda la página sólo con …» deja sólo esa jornada", cuenta: "Con 5-7 acciones de un partido el campo salía casi vacío; la jornada sigue en el filtro" },
+          { que: "Conclusión (Visual)", es: "Primero la barra de cómo acaban, después el titular con el dato y «Qué entrenamos»; el resto de lecturas, plegadas tras un botón. Con menos de 15 acciones lleva la marca «tendencia»" },
+          { que: "Fuera de las cuatro zonas del área", es: "En corto, directa a barrera y sin zona apuntada van en una barra aparte, bajo el campo, con su número y su % sobre todas las acciones; «Ocupación vs. peligro» se calcula sólo con las cuatro zonas y dice su base", cuenta: "Cifras con coma decimal" },
+          { que: "Goles: hoja frente a Opta", es: "Si los goles a balón parado de la hoja (liga, jornadas etiquetadas) no coinciden con los de Opta, una línea en «¿Y frente a la categoría?» dice cuántos cuenta cada una y por qué no cuadran: la hoja es el etiquetado del cuerpo técnico (con la segunda jugada) y Opta aplica su regla de jugada a balón parado y no cuenta penaltis. En la charla, la de la hoja" },
+          { que: "Opta: orden y tendencia", es: "Las cifras de Opta van de mejor a peor puesto; un total de temporada de 0 a 3 (goles) lleva «tendencia, pocos casos» y no entra en «Lo mejor» ni «Lo peor». «Detalle en el Laboratorio» sólo sale al administrador" },
           { que: "Lo relacionado (arriba)", es: "Dos fichas a un toque: el rival del partido que se mira (oro) —sus goles en vídeo, su ABP, el plan de aquel partido y la pantalla hermana— y el próximo rival (azul) —su ABP, sus goles en vídeo, la pizarra de ABP, el microciclo y el plan—, con el rival ya elegido. Si el último partido jugado aún no está en la hoja, lo dice", cuenta: "Próximo y último partido, del calendario de BeSoccer; la llave del plan y la pizarra, de la hoja RIVALES; el ABP del rival y los goles, por nombre" },
           { que: "¿Es lo de siempre? (Visual)", es: "Este partido frente a la media, en barras: el punto es el partido (verde mejor, naranja peor; hueco si es tendencia), la raya la media y la franja del partido más bajo al más alto de los anteriores; el título dice en qué va mejor y en qué peor", cuenta: "El mismo juicio que la tabla de «Detalle»: «igual» a menos de 2 puntos o del 5 %; con menos de 15 acciones, tendencia" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: las conclusiones y, cada una con su conclusión en el título, primero dónde nos cae (mapa de zonas de nuestra área; las que no tienen zona se cuentan aparte), debajo «Acción a acción» con el vídeo de cada una (el gol encajado en rojo) y el sacador rival enlazado a la plantilla de su equipo, «¿Es lo de siempre?», cómo acaban sus córners y faltas (gol del rival, ocasión del rival, remate sin ocasión, sin remate y las que acaban en contra o gol nuestro), jornada a jornada (columna apilada por partido y si los 3 últimos van a mejor; aquí mejor es menos peligro), qué tipo de acción rinde más (en el defensivo, cuál nos hace más daño; con 3 acciones o más) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PDF las saca todas. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; peligro = «Gol Rival» u «Ocasión» (sujeto: el rival)" },
@@ -541,7 +551,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Ofensivo",
     resumen: "Cada saque de banda a favor: dónde se saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda ofensivo, una fila por saque. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las cifras",
@@ -561,6 +571,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Se abre en la temporada (17/11/2026)", es: "Arriba, el rival y la conclusión (la barra de cómo acaban, el titular con su base —«3 de 17 en ocasión»— y la orden; lo demás plegado); debajo, los filtros y Visual/Detalle. La página abre con toda la temporada y el último partido marcado en oro en «¿Va a mejor?»; «Ver sólo el último partido» pone esa jornada", cuenta: "Con menos de 25 saques, la marca «tendencia»" },
+          { que: "El campo", es: "Junto a cada disco, «saques · % con el balón para nosotros» (conservados en ataque, recuperados en defensa). Las leyendas y la escala de color van debajo del campo, no encima" },
           { que: "Lo relacionado (arriba)", es: "Dos fichas a un toque: el rival del partido que se mira (oro) —sus goles en vídeo, su ABP, el plan de aquel partido y la pantalla hermana— y el próximo rival (azul) —su ABP, sus goles en vídeo, la pizarra de ABP, el microciclo y el plan—, con el rival ya elegido. Si el último partido jugado aún no está en la hoja, lo dice", cuenta: "Próximo y último partido, del calendario de BeSoccer; la llave del plan y la pizarra, de la hoja RIVALES; el ABP del rival y los goles, por nombre" },
           { que: "¿Es lo de siempre? (Visual)", es: "Este partido frente a la media, en barras: el punto es el partido (verde mejor, naranja peor; hueco si es tendencia), la raya la media y la franja del partido más bajo al más alto de los anteriores; el título dice en qué va mejor y en qué peor", cuenta: "El mismo juicio que la tabla de «Detalle»: «igual» a menos de 2 puntos o del 5 %; con menos de 25 saques, tendencia" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo relacionado, las conclusiones y las láminas con su conclusión en el título: primero dónde sacamos (el campo con cada saque y el tercio que concentra más), «¿Es lo de siempre?», cómo acaban (último tercio, ocasión o gol; lo conservamos; se lo queda el rival; nada), jornada a jornada (columna apilada por partido y si los 3 últimos conservan más que los anteriores) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; «con el balón para nosotros» = la % Retención de las cifras" },
@@ -593,7 +605,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Defensivo",
     resumen: "Cada saque de banda del rival: dónde saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda defensivo, una fila por saque del rival. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las cifras",
@@ -610,6 +622,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Se abre en la temporada (17/11/2026)", es: "Arriba, el rival y la conclusión (la barra de cómo acaban, el titular con su base —«3 de 17 en ocasión»— y la orden; lo demás plegado); debajo, los filtros y Visual/Detalle. La página abre con toda la temporada y el último partido marcado en oro en «¿Va a mejor?»; «Ver sólo el último partido» pone esa jornada", cuenta: "Con menos de 25 saques, la marca «tendencia»" },
+          { que: "El campo", es: "Junto a cada disco, «saques · % con el balón para nosotros» (conservados en ataque, recuperados en defensa). Las leyendas y la escala de color van debajo del campo, no encima" },
           { que: "Lo relacionado (arriba)", es: "Dos fichas a un toque: el rival del partido que se mira (oro) —sus goles en vídeo, su ABP, el plan de aquel partido y la pantalla hermana— y el próximo rival (azul) —su ABP, sus goles en vídeo, la pizarra de ABP, el microciclo y el plan—, con el rival ya elegido. Si el último partido jugado aún no está en la hoja, lo dice", cuenta: "Próximo y último partido, del calendario de BeSoccer; la llave del plan y la pizarra, de la hoja RIVALES; el ABP del rival y los goles, por nombre" },
           { que: "¿Es lo de siempre? (Visual)", es: "Este partido frente a la media, en barras: el punto es el partido (verde mejor, naranja peor; hueco si es tendencia), la raya la media y la franja del partido más bajo al más alto de los anteriores; el título dice en qué va mejor y en qué peor", cuenta: "El mismo juicio que la tabla de «Detalle»: «igual» a menos de 2 puntos o del 5 %; con menos de 25 saques, tendencia" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: lo relacionado, las conclusiones y las láminas con su conclusión en el título: primero dónde saca el rival (el campo con cada saque), «¿Es lo de siempre?», cómo acaban sus saques (le llega a último tercio, ocasión o gol; lo conserva; lo recuperamos; nada), jornada a jornada (y si los 3 últimos le dejan llegar menos que los anteriores: aquí mejor es menos) y la categoría (Opta). «Detalle» son las pestañas de siempre; el PNG lo saca todo. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el peligro es el de «Peligro concedido»" },
@@ -625,7 +639,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cómo se lee",
         filas: [
           { que: "Zona de saque", es: "Siempre desde nuestra portería: su tercio (zona 1 de la hoja), el medio (zona 2), nuestro tercio (zona 3, junto a nuestra área: ahí un error cuesta caro). La hoja numera desde la portería del que saca" },
-          { que: "Receptor", es: "A quién se la ponen: primera línea (en las conclusiones, «el que recibe de cara junto a la línea»), medios, 9, extremo" },
+          { que: "Receptor", es: "A quién se la ponen: primera línea (en las conclusiones, «el que recibe de cara junto a la línea»), medios, 9, extremo («cuando recibe el extremo»). La orden dice «con vigilancia al que recibe…»" },
+          { que: "Recuperamos", es: "Con una jornada elegida, el titular da la base y el rango de antes: «recuperamos 6 de 14 (43 %; antes, de 12,5 % a 53,8 % por partido)»" },
           { que: "Descargar PNG", es: "El botón redondo de arriba a la derecha, como en ABP: la pantalla entera con los filtros, en imagen" },
         ],
       },
@@ -638,7 +653,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Qué se trabaja de balón parado cada día de la semana, con cuánto desgaste, y si se nota en el partido.",
     origen:
       "El plan se guarda en la app (doc «abp-microciclo», Supabase). La lista de micros y las cargas medidas, de la hoja de registro de tareas; lo que pasa en los partidos, de las cuatro hojas de ABP y banda; el partido, de nuestro calendario de BeSoccer.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -649,7 +664,7 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "Balón parado de la semana",
             es: "Minutos planificados frente al objetivo del cuerpo técnico, y el reparto atacando/defendiendo",
-            cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad",
+            cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad. El reparto va también en una barra (oro atacando, azul defendiendo); una hora justa se escribe «1 h»",
           },
           { que: "Pizarra ABP · ABP del rival · Sus goles en vídeo · Cómo le marcan · Plan de partido", es: "Atajos del partido de la semana, con el rival ya elegido; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
           { que: "Proponer boceto", es: "Propone la semana entera (días, aspectos y minutos) con el próximo partido, nuestro rendimiento y el del rival" },
@@ -663,7 +678,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Lo que dejó el partido", es: "Ya jugado: cada aspecto trabajado con sus acciones, peligro y goles en ese partido, y su veredicto", cuenta: "Con menos de 5 acciones va en gris: «pocos casos»" },
           {
             que: "Revisión de la semana",
-            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un botón por tarea; cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
+            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un solo botón «Elegir el criterio en las N tareas» que empieza por la primera, y «Ver las N tareas» con el día y el nombre entero de cada una («Córner directo y 4 acciones más»); cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
             cuenta:
               "Con menos de 15 acciones una carencia se escribe como tendencia, no como urgencia. Si todo lo que falta es de un lado y ese lado tiene menos del 40 % de los minutos, sale «El reparto va contra lo que falta». Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
           },
@@ -680,6 +695,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Reparto y competición",
         filas: [
           { que: "Reparto", es: "Minutos por lado, por momento de la sesión y por rol (un trabajo puede sumar en varios)" },
+          { que: "Saque de banda: los tercios", es: "Como en las pantallas de banda, desde nuestra portería: atacando, «en nuestro tercio» (zona 1 de la hoja) y «en su tercio» (zona 3); defendiendo, al revés; «en el medio» es la zona 2. Sin lado, «en el tercio de quien saca» o «de quien defiende»" },
           { que: "Lo más urgente ahora mismo", es: "Los aspectos que más piden trabajo, con acciones, remates, goles y minutos de la temporada; pulsar lo planifica" },
           {
             que: "Urgencia",
@@ -704,7 +720,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
     origen:
       "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Montar la jornada",
@@ -717,7 +733,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Consignas de una pizarra sin empezar", es: "Son las guardadas «para las siguientes» y pueden nombrar a jugadores de otra jornada; al copiar llegan las de la jornada anterior con el once cambiado" },
           { que: "Nombre subrayado en punteado", es: "En las consignas, un jugador que no está en esa lámina. Con la lámina vacía no se marca nada" },
           { que: "Colocar", es: "Rellena los huecos con quien suele hacer ese puesto", cuenta: "La memoria es por puesto: se anota sola cada vez que se asigna a alguien" },
-          { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva" },
+          { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva, cuando la pizarra ya está empezada. Sin empezar no sale: la acción es «Copiar de J.. y poner el once» del aviso, que va antes del once; los botones de exportar salen cuando ya hay pizarra" },
+          { que: "7 versiones guardadas", es: "En la lista de partidos, cuántas versiones de esa pizarra se han congelado" },
           { que: "Soltar una cara sobre otra", es: "Las intercambia: cada sitio conserva su puesto y sus carreras" },
         ],
       },
@@ -1586,8 +1603,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos).",
-    revisada: "2026-11-16",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos).",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1627,6 +1644,12 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Dos gráficos de líneas jornada a jornada: xG (goles esperados) a favor por partido y xG en contra por partido del Castilla (oro) y del rival (azul), con la media de nuestro grupo en gris discontinuo. La etiqueta dice en cuántos partidos suyos de Opta. Al pie, el último valor de cada línea; arriba, si el rival genera y concede más o menos que hace tres partidos",
             cuenta:
               "Opta, opta:partidos (equipo × partido, por fecha). «Jornada k» es el k-ésimo partido de cada equipo. Cada punto es la media acumulada hasta esa jornada: ExpG para el a favor y ExpGAg (o el ExpG del rival en ese partido) para el en contra. La media del grupo es la de las medias acumuladas de los equipos del grupo del Castilla en esa jornada. «Más» o «menos» que hace tres partidos, si la media acumulada se mueve al menos 0,1 xG. Si el rival no cruza con Opta, no sale",
+          },
+          {
+            que: "¿Ha cambiado su modelo?",
+            es: "Dos curvas jornada a jornada del rival: PPDA por partido (menos, más presión) y pases por partido, cada partido como punto gris y su media móvil de los últimos 5 en azul, con el bloque de los últimos 5 sombreado. Debajo, una tabla: últimos 5 contra el resto de la temporada, con PPDA, pases, puntos sacados en cada bloque (y por partido) y la diferencia. Arriba, la etiqueta «más reactivo» o «más protagonista» si ha cambiado y una frase que lo dice",
+            cuenta:
+              "Opta, opta:partidos (sus partidos por fecha; «Jornada k» es su k-ésimo partido). PPDA, el que Opta da hecho en cada partido; pases, PsAtt (intentados); puntos, del marcador (3, 1 o 0). La media móvil es la de los 5 últimos partidos con dato hasta cada jornada (sale desde el quinto). Cada bloque, media de sus partidos; el resto necesita al menos 3 partidos. «Más reactivo» si el PPDA sube más de 2 y los pases bajan más de un 10 %; «más protagonista», si el PPDA baja más de 2 y los pases suben más de un 10 %. Si el rival no cruza con Opta, no sale",
           },
           {
             que: "Embudo del ataque",
@@ -2205,7 +2228,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Lo que hacen los mejores en balón parado, las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las pestañas",
@@ -2261,7 +2284,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Sólo con la sesión de administrador: sin ella, la dirección enseña la puerta del laboratorio y el contenido no llega al navegador. Vale también para «Datos».",
-      "La puerta (sin sesión): la ventana «No tienes acceso» con la vuelta a ABP Ofensivo y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta rotulada «Ejemplo» con su fuente: la rutina «Pared delante del portero» del Arsenal (web de la Premier League, datos de Opta) en la pizarra viva, con la leyenda de sus letras (L lanzador, P pared delante del portero, R rematador, S señuelo, 2ª segunda jugada, V vigilancia); esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar (estimación, no medición); y una pregunta del banco de retos (The Analyst, córners de la Premier 2022/23, toda la temporada). El título y el «Próximo rival: … · su ABP» llevan el nombre del próximo rival, del calendario de BeSoccer, y abren su ABP. Nada de la plantilla ni de nuestras rutinas (16/11/2026).",
+      "La puerta (17/11/2026): con la ventana abierta la página no pasa del alto de la pantalla, así el velo lo cubre todo; «Volver» lleva a la pantalla de la que se vino (si se entró directo, a ABP Ofensivo); «Ver la muestra» la abre a lo ancho, sin el formulario, con «Volver» y «Soy yo» arriba. El título dice qué es (la rutina de córner, de la pizarra al proyector, con un ejemplo público) y la lámina del encaje lleva su conclusión («contra hombre vale casi el doble que contra mixta») y su base: un remate de la rutina estimado por el modelo, no una media.",
+      "La puerta (sin sesión): la ventana «No tienes acceso» con «Volver» y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta rotulada «Ejemplo» con su fuente: la rutina «Pared delante del portero» del Arsenal (web de la Premier League, datos de Opta) en la pizarra viva, con la leyenda de sus letras (L lanzador, P pared delante del portero, R rematador, S señuelo, 2ª segunda jugada, V vigilancia); esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar (estimación, no medición); y una pregunta del banco de retos (The Analyst, córners de la Premier 2022/23, toda la temporada). El «Próximo rival: … · su ABP» lleva el nombre del próximo rival, del calendario de BeSoccer, y abren su ABP. Nada de la plantilla ni de nuestras rutinas (16/11/2026).",
       "Un reto de preguntas cuenta como jugado para quien se marca al empezar, aunque no acierte ninguna.",
       "El interruptor «Marcar para abrir» sólo deja apuntado que se abrirá a la plantilla: hoy la pantalla sigue siendo del administrador.",
     ],

@@ -18,6 +18,7 @@ import {
   type Banda,
   BANDA_LABEL,
   direccionDe,
+  esFavorable,
   esProduccion,
   heatColor,
   type Mode,
@@ -67,6 +68,8 @@ type FieldNode = {
   /** Los de la zona sin mirar la dirección: el peso de cada flecha va sobre éstos. */
   todas: number;
   produccion: number;
+  /** Los que acaban con el balón para nosotros (conservado o recuperado). */
+  favorables: number;
   rows: RecordRow[];
   salidas: Salida[];
 };
@@ -157,7 +160,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
       const key = `${banda}-${zona}`;
       const node: FieldNode =
         grouped.get(key) ??
-        { key, banda, zona, count: 0, todas: 0, produccion: 0, rows: [], salidas: [] };
+        { key, banda, zona, count: 0, todas: 0, produccion: 0, favorables: 0, rows: [], salidas: [] };
 
       const produce = esProduccion(resultado, mode);
 
@@ -166,6 +169,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         node.count += 1;
         node.rows.push(row);
         if (produce) node.produccion += 1;
+        if (esFavorable(resultado)) node.favorables += 1;
       }
       grouped.set(key, node);
 
@@ -355,25 +359,26 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 >
                   {node.count}
                 </text>
+                {/* 17/11/2026 (jueces, ronda 19): cada zona dice «n saques · % conservados» (o recuperados), hacia dentro del campo. */}
+                <text
+                  x={x}
+                  y={y < 50 ? y + radius + 3.6 : y - radius - 1.6}
+                  textAnchor="middle"
+                  fontSize="3.4"
+                  fontWeight="700"
+                  fill="#FFFFFF"
+                  stroke="#07111F"
+                  strokeWidth="0.6"
+                  paintOrder="stroke"
+                  pointerEvents="none"
+                >
+                  {`${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`}
+                </text>
               </g>
             );
           })}
         </svg>
         </BoardViewport>
-
-        <div className="pointer-events-none absolute left-4 top-4 rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
-          {isOffensive
-            ? "Atacamos hacia la portería rival (derecha)"
-            : "El rival ataca hacia nuestra portería (izquierda)"}
-        </div>
-        <div className="pointer-events-none absolute bottom-4 left-4 max-w-[75%] rounded-lg bg-[#07111F]/80 px-3 py-2 text-xs text-slate-200 backdrop-blur">
-          {nodes.length
-            ? `${nodes.length} zonas activas · tamaño = volumen · grosor de flecha = peso de la dirección · color = ${
-                isOffensive ? "producción generada" : "peligro concedido"
-              }`
-            : "Sin zonas activas todavía"}
-          {sinUbicar ? ` · ${sinUbicar} sin banda o zona` : ""}
-        </div>
 
         {!nodes.length ? (
           <div className="absolute inset-0 grid place-items-center bg-[#07111F]/45 p-6 text-center">
@@ -469,6 +474,33 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 );
               })}
             </div>
+          </div>
+        ) : null}
+      </div>
+
+      {/*
+      | 17/11/2026 (jueces, ronda 19): las leyendas iban encima del césped y en
+      | el móvil tapaban el campo entero (y en el ordenador cortaban los discos
+      | de la banda de abajo). Ahora van debajo, con la escala de color.
+      */}
+      <div className="mt-3 flex min-w-0 flex-col gap-2 text-[12px] text-white/70 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <p className="min-w-0">
+          {isOffensive ? "Atacamos hacia la derecha: nuestra portería, a la izquierda." : "El rival ataca hacia la izquierda, hacia nuestra portería."}
+          {nodes.length
+            ? ` Junto a cada disco: saques · % ${isOffensive ? "conservados" : "recuperados"}. Tamaño del disco = saques; grosor de la flecha = cuántos van en esa dirección.`
+            : ""}
+          {sinUbicar ? ` ${sinUbicar} ${sinUbicar === 1 ? "saque" : "saques"} sin banda o zona apuntada, fuera del campo.` : ""}
+        </p>
+        {nodes.length ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <span>{isOffensive ? "Color: lo que producimos" : "Color: el peligro que nos hacen"}</span>
+            <span className="text-white/55">poco</span>
+            <span
+              className="h-2 w-24 rounded-full"
+              style={{ background: `linear-gradient(90deg, ${heatColor(0, tono)}, ${heatColor(0.5, tono)}, ${heatColor(1, tono)})` }}
+              aria-hidden
+            />
+            <span className="text-white/55">mucho</span>
           </div>
         ) : null}
       </div>

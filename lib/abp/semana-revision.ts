@@ -35,6 +35,7 @@ import {
   type PlanDia,
   type TipoDia,
   type Trabajo,
+  aspectoLabelLado,
 } from "@/lib/abp/microciclo";
 import { encajaEnAspecto, type CompeticionEvent } from "@/lib/abp/competicion";
 import { MARCA_BOCETO } from "@/lib/abp/minutos";
@@ -542,7 +543,7 @@ export function revisaSemana({
     carencias.push({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
-      titulo: `${fila.aspecto.label} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: no entran en la semana`,
+      titulo: `${aspectoLabelLado(fila.aspecto, fila.lado)} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: no entran en la semana`,
       detalle: `${
         /* Una o dos acciones no hacen urgente nada: se dice el hecho y no se apremia. */
         fila.stats.acciones < 3

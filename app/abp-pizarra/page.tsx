@@ -409,8 +409,8 @@ function marcaDeTablero(tablero?: TableroPizarra) {
 
   if (total === 0) return " · con pizarra";
 
-  /* «· 3 v.»: con «versiones» entero la línea no cabía a 390 px. */
-  return ` · ${total} v.`;
+  /* 17/11/2026 (jueces, ronda 19): «7 v.» no se entendía; la palabra entera. */
+  return ` · ${total} ${total === 1 ? "versión guardada" : "versiones guardadas"}`;
 }
 
 /**
@@ -2882,7 +2882,8 @@ export default function PizarraAbpPage() {
                   07/11/2026 (jueces): Exportar va el primero y es la acción
                   principal; «Colocar en todas» sólo lo es con la pizarra vacía.
                 */}
-                {tablero && tablero.slides.length > 0 && (
+                {/* 17/11/2026 (jueces, ronda 19): sin empezar no hay nada que exportar; la acción es la del aviso. */}
+                {guardado && tablero && tablero.slides.length > 0 && (
                   <ExportaTodo
                     tablero={tablero}
                     rellena={rellenaParaExportar}
@@ -2897,7 +2898,7 @@ export default function PizarraAbpPage() {
 
                 {/* «Tal cual» (13/11/2026, petición del analista): exactamente las
                     pizarras que se ven, fotografiadas de la pantalla, en PDF o PPT. */}
-                {tablero && tablero.slides.length > 0 && (
+                {guardado && tablero && tablero.slides.length > 0 && (
                   <TalCual
                     total={tablero.slides.length}
                     titulos={tablero.slides.map((_, i) => tituloVisible(tablero.slides, i))}
@@ -2910,7 +2911,7 @@ export default function PizarraAbpPage() {
                 )}
 
                 {/* Un PDF vertical por jugador, para el WhatsApp de antes del partido. */}
-                {tablero && tablero.slides.length > 0 && tableroParaJugadores && (
+                {guardado && tablero && tablero.slides.length > 0 && tableroParaJugadores && (
                   <PizarrasJugadores
                     tablero={tableroParaJugadores}
                     players={porId}
@@ -3003,8 +3004,10 @@ export default function PizarraAbpPage() {
               />
             )}
 
-            {/* El once de la pizarra táctica, a la vista: es el que «Colocar» usa. */}
-            {delOnce.length > 0 && (
+            {/* El once de la pizarra táctica, a la vista: es el que «Colocar» usa.
+                17/11/2026 (jueces, ronda 19): sin empezar, la acción primera es la
+                del aviso («Copiar de … y poner el once»), que ya lo pone. */}
+            {delOnce.length > 0 && (guardado || leyendo) && (
               <div className="mt-3 flex min-w-0 flex-col gap-2 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] px-3 py-2.5 sm:flex-row sm:items-center">
                 <div className="flex min-w-0 flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-start">
                   <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
@@ -3458,7 +3461,8 @@ export default function PizarraAbpPage() {
 
                             {/* La cifra, sólo si falta alguien: completa no hace falta decir nada. */}
                             {/* 12/11/2026 (jueces): también sin empezar, diapositiva a diapositiva («0/10»). */}
-                            {(!total || cubiertos < total) && (
+                            {/* 17/11/2026 (ronda 19): sin empezar, nueve «0/10» no decían nada: no sale. */}
+                            {guardado && (!total || cubiertos < total) && (
                               <span className="block text-[11px] tabular-nums text-amber-300/80">
                                 {total ? `${cubiertos}/${total} colocados` : "Libre"}
                               </span>

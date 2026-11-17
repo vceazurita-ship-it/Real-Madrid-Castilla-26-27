@@ -17,7 +17,8 @@ import {
 import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { OptaBandaDia } from "@/components/abp/OptaDia";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
-import { COLOR_DESENLACE, VisualAbp, type FilaVisualAbp } from "@/components/abp/VisualAbp";
+import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
+import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
 import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
 import { capturaNodo, fotograma } from "@/lib/export/captura";
 import { descargaEnMarcha, descargas, encargaDescarga } from "@/lib/trabajos/descargas";
@@ -377,7 +378,7 @@ function nombreDe(key: string, crudo: string, mode?: Mode) {
               ? "el que recibe de cara junto a la línea"
               : /segunda l[ií]nea/i.test(valor)
                 ? "el que recibe por detrás del primero"
-                : `receptor «${valor}»`;
+                : `cuando recibe el ${valor.toLowerCase()}`;
     case "Intencion":
       return `intención «${valor}»`;
     default:
@@ -438,7 +439,14 @@ type ConclusionesBanda = { titular?: string; items: string[] };
  * partido» (defensa), con la métrica, la tarea y el objetivo sacado de la
  * media de las jornadas anteriores.
  */
-function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] | null = null, nAnteriores = 0): ConclusionesBanda {
+function conclusionesDe(
+  rows: RecordRow[],
+  mode: Mode,
+  anteriores: RecordRow[] | null = null,
+  nAnteriores = 0,
+  /** 17/11/2026 (ronda 19): de qué a qué fue lo recuperado por partido antes (sólo con una jornada elegida). */
+  rangoRecuperado: [number, number] | null = null,
+): ConclusionesBanda {
   if (!rows.length) return { items: [] };
 
   const ofensivo = mode === "offensive";
@@ -473,10 +481,12 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
   const titular = ofensivo
     ? `${total} ${total === 1 ? "saque" : "saques"}: conservamos ${favorables} (${pctTexto(favorables, total)}) y ${resumen.produccion} ${
         resumen.produccion === 1 ? "llega" : "llegan"
-      } a último tercio${ocasiones ? `, ${ocasiones} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""}` : ""}`
-    : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} (${pctTexto(favorables, total)}) y le ${
-        resumen.produccion === 1 ? "llega" : "llegan"
-      } ${resumen.produccion} a último tercio${ocasiones ? `, ${ocasiones} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}` : ""}`;
+      } a último tercio${ocasiones ? `, ${ocasiones} de ${total} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""}` : ""}`
+    : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} de ${total} (${pctTexto(favorables, total)}${
+        rangoRecuperado ? `; antes, de ${pctUno(rangoRecuperado[0])} a ${pctUno(rangoRecuperado[1])} por partido` : ""
+      }) y le ${resumen.produccion === 1 ? "llega" : "llegan"} ${resumen.produccion} a último tercio${
+        ocasiones ? `, ${ocasiones} de ${total} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}` : ""
+      }`;
 
   /* 2. Dónde y cómo funciona mejor (para nosotros). */
   const zonas = [
@@ -665,7 +675,13 @@ function conclusionesDe(rows: RecordRow[], mode: Mode, anteriores: RecordRow[] |
 
     if (robo) {
       const quien = nombreDe(vigila?.key ?? "", vigila?.valor ?? "").replace(/^saque a /, "");
-      const vigilancia = vigila ? `, con vigilancia ${quien.startsWith("el que") ? `a ${quien}` : `al ${quien}`}` : "";
+      /* 17/11/2026 (ronda 19): «vigilancia a el que recibe» → «al que recibe». */
+      const vigilado = quien.startsWith("el que ")
+        ? `al ${quien.slice(3)}`
+        : quien.startsWith("cuando recibe el ")
+          ? `al ${quien.slice("cuando recibe el ".length)}`
+          : `a los ${quien}`;
+      const vigilancia = vigila ? `, con vigilancia ${vigilado}` : "";
 
       /*
       | 16/11/2026 (jueces): «si se confirma» era vago. La orden es para el
@@ -1206,10 +1222,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
   const conJornadaPorDefecto = useCallback(
     (estado: { elegidos: Record<string, string>; jornadaTocada: boolean }) =>
-      estado.jornadaTocada || !jornadaPorDefecto
-        ? estado.elegidos
-        : { ...estado.elegidos, JORNADA: jornadaPorDefecto },
-    [jornadaPorDefecto],
+      /* 17/11/2026 (jueces, ronda 19): se abre en la temporada entera (17 de
+         205 saques era muy poca muestra) y la última jornada va marcada en
+         oro; la jornada sola sigue a un toque. */
+      estado.elegidos,
+    [],
   );
 
   /* Lo que lee toda la página: lo elegido, más la jornada por defecto. */
@@ -1435,6 +1452,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       anteriores,
       /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
       filasAnteriores: anteriores.flatMap((una) => porJornada.get(una.clave) ?? []),
+      /* El porcentaje recuperado (o conservado) de cada partido anterior: el más bajo y el más alto. */
+      rangoRecuperado: (() => {
+        const tasas = anteriores
+          .map((una) => porJornada.get(una.clave) ?? [])
+          .filter((f) => f.length > 0)
+          .map((f) => (f.filter((row) => esFavorable(parseResultado(read(row, "Resultado_Final")))).length / f.length) * 100);
+        return tasas.length >= 2 ? ([Math.min(...tasas), Math.max(...tasas)] as [number, number]) : null;
+      })(),
       metricas: metricasComparadas(
         porJornada.get(clave) ?? [],
         anteriores.map((una) => porJornada.get(una.clave) ?? []),
@@ -1529,8 +1554,15 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
   /* Las frases de arriba, con las mismas filas filtradas que los gráficos. */
   /* 16/11/2026: el objetivo de «Qué entrenamos» sale de las jornadas anteriores de la tabla del partido. */
   const conclusiones = useMemo(
-    () => conclusionesDe(filtered, mode, comparativa?.filasAnteriores ?? null, comparativa?.anteriores.length ?? 0),
-    [filtered, mode, comparativa],
+    () =>
+      conclusionesDe(
+        filtered,
+        mode,
+        comparativa?.filasAnteriores ?? null,
+        comparativa?.anteriores.length ?? 0,
+        filters.JORNADA && comparativa ? comparativa.rangoRecuperado : null,
+      ),
+    [filtered, mode, comparativa, filters.JORNADA],
   );
 
   /*
@@ -1811,6 +1843,34 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     ...activos.map(({ key, label }) => `${label}: ${filters[key]}`),
   ].join(" · ") || "Sin filtros · todos los saques registrados";
 
+
+  /* Las filas de «Visual» y sus colores: las comparten la conclusión (la barra de cómo acaban) y las láminas. */
+  const filasVisual: FilaVisualAbp[] = filtered.map((row): FilaVisualAbp => {
+    const res = parseResultado(read(row, "Resultado_Final"));
+    const sujeto = isOffensive ? "rmcf" : "rival";
+    const zona = parseZona(row);
+    return {
+      jornada: parseJornada(read(row, "JORNADA")),
+      cat: res.owner === sujeto && res.rank >= 3 ? "prod" : res.owner === sujeto && res.rank > 0 ? "conserva" : res.owner !== "neutro" && res.owner !== sujeto ? "otro" : "nada",
+      exito: isOffensive ? esFavorable(res) : esProduccion(res, "defensive"),
+      zona: zona ? (zona === 2 ? "el medio" : (zona === 1) === isOffensive ? "nuestro tercio" : "su tercio") : "",
+    };
+  });
+  const categoriasVisual: CategoriaVisual[] =
+    isOffensive
+      ? [
+          { clave: "prod", rotulo: "Último tercio, ocasión o gol", color: COLOR_DESENLACE.mejor },
+          { clave: "conserva", rotulo: "Lo conservamos", color: COLOR_DESENLACE.remate },
+          { clave: "otro", rotulo: "Se lo queda el rival", color: COLOR_DESENLACE.peor },
+          { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
+        ]
+      : [
+          { clave: "prod", rotulo: "Le llega a último tercio, ocasión o gol", color: COLOR_DESENLACE.peor },
+          { clave: "conserva", rotulo: "Lo conserva el rival", color: COLOR_DESENLACE.remate },
+          { clave: "otro", rotulo: "Lo recuperamos", color: COLOR_DESENLACE.mejor },
+          { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
+        ];
+
   /* 16/11/2026 (jueces, ronda 18): el rival del partido y el de la semana, a un toque. */
   const numeroEnHoja = jornadasPresentes.reduce<number | null>(
     (max, una) => (una.competicion === "liga" && una.numero != null && (max === null || una.numero > max) ? una.numero : max),
@@ -1822,6 +1882,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       rival={comparativa?.rival || ""}
       etiqueta={comparativa?.elegida.etiqueta}
       numeroEnHoja={numeroEnHoja}
+      marcado={!filters.JORNADA && !filters.Rival}
       className="mb-5"
     />
   );
@@ -1867,6 +1928,38 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 pantalla entera antes de enseñar un solo dato. El recuento de
                 abajo queda siempre visible para que nadie lea una gráfica
                 filtrada creyendo que la ve completa. */}
+            {/* 17/11/2026 (jueces, ronda 19): el mismo orden que ABP ofensivo y
+                defensivo: el rival y la conclusión arriba; los filtros y
+                Visual/Detalle, debajo. */}
+            {!loading && !exporting ? <div className="mt-6">{relacionado}</div> : null}
+            {!loading && !exporting && enVisual ? (
+              <ConclusionPlegada
+                items={conclusiones.items}
+                titular={conclusiones.titular}
+                marca={filtered.length && filtered.length < MUESTRA_BANDA ? `tendencia · ${filtered.length} saques` : undefined}
+                grafico={
+                  filasVisual.length ? (
+                    <>
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                        ¿Cómo acaban? · {filters.JORNADA ? filters.JORNADA : `la temporada, ${filtered.length} saques`}
+                      </p>
+                      <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
+                      {!filters.JORNADA && jornadaPorDefecto ? (
+                        <button
+                          type="button"
+                          onClick={() => setFilters((f) => ({ ...f, JORNADA: jornadaPorDefecto }))}
+                          className="mt-2 inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/80 hover:bg-white/[0.05]"
+                        >
+                          Ver sólo el último partido ({jornadaPorDefecto})
+                        </button>
+                      ) : null}
+                    </>
+                  ) : null
+                }
+                enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo" }}
+                className="mb-2"
+              />
+            ) : null}
             <div className="mb-7 mt-6 space-y-2.5">
               <FilterDrawer
                 activeCount={activos.length}
@@ -2037,39 +2130,11 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     {/* 16/11/2026 (jueces, ronda 18): el rival del partido ya no es un
                         rótulo suelto: lleva a sus goles en vídeo, su ABP y su plan, y
                         al lado va el de la semana. */}
-                    {relacionado}
-                    <Conclusiones
-                      items={conclusiones.items}
-                      titular={conclusiones.titular}
-                      enlace={{ href: "/abp-microciclo", rotulo: `Ver la tarea de saque de banda ${isOffensive ? "ofensivo" : "defensivo"} en el microciclo` }}
-                    />
                     <VisualAbp
-                      filas={filtered.map((row): FilaVisualAbp => {
-                        const res = parseResultado(read(row, "Resultado_Final"));
-                        const sujeto = isOffensive ? "rmcf" : "rival";
-                        const zona = parseZona(row);
-                        return {
-                          jornada: parseJornada(read(row, "JORNADA")),
-                          cat: res.owner === sujeto && res.rank >= 3 ? "prod" : res.owner === sujeto && res.rank > 0 ? "conserva" : res.owner !== "neutro" && res.owner !== sujeto ? "otro" : "nada",
-                          exito: isOffensive ? esFavorable(res) : esProduccion(res, "defensive"),
-                          zona: zona ? (zona === 2 ? "el medio" : (zona === 1) === isOffensive ? "nuestro tercio" : "su tercio") : "",
-                        };
-                      })}
-                      categorias={
-                        isOffensive
-                          ? [
-                              { clave: "prod", rotulo: "Último tercio, ocasión o gol", color: COLOR_DESENLACE.mejor },
-                              { clave: "conserva", rotulo: "Lo conservamos", color: COLOR_DESENLACE.remate },
-                              { clave: "otro", rotulo: "Se lo queda el rival", color: COLOR_DESENLACE.peor },
-                              { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
-                            ]
-                          : [
-                              { clave: "prod", rotulo: "Le llega a último tercio, ocasión o gol", color: COLOR_DESENLACE.peor },
-                              { clave: "conserva", rotulo: "Lo conserva el rival", color: COLOR_DESENLACE.remate },
-                              { clave: "otro", rotulo: "Lo recuperamos", color: COLOR_DESENLACE.mejor },
-                              { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
-                            ]
-                      }
+                      filas={filasVisual}
+                      categorias={categoriasVisual}
+                      marca={!filters.JORNADA && comparativa ? comparativa.elegida.clave : null}
+                      repartoArriba
                       unidad={isOffensive ? { uno: "saque", varios: "saques", genero: "m" } : { uno: "saque del rival", varios: "saques del rival", genero: "m" }}
                       exito={
                         isOffensive
@@ -2131,8 +2196,6 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                     <p className="text-sm text-white/55">Rival · {comparativa.elegida.etiqueta}</p>
                     <p className="mt-1 text-lg font-semibold uppercase tracking-[0.04em] text-white/90">{comparativa.rival}</p>
                   </div>
-                ) : !exporting ? (
-                  relacionado
                 ) : null}
 
                 <Conclusiones

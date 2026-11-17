@@ -84,6 +84,7 @@ export function RelacionadoAbp({
   rival,
   etiqueta,
   numeroEnHoja,
+  marcado = false,
   className = "",
 }: {
   pantalla: PantallaAbp;
@@ -93,6 +94,8 @@ export function RelacionadoAbp({
   etiqueta?: string;
   /** El número de la última jornada de liga que tiene la hoja. */
   numeroEnHoja?: number | null;
+  /** 17/11/2026 (ronda 19): la pantalla ve la temporada y este partido sólo va marcado. */
+  marcado?: boolean;
   className?: string;
 }) {
   const { partidos } = useCalendario();
@@ -186,7 +189,7 @@ export function RelacionadoAbp({
         {rival ? (
           <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3" style={{ borderLeft: "3px solid #C8A96B" }}>
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
-              {proximoEsElMismo ? "Rival de la semana · el partido que se mira" : `El partido que se mira${etiqueta ? ` · ${etiqueta}` : ""}`}
+              {proximoEsElMismo ? "Rival de la semana · el partido que se mira" : `${marcado ? "El último partido, marcado en oro" : "El partido que se mira"}${etiqueta ? ` · ${etiqueta}` : ""}`}
             </p>
             <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{rival}</p>
             <Atajos atajos={proximoEsElMismo ? [...delPartido, ...delProximo.slice(2)] : delPartido} color="var(--rmcf-gold-ink)" />

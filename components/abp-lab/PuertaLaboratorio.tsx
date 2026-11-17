@@ -28,10 +28,17 @@
  * las letras de la pizarra en lugar de letras sueltas, y el próximo rival con
  * nombre y un enlace a su ABP (el nombre sale del calendario público, no del
  * laboratorio). La ventana y el correo siguen: petición expresa del analista.
+ *
+ * 17/11/2026 (jueces, ronda 19): con la ventana abierta la página no pasa del
+ * alto de la pantalla (el velo ya no deja una franja clara debajo); «Volver»
+ * vuelve a la pantalla de la que se vino; «Ver la muestra» la abre a lo ancho
+ * sin el formulario (que sigue a un toque); el título dice que es un ejemplo
+ * y cada lámina lleva su conclusión y su base. La ventana y el correo, igual.
  */
 
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Lock, Shield } from "lucide-react";
 import { AbpHeader } from "@/components/abp/ui";
 import type { JugadorLab } from "@/components/abp-lab/comun";
@@ -95,10 +102,20 @@ function MuestraEncaje() {
   if (!encaje.length) return null;
 
   const tope = Math.max(...encaje.map((e) => e.xg), 0.01);
+  const orden = [...encaje].sort((a, b) => b.xg - a.xg);
+  const alto = orden[0];
+  const bajo = orden[orden.length - 1];
+  const veces = bajo && bajo.xg > 0 ? alto.xg / bajo.xg : 0;
 
   return (
     <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[11px] font-semibold text-white/70">Goles esperados del remate, según cómo defienda el rival</p>
+      {alto && bajo && alto !== bajo && veces >= 1.15 ? (
+        <p className="text-[13px] font-semibold leading-snug text-white">
+          Contra {etiquetaDefensa(alto.defensa).toLowerCase()} vale {veces >= 1.8 ? "casi el doble" : `${veces.toFixed(1).replace(".", ",")} veces`} que contra{" "}
+          {etiquetaDefensa(bajo.defensa).toLowerCase()}
+        </p>
+      ) : null}
+      <p className="text-[11px] font-semibold text-white/70">Goles esperados de un remate de esta rutina, según cómo defienda el rival</p>
       {encaje.map((e, i) => (
         <div key={e.defensa} className="grid grid-cols-[4.5rem_minmax(0,1fr)_2.5rem] items-center gap-2 text-[12px]">
           <span className="text-white/70">{etiquetaDefensa(e.defensa)}</span>
@@ -111,7 +128,7 @@ function MuestraEncaje() {
           <span className="text-right font-semibold tabular-nums text-white">{comaXg(e.xg)}</span>
         </div>
       ))}
-      <p className="text-[11px] leading-snug text-white/55">Ejemplo: la rutina del Arsenal de al lado. Estimación del modelo del laboratorio (sitio del remate, marca y duelo aéreo), no una medición: sirve para comparar sistemas.</p>
+      <p className="text-[11px] leading-snug text-white/55">Ejemplo: la rutina del Arsenal de al lado. Base: un remate de la rutina, estimado con el modelo del laboratorio (sitio del remate, marca y duelo aéreo); no es una media de partidos ni una medición: sirve para comparar sistemas.</p>
     </div>
   );
 }
@@ -166,11 +183,21 @@ const HERRAMIENTAS: { titulo: string; texto: string; pie: string; muestra: React
 export function PuertaLaboratorio() {
   const { entra } = useAdmin();
   const proximo = useProximoRival();
+  const router = useRouter();
   const [aviso, setAviso] = useState(true);
+  /* «Ver la muestra»: a lo ancho, sin el formulario al lado. */
+  const [soloMuestra, setSoloMuestra] = useState(false);
+
+  /* «Volver»: a la pantalla de la que se vino; si se entró directo, a ABP Ofensivo. */
+  const volver = () => {
+    if (window.history.length > 1) router.back();
+    else router.push("/setpieces");
+  };
 
   /* «Soy yo»: cierra la ventana y deja el cursor en el usuario, el único camino de entrada. */
   const soyYo = () => {
     setAviso(false);
+    setSoloMuestra(false);
     window.requestAnimationFrame(() => {
       const campo = document.querySelector<HTMLInputElement>('#lab-abp-acceso input[name="username"]');
       campo?.focus();
@@ -179,7 +206,7 @@ export function PuertaLaboratorio() {
   };
 
   return (
-    <main className="min-h-screen bg-[#0B0F14] text-white">
+    <main className={`min-h-screen bg-[#0B0F14] text-white ${aviso ? "max-h-[100dvh] overflow-hidden" : ""}`}>
       <div className="flex">
         <Sidebar />
 
@@ -189,12 +216,31 @@ export function PuertaLaboratorio() {
           <div className="flex min-w-0 flex-1 flex-col px-4 pb-24 pt-6 sm:px-6 sm:pb-10 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Balón parado"
-              title={proximo ? `Prueba una rutina de córner contra el ${proximo}` : "Prueba una rutina de córner contra el próximo rival"}
-              lead="Monta la jugada, mira cómo encaja con el rival y llévala al proyector."
+              title="Laboratorio de ABP: la rutina de córner, de la pizarra al proyector"
+              lead="Una muestra con un ejemplo público (Arsenal–Tottenham, Premier League): monta la jugada, mira cuánto vale contra cada defensa y llévala a la plantilla."
             />
 
-            <div className="mt-6 grid min-w-0 max-w-6xl items-start gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
-              <div id="lab-abp-acceso" className="min-w-0 lg:sticky lg:top-6 lg:order-2">
+            {soloMuestra ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={volver}
+                  className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm text-white/80 hover:text-white"
+                >
+                  Volver
+                </button>
+                <button
+                  type="button"
+                  onClick={soyYo}
+                  className="inline-flex min-h-11 items-center rounded-full border border-white/15 px-4 text-sm text-white/80 hover:text-white"
+                >
+                  Soy yo: poner la contraseña
+                </button>
+              </div>
+            ) : null}
+
+            <div className={`mt-6 grid min-w-0 max-w-6xl items-start gap-6 ${soloMuestra ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]"}`}>
+              <div id="lab-abp-acceso" className={`min-w-0 lg:sticky lg:top-6 lg:order-2 ${soloMuestra ? "hidden" : ""}`}>
                 <PuertaAdmin
                   titulo="Entrar en el laboratorio"
                   texto="Usuario y contraseña del administrador."
@@ -252,9 +298,9 @@ export function PuertaLaboratorio() {
               necesitas algo de aquí, pídeselo a Víctor. Detrás de esta ventana tienes una muestra de lo que hace.
             </p>
             <div className="mt-4 flex flex-wrap gap-2">
-              <Link href="/setpieces" className="inline-flex min-h-11 items-center rounded-full bg-[#D8B45A] px-4 text-sm font-semibold text-[#0B0F14]">
-                Volver a ABP Ofensivo
-              </Link>
+              <button type="button" onClick={volver} className="inline-flex min-h-11 items-center rounded-full bg-[#D8B45A] px-4 text-sm font-semibold text-[#0B0F14]">
+                Volver
+              </button>
               <button
                 type="button"
                 onClick={soyYo}
@@ -264,7 +310,10 @@ export function PuertaLaboratorio() {
               </button>
               <button
                 type="button"
-                onClick={() => setAviso(false)}
+                onClick={() => {
+                  setAviso(false);
+                  setSoloMuestra(true);
+                }}
                 className="inline-flex min-h-11 items-center px-2 text-sm text-white/60 underline underline-offset-4 hover:text-white"
               >
                 Ver la muestra

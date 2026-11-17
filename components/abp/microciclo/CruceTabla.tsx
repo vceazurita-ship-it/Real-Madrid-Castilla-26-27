@@ -18,6 +18,7 @@ import {
   LADO_LABEL,
   LADO_SHORT,
   fmtMin,
+  aspectoLabelLado,
 } from "@/lib/abp/microciclo";
 import {
   PESOS,
@@ -258,7 +259,7 @@ export function CruceTabla({ filas }: { filas: FilaCruce[] }) {
                     </span>
 
                     <span className="truncate text-[12.5px] text-white">
-                      {fila.aspecto.label}
+                      {aspectoLabelLado(fila.aspecto, fila.lado)}
                     </span>
 
                     {fila.stats.sinClasificar > 0 && (

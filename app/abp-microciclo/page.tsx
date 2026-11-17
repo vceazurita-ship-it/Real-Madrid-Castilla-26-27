@@ -113,6 +113,7 @@ import {
   type TipoDia,
   type Trabajo,
   type PlanDia,
+  aspectoLabelLado,
 } from "@/lib/abp/microciclo";
 import {
   buscaPartido,
@@ -2074,7 +2075,7 @@ export default function AbpMicrocicloPage() {
                             key={`${fila.aspecto.key}-${fila.lado}`}
                             type="button"
                             onClick={() => planificaAspecto(fila.aspecto.key, fila.lado)}
-                            aria-label={`Planificar ${fila.aspecto.label} ${LADO_LABEL[fila.lado].toLowerCase()}`}
+                            aria-label={`Planificar ${aspectoLabelLado(fila.aspecto, fila.lado)} ${LADO_LABEL[fila.lado].toLowerCase()}`}
                             className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3 text-left transition hover:border-white/25 hover:bg-white/[0.06]"
                           >
                             <div className="flex items-center justify-between gap-2">
@@ -2097,7 +2098,7 @@ export default function AbpMicrocicloPage() {
                             </div>
 
                             <p className="mt-1.5 truncate text-[13px] font-medium text-white">
-                              {fila.aspecto.label}
+                              {aspectoLabelLado(fila.aspecto, fila.lado)}
                             </p>
 
                             <p className="mt-0.5 text-[10.5px] tabular-nums text-white/40">
