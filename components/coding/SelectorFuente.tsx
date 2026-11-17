@@ -39,8 +39,6 @@ import { Button } from "@/components/abp/ui";
 import type { FuenteVideo } from "@/lib/coding/modelo";
 import { NotaPlegable } from "@/components/coding/piezas";
 import { claveClub } from "@/lib/rivals/mismoClub";
-import Link from "next/link";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 type VideoDePartido = {
   ruta: string;
@@ -212,13 +210,9 @@ export function SelectorFuente({
           sí hay a un toque (sus goles y cómo le marcan, en vídeo) y, aparte,
           la carpeta entera; antes era «no tiene vídeos · ver el de otro equipo». */}
       {sinNadaDelEquipo ? (
+        /* 17/11/2026 (ronda 19, fútbol y marketing): sus goles y cómo le marcan
+           salían tres veces; quedan sólo en «A un toque», bajo el marcador. */
         <div className="flex min-w-0 flex-wrap items-center gap-2 text-[12px]">
-          <Link href={urlGolesDelEquipo(equipo ?? "")} className="rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/[0.08] px-3 py-1.5 font-semibold text-white/85 transition hover:text-white">
-            ▶ Goles de {equipo} en vídeo
-          </Link>
-          <Link href={urlGolesDelEquipo(equipo ?? "", "contra")} className="rounded-full border border-white/15 px-3 py-1.5 font-semibold text-white/75 transition hover:text-white">
-            ▶ Cómo le marcan
-          </Link>
           <button
             type="button"
             onClick={() => setVerOtros(true)}

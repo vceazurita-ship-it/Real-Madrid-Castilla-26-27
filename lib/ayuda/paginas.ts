@@ -1416,7 +1416,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones de nuestro partido o de un rival y sacar los cortes en vídeo.",
     origen: "El vídeo lo pone el usuario (carpeta de partidos, enlace o su ordenador); los cortes, las listas y la configuración se guardan solos en Supabase («coding:…»). Partidos, del calendario de BeSoccer; rivales y plantillas, de la hoja RIVALES.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Qué se codifica",
@@ -1426,8 +1426,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Rival", es: "Viene puesto el de la jornada, arriba y aparte («El de esta semana»); los demás, debajo por calendario. Si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
           { que: "Guardado", es: "Cuántos cortes lleva la sesión y la hora del último guardado; «Sin guardar» mientras quede algo por mandar" },
           { que: "Marcador", es: "Escudos, resultado, competición y fecha, con los cortes que lleva cada categoría y cada comportamiento; el rival de la jornada dice «el de esta semana». Encima, «Análisis · Coding» (el equipo no se repite)", cuenta: "Cuenta los cortes de todo el partido, no sólo los del vídeo abierto" },
-          { que: "A un toque (16/11/2026)", es: "Bajo el marcador, con el equipo ya elegido. De un rival: sus goles en vídeo, cómo le marcan, su ABP, su plantilla y, si es el de esta semana, el Plan de partido. De nuestro partido: su post en Análisis de datos y robos, pérdidas y faltas si ese partido ya está etiquetado" },
-          { que: "Sin vídeo abierto", es: "En el hueco del vídeo, «Elegir vídeo», cuántos cortes lleva ya la sesión y, de un rival, «▶ Sus goles en vídeo» y «▶ Cómo le marcan»" },
+          { que: "A un toque (16/11/2026)", es: "Bajo el marcador, con el equipo ya elegido. De un rival: sus goles en vídeo, cómo le marcan, su Plan de partido (siempre, con el rival puesto), su ABP, su plantilla, sus jugadores uno a uno (Scout individual) y, si ya jugamos contra él, el post de ese partido. De nuestro partido: su post en Análisis de datos y robos, pérdidas y faltas si ese partido ya está etiquetado. Es el único sitio de la pantalla con sus goles y cómo le marcan (17/11/2026)" },
+          { que: "Sin vídeo abierto", es: "En el hueco del vídeo, «Elegir vídeo» y, si la sesión ya tiene cortes, cuántos lleva y el último (jugador, categoría y día). Sin vídeos suyos en la carpeta, sólo el botón de la carpeta de partidos. «Sacar los vídeos y subir a YouTube» no sale hasta que hay cortes" },
           { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez. En el móvil, sin vídeo abierto, va lo primero" },
           { que: "Carpeta de partidos", es: "Sólo los vídeos del rival elegido; los de otros equipos, plegados tras «Ver también». Si no hay ninguno suyo, en su sitio salen sus goles y cómo le marcan en vídeo, y la carpeta entera queda a un toque («Carpeta de partidos (N)»)", cuenta: "Un vídeo es del rival si su nombre lleva alguna palabra del rival sin siglas (Real Murcia → «murcia»)" },
           { que: "Para empezar", es: "Sin un solo corte, en vez del panel de marcar y la lista vacía: tres pasos (abrir el vídeo, elegir jugador, marcar con I y O), con lo hecho tachado y lo siguiente en oro" },
