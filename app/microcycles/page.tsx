@@ -2725,7 +2725,7 @@ export default function Page() {
                 */}
                 {[...lecturasDeLaSemana, ...lecturas].length > 0 && (() => {
                   const todas = [...lecturasDeLaSemana, ...lecturas]
-                    .map((l, k) => ({ icon: l.icon, tone: l.tone, peso: l.peso, text: l.text, titular: "titular" in l ? l.titular : undefined, k }))
+                    .map((l, k) => ({ icon: l.icon, tone: l.tone, peso: l.peso, text: l.text, titular: ("titular" in l ? l.titular : undefined) as string | undefined, k }))
                     .sort((a, b) => b.peso - a.peso || a.k - b.k);
                   const partir = (l: (typeof todas)[number]) => {
                     if (l.titular) return { t: l.titular, c: l.text };
