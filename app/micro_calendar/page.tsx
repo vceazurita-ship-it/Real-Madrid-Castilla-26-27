@@ -3,7 +3,7 @@ import { traeJson } from "@/lib/hojaCsv";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Brain, CalendarDays, ClipboardCheck, Clock3, Dumbbell, FileText, Users } from "lucide-react";
+import { AlertTriangle, Brain, CalendarDays, ClipboardCheck, Clock3, Dumbbell, FileText, Users } from "lucide-react";
 import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import {
@@ -29,6 +29,8 @@ import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cuentaDias, esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { contenidoUnificado } from "@/lib/microciclo/contenidos";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
@@ -429,10 +431,12 @@ export default function MicroCalendar() {
   const tasksByDay = useMemo(() => {
     const map = new Map<string, MicrocycleRecord[]>();
 
-    microcycleData.forEach((task) => {
-      const key = recordDateKey(task.Fecha);
+    microcycleData.forEach((crudo) => {
+      const key = recordDateKey(crudo.Fecha);
       if (!key) return;
 
+      /* 17/11/2026 (jueces): el mismo contenido con un solo nombre (lib/microciclo/contenidos.ts). */
+      const task = { ...crudo, "Contenido Principal": contenidoUnificado(String(crudo["Contenido Principal"] ?? "")) };
       const list = map.get(key);
       if (list) list.push(task);
       else map.set(key, [task]);
@@ -454,7 +458,7 @@ export default function MicroCalendar() {
           "Nº Jugadores": t.jugadores,
           Grupo: t.grupo,
           Espacio: t.espacio ?? "",
-          "Contenido Principal": t.contenidoPrincipal,
+          "Contenido Principal": contenidoUnificado(t.contenidoPrincipal),
           "Contenido Secundario": t.contenidoSecundario,
           Fase: t.fase,
           Tiempo: t.tiempo,
@@ -586,10 +590,51 @@ export default function MicroCalendar() {
       .map((t) => ({ label: t.label, color: t.dot }));
     /* Segunda vuelta: la barra y el discontinuo también se explican aquí, encima del mes. */
     const extra = [
-      { label: "Barra = minutos de ese contenido sobre los de la sesión", color: "hidden" },
-      { label: "Borde discontinuo = planificado, aún sin minutos", color: "hidden" },
+      { label: "Barra = minutos del contenido", color: "hidden" },
+      { label: "MD-n = días hasta el partido · discontinuo = planificado, sin minutos", color: "hidden" },
     ];
-    return fases.length ? [{ label: "Fondo del día = fase con más minutos (sin Global):", color: "hidden" }, ...fases, ...extra] : extra;
+    return fases.length ? [{ label: "Fase con más minutos (sin Global):", color: "hidden" }, ...fases, ...extra] : extra;
+  }, [sessionDays, tasksByDay, active]);
+
+  /*
+  | LA CARGA DEL MES, PRIMERO EN BARRAS (17/11/2026, jueces): una barra por
+  | entreno hecho del mes (UA = suma de la «Carga Ponderada» de sus tareas,
+  | sin el partido), coloreada por su MD, con la marca de la media de ese MD en
+  | la temporada (3 días o más). Lo visual antes que el calendario.
+  */
+  const cargaDias = useMemo(() => {
+    const todos: { key: string; md: string; ua: number }[] = [];
+
+    for (const key of sessionDays) {
+      const tareas = tasksByDay.get(key) ?? [];
+      const entreno = tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t)));
+      const ua = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
+
+      if (ua <= 0) continue;
+
+      todos.push({ key, md: String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, ""), ua: Math.round(ua) });
+    }
+
+    const suma = new Map<string, { ua: number; n: number }>();
+
+    for (const d of todos) {
+      if (!d.md) continue;
+
+      const s = suma.get(d.md) ?? { ua: 0, n: 0 };
+
+      s.ua += d.ua;
+      s.n += 1;
+      suma.set(d.md, s);
+    }
+
+    const media = new Map([...suma.entries()].filter(([, s]) => s.n >= 3).map(([md, s]) => [md, Math.round(s.ua / s.n)]));
+    const delMes = todos.filter((d) => {
+      const f = parseDateKey(d.key);
+
+      return f.getMonth() === active.month && f.getFullYear() === active.year;
+    });
+
+    return { delMes, media };
   }, [sessionDays, tasksByDay, active]);
 
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
@@ -839,6 +884,35 @@ export default function MicroCalendar() {
       loading={loading}
       keyboardEnabled={!selectedKey}
       legend={leyendaMes}
+      /*
+      | 17/11/2026 (jueces): la decisión de la semana (la lectura de la carga)
+      | sube a una tarjeta de aviso bajo el titular, y la carga del mes va en
+      | barras antes que el calendario. Lo que no hay no se pinta.
+      */
+      franja={
+        lecturaCarga || lecturaCognitiva || cargaDias.delMes.length >= 2 ? (
+          <div className="space-y-3">
+            {lecturaCarga || lecturaCognitiva ? (
+              <p className="flex items-start gap-2 rounded-2xl border border-amber-400/35 bg-amber-400/[0.07] px-4 py-3 text-[14px] leading-snug text-white/85">
+                <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
+                <span>{[lecturaCarga, lecturaCognitiva].filter(Boolean).join(" ")}</span>
+              </p>
+            ) : null}
+            {cargaDias.delMes.length >= 2 ? (
+              <BarrasCargaMes
+                dias={cargaDias.delMes}
+                media={cargaDias.media}
+                mes={MONTHS[active.month].toLowerCase()}
+                comparacion={
+                  comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
+                    ? { antes: mesPrevio.stats.cargaMedia, ahora: monthStats.cargaMedia, mesAntes: MONTHS[mesPrevio.month].toLowerCase(), base: mesPrevio.completo ? "" : `1-${mesPrevio.hasta}` }
+                    : null
+                }
+              />
+            ) : null}
+          </div>
+        ) : undefined
+      }
       stats={
         <>
           <CalendarStat
@@ -897,7 +971,7 @@ export default function MicroCalendar() {
                     <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                     <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                     <Escudo url={escudoDe(suyo.rival)} nombre={nombreBonito(suyo.rival)} className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreBonito(suyo.rival)}</span>
+                    <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
                   </div>
                   {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
                   {(() => {
@@ -918,17 +992,28 @@ export default function MicroCalendar() {
           const mdVacio = mdDelDia(key, fechasPartido);
           const enSemana = /^MD-[1-5]$/.test(mdVacio);
           const libre = sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
+          /* 17/11/2026 (jueces): el día después del partido es «MD+1 · recuperación», como en el creador de micros. */
+          const ayer = parseDateKey(key);
 
-          return libre || enSemana
+          ayer.setDate(ayer.getDate() - 1);
+
+          const ayerKey = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, "0")}-${String(ayer.getDate()).padStart(2, "0")}`;
+          const trasPartido = partidoDelDia.has(ayerKey) || [...fechasPartido].some((f) => String(f).slice(0, 10) === ayerKey);
+
+          return libre || enSemana || trasPartido
             ? {
                 badges: (
                   <span className="flex items-center gap-1">
-                    {enSemana ? (
+                    {trasPartido ? (
+                      <span className="whitespace-nowrap rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold text-white/65" title="El día después del partido">
+                        MD+1 · recuperación
+                      </span>
+                    ) : enSemana ? (
                       <span className="whitespace-nowrap rounded-full border border-white/20 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/65" title="Días que faltan para el próximo partido (sin tareas en la hoja todavía)">
                         {mdVacio}
                       </span>
                     ) : null}
-                    {libre ? <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span> : null}
+                    {libre && !trasPartido ? <span className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Libre</span> : null}
                   </span>
                 ),
               }
@@ -1019,7 +1104,7 @@ export default function MicroCalendar() {
                   <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">
-                    {nombreBonito(partido)}
+                    {nombreCorto(nombreBonito(partido))}
                   </span>
                 </div>
               )}
@@ -1054,7 +1139,7 @@ export default function MicroCalendar() {
                 <div key={name} title={tituloConSiglas(name)}>
                   <div className="flex items-baseline justify-between gap-2">
                     {/* 10/11/2026: dos líneas antes de cortar; el nombre entero va en el title. */}
-                    <span className="line-clamp-2 min-w-0 break-words text-[11px] leading-tight md:text-xs">{name}</span>
+                    <span className="min-w-0 break-words text-[11px] leading-tight md:text-xs">{name}</span>
 
                     {minutes > 0 && (
                       <span className="shrink-0 text-[11px] text-white/55">
@@ -1117,7 +1202,6 @@ export default function MicroCalendar() {
             {leyendaMes.length > 0 ? "Fondo del día = fase con más minutos, sin contar Global · " : ""}Barra = minutos de ese contenido sobre los de la sesión.
           </p>
           <p>Borde discontinuo y «planificado» = entreno de la hoja que aún no tiene minutos. MD-n = días que faltan para el próximo partido, como en el creador de micros.</p>
-          {(lecturaCarga || lecturaCognitiva) && <p>{[lecturaCarga, lecturaCognitiva].filter(Boolean).join(" ")}</p>}
           {monthStats.siglas.size > 0 && (
             <p>
               {SIGLAS.filter((s) => monthStats.siglas.has(s.sigla)).map((s, i) => (
@@ -1333,6 +1417,95 @@ export default function MicroCalendar() {
         </CalendarDayModal>
       )}
     </CalendarShell>
+  );
+}
+
+/* Un color por MD (17/11/2026): el mismo en las barras y en su leyenda. */
+const COLOR_MD: Record<string, string> = {
+  "MD-1": "#38BDF8",
+  "MD-2": "#A78BFA",
+  "MD-3": "#34D399",
+  "MD-4": "#C8A96B",
+  "MD-5": "#FB7185",
+};
+
+/**
+ * LA CARGA DEL MES EN BARRAS (17/11/2026, jueces). Una barra por entreno
+ * hecho, coloreada por su MD, con la raya de la media de ese MD en la
+ * temporada; y, si se puede comparar, la media del mes frente a la del
+ * anterior en los mismos días.
+ */
+function BarrasCargaMes({
+  dias,
+  media,
+  mes,
+  comparacion,
+}: {
+  dias: { key: string; md: string; ua: number }[];
+  media: Map<string, number>;
+  mes: string;
+  comparacion: { antes: number; ahora: number; mesAntes: string; base: string } | null;
+}) {
+  const max = Math.max(1, ...dias.map((d) => d.ua), ...dias.map((d) => media.get(d.md) ?? 0));
+  const mds = [...new Set(dias.map((d) => d.md).filter(Boolean))].sort();
+  const titulo = comparacion
+    ? `${comparacion.ahora > comparacion.antes ? "Más" : comparacion.ahora < comparacion.antes ? "Menos" : "La misma"} carga por entreno que en ${comparacion.mesAntes}: ${comparacion.ahora} UA frente a ${comparacion.antes}${comparacion.base ? ` (días ${comparacion.base})` : ""}`
+    : `Carga física por entreno en ${mes}`;
+
+  return (
+    <section aria-label="Carga física por entreno del mes" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <h2 className="text-[14px] font-semibold text-white/90">{titulo}</h2>
+      <p className="mt-0.5 text-[12px] text-white/55">
+        Una barra por entreno hecho (UA = minutos × intensidad); la raya es la media de ese MD en la temporada.
+      </p>
+
+      <div className="mt-3 grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_200px]">
+        <div className="flex h-28 min-w-0 items-end gap-1 overflow-x-auto" role="img" aria-label={`Carga de ${dias.length} entrenos de ${mes}`}>
+          {dias.map((d) => {
+            const m = media.get(d.md);
+
+            return (
+              <div key={d.key} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={`${d.key.slice(8, 10)}/${d.key.slice(5, 7)} · ${d.md || "sin MD"} · ${d.ua} UA${m ? ` (media del ${d.md}: ${m})` : ""}`}>
+                <div className="relative h-20 w-full">
+                  <span className="absolute inset-x-0 bottom-0 rounded-t-[3px]" style={{ height: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
+                  {m ? <span className="absolute inset-x-[-2px] h-0.5 rounded-full" style={{ bottom: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
+                </div>
+                <span className="text-[10px] tabular-nums text-white/55">{Number(d.key.slice(8, 10))}</span>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="min-w-0 space-y-2">
+          {comparacion ? (
+            <div className="space-y-1">
+              {[
+                { rotulo: comparacion.mesAntes, ua: comparacion.antes, color: "rgb(var(--rmcf-ink-rgb) / .35)" },
+                { rotulo: mes, ua: comparacion.ahora, color: "#C8A96B" },
+              ].map((b) => (
+                <div key={b.rotulo} className="text-[12px]">
+                  <p className="flex justify-between gap-2 text-white/70">
+                    <span className="capitalize">{b.rotulo}</span>
+                    <span className="tabular-nums font-semibold">{b.ua} UA</span>
+                  </p>
+                  <div className="h-2 overflow-hidden rounded-full bg-white/10">
+                    <div className="h-full rounded-full" style={{ width: `${(100 * b.ua) / Math.max(comparacion.antes, comparacion.ahora)}%`, background: b.color }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : null}
+          <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/60">
+            {mds.map((md) => (
+              <span key={md} className="inline-flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_MD[md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} aria-hidden />
+                {md}
+              </span>
+            ))}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

@@ -56,7 +56,7 @@ export function useJornadasRivales() {
   return jornadas;
 }
 
-export type EnlaceRival = { href: string; texto: string; title: string; Icono: typeof Flag };
+export type EnlaceRival = { href: string; texto: string; title: string; Icono: typeof Flag; equipo: string };
 
 /** Los enlaces de un rival; `fecha` en AAAA-MM-DD para dar con su fila. */
 export function enlacesDelRival(jornadas: JornadaRival[], rival: string, fecha?: string): EnlaceRival[] {
@@ -72,10 +72,10 @@ export function enlacesDelRival(jornadas: JornadaRival[], rival: string, fecha?:
   const plan = suya?.id ? `/match-preparation?rival=${encodeURIComponent(suya.id)}` : "/match-preparation";
 
   return [
-    { href: plan, texto: "Plan de partido", title: `El plan contra ${equipo}`, Icono: Flag },
-    { href: conEquipo("/scout-rival-abp"), texto: "Su ABP", title: `El balón parado de ${equipo}`, Icono: Goal },
-    { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", title: `Los goles de ${equipo}, en el campo y en vídeo`, Icono: Clapperboard },
-    { href: conEquipo("/rivals"), texto: "Su plantilla", title: `La plantilla de ${equipo}`, Icono: ShieldHalf },
+    { href: plan, texto: "Plan de partido", title: `El plan contra ${equipo}`, Icono: Flag, equipo },
+    { href: conEquipo("/scout-rival-abp"), texto: "Su ABP", title: `El balón parado de ${equipo}`, Icono: Goal, equipo },
+    { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", title: `Los goles de ${equipo}, en el campo y en vídeo`, Icono: Clapperboard, equipo },
+    { href: conEquipo("/rivals"), texto: "Su plantilla", title: `La plantilla de ${equipo}`, Icono: ShieldHalf, equipo },
   ];
 }
 
@@ -85,11 +85,14 @@ export function EnlacesDelRival({
   fecha,
   solo,
   className = "",
+  conNombre = false,
 }: {
   rival: string;
   fecha?: string;
   solo?: string[];
   className?: string;
+  /** «Su ABP · Rayo Majadahonda» (17/11/2026, jueces): el rival en el rótulo. */
+  conNombre?: boolean;
 }) {
   const jornadas = useJornadasRivales();
   const enlaces = enlacesDelRival(jornadas, rival, fecha).filter((e) => !solo || solo.includes(e.texto));
@@ -98,7 +101,7 @@ export function EnlacesDelRival({
 
   return (
     <nav aria-label={`Accesos de ${rival}`} className={`flex min-w-0 flex-wrap gap-1.5 ${className}`}>
-      {enlaces.map(({ href, texto, title, Icono }) => (
+      {enlaces.map(({ href, texto, title, Icono, equipo }) => (
         <Link
           key={texto}
           href={href}
@@ -106,7 +109,7 @@ export function EnlacesDelRival({
           className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/[0.06] px-2.5 py-1 text-[12px] font-semibold text-sky-200 transition hover:bg-sky-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
         >
           <Icono size={13} className="shrink-0" aria-hidden />
-          {texto}
+          {conNombre && texto.startsWith("Su") ? `${texto} · ${equipo}` : texto}
         </Link>
       ))}
     </nav>

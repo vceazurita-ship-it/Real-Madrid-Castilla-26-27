@@ -206,6 +206,12 @@ export function DiaConectado({
                 {suyos.map((r) => (
                   <LineaResultado key={r.id} r={r} />
                 ))}
+                {/* 17/11/2026 (jueces): la tarea medida lleva a sus clips del análisis de entrenamiento de ese día. */}
+                {soloLectura && suyos.length > 0 && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? (
+                  <Link href={enlaceAnalisis(fecha)} className="mt-0.5 inline-block text-[11px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                    Ver sus clips →
+                  </Link>
+                ) : null}
               </li>
             );
           })}

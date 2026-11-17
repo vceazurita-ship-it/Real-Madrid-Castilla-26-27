@@ -20,7 +20,7 @@ import Link from "next/link";
 import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
 import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
-import { planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
+import { enlaza, nombreVisible, planDeRegistro, propuestasDeLaSesion, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
 import type { LucideIcon } from "lucide-react";
 import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
 import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas, tipoDeTareaUnificado } from "@/lib/microciclo/cuenta";
@@ -1106,9 +1106,43 @@ export default function Page() {
         exigCog: avg(set.map((r) => r.exigCog).filter((n) => n > 0)),
         eval: avg(set.map((r) => r.evaluacion).filter((n) => n > 0)),
         pctCarga: +((sum(set.map((r) => r.carga)) / totalLoad) * 100).toFixed(1),
+        /*
+        | 17/11/2026 (jueces): con un micro elegido, la media de la temporada
+        | de ese MD (UA de cada día con carga, de los demás micros), para ver
+        | si el día va por encima o por debajo de lo habitual.
+        */
+        mediaMd:
+          micro === "ALL"
+            ? null
+            : (() => {
+                const porMicro = new Map<number, number>();
+
+                for (const r of rows) {
+                  if (r.md !== md || !(r.carga > 0) || String(r.micro) === micro) continue;
+                  if (esFilaDePartido(r)) continue;
+                  porMicro.set(r.micro, (porMicro.get(r.micro) ?? 0) + r.carga);
+                }
+
+                return porMicro.size >= 3 ? Math.round(sum([...porMicro.values()]) / porMicro.size) : null;
+              })(),
       };
     });
-  }, [work, mdOrder]);
+  }, [work, mdOrder, rows, micro]);
+
+  /* La orden de la carga por día: el MD que más se aparta de su media (±15 %), con su cifra. */
+  const ordenCarga = useMemo(() => {
+    const conMedia = mdData.filter((d) => d.carga > 0 && d.mediaMd);
+    const peor = conMedia
+      .map((d) => ({ md: d.md, pct: Math.round((100 * (d.carga - (d.mediaMd ?? 0))) / (d.mediaMd ?? 1)) }))
+      .sort((a, b) => Math.abs(b.pct) - Math.abs(a.pct))[0];
+
+    if (!peor) return "";
+    if (Math.abs(peor.pct) < 15) return `Carga por día en línea con la temporada (${conMedia.length} ${conMedia.length === 1 ? "día" : "días"} comparados)`;
+
+    return peor.pct > 0
+      ? `${peor.md} va un ${peor.pct} % por encima de su media: bajar volumen si no se busca`
+      : `${peor.md} va un ${Math.abs(peor.pct)} % por debajo de su media: subirlo si no es una descarga buscada`;
+  }, [mdData]);
 
   /* Días con tareas pero sin tiempo o intensidad medidos: se avisa en una línea. */
   const diasSinMedida = useMemo(
@@ -1355,7 +1389,50 @@ export default function Page() {
   );
 
   /* 11/11/2026: el reparto por fase sigue al botón «Competición excluida»: sin el partido, sólo las de entreno. */
-  const faseMetrics = useMemo(() => groupBy("fase", work), [work]);
+  /*
+  | EL ANILLO DE FASES, LEGIBLE (17/11/2026, jueces). «Global» era el 64 % y
+  | tapaba lo demás: va aparte, en una línea. Una tarea con dos fases («Tr
+  | Ofensiva, Tr Defensiva») cuenta media en cada una, no una categoría mixta.
+  | Las fases de una tarea o menos se juntan en «Otras». Y el título dice la
+  | conclusión: qué fase no se ha trabajado o cuál pesa más.
+  */
+  const repartoFases = useMemo(() => {
+    const cuenta = new Map<string, number>();
+    let global = 0;
+
+    for (const r of work) {
+      const partes = String(r.fase ?? "")
+        .split(/[,;/+]|\sy\s/)
+        .map((s) => s.trim())
+        .filter(Boolean);
+
+      if (!partes.length) continue;
+
+      const peso = 1 / partes.length;
+
+      for (const p of partes) {
+        if (/^global/i.test(p)) global += peso;
+        else cuenta.set(p, (cuenta.get(p) ?? 0) + peso);
+      }
+    }
+
+    const lista = [...cuenta.entries()].sort((a, b) => b[1] - a[1]);
+    const pequenas = lista.filter(([, n]) => n <= 1);
+    const datos = [
+      ...lista.filter(([, n]) => n > 1 || pequenas.length < 2).map(([nombre, valor]) => ({ nombre, valor, otras: [] as string[] })),
+      ...(pequenas.length >= 2 ? [{ nombre: "Otras", valor: pequenas.reduce((s, [, n]) => s + n, 0), otras: pequenas.map(([n]) => n) }] : []),
+    ];
+    const claves = [...cuenta.keys()];
+    const canon = [
+      { nombre: "organización ofensiva", re: /^(fase\s+)?(organizaci[oó]n\s+)?ofens|^ataque/i },
+      { nombre: "organización defensiva", re: /^(fase\s+)?(organizaci[oó]n\s+)?defens|^defensa/i },
+      { nombre: "transición ofensiva", re: /^tr(ansici[oó]n)?\.?\s*ofens/i },
+      { nombre: "transición defensiva", re: /^tr(ansici[oó]n)?\.?\s*defens/i },
+    ];
+    const faltan = claves.length ? canon.filter((c) => !claves.some((k) => c.re.test(k))).map((c) => c.nombre) : [];
+
+    return { datos, global, total: work.length, enAnillo: datos.reduce((s, d) => s + d.valor, 0), faltan, principal: lista[0] ?? null };
+  }, [work]);
 
   const tipoMetrics = useMemo(() => groupBy("tipo", work), [work]);
 
@@ -1862,6 +1939,38 @@ export default function Page() {
 
   const { almacen: almacenEquipos, entrenos } = useDiasConectados(fechasDelMicro);
 
+  /*
+  | 17/11/2026 (jueces): lo que el plan tenía y la sesión no («L-T1 Juego de
+  | Posesión no se hizo») es una lectura de la semana, con su día. Misma regla
+  | que «no se hizo» en cada día (lib/sesion-dia/conexion.ts, `enlaza`).
+  */
+  const lecturasDeLaSemana = useMemo(() => {
+    const noHechas: string[] = [];
+
+    for (const d of diasDelMicro) {
+      const equipos = sesionDeFecha(almacenEquipos?.sesiones, d.fecha);
+
+      if (!equipos) continue;
+
+      const enlace = enlaza(equipos.tareas, d.plan);
+
+      d.plan.forEach((p, k) => {
+        if (!enlace.includes(k)) noHechas.push(`${p.codigo} ${nombreVisible(p.tipo, p.contenidoPrincipal, p.formato)}`.trim());
+      });
+    }
+
+    return noHechas.length
+      ? [
+          {
+            icon: ListChecks,
+            tone: "text-white/60",
+            peso: 75,
+            text: `${noHechas.join(", ")}: ${noHechas.length === 1 ? "no se hizo" : "no se hicieron"} en la sesión, aunque ${noHechas.length === 1 ? "estaba" : "estaban"} en el plan.`,
+          },
+        ]
+      : [];
+  }, [diasDelMicro, almacenEquipos]);
+
   const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
 
   const tipoAxisWidth = isMobile ? 140 : isNarrow ? 170 : 220;
@@ -1985,6 +2094,31 @@ export default function Page() {
                   <FileText className="h-4 w-4" />
                   Informe del partido
                 </button>
+
+                {/*
+                | 17/11/2026 (jueces): el post del micro anterior es lo que corrige
+                | la semana: un toque lo abre (elige ese micro y su informe).
+                */}
+                {(() => {
+                  const i = selectedMicroStat ? microStats.findIndex((m) => m.micro === selectedMicroStat.micro) : -1;
+                  const previo = i > 0 ? microStats[i - 1] : null;
+
+                  return previo ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMicro(String(previo.micro));
+                        setInformeAbierto(true);
+                      }}
+                      className="inline-flex items-center gap-2 rounded-2xl border border-white/12 px-4 py-2.5 text-sm text-white/70 transition hover:border-white/25 hover:text-white"
+                      title={`El informe post del micro ${etiquetaMicro(previo.micro)}`}
+                    >
+                      <FileText className="h-4 w-4" />
+                      Post del M{etiquetaMicro(previo.micro)}
+                      {previo.rival ? ` · ${nombreEquipo(previo.rival)}` : ""}
+                    </button>
+                  ) : null;
+                })()}
               </div>
 
               {/*
@@ -2141,7 +2275,7 @@ export default function Page() {
             {/* ---------------- Filters ---------------- */}
 
             {/* Cabecera más ligera (10/11/2026): sin sombra ni degradado, los filtros no compiten con los indicadores. */}
-            <div className="rounded-[24px] border border-white/10 bg-white/[0.02] p-4 sm:p-6">
+            <div className="rounded-[24px] border border-white/10 bg-white/[0.02] p-4 max-md:pr-14 sm:p-6">
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3">
                 <Select
                   value={micro}
@@ -2537,7 +2671,7 @@ export default function Page() {
                   </Panel>
                 )}
 
-                {lecturas.length > 0 && (
+                {[...lecturasDeLaSemana, ...lecturas].length > 0 && (
                   <div className="order-1 rounded-3xl border border-white/10 bg-gradient-to-br from-[#C8A96B]/[0.07] to-white/[0.02] p-6 sm:p-7">
                     <h2 className="mb-5 flex items-center gap-2 text-lg font-semibold">
                       <Sparkles className="h-5 w-5 text-[#C8A96B]" />
@@ -2545,7 +2679,7 @@ export default function Page() {
                     </h2>
 
                     <div className="grid grid-cols-1 lg:grid-cols-2 gap-x-8 gap-y-3">
-                      {lecturas.map((i, idx) => {
+                      {[...lecturasDeLaSemana, ...lecturas].map((i, idx) => {
                         const Icon = i.icon;
 
                         return (
@@ -2566,13 +2700,14 @@ export default function Page() {
 
                 {/* items-start (16/11/2026): cada tarjeta mide lo que su contenido; el perfil
                     de dos barras ya no se estira a la altura del gráfico de al lado. */}
-                <div className="order-2 grid grid-cols-1 items-start xl:grid-cols-2 gap-5 sm:gap-6">
+                <div className="order-2 grid grid-cols-1 items-stretch xl:grid-cols-2 gap-5 sm:gap-6">
                   {/* 11/11/2026: sin minutos medidos el bloque no se pinta (nada de «aún sin medir»). */}
                   {hayCarga && (
                   <Panel
-                    className="order-4 xl:col-span-2"
-                    title="Distribución de carga en el microciclo"
-                    subtitle="Carga física y cognitiva por día, con intensidad media"
+                    className="order-first xl:col-span-2"
+                    /* 17/11/2026 (jueces): el título es la orden de la semana, con la media de cada MD dibujada. */
+                    title={ordenCarga || "Distribución de carga en el microciclo"}
+                    subtitle={`Carga física y cognitiva por día (UA = minutos × intensidad), con intensidad media${mdData.some((d) => d.mediaMd) ? "; la línea discontinua es la media de la temporada de cada MD" : ""}`}
                   >
                     {!mdData.some((d) => d.carga > 0 || d.cargaCog > 0) ? (
                       <p className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-sm text-white/60">
@@ -2644,6 +2779,21 @@ export default function Page() {
                           isAnimationActive={false}
                           radius={[8, 8, 0, 0]}
                         />
+
+                        {mdData.some((d) => d.mediaMd) ? (
+                          <Line
+                            yAxisId="left"
+                            type="monotone"
+                            dataKey="mediaMd"
+                            name="Media de la temporada (física)"
+                            isAnimationActive={false}
+                            stroke="rgba(148,163,184,.9)"
+                            strokeDasharray="5 4"
+                            strokeWidth={2}
+                            dot={{ r: 3 }}
+                            connectNulls={false}
+                          />
+                        ) : null}
 
                         <Line
                           yAxisId="right"
@@ -2740,7 +2890,14 @@ export default function Page() {
                               </span>
                             </div>
                             <div className="relative mt-1 h-2 rounded-full bg-white/10">
-                              <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${Math.min(d.value, 10) * 10}%` }} />
+                              {/* 17/11/2026 (jueces): sin base firme, atenuada y rayada: no se lee como fortaleza. */}
+                              <div
+                                className={`h-full rounded-full ${ref && !firme ? "opacity-40" : ""}`}
+                                style={{
+                                  width: `${Math.min(d.value, 10) * 10}%`,
+                                  background: ref && !firme ? "repeating-linear-gradient(135deg, #C8A96B 0 4px, transparent 4px 7px)" : "#C8A96B",
+                                }}
+                              />
                               {/* La marca de la media de la temporada (16/11/2026), sólo con base firme. */}
                               {ref && firme ? (
                                 <span
@@ -2852,12 +3009,46 @@ export default function Page() {
                         />
                       </ComposedChart>
                     </Chart>
+                    {/*
+                    | 17/11/2026 (jueces): bajo la línea, el mejor, el peor y el último
+                    | micro valorados, para que el panel no deje un hueco y se lea sin
+                    | pasar el ratón.
+                    */}
+                    {(() => {
+                      const valorados = trendData.filter((d) => d.value !== null) as { micro: string; value: number; rival: string }[];
+
+                      if (valorados.length < 2) return null;
+
+                      const mejor = valorados.reduce((a, b) => (b.value > a.value ? b : a));
+                      const peor = valorados.reduce((a, b) => (b.value < a.value ? b : a));
+                      const ultimo = valorados[valorados.length - 1];
+                      const fila = (rotulo: string, d: { micro: string; value: number; rival: string }) => (
+                        <div key={rotulo} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50">{rotulo}</p>
+                          <p className="text-lg font-semibold tabular-nums text-[#C8A96B]">{fmt1(d.value)}</p>
+                          <p className="truncate text-[12px] text-white/60">
+                            {d.micro}
+                            {d.rival ? ` · ${nombreEquipo(d.rival)}` : ""}
+                          </p>
+                        </div>
+                      );
+
+                      return <div className="mt-3 grid grid-cols-3 gap-2">{[fila("Mejor", mejor), fila("Peor", peor), fila("Último", ultimo)]}</div>;
+                    })()}
                   </Panel>
 
                   <Panel
                     className="order-3"
-                    title="Reparto por fase de juego"
-                    subtitle={`Peso de cada fase sobre ${work.length} tarea${work.length === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}`}
+                    title={
+                      repartoFases.faltan.length
+                        ? `Sin ${repartoFases.faltan.join(" ni ")} ${micro !== "ALL" ? "esta semana" : "en el periodo"}: 0 de ${repartoFases.total}`
+                        : repartoFases.principal
+                          ? `Más peso: ${repartoFases.principal[0]} (${fmt1(repartoFases.principal[1])} de ${repartoFases.total} tareas)`
+                          : "Reparto por fase de juego"
+                    }
+                    subtitle={`Reparto por fase de juego · ${repartoFases.total} tarea${repartoFases.total === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}${
+                      repartoFases.global > 0 ? ` · Global (${fmt1(repartoFases.global)}) va aparte: está en casi todas` : ""
+                    } · una tarea con dos fases cuenta media en cada una`}
                   >
                     <div className="flex flex-col lg:flex-row items-center gap-4">
                       {/* 16/11/2026: el anillo se dibuja a mano en SVG. El de recharts iba
@@ -2865,22 +3056,23 @@ export default function Page() {
                           panel en blanco. */}
                       <div className="flex w-full justify-center lg:w-1/2">
                         <AnilloFases
-                          datos={faseMetrics.map((f, i) => ({ nombre: f.name, valor: f.tareas, color: PIE_COLORS[i % PIE_COLORS.length] }))}
+                          datos={repartoFases.datos.map((f, i) => ({ nombre: f.nombre, valor: f.valor, color: PIE_COLORS[i % PIE_COLORS.length] }))}
                           activo={faseFilter}
-                          total={work.length}
-                          onElige={(n) => setFaseFilter(faseFilter === n ? "ALL" : n)}
+                          total={Math.round(repartoFases.enAnillo * 10) / 10}
+                          onElige={(n) => {
+                            if (n !== "Otras") setFaseFilter(faseFilter === n ? "ALL" : n);
+                          }}
                         />
                       </div>
 
                       <div className="w-full lg:w-1/2 space-y-2">
-                        {faseMetrics.map((f, i) => (
+                        {repartoFases.datos.map((f, i) => (
                           <button
-                            key={f.name}
-                            onClick={() =>
-                              setFaseFilter(
-                                faseFilter === f.name ? "ALL" : f.name
-                              )
-                            }
+                            key={f.nombre}
+                            onClick={() => {
+                              if (f.nombre !== "Otras") setFaseFilter(faseFilter === f.nombre ? "ALL" : f.nombre);
+                            }}
+                            title={f.otras.length ? f.otras.join(", ") : undefined}
                             className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left hover:bg-white/5"
                           >
                             <span
@@ -2890,16 +3082,17 @@ export default function Page() {
                               }}
                             />
 
-                            <span className="flex-1 truncate text-sm text-white/80">
-                              {f.name}
+                            <span className="min-w-0 flex-1 text-sm text-white/80">
+                              {f.nombre}
+                              {f.otras.length ? <span className="block text-[11px] text-white/50">{f.otras.join(", ")}</span> : null}
                             </span>
 
-                            <span className="text-sm font-semibold">
-                              {f.tareas}
+                            <span className="text-sm font-semibold tabular-nums">
+                              {fmt1(f.valor)}
                             </span>
 
                             <span className="w-12 text-right text-xs text-white/45">
-                              {fmt1(f.pctTareas)} %
+                              {repartoFases.enAnillo > 0 ? fmt1((100 * f.valor) / repartoFases.enAnillo) : "0"} %
                             </span>
                           </button>
                         ))}
