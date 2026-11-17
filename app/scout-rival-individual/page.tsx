@@ -499,9 +499,10 @@ export default function ScoutRivalIndividual() {
           .map(([, f]) => f),
         equipo,
         findInforme(informes, equipo),
-        { dibujo: onceDe.equipo === equipo ? onceDe.dibujo : undefined, puestos: onceDe.equipo === equipo ? onceDe.puestos : undefined },
+        /* Con los titulares (18/11/2026): uno por hueco, el mismo once de /rivals (11 en 11, nunca dos laterales derechos). */
+        { dibujo: onceDe.equipo === equipo ? onceDe.dibujo : undefined, puestos: onceDe.equipo === equipo ? onceDe.puestos : undefined, titulares: [...once.claves] },
       ),
-    [filasDe, equipo, informes, onceDe],
+    [filasDe, equipo, informes, onceDe, once],
   );
 
   const plantilla = useMemo(
@@ -672,7 +673,7 @@ export default function ScoutRivalIndividual() {
           | radiografía de percentiles del once probable. Las listas, debajo.
           */}
           {vista === "clips" && equipo && titulares.length > 0 && (
-            <RadiografiaDelOnce className="mt-6" equipo={equipo} titulares={titulares} plantilla={plantilla} cortes={cortes} fuente={once.fuente} />
+            <RadiografiaDelOnce className="mt-6" equipo={equipo} titulares={titulares} plantilla={plantilla} cortes={cortes} fuente={once.fuente} colocacion={colocacion} />
           )}
 
           {/* ---------------------------- VÍDEOS --------------------------- */}

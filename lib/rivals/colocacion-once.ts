@@ -23,7 +23,7 @@
  * (quién cae en qué bloque) con las mismas piezas del motor, sin geometría.
  */
 
-import { ANCLAS_SLOT, asignaTitulares, dibujoDeCampo, reparteEnOnce, type BloqueOnce } from "@/lib/rivals/campograma-motor";
+import { ANCLAS_SLOT, asignaTitulares, DIBUJOS, DIBUJO_POR_DEFECTO, dibujoDeCampo, fueraDeSuHueco, reparteEnOnce, type BloqueOnce } from "@/lib/rivals/campograma-motor";
 import { LINE_DEFINITIONS } from "@/lib/rivals/lineas-puesto";
 
 const normaliza = (v: unknown) =>
@@ -81,16 +81,28 @@ export type JugadorAColocar = { clave: string; posicion: string };
  * - `puestos`: lo puesto a mano en el campograma (`RivalOnceDoc.puestos`), que
  *   manda sobre todo.
  */
-export function colocacionDelOnce(
+type OpcionesColocacion = {
+  dibujo?: string | null;
+  sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
+  puestos?: Record<string, string>;
+  /** Los titulares del once probable: uno por hueco del dibujo (`asignaTitulares`), como el campograma. */
+  titulares?: string[];
+};
+
+export function colocacionDelOnce(jugadores: JugadorAColocar[], opciones: OpcionesColocacion = {}): Map<string, BloqueOnce> {
+  return colocaElOnce(jugadores, opciones).bloques;
+}
+
+/**
+ * Lo mismo que `colocacionDelOnce` y, además, qué titulares han ido a un hueco
+ * que no es el suyo (`fuera`, 18/11/2026): el once guardado se respeta entero
+ * —11 titulares en 11 huecos— y el que no tiene hueco natural va al libre más
+ * cercano a su zona. Las pantallas lo rotulan «fuera de su sitio».
+ */
+export function colocaElOnce(
   jugadores: JugadorAColocar[],
-  opciones: {
-    dibujo?: string | null;
-    sitios?: Map<string, { slot: string; lado: -1 | 0 | 1 }>;
-    puestos?: Record<string, string>;
-    /** Los titulares del once probable: uno por hueco del dibujo (`asignaTitulares`), como el campograma. */
-    titulares?: string[];
-  } = {},
-): Map<string, BloqueOnce> {
+  opciones: OpcionesColocacion = {},
+): { bloques: Map<string, BloqueOnce>; fuera: Set<string>; titulares: Map<string, BloqueOnce> } {
   const bloques = dibujoDeCampo(opciones.dibujo ?? undefined);
   const sitios = opciones.sitios ?? new Map();
   const puestos = opciones.puestos ?? {};
@@ -107,17 +119,34 @@ export function colocacionDelOnce(
 
   const deTitulares = new Set(opciones.titulares ?? []);
   const asignados = new Map<string, string>();
+  const fuera = new Set<string>();
+  const titulares = new Map<string, BloqueOnce>();
 
   if (deTitulares.size > 0) {
     asignaTitulares(
       jugadores.filter((jugador) => deTitulares.has(jugador.clave)),
       lee,
       bloques,
-      { fijado: (jugador) => puestos[jugador.clave] },
-    ).forEach((bloque, jugador) => asignados.set(jugador.clave, bloque));
+      /* 11 en 11 (18/11/2026): el que no encaja, al hueco libre más cercano, «fuera de su sitio». */
+      { fijado: (jugador) => puestos[jugador.clave], rellena: true },
+    ).forEach((clave, jugador) => {
+      asignados.set(jugador.clave, clave);
+
+      const bloque = bloques.find((b) => b.key === clave);
+
+      if (!bloque) return;
+
+      titulares.set(jugador.clave, bloque);
+
+      /* Lo puesto a mano no es «fuera de su sitio»: lo ha decidido alguien. */
+      const { slot, lado } = lee(jugador);
+
+      if (puestos[jugador.clave] !== clave && fueraDeSuHueco(bloque, slot, lado)) fuera.add(jugador.clave);
+    });
   }
 
-  const porBloque = reparteEnOnce(jugadores, lee, bloques, (jugador) => puestos[jugador.clave] ?? asignados.get(jugador.clave));
+  /* El titular va a su hueco de `asignaTitulares` (manda sobre lo puesto a mano: ahí ya se ha respetado, sin repetir bloque). */
+  const porBloque = reparteEnOnce(jugadores, lee, bloques, (jugador) => asignados.get(jugador.clave) ?? puestos[jugador.clave]);
   const salida = new Map<string, BloqueOnce>();
 
   for (const [clave, gente] of porBloque) {
@@ -128,6 +157,86 @@ export function colocacionDelOnce(
     for (const jugador of gente) salida.set(jugador.clave, bloque);
   }
 
+  return { bloques: salida, fuera, titulares };
+}
+
+/*
+| LAS LÍNEAS DEL DIBUJO (18/11/2026, jueces): «El once de un vistazo» ponía 5
+| defensas y 2 medios bajo un 4-2-3-1 porque partía en líneas por la altura de
+| cada hueco con umbrales fijos. Ahora las líneas salen del propio nombre del
+| dibujo: en un 4-2-3-1, 4 defensas, 2 medios, 3 por detrás del punta y 1
+| delantero; en un 4-3-3, 4, 3 y 3. Los huecos se ordenan de atrás adelante
+| por su ancla y se cortan con esos números: las mismas filas del campograma.
+*/
+export type LineaDelDibujo = {
+  clave: string;
+  titulo: string;
+  /** La línea de LINE_DEFINITIONS de la que toma el color. */
+  color: "portero" | "defensa" | "medio" | "ataque";
+  /** Claves de bloque, de izquierda a derecha. */
+  bloques: string[];
+};
+
+/**
+ * El dibujo al que pertenecen unas claves de bloque (las de un once ya
+ * colocado): el que las tiene todas y le sobran menos. Sirve a quien sólo
+ * recibe la colocación (Scout individual) para sacar las mismas líneas.
+ */
+export function dibujoDeLasClaves(claves: Iterable<string>): string {
+  const lista = [...new Set(claves)].filter(Boolean);
+  let mejor = DIBUJO_POR_DEFECTO;
+  let nota = -Infinity;
+
+  for (const dibujo of DIBUJOS) {
+    const suyas = new Set(dibujo.bloques.map((b) => b.key));
+    const dentro = lista.filter((k) => suyas.has(k)).length;
+    const valor = dentro * 10 - (lista.length - dentro) * 100 - (suyas.size - dentro);
+
+    if (valor > nota) {
+      nota = valor;
+      mejor = dibujo.id;
+    }
+  }
+
+  return mejor;
+}
+
+export function lineasDelDibujo(dibujo: string | null | undefined): LineaDelDibujo[] {
+  const bloques = dibujoDeCampo(dibujo ?? undefined);
+  const id = DIBUJOS.some((d) => d.id === dibujo) ? String(dibujo) : DIBUJO_POR_DEFECTO;
+  const cortes = id.split("-").map(Number);
+  const campo = bloques.filter((b) => b.key !== "por").sort((a, b) => b.anchorY - a.anchorY);
+  const salida: LineaDelDibujo[] = [{ clave: "portero", titulo: "Portería", color: "portero", bloques: ["por"] }];
+  let desde = 0;
+
+  cortes.forEach((n, i) => {
+    const fila = campo.slice(desde, desde + n).sort((a, b) => a.anchorX - b.anchorX);
+    desde += n;
+
+    const ultima = i === cortes.length - 1;
+    const titulo =
+      i === 0
+        ? "Defensa"
+        : ultima
+          ? n === 1
+            ? "Delantero"
+            : "Ataque"
+          : cortes.length === 4 && i === 2
+            ? cortes[1] === 1
+              ? "Medio y bandas"
+              : "Mediapunta y bandas"
+            : n === 1
+              ? "Pivote"
+              : "Medio";
+
+    salida.push({
+      clave: `l${i}`,
+      titulo,
+      color: i === 0 ? "defensa" : ultima || (cortes.length === 4 && i === 2 && cortes[1] !== 1) ? "ataque" : "medio",
+      bloques: fila.map((b) => b.key),
+    });
+  });
+
   return salida;
 }
 
@@ -137,7 +246,8 @@ const PUESTO_DEL_CODIGO: Record<string, string> = {
   LI: "lateral izquierdo",
   DFC: "central",
   MCD: "pivote",
-  MC: "mediocentro",
+  /* 18/11/2026: el MC de un 4-2-3-1 o un 4-4-2 es el doble pivote. «Mediocentro» en /rivals y «pivote» en Scout individual para el mismo hueco (Palmberg) era el mismo dato dicho de dos formas. */
+  MC: "pivote",
   INT: "interior",
   MP: "mediapunta",
   ED: "extremo derecho",

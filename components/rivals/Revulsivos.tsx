@@ -106,7 +106,7 @@ function Bloque({ equipo }: { equipo: string }) {
                   {j.golesSup} · {j.asistSup}
                 </td>
                 <td className={`px-2 py-1.5 text-right ${j.destacado ? "font-bold text-white" : "text-white/75"}`}>
-                  {j.ga90Sup != null ? coma(j.ga90Sup) : ""}
+                  {j.ga90Sup != null ? coma(j.ga90Sup, 1) : ""}
                   {j.ga90Sup != null && j.minSup < 90 && (
                     <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
                       tendencia
@@ -114,7 +114,7 @@ function Bloque({ equipo }: { equipo: string }) {
                   )}
                 </td>
                 <td className="px-2 py-1.5 text-right text-white/60" title={j.titularidades ? `${j.titularidades} de titular, ${Math.round(j.minTit)}′` : undefined}>
-                  {j.ga90Tit != null ? coma(j.ga90Tit) : ""}
+                  {j.ga90Tit != null ? coma(j.ga90Tit, 1) : ""}
                 </td>
                 <td className="px-2 py-1.5 text-right text-white/75">{j.minutoEntrada != null ? `${j.minutoEntrada}′` : ""}</td>
                 {hayBanda && (

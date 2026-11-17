@@ -2,38 +2,44 @@
 
 /*
 |--------------------------------------------------------------------------
-| EL ONCE DE UN VISTAZO (17/11/2026, jueces de fútbol)
+| EL ONCE DE UN VISTAZO (17/11/2026, jueces de fútbol; minicampo 18/11/2026)
 |--------------------------------------------------------------------------
 |
-| «Encima de la lista de jugadores, en móvil y en escritorio: un resumen
-| visual con el once y su conclusión (el más peligroso y el explotable de
-| cada línea) antes de los 25 jugadores en lista.»
-|
-| Línea a línea —portería, defensa, medio, ataque— los titulares del once
-| probable (en su hueco del dibujo) y dos lecturas con su cifra y su base:
-|   ▲ el que más daño hace (lo mejor de Wyscout contra su puesto, sus goles
-|     en BeSoccer o las etiquetas del analista);
-|   ▼ por dónde se le gana (lo peor de Wyscout o las etiquetas de debilidad).
-| Lo que no tiene dato no se nombra: una línea sin lectura enseña sólo a los
-| titulares. La cuenta vive en la pantalla (`resumenDelOnce` de
-| app/rivals/page.tsx); aquí sólo se pinta.
+| Un minicampo con los once titulares del once probable, cada uno en su hueco
+| del dibujo y con LAS MISMAS LÍNEAS que el campograma (`lineasDelDibujo`: en
+| un 4-2-3-1, 4 defensas, 2 medios, 3 por detrás del punta y 1 delantero).
+| Cada ficha lleva UN veredicto (nunca «Peligro» y «Explotable» a la vez):
+|   rojo  = peligro (lo mejor de Wyscout contra su puesto, sus goles o las
+|           etiquetas del analista);
+|   verde = explotable (lo peor de Wyscout o sus etiquetas de debilidad).
+| Debajo, una frase con los nombres; el porqué con su cifra y su base, al
+| pinchar la ficha. Las órdenes viven en «Dónde hacerles daño» y «Dónde nos
+| hacen daño»: aquí no se repiten. Quien juega en un hueco que no es el suyo
+| lleva el borde a rayas («fuera de su sitio»). La cuenta, en la pantalla
+| (`resumenDelOnce` de app/rivals/page.tsx); aquí sólo se pinta.
 */
+
+import { useState } from "react";
+
+export type Veredicto = {
+  tipo: "peligro" | "explotable";
+  /** Qué hace o qué le cuesta, con la cifra: «Progresión: mejor que 9 de cada 10 de su puesto». */
+  porque: string;
+  /** De dónde sale: «8 partidos · Wyscout», «tendencia · 2 PJ · etiqueta del analista». */
+  base: string;
+};
 
 export type FichaResumen = {
   clave: string;
   nombre: string;
   dorsal: string;
-  /** El hueco en el dibujo («LD», «MCD»…). */
+  /** El hueco en el dibujo («LD», «MC»…). */
   hueco: string;
-};
-
-export type LecturaResumen = {
-  clave: string;
-  nombre: string;
-  /** Qué hace o qué le cuesta, con la cifra: «Progresión: mejor que 9 de cada 10 de su puesto». */
-  porque: string;
-  /** De dónde sale: «8 partidos · Wyscout», «tendencia · 2 PJ · etiqueta del analista». */
-  base: string;
+  /** Su puesto en el once, en palabras: «pivote», «extremo izquierdo». */
+  puesto: string;
+  /** Va a un hueco que no es el suyo (el once guardado no tenía otro). */
+  fuera: boolean;
+  veredicto: Veredicto | null;
 };
 
 export type LineaResumen = {
@@ -41,26 +47,29 @@ export type LineaResumen = {
   titulo: string;
   color: string;
   fichas: FichaResumen[];
-  peligro: LecturaResumen | null;
-  explotable: LecturaResumen | null;
 };
 
+const lista = (nombres: string[]) => nombres.join(", ").replace(/, ([^,]*)$/, " y $1");
 
-function Lectura({ tipo, lectura, abrir }: { tipo: "peligro" | "explotable"; lectura: LecturaResumen; abrir: (clave: string) => void }) {
-  /* Clases con su equivalente de modo día (globals.css): el color en línea salía a 1,9 de contraste sobre blanco. */
-  const color = tipo === "peligro" ? "text-red-300" : "text-emerald-300";
+function Ficha({ ficha, activa, onClick }: { ficha: FichaResumen; activa: boolean; onClick: () => void }) {
+  const anillo =
+    ficha.veredicto?.tipo === "peligro" ? "border-red-400" : ficha.veredicto?.tipo === "explotable" ? "border-emerald-400" : "border-white/25";
 
   return (
-    <p className="min-w-0 text-[12px] leading-snug text-white/75">
-      <span className={`font-semibold ${color}`}>
-        {tipo === "peligro" ? "▲ Peligro: " : "▼ Explotable: "}
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={activa}
+      title={`${ficha.nombre} · ${ficha.puesto || ficha.hueco}${ficha.fuera ? " · fuera de su sitio" : ""}`}
+      className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1 transition hover:bg-white/[0.06] ${activa ? "bg-white/[0.08]" : ""}`}
+    >
+      <span
+        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 bg-[#C8A96B] text-[12px] font-bold tabular-nums text-black ${anillo} ${ficha.fuera ? "border-dashed" : ""}`}
+      >
+        {ficha.dorsal || ficha.hueco.slice(0, 2)}
       </span>
-      <button type="button" onClick={() => abrir(lectura.clave)} className="font-semibold text-white underline-offset-2 hover:underline">
-        {lectura.nombre}
-      </button>
-      {lectura.porque && <> — {lectura.porque}</>}
-      {lectura.base && <span className="text-white/45"> · {lectura.base}</span>}
-    </p>
+      <span className="block w-full truncate text-center text-[11px] leading-tight text-white/80">{ficha.nombre.split(" ").slice(-1)[0]}</span>
+    </button>
   );
 }
 
@@ -72,13 +81,21 @@ export function ResumenDelOnce({
 }: {
   equipo: string;
   dibujo: string;
+  /** De la portería al ataque. */
   lineas: LineaResumen[];
   /** Abre la ficha de ese jugador (clave del once). */
   abrir: (clave: string) => void;
 }) {
+  const [elegida, setElegida] = useState<string | null>(null);
   const conGente = lineas.filter((linea) => linea.fichas.length > 0);
 
   if (conGente.length === 0) return null;
+
+  const fichas = conGente.flatMap((linea) => linea.fichas);
+  const peligros = fichas.filter((f) => f.veredicto?.tipo === "peligro").map((f) => f.nombre);
+  const explotables = fichas.filter((f) => f.veredicto?.tipo === "explotable").map((f) => f.nombre);
+  const fuera = fichas.filter((f) => f.fuera);
+  const activa = fichas.find((f) => f.clave === elegida) ?? null;
 
   return (
     <section
@@ -87,44 +104,81 @@ export function ResumenDelOnce({
     >
       <header className="border-b border-white/10 px-4 py-3">
         <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">El once de un vistazo</h2>
-        <p className="mt-0.5 text-[12px] text-white/55">
-          {dibujo} · por línea, el que más daño hace y por dónde se le gana
-        </p>
+        <p className="mt-0.5 text-[12px] text-white/55">{dibujo} · pincha una ficha para ver el porqué</p>
       </header>
 
-      <ol className="divide-y divide-white/10">
-        {conGente.map((linea) => (
-          <li key={linea.clave} className="min-w-0 space-y-1.5 px-4 py-2.5">
-            <div className="flex min-w-0 items-center gap-2">
-              <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: linea.color }} aria-hidden />
-              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-[0.2em] text-white/55">{linea.titulo}</span>
-            </div>
-
-            <ul className="flex min-w-0 flex-wrap gap-1">
+      {/* El minicampo: el ataque arriba, como el campograma de pie. */}
+      <div className="px-3 pt-3">
+        <ol className="flex min-w-0 flex-col gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-1 py-2">
+          {[...conGente].reverse().map((linea) => (
+            <li key={linea.clave} className="flex min-w-0 items-start justify-around" aria-label={`${linea.titulo}: ${linea.fichas.map((f) => f.nombre).join(", ")}`}>
               {linea.fichas.map((ficha) => (
-                <li key={ficha.clave} className="min-w-0">
-                  <button
-                    type="button"
-                    onClick={() => abrir(ficha.clave)}
-                    title={`${ficha.nombre}${ficha.hueco ? ` · ${ficha.hueco}` : ""}`}
-                    className="flex max-w-full items-center gap-1 rounded-full border border-white/10 bg-white/[0.04] px-1.5 py-0.5 text-[11px] text-white/80 transition hover:border-[#C8A96B] hover:text-white"
-                  >
-                    {ficha.dorsal && (
-                      <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-[#C8A96B] px-0.5 text-[10px] font-bold tabular-nums text-black">
-                        {ficha.dorsal}
-                      </span>
-                    )}
-                    <span className="truncate">{ficha.nombre}</span>
-                  </button>
-                </li>
+                <Ficha key={ficha.clave} ficha={ficha} activa={ficha.clave === elegida} onClick={() => setElegida((cual) => (cual === ficha.clave ? null : ficha.clave))} />
               ))}
-            </ul>
+            </li>
+          ))}
+        </ol>
 
-            {linea.peligro && <Lectura tipo="peligro" lectura={linea.peligro} abrir={abrir} />}
-            {linea.explotable && <Lectura tipo="explotable" lectura={linea.explotable} abrir={abrir} />}
-          </li>
-        ))}
-      </ol>
+        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/55">
+          <span>
+            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-red-400 align-[-1px]" aria-hidden />
+            peligro
+          </span>
+          <span>
+            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-emerald-400 align-[-1px]" aria-hidden />
+            explotable
+          </span>
+          {fuera.length > 0 && (
+            <span>
+              <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-white/50 align-[-1px]" aria-hidden />
+              fuera de su sitio
+            </span>
+          )}
+        </p>
+      </div>
+
+      <div className="space-y-1.5 px-4 pb-3 pt-2 text-[12px] leading-snug text-white/75">
+        {activa ? (
+          <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
+            <p className="font-semibold text-white">
+              {activa.dorsal && <span className="mr-1 tabular-nums text-[#C8A96B]">{activa.dorsal}</span>}
+              {activa.nombre}
+              <span className="font-normal text-white/55">
+                {" "}
+                · {activa.puesto || activa.hueco}
+                {activa.fuera ? ", fuera de su sitio" : ""}
+              </span>
+            </p>
+            {activa.veredicto && (
+              <p className="mt-1">
+                <span className={`font-semibold ${activa.veredicto.tipo === "peligro" ? "text-red-300" : "text-emerald-300"}`}>
+                  {activa.veredicto.tipo === "peligro" ? "▲ Peligro: " : "▼ Explotable: "}
+                </span>
+                {activa.veredicto.porque}
+                {activa.veredicto.base && <span className="text-white/50"> · {activa.veredicto.base}</span>}
+              </p>
+            )}
+            <button type="button" onClick={() => abrir(activa.clave)} className="mt-1 font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+              Su ficha ›
+            </button>
+          </div>
+        ) : (
+          <>
+            {peligros.length > 0 && (
+              <p>
+                <span className="font-semibold text-red-300">▲ Peligro: </span>
+                {lista(peligros)}.
+              </p>
+            )}
+            {explotables.length > 0 && (
+              <p>
+                <span className="font-semibold text-emerald-300">▼ Explotable: </span>
+                {lista(explotables)}.
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

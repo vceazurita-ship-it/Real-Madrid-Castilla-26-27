@@ -179,7 +179,27 @@ export function ordenDelDuelo(
 
   /* Primero donde perdemos: es la orden que no se puede contradecir. */
   const lista = [...grupos.vigilar, ...grupos.doble, ...grupos.buscar];
-  const duelo = lista.find((d) => d.consigna && d.suyos.some((s) => mismo(s.replace(/\s*\(.*\)\s*$/, ""), nombre)));
+  const limpio = (s: string) => s.replace(/\s*\(.*\)\s*$/, "");
+  /*
+  | 18/11/2026 (jueces): la tarjeta «Palmberg · mediapunta» llevaba la consigna
+  | «Cestero: no ir al choque con Javi Mier», porque el duelo de la zona de
+  | medios tiene a los dos. Un duelo sólo da la orden de un jugador si la
+  | consigna le nombra a él o no nombra a otro de los suyos.
+  */
+  const plano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const nombra = (texto: string, quien: string) => {
+    const piezas = plano(quien).split(/[^a-z]+/).filter((p) => p.length >= 3);
+    const enTexto = new Set(plano(texto).split(/[^a-z]+/));
+
+    return piezas.length > 0 && piezas.every((p) => enTexto.has(p));
+  };
+  const duelo = lista.find((d) => {
+    if (!d.consigna || !d.suyos.some((s) => mismo(limpio(s), nombre))) return false;
+
+    const otros = d.suyos.map(limpio).filter((s) => !mismo(s, nombre));
+
+    return nombra(d.consigna, nombre) || !otros.some((o) => nombra(d.consigna, o));
+  });
 
   if (!duelo) return null;
 

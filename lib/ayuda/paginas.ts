@@ -1576,8 +1576,25 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
     bloques: [
+      {
+        titulo: "Lo nuevo (18/11/2026, ronda 22): un solo once, once en once",
+        filas: [
+          { que: "El once guardado se respeta entero", es: "Los once titulares y el dibujo que se guardaron no se tocan. Si un titular no tiene hueco natural en el dibujo (dos laterales derechos en un 4-2-3-1), va al hueco libre más cercano a su zona y se dice «Fuera de su sitio: V. Olmedo en EI». Siempre hay 11 titulares en 11 huecos", cuenta: "asignaTitulares con rellena (lib/rivals/campograma-motor.ts): primero cada uno a su puesto (método húngaro); quien no se parece a ningún hueco libre, al libre más cercano por distancia entre anclas; «fuera de su sitio» = fueraDeSuHueco. La misma cuenta en colocacionDelOnce / colocaElOnce (lib/rivals/colocacion-once.ts), que leen Scout individual, Duelos, Plan y pizarra. Lo puesto a mano manda; dos a mano en el mismo bloque, el segundo se coloca solo" },
+          { que: "Su sistema más usado", es: "Un dato al lado del dibujo: «Once probable en 4-2-3-1 · su sistema más usado: 4-3-3 (7 de 12 · Wyscout, tendencia)»" },
+          { que: "Aviso técnico del once", es: "«Sin titular en…», «no tiene hueco» y «Rehacer el once» sólo los ve el administrador; el cuerpo técnico ve el once ya cuadrado" },
+          { que: "El once de un vistazo: minicampo", es: "Los once en un campo pequeño con las MISMAS líneas que el campograma (en un 4-2-3-1: 4, 2, 3 y 1). Cada ficha lleva un solo veredicto: borde rojo, peligro; verde, explotable; a rayas, fuera de su sitio. Debajo, los nombres; al pinchar una ficha, su puesto en el once, el porqué con su cifra y su base, y «Su ficha ›». Las órdenes están sólo en «Dónde hacerles daño» y «Dónde nos hacen daño»", cuenta: "Líneas: lineasDelDibujo (los huecos de atrás adelante, cortados con los números del dibujo). Veredicto: gana la lectura más extrema (3 goles o más; si no, el percentil de Wyscout más lejos de la mediana; las etiquetas del analista cuentan como 60)" },
+          { que: "Puesto en su once", es: "Las tarjetas de «Dónde nos hacen daño» y la radiografía de Scout individual dicen el puesto del once («Palmberg · pivote»); el MC de un 4-2-3-1 es «pivote» en todas las pantallas" },
+          { que: "Cada orden, de su jugador", es: "La tarjeta de un jugador ya no lleva la consigna de otro del mismo duelo («Palmberg» con «no ir al choque con Javi Mier»): un duelo sólo da la orden de quien nombra o de quien es el único de su zona", cuenta: "ordenDelDuelo (lib/rivals/dano.ts)" },
+          { que: "Huecos amontonados en el campograma", es: "Un hueco con cuatro o más enseña al titular (o a los dos primeros si no tiene) y un botón «+N» con los demás, que abre su ficha. La chapa sigue contando a todos" },
+          { que: "«Fuerte en / Flojo en» con barras", es: "Cada aspecto, una barra de percentil: el punto es el rival y la raya del centro, la mediana de los 20 (a la derecha, mejor); el texto con la cifra va de pie" },
+          { que: "Un solo buscador", es: "«Buscar jugador, dorsal o puesto (LD, MP…)». Un código de puesto a secas filtra ese puesto en el equipo elegido; lo demás busca en todos los equipos" },
+          { que: "Sin frases repetidas", es: "La conclusión del rival va sólo en la cabecera; «Cómo llega» abre con sus cifras" },
+          { que: "Revulsivos", es: "G+A/90 con un decimal (0,0 · 0,9 · 1,1)" },
+          { que: "En el móvil", es: "Primero «El once de un vistazo», el buscador y la lista por línea; el campograma, debajo" },
+        ],
+      },
       {
         titulo: "Lo nuevo (17/11/2026, ronda 21): el campo y el once, primero",
         filas: [
@@ -3727,6 +3744,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (17/11/2026, ronda 21)",
         filas: [
+          { que: "El once de la radiografía (18/11/2026)", es: "El mismo de Plantillas rivales, uno por hueco: once titulares en once puestos, por las líneas del dibujo (en un 4-2-3-1: defensa 4, medio 2, mediapunta y bandas 3, delantero 1), cada uno con el hueco y el puesto de su once (Palmberg, pivote; Olmedo, extremo izquierdo en su once, lateral derecho de origen)", cuenta: "colocacionDelCampograma con los titulares (asignaTitulares con rellena) y lineasDelDibujo, lib/rivals/colocacion-once.ts" },
           { que: "Rival y jornada", es: "Arriba, un desplegable de rival con su escudo y otro de jornada (nuestros partidos contra ese rival: «J13 · 22/11», con el resultado si ya se jugó). La jornada abre la lista del canal de ese partido («J13 · …») si existe; si no, la que se empareja sola. Ya no hay que elegir el rival tres veces" },
           {
             que: "Radiografía del once probable",
@@ -3796,7 +3814,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */
