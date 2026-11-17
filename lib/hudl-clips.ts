@@ -52,7 +52,7 @@ export type ListaHudl = {
 export type DocHudlClips = { listas: Record<string, ListaHudl>; actualizado?: string };
 
 /* Lo que va detrás del guion: «23», «FLAKUS», «23 FLAKUS», «MANU JUSTO», «A. YOLDI». */
-const TRAS_GUION = /^(?:(\d{1,2})\s*)?([\p{L}][\p{L}.' ]{0,40})?$/u;
+const TRAS_GUION = /^(?:(\d{1,2})\s*)?([\p{L}][\p{L}.' -]{0,40})?$/u;
 
 /**
  * «RIVAL - Nº NOMBRE» → sus partes, o null si el título no es de ese tipo.
@@ -118,7 +118,10 @@ function casaNombre(nombreLista: string, nombresJugador: string[]) {
   return nombresJugador.some((n) => {
     const suyas = fichas(n);
 
-    return buscadas.every((b) => suyas.some((s) => s === b || (b.length > 4 && s.length > 4 && (s.startsWith(b) || b.startsWith(s)))));
+    /* Prefijo sólo con 1-2 letras de diferencia (17/11/2026): «MARTIN» no es «Martínez». */
+    const casiIgual = (b: string, s: string) => b.length > 4 && s.length > 4 && Math.abs(b.length - s.length) <= 2 && (s.startsWith(b) || b.startsWith(s));
+
+    return buscadas.every((b) => suyas.some((s) => s === b || casiIgual(b, s)));
   });
 }
 
@@ -140,7 +143,20 @@ export function listasDelJugador(listas: ListaConId[], jugador: { nombres: strin
       /* El nombre casa a más de uno de la plantilla: decide el dorsal, si lo hay. */
       const casan = plantilla?.filter((p) => casaNombre(l.nombre!, p.nombres)).length ?? 1;
 
-      return casan <= 1 || !l.dorsal || l.dorsal === dorsal;
+      if (casan <= 1) return true;
+      if (l.dorsal) return l.dorsal === dorsal;
+
+      /* Varios casan y no hay dorsal (17/11/2026): sólo el único que tiene
+         todas las palabras tal cual; si no, a nadie («ALEX» no son los clips
+         de los dos Álex; «MARTIN» es Martín Ruiz, no Martínez). */
+      const buscadas = fichas(l.nombre!);
+      const exacto = (n: string) => {
+        const suyas = fichas(n);
+        return buscadas.every((b) => suyas.includes(b));
+      };
+      const iguales = plantilla?.filter((p) => p.nombres.some(exacto)).length ?? 0;
+
+      return iguales === 1 && jugador.nombres.some(exacto);
     }
 
     return Boolean(l.dorsal) && l.dorsal === dorsal;
