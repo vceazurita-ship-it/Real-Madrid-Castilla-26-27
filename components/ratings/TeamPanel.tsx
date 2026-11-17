@@ -273,6 +273,14 @@ export function TeamPanel({
   const bestCampo = bestSorted.filter((entry) => !esPortero(entry.player.posicion));
   const best = bestCampo[0] ?? bestSorted[0] ?? null;
 
+  /* 17/11/2026 (ronda 20, jueces): el podio ya no repite los tres primeros
+     del ranking: es el de la forma (media de los 5 últimos), entre los de
+     4 partidos o más. */
+  const podioForma = useMemo(
+    () => [...fiables].filter((e) => e.summary.form > 0).sort((a, b) => b.summary.form - a.summary.form).slice(0, 3),
+    [fiables]
+  );
+
   /* 30/10/2026: la lectura del top se hace sobre TODOS los que tienen 4+
      partidos, no sólo sobre los diez del gráfico: si no, «abajo» era el
      décimo y parecía que nadie iba peor. */
@@ -988,9 +996,9 @@ export function TeamPanel({
             )}
           </Panel>
 
-          <Panel title="Podio de la temporada" icon={Crown}>
+          <Panel title="Podio de la forma · últimos 5" subtitle={`media de sus 5 últimos partidos con nota · entre los de ${MIN_FIABLE}+ PJ`} icon={Crown}>
             <ol className="min-w-0 space-y-2">
-              {bestSorted.slice(0, 3).map((entry, index) => (
+              {podioForma.map((entry, index) => (
                 <li
                   key={entry.player.id}
                   className="flex min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-[#0B0F14] px-3 py-2"
@@ -1024,11 +1032,11 @@ export function TeamPanel({
                     </p>
 
                     <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/45">
-                      {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ
+                      {nombrePuesto(entry.player.posicion)} · {entry.summary.played} PJ · temporada {formatRating(entry.summary.avg)}
                     </p>
                   </div>
 
-                  <RatingBadge value={entry.summary.avg} />
+                  <RatingBadge value={entry.summary.form} />
                 </li>
               ))}
 
