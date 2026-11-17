@@ -121,7 +121,7 @@ import { ValoracionTarea } from "@/components/registro/ValoracionTarea";
 import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
 import { propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
-import { comaDecimal, cuentaMicros, esFilaDePartido, fechaIsoDeHoja, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
+import { comaDecimal, cuentaMicros, esFilaDePartido, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
