@@ -2813,7 +2813,7 @@ const categoriasVisual: CategoriaVisual[] = [
     rival={rivalAnalizado}
     etiqueta={etiquetaAnalizada}
     numeroEnHoja={numeroEnHoja}
-    ultimo={jornada === "ALL" && rival === "ALL"}
+    marcado={jornada === "ALL" && rival === "ALL"}
     className="mt-6"
   />
 

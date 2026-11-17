@@ -1882,7 +1882,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       rival={comparativa?.rival || ""}
       etiqueta={comparativa?.elegida.etiqueta}
       numeroEnHoja={numeroEnHoja}
-      ultimo={!filters.JORNADA && !filters.Rival}
+      marcado={!filters.JORNADA && !filters.Rival}
       className="mb-5"
     />
   );
