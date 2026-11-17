@@ -16,8 +16,19 @@
  * debajo están sus vídeos repartidos por jugador (`VideosDelCanal`).
  */
 
-import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { Eye, Users, Video as IconoVideo } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { Eye, ListVideo, Users, Video as IconoVideo } from "lucide-react";
+import { RadiografiaDelOnce } from "@/components/rivals/RadiografiaDelOnce";
+import { useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro } from "@/lib/castilla/calendario";
+import { nombreEquipo } from "@/lib/equipos";
+import { colocacionDelCampograma } from "@/lib/duelos-onces";
+import { puestoDelRival } from "@/lib/rivals/colocacion-once";
+import { casaNombre } from "@/lib/data-analisis/once";
+import { bajaDe } from "@/lib/rivals/bajas";
+import { findInforme, type InformeDoc } from "@/lib/rivals/informe";
+import type { Puesto } from "@/lib/data-analisis/individual";
+import type { RasgoCorto } from "@/lib/rivals/youtube-listas";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { PanelVisionados } from "@/components/visionados/PanelVisionados";
@@ -26,7 +37,6 @@ import { EsqueletoPantalla, EstadoVacio } from "@/components/ui/estados";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
-import { ChapaJornada } from "@/components/rivals/ChapaJornada";
 import { VideosDelCanal } from "@/components/rivals/VideosDelCanal";
 import { AvisoLento } from "@/components/rivals/AvisoLento";
 import { ClipsHudlDelRival } from "@/components/rivals/ClipsDeHudl";
@@ -61,33 +71,58 @@ import { formatea } from "@/lib/data-analisis/metricas";
 | puesto, con el percentil, contra cuántos y sus minutos. Con muestra corta
 | (menos de 270′), nada.
 */
-function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
+/*
+| EN DOS PARTES (17/11/2026, ronda 21, marketing): lo corto para la línea de
+| la tarjeta («Acciones de ataque exitosas 2,7 · P91») y la base entera para
+| «Ver base» («P91 entre 117 laterales · 1.017′ en Wyscout»).
+*/
+function rasgosDePerfil(perfil: PerfilWyscout | undefined): RasgoCorto[] {
   if (!perfil || perfil.muestraCorta) return [];
 
   /*
   | «Faltas cometidas 1,4 · P30» no se leía como explotable (16/11/2026, ronda
   | 18, fútbol): en las de «menos es mejor» el percentil ya va al revés, así
-  | que se dice con palabras: «comete más que 7 de cada 10 laterales».
+  | que se dice con palabras: «más que 7 de cada 10 laterales».
   */
-  const escribe = (r: RasgoWyscout, signo: string) => {
-    const base = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
+  const escribe = (r: RasgoWyscout, signo: "▲" | "▼"): RasgoCorto => {
+    const minutos = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
     const puesto = perfil.puestoLabel.toLowerCase();
+    const percentil = Math.round(r.percentil);
     /* Un porcentaje con sus intentos (17/11/2026, ronda 19): «50 % · 10 de 20». */
     const deIntentos = r.unidad === "porcentaje" && r.intentos ? ` (${Math.round((r.valor * r.intentos) / 100)} de ${r.intentos})` : "";
 
     /* «Porterías a cero 5,0» era un total, no un «por 90′» (17/11/2026, jueces de fútbol). */
     if (/porter[ií]as? a cero/i.test(r.nombre)) {
-      return `${signo} Porterías a cero: ${Math.round(r.valor)} en ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
+      return {
+        signo,
+        corta: `Porterías a cero: ${Math.round(r.valor)} en ${perfil.partidos}`,
+        marca: `P${percentil}`,
+        percentil,
+        base: `${Math.round(r.valor)} en ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · P${percentil} entre ${perfil.iguales} ${puesto} · ${minutos}`,
+      };
     }
 
     if (r.mejorAlto === false) {
       const flojo = signo === "▼";
       const de10 = Math.min(9, Math.max(1, Math.round((flojo ? 100 - r.percentil : r.percentil) / 10)));
+      const frase = `${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto}`;
 
-      return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)}${deIntentos} · ${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto} (aquí menos es mejor) · ${base}`;
+      return {
+        signo,
+        corta: `${r.nombre} ${formatea(r.valor, r.unidad)}`,
+        marca: `${flojo ? "más" : "menos"} que ${de10} de 10`,
+        percentil,
+        base: `${formatea(r.valor, r.unidad)}${deIntentos} · ${frase} (aquí menos es mejor) · ${minutos}`,
+      };
     }
 
-    return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)}${deIntentos} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
+    return {
+      signo,
+      corta: `${r.nombre} ${formatea(r.valor, r.unidad)}`,
+      marca: `P${percentil}`,
+      percentil,
+      base: `${formatea(r.valor, r.unidad)}${deIntentos} · P${percentil} entre ${perfil.iguales} ${puesto} · ${minutos}`,
+    };
   };
 
   /*
@@ -104,6 +139,46 @@ function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
 
   return [...(fuerte ? [escribe(fuerte, "▲")] : []), ...(flojo ? [escribe(flojo, "▼")] : [])];
 }
+
+/*
+| UNA SOLA POBLACIÓN POR PUESTO, Y DICHA (17/11/2026, ronda 21, fútbol): la
+| comparación es siempre la de Wyscout (su puesto donde más juega). Si no es la
+| de su puesto de la hoja —Palmberg, mediapunta en la hoja, va con los medios—
+| se dice por qué: «pivote en su once, comparado con 123 medios», como Duelos.
+*/
+const FAMILIAS: [RegExp, Puesto][] = [
+  [/portero/, "POR"],
+  [/central/, "CEN"],
+  [/lateral|carrilero/, "LAT"],
+  [/media\s*punta|extremo|banda/, "BAN"],
+  [/pivote|medio|interior|centrocampista|volante/, "MED"],
+  [/delanter|punta/, "DEL"],
+];
+
+const familiaDe = (texto: string) => FAMILIAS.find(([re]) => re.test(texto.toLowerCase()))?.[1];
+
+function poblacionDe(perfil: PerfilWyscout | undefined, origen: string, enElOnce: string | null) {
+  if (!perfil || perfil.muestraCorta) return "";
+
+  const familia = familiaDe(origen);
+
+  if (!familia || familia === perfil.puesto) return "";
+
+  const comparado = `comparado con ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()}`;
+
+  if (enElOnce && familiaDe(enElOnce) === perfil.puesto) return `${enElOnce} en su once, ${comparado}`;
+
+  return perfil.posicionTexto ? `en Wyscout juega sobre todo de ${perfil.posicionTexto.toLowerCase()}: ${comparado}` : `Wyscout le cuenta con los ${perfil.puestoLabel.toLowerCase()}: ${comparado}`;
+}
+
+const conMayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
+
+/** «2026-11-22T18:45» → «22/11». */
+const diaCorto = (cuando: string) => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(cuando ?? "");
+
+  return m ? `${m[3]}/${m[2]}` : "";
+};
 
 /*
 | `?equipo=<NOMBRE>` (26/10/2026): desde la ficha del rival o la portada se
@@ -124,8 +199,8 @@ function seSabraAlLlegar(avisa: () => void) {
 }
 
 export default function ScoutRivalIndividual() {
-  /* Dos pestañas (06/11/2026): los clips y quién los ve. */
-  const [vista, setVista] = usePestanaUrl<"clips" | "visionados">("vista", ["clips", "visionados"], "clips");
+  /* Tres pestañas: los clips, la lista del canal (secundaria, 17/11/2026, ronda 21) y quién los ve. */
+  const [vista, setVista] = usePestanaUrl<"clips" | "lista" | "visionados">("vista", ["clips", "lista", "visionados"], "clips");
   const escudoDe = useEscudos();
 
   const { squads, loading, error, reintenta } = useRivalSquads();
@@ -233,8 +308,8 @@ export default function ScoutRivalIndividual() {
   }, []);
 
 
-  /* Los titulares del once probable marcado en Plantillas rivales (sólo se lee). */
-  const [titularesDe, setTitularesDe] = useState<{ equipo: string; claves: string[] }>({ equipo: "", claves: [] });
+  /* El once probable marcado en Plantillas rivales, con su dibujo y sus puestos (sólo se lee). */
+  const [onceDe, setOnceDe] = useState<{ equipo: string; claves: string[]; dibujo?: string; puestos?: Record<string, string> }>({ equipo: "", claves: [] });
 
   useEffect(() => {
     if (!equipo) return;
@@ -244,7 +319,9 @@ export default function ScoutRivalIndividual() {
     fetch(`/api/docs?key=${encodeURIComponent(rivalOnceKey(equipo))}`, { cache: "no-store" })
       .then((r) => r.json() as Promise<{ data?: unknown }>)
       .then((j) => {
-        if (vivo) setTitularesDe({ equipo, claves: normalizarOnce(j?.data ?? null).titulares });
+        const marcado = normalizarOnce(j?.data ?? null);
+
+        if (vivo) setOnceDe({ equipo, claves: marcado.titulares, dibujo: marcado.dibujo, puestos: marcado.puestos });
       })
       .catch(() => undefined);
 
@@ -252,6 +329,53 @@ export default function ScoutRivalIndividual() {
       vivo = false;
     };
   }, [equipo]);
+
+  /*
+  | Sus onces de BeSoccer (rivals:informe), como Duelos (17/11/2026, ronda
+  | 21): sin once marcado, su último once; y de ahí, dónde juega cada uno en su
+  | once para el puesto que se enseña («pivote en su once (mediapunta de origen)»).
+  */
+  const [informes, setInformes] = useState<InformeDoc | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+
+    fetch(`/api/docs?key=${encodeURIComponent("rivals:informe")}`, { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ data?: InformeDoc | null }>)
+      .then((j) => {
+        if (vivo) setInformes(j?.data ?? null);
+      })
+      .catch(() => undefined);
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  /* La jornada (17/11/2026, ronda 21): un desplegable con nuestros partidos contra este rival; abre la lista de ese partido. */
+  const { partidos } = useCalendario();
+
+  const jornadasDelRival = useMemo(
+    () =>
+      partidos
+        .map((p) => comoNuestro(p))
+        .filter((p) => p.jornada && p.rival && equipo && mismoClub(nombreEquipo(p.rival), equipo))
+        .sort((a, b) => a.jornada - b.jornada),
+    [partidos, equipo],
+  );
+
+  const [jornadaPedida, setJornadaPedida] = useState<{ equipo: string; jornada: number }>({ equipo: "", jornada: 0 });
+
+  const jornadaPorDefecto = Number(jornadaDeEquipo(orden, equipo)?.etiqueta.replace(/\D/g, "")) || jornadasDelRival.at(-1)?.jornada || 0;
+
+  const jornada = jornadaPedida.equipo === equipo && jornadaPedida.jornada ? jornadaPedida.jornada : jornadaPorDefecto;
+
+  /* Cuántos cortes del canal tiene cada uno: lo dice VideosDelCanal cuando ha leído la lista. */
+  const [reparto, setReparto] = useState<{ equipo: string; cuenta: Record<string, number> | null }>({ equipo: "", cuenta: null });
+
+  const alRepartir = useCallback((cuenta: Record<string, number> | null) => setReparto({ equipo, cuenta }), [equipo]);
+
+  const cortes = reparto.equipo === equipo ? reparto.cuenta : null;
 
   useEffect(() => {
     let cancelado = false;
@@ -326,12 +450,72 @@ export default function ScoutRivalIndividual() {
     return asignaPerfiles(delEquipo, perfilesRival.perfiles, (f) => f.__k);
   }, [perfilesRival, filasDe, equipo]);
 
+  /*
+  | EL MISMO ONCE QUE PLANTILLAS RIVALES Y DUELOS (17/11/2026, ronda 21): el
+  | marcado en Plantillas si tiene siete o más; si no, su último once de
+  | BeSoccer. Fuera los lesionados y sancionados de su ficha, y se dice.
+  */
+  const once = useMemo(() => {
+    const suyos = (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((j) => ({
+      nombre: j.nombre,
+      clave: clavesDe[`${equipo}|${j.nombre}`] ?? "",
+      fila: filasDe[`${equipo}|${j.nombre}`],
+    }));
+    const deLaPlantilla = new Set(suyos.map((j) => j.clave).filter(Boolean));
+    const marcados = onceDe.equipo === equipo ? onceDe.claves.filter((c) => deLaPlantilla.has(c)) : [];
+    let claves: string[] = [];
+    let fuente = "";
+
+    if (marcados.length >= 7) {
+      claves = marcados;
+      fuente = "Once probable marcado en Plantillas rivales";
+    } else {
+      const ultimo = findInforme(informes, equipo)?.onces?.find((o) => o.jugadores.length > 0);
+      const casados = (ultimo?.jugadores ?? [])
+        .map((u) => casaNombre(u.nombre, suyos, (j) => j.nombre)?.clave ?? "")
+        .filter(Boolean);
+
+      if (casados.length >= 7) {
+        claves = casados;
+        fuente = `Su último once en BeSoccer${ultimo?.estructura ? ` (${ultimo.estructura})` : ""}: nadie ha marcado el once probable`;
+      }
+    }
+
+    const fuera = suyos.filter((j) => claves.includes(j.clave) && j.fila && ["lesionado", "sancionado"].includes(bajaDe(j.fila) ?? ""));
+
+    if (fuera.length) {
+      fuente += `, sin ${fuera.map((j) => `${conTildes(comoNombre(j.nombre))} (${bajaDe(j.fila!)})`).join(" ni ")}`;
+    }
+
+    return { claves: new Set(claves.filter((c) => !fuera.some((j) => j.clave === c))), fuente };
+  }, [squads, equipo, clavesDe, filasDe, onceDe, informes]);
+
+  /* Dónde cae cada titular en su once, con la cuenta del campograma de /rivals (la de Duelos). */
+  const colocacion = useMemo(
+    () =>
+      colocacionDelCampograma(
+        Object.entries(filasDe)
+          .filter(([k]) => k.startsWith(`${equipo}|`))
+          .map(([, f]) => f),
+        equipo,
+        findInforme(informes, equipo),
+        { dibujo: onceDe.equipo === equipo ? onceDe.dibujo : undefined, puestos: onceDe.equipo === equipo ? onceDe.puestos : undefined },
+      ),
+    [filasDe, equipo, informes, onceDe],
+  );
+
   const plantilla = useMemo(
     () =>
       (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((jugador) => {
         const fila = filasDe[`${equipo}|${jugador.nombre}`];
         const stats = fila ? findStats(statsDoc, fila) : null;
         const temporada = stats ? highlightSeason(stats.temporadas, statsDoc?.temporada) : null;
+        const clave = clavesDe[`${equipo}|${jugador.nombre}`];
+        const titular = Boolean(clave) && once.claves.has(clave!);
+        const perfil = perfilPorFicha.get(`${equipo}|${jugador.nombre}`);
+        /* El puesto de todas las pantallas: «pivote en su once (mediapunta de origen)» sólo en los del once. */
+        const enSuOnce = titular ? puestoDelRival(String(jugador.posicion ?? ""), colocacion.get(clave!) ?? null) : null;
+        const puesto = rotuloDePuesto(String(jugador.posicion ?? ""));
 
         return {
         partidos: temporada?.partidos,
@@ -341,20 +525,23 @@ export default function ScoutRivalIndividual() {
         amarillas: temporada?.amarillas,
         goles: temporada?.goles,
         asistencias: temporada?.asistencias,
-        cifras: cifrasDePerfil(perfilPorFicha.get(`${equipo}|${jugador.nombre}`)),
+        rasgos: rasgosDePerfil(perfil),
+        poblacion: poblacionDe(perfil, puesto, enSuOnce?.enElOnce ?? null),
+        rol: enSuOnce?.enElOnce ? conMayuscula(enSuOnce.texto) : "",
         /* Como en Plantillas, con tildes y en caja de nombre: «SAMU VAZQUEZ» → «Samu Vázquez» (07/11/2026). */
         nombre: conTildes(comoNombre(jugador.nombre)),
         hoja: jugador.nombre,
         dorsal: dorsalesRepetidos.has(String(jugador.dorsal ?? "").trim()) ? "" : jugador.dorsal,
         /* El rótulo de Plantillas rivales: «MEDIO CENTRO» → «Mediocentro» (08/11/2026, jueces). */
-        puesto: rotuloDePuesto(String(jugador.posicion ?? "")),
+        puesto,
         etiquetas: etiquetasDe[`${equipo}|${jugador.nombre}`] ?? [],
-        titular:
-          titularesDe.equipo === equipo && titularesDe.claves.includes(clavesDe[`${equipo}|${jugador.nombre}`] ?? "\u0000"),
+        titular,
         };
       }),
-    [squads, equipo, etiquetasDe, clavesDe, titularesDe, filasDe, statsDoc, dorsalesRepetidos, perfilPorFicha],
+    [squads, equipo, etiquetasDe, clavesDe, once, colocacion, filasDe, statsDoc, dorsalesRepetidos, perfilPorFicha],
   );
+
+  const titulares = useMemo(() => plantilla.filter((j) => j.titular), [plantilla]);
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
@@ -399,6 +586,8 @@ export default function ScoutRivalIndividual() {
               onCambia={setVista}
               opciones={[
                 { clave: "clips", label: "Clips", icono: IconoVideo },
+                /* La lista del canal, secundaria (17/11/2026, ronda 21, análisis): se empareja sola; aquí se cambia. */
+                { clave: "lista", label: "Lista del canal", corto: "Lista", icono: ListVideo },
                 /* Sin la cifra suelta (16/11/2026, marketing): «Visionados 499» no decía de qué; dentro se explica quién y cuándo. */
                 { clave: "visionados", label: "Visionados en YouTube", corto: "Visionados", icono: Eye },
               ]}
@@ -439,33 +628,52 @@ export default function ScoutRivalIndividual() {
                   >
                     {!equipo && <option value="" className="bg-[#11161C]">Elige rival…</option>}
                     {equipos.map((nombre) => {
-                      const jornada = jornadaDeEquipo(orden, nombre);
+                      const suJornada = jornadaDeEquipo(orden, nombre);
 
                       return (
                         <option key={nombre} value={nombre} className="bg-[#11161C]">
                           {nombre}
-                          {jornada ? ` · ${jornada.etiqueta}` : ""}
+                          {suJornada ? ` · ${suJornada.etiqueta}` : ""}
                           {esElProximo(orden, nombre) ? " · próximo" : ""}
                         </option>
                       );
                     })}
                   </select>
                 </label>
+                {/* La jornada (17/11/2026, ronda 21): nuestros partidos contra él; abre la lista del canal de ese partido. */}
+                {equipo && jornadasDelRival.length > 0 && (
+                  <label className="flex min-w-0 items-center gap-2">
+                    <span className="sr-only">Jornada</span>
+                    <select
+                      value={jornada || ""}
+                      onChange={(evento) => setJornadaPedida({ equipo, jornada: Number(evento.target.value) || 0 })}
+                      className="min-w-0 rounded-xl border border-white/12 bg-white/[0.04] px-3 py-2 text-sm font-semibold text-white outline-none transition focus:border-[#C8A96B]"
+                    >
+                      {!jornada && <option value="" className="bg-[#11161C]">Jornada…</option>}
+                      {jornadasDelRival.map((p) => (
+                        <option key={p.jornada} value={p.jornada} className="bg-[#11161C]">
+                          J{p.jornada}
+                          {diaCorto(p.cuando) ? ` · ${diaCorto(p.cuando)}` : ""}
+                          {p.jugado && p.golesFavor != null && p.golesContra != null ? ` · ${p.golesFavor}-${p.golesContra}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                )}
                 {equipo && esElProximo(orden, equipo) && (
                   <span className="rounded-full bg-[#C8A96B] px-1.5 py-px text-xs font-bold uppercase tracking-wider text-black">Próximo</span>
                 )}
-                {equipo && <ChapaJornada jornada={jornadaDeEquipo(orden, equipo)} activo />}
               </div>
             )}
           </section>
 
           {/*
-          | CLIPS DE HUDL (17/11/2026, el analista): los cortes de Wyscout que
-          | lleva a Hudl como listas «RIVAL - JUGADOR», para bajarlos al
-          | portátil (.zip por jugador o todos) o verlos uno a uno. Sin listas
-          | de este rival en Hudl no sale.
+          | ARRIBA, LA CONCLUSIÓN (17/11/2026, ronda 21): el titular y la
+          | radiografía de percentiles del once probable. Las listas, debajo.
           */}
-          {equipo && <ClipsHudlDelRival key={`hudl-${equipo}`} equipo={equipo} className="mt-6" />}
+          {vista === "clips" && equipo && titulares.length > 0 && (
+            <RadiografiaDelOnce className="mt-6" equipo={equipo} titulares={titulares} plantilla={plantilla} cortes={cortes} fuente={once.fuente} />
+          )}
 
           {/* ---------------------------- VÍDEOS --------------------------- */}
 
@@ -481,6 +689,10 @@ export default function ScoutRivalIndividual() {
                 visionados={vistasPorVideo}
                 equipos={equipos}
                 jugadorInicial={equipo === delEnlace ? jugadorEnlazado : ""}
+                vista={vista === "lista" ? "lista" : "clips"}
+                jornada={jornada || undefined}
+                onReparto={alRepartir}
+                onIrALista={() => setVista("lista")}
               />
             ) : (loading || !ordenListo) && !lento ? (
               <EsqueletoPantalla titulo="las plantillas rivales" cifras={0} paneles={1} />
@@ -488,6 +700,13 @@ export default function ScoutRivalIndividual() {
               <EstadoVacio icon={Users} titulo="No hay plantillas rivales en la hoja todavía." />
             )}
           </div>
+
+          {/*
+          | CLIPS DE HUDL (17/11/2026, el analista): todas las listas
+          | «RIVAL - JUGADOR» del rival, para bajarlas de una vez. Al final: cada
+          | titular sin corte ya lleva los suyos en su tarjeta.
+          */}
+          {vista === "clips" && equipo && <ClipsHudlDelRival key={`hudl-${equipo}`} equipo={equipo} className="mt-6" />}
           </>
           )}
         </div>

@@ -388,6 +388,35 @@ export function useClipsHudlDelEquipo(equipo: string) {
   }, [doc, equipo]);
 }
 
+/**
+ * Cuántos clips de Hudl hay ya bajados de cada jugador (17/11/2026, ronda 21):
+ * la radiografía del once y las etiquetas de Scout individual dicen en cuántos
+ * clips se apoyan. Devuelve clave → clips; quien no tiene lista no sale.
+ */
+export function useCuentaHudl(
+  equipo: string,
+  jugadores: (JugadorParaHudl & { clave: string })[],
+  plantilla?: JugadorParaHudl[],
+): Record<string, number> {
+  const { doc } = useAlmacenHudl();
+
+  return useMemo(() => {
+    const limpia = (j: JugadorParaHudl) => ({ nombres: j.nombres.filter((n): n is string => Boolean(n && String(n).trim())).map(String), dorsal: j.dorsal });
+    const delEquipo = listasDelEquipo(doc, equipo);
+    const salida: Record<string, number> = {};
+
+    if (!delEquipo.length) return salida;
+
+    for (const j of jugadores) {
+      const clips = listasDelJugador(delEquipo, limpia(j), plantilla?.map(limpia)).reduce((s, l) => s + l.clips.length, 0);
+
+      if (clips > 0) salida[j.clave] = clips;
+    }
+
+    return salida;
+  }, [doc, equipo, jugadores, plantilla]);
+}
+
 /** Todas las listas del rival, jugador a jugador, con «Descargar todos». */
 export function ClipsHudlDelRival({ equipo, className = "" }: { equipo: string; className?: string }) {
   const { listas, clips, enHudl } = useClipsHudlDelEquipo(equipo);
