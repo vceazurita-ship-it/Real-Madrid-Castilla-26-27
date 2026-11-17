@@ -90,11 +90,14 @@ export function EnlacesJugador({
   jugador,
   destinos = DESTINOS_HABITUALES,
   compacto = false,
+  soloIconos = false,
   className = "",
 }: {
   jugador: JugadorEnlazable;
   destinos?: DestinoJugador[];
   compacto?: boolean;
+  /** Sólo iconos en todos los anchos (tarjetas estrechas); el rótulo, al pasar el ratón y para el lector. */
+  soloIconos?: boolean;
   className?: string;
 }) {
   if (!jugador.nombre && !jugador.id) return null;
@@ -123,7 +126,7 @@ export function EnlacesJugador({
           >
             {r.icono}
             {/* 17/11/2026 (ronda 20, jueces): en pantalla ancha el compacto también lleva su rótulo («Ficha», «Vídeos»…); en el móvil, sólo el icono. */}
-            {compacto && !principal ? <span className="sr-only lg:not-sr-only">{r.label}</span> : <span>{r.label}</span>}
+            {soloIconos && !principal ? <span className="sr-only">{r.label}</span> : compacto && !principal ? <span className="sr-only lg:not-sr-only">{r.label}</span> : <span>{r.label}</span>}
           </Link>
         );
       })}

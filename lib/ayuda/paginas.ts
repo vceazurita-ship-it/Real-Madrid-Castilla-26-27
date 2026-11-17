@@ -898,10 +898,10 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Una barra por jugador de campo del Castilla con los días desde su último seguimiento, la raya de los 14 días del aviso y la mediana en el título; quien pasa de 14 lleva «Registrar», que abre su ficha con el formulario de nuevo seguimiento",
             cuenta: "Días de calendario desde el último registro con fecha hasta hoy. Oro: más de 14; rojo: 28 o más o ninguno. En el móvil sólo salen los que pasan de 14",
           },
-          { que: "Nota del scout", es: "Media de las fichas del scout (cinco competencias, escala 0-10) y su tramo" },
+          { que: "Nota del scout", es: "Media de las fichas del scout (cinco competencias, escala 0-10) y su tramo; el pie dice su base frente a la cifra «Jugadores» («los 19 de 22 con ficha de scout»)" },
           {
             que: "Línea de rendimiento de cada ficha",
-            es: "La nota media de sus 3 últimos partidos con nota («últ. 3») y el % de minutos, de Valoraciones; la cifra va en tinta y su color en el punto de al lado. La base sale una vez bajo las cifras («de los N′ posibles»). Debajo, en cada ficha del Castilla, «Notas» abre Valoraciones con él abierto y «Comparativa», su fila en Comparativa categoría",
+            es: "La nota media de sus 3 últimos partidos con nota («últ. 3») y el % de minutos, de Valoraciones; la cifra va en tinta y su color en el punto de al lado. La base sale una vez bajo las cifras («de los N′ posibles»). Debajo, en cada ficha del Castilla, «Notas» abre Valoraciones con él abierto y «Comparativa», su fila en Comparativa categoría; al lado, tres iconos: sus vídeos, su Data análisis y su seguimiento (los porteros, sin seguimiento: llevan el suyo). La foto va encuadrada a cara y hombros (4:5)",
             cuenta: "% de minutos = sus minutos ÷ (partidos de Valoraciones × 90′); quien no ha jugado, 0 %. Sin partidos, no sale",
           },
           {
