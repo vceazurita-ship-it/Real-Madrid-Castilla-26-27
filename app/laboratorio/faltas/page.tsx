@@ -50,7 +50,11 @@ import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/component
 import { ComparativaPartido, UMBRAL_TENDENCIA_PARTIDOS, numeroCorto } from "@/components/abp/ComparativaPartido";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { ultimoPorFecha } from "@/lib/abp/ultimo-partido";
-import { PARTIDOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
+import { PARTIDOS as PARTIDOS_ETIQUETADOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
+import { useRespaldoOpta } from "@/lib/opta-respaldo/cliente";
+import { fechaEtiquetada } from "@/lib/opta-respaldo/etiquetado";
+import { enlaceOptaDe, esDeOpta, type PartidoFaltasOpta } from "@/lib/opta-respaldo/tipos";
+import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import { CORTE_TRANSICION, aFavor, comparativaFaltas, cortaTransicion, decimal, enContra, laQueMas } from "@/lib/faltas/lectura";
 import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/components/faltas/CampoFaltas";
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
@@ -182,10 +186,10 @@ const jornadaCorta = (j: string) => {
 };
 
 /** Si hay algún partido de pretemporada en los datos (hoy, ninguno). */
-const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
+const HAY_PRETEMPORADA = PARTIDOS_ETIQUETADOS.some((p) => esPretemporada(p.jornada));
 
 /* 30/10/2026: las fechas con faltas etiquetadas, para el sello «Datos hasta la J·». */
-const FECHAS_FALTAS = PARTIDOS.filter((p) => p.faltas.length > 0).map((p) => p.fecha);
+const FECHAS_FALTAS = PARTIDOS_ETIQUETADOS.filter((p) => p.faltas.length > 0).map((p) => p.fecha);
 
 /** "2026-09-21" → "21 sep". */
 function fechaCorta(iso: string) {
@@ -221,9 +225,21 @@ export default function FaltasPage() {
   */
   const [conPretemporada, setConPretemporada] = useState(false);
 
+  /*
+  | RESPALDO DE OPTA (17/11/2026): el partido que aún no está etiquetado en
+  | Hudl sale de las faltas del evento a evento de Opta (quién la hace, sobre
+  | quién, zona, carril y distancia), con el sello «Desde Opta». En cuanto se
+  | etiqueta, manda lo etiquetado.
+  */
+  const respaldo = useRespaldoOpta<PartidoFaltasOpta>("faltas", FECHAS_FALTAS);
+  const PARTIDOS = useMemo(
+    () => [...PARTIDOS_ETIQUETADOS, ...respaldo.filas.filter((o) => o.faltas.length > 0 && !fechaEtiquetada(o.fecha, FECHAS_FALTAS))],
+    [respaldo.filas],
+  );
+
   const partidosVisibles = useMemo(
     () => (conPretemporada ? PARTIDOS : PARTIDOS.filter((p) => !esPretemporada(p.jornada))),
-    [conPretemporada],
+    [PARTIDOS, conPretemporada],
   );
 
   /*
@@ -672,7 +688,7 @@ export default function FaltasPage() {
 
             if (!f) return;
 
-            const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => {
+            const opciones = opcionesDeAccion({ video: f.video, opta: enlaceOptaDe(f), hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => {
                 setVista("lista");
                 setVistaPantalla("detalle");
               } });
@@ -735,6 +751,9 @@ export default function FaltasPage() {
 
             {/* 16/11/2026 (expertos, ronda 17): una línea, sin la franja «incompleta». */}
             <SelloDeFechas fuente="Etiquetado propio" fechas={FECHAS_FALTAS} queEs="faltas etiquetadas" compacto />
+
+            {/* 17/11/2026: el partido elegido sale de Opta (aún sin etiquetar en Hudl). */}
+            <SelloOpta className="mt-2" partidos={partido && partido.faltas.some(esDeOpta) ? [{ jornada: partido.jornada, rival: partido.rival }] : []} />
 
             {PARTIDOS.length === 0 || (partido?.faltas.length ?? 0) === 0 ? (
               <div className="mt-5">
@@ -1433,7 +1452,7 @@ export default function FaltasPage() {
                             {explicativos && <td className="py-2 pr-3 text-white/45">{f.nota}</td>}
 
                             <td className="py-2">
-                              <VerAccion video={f.video} hudl={f.hudl} que="la falta" />
+                              <VerAccion video={f.video} hudl={f.hudl} opta={enlaceOptaDe(f)} que="la falta" />
                             </td>
                           </tr>
                         ))}

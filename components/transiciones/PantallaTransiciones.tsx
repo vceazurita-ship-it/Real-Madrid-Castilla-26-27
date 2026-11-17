@@ -69,7 +69,11 @@ import { AbpHeader, Panel } from "@/components/abp/ui";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
-import { PARTIDOS, type Accion, type Robo } from "@/lib/transiciones/datos";
+import { PARTIDOS as PARTIDOS_ETIQUETADOS, type Accion, type Robo } from "@/lib/transiciones/datos";
+import { useRespaldoOpta } from "@/lib/opta-respaldo/cliente";
+import { fechaEtiquetada } from "@/lib/opta-respaldo/etiquetado";
+import { enlaceOptaDe, esDeOpta, type PartidoTransicionesOpta } from "@/lib/opta-respaldo/tipos";
+import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import { nombreEquipo } from "@/lib/equipos";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
@@ -443,7 +447,7 @@ const LECTORES: Record<string, (r: RoboVisto) => string> = {
   tipo: tipoDe,
 };
 
-const HAY_PRETEMPORADA = PARTIDOS.some((p) => esPretemporada(p.jornada));
+const HAY_PRETEMPORADA = PARTIDOS_ETIQUETADOS.some((p) => esPretemporada(p.jornada));
 
 /* ------------------------------------------------------------------ */
 /*  Por jugador (19/10/2026)                                           */
@@ -652,17 +656,38 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   | 10/11/2026: con `?fecha=&rival=` (lo manda «Post del partido» de Data
   | análisis) se abre en ese partido. Lo que se elija después manda.
   */
+  /*
+  | RESPALDO DE OPTA (17/11/2026): el partido que aún no está etiquetado en
+  | Hudl (ni robos ni pérdidas de ese modo) sale del evento a evento de Opta,
+  | con el sello «Desde Opta». Lo etiquetado manda: en cuanto se etiqueta,
+  | Opta deja de entrar (lib/opta-respaldo/etiquetado.ts).
+  */
+  const fechasEtiquetadas = useMemo(
+    () => PARTIDOS_ETIQUETADOS.filter((p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0).map((p) => p.fecha),
+    [modo],
+  );
+  const respaldo = useRespaldoOpta<PartidoTransicionesOpta>("transiciones", fechasEtiquetadas);
+  const PARTIDOS = useMemo(() => {
+    const opta = respaldo.filas.filter((o) => !fechaEtiquetada(o.fecha, fechasEtiquetadas));
+    const usados = new Set<string>();
+    /* J2 y J3 (mirados a ojo) no tienen pérdidas: en ese modo se rellenan con las de Opta sin tocar el resto del partido. */
+    const propios = PARTIDOS_ETIQUETADOS.map((p) => {
+      const o = opta.find((x) => fechaEtiquetada(x.fecha, [p.fecha]));
+      if (!o) return p;
+      usados.add(o.id);
+      return modo === "robos" ? { ...p, robos: o.robos } : { ...p, perdidas: o.perdidas };
+    });
+    return [...propios, ...opta.filter((o) => !usados.has(o.id))];
+  }, [respaldo.filas, fechasEtiquetadas, modo]);
+
   const enlace = usePartidoDeLaUrl();
   const enlazado = partidoEnlazado(PARTIDOS, enlace.fecha, enlace.rival)?.id ?? null;
   const [quienSuelto, setQuien] = useState<string | null>(null);
-  const [quienDefecto] = useState<string>(
-    () =>
-      ultimoPorFecha(
-        PARTIDOS.filter(
-          (p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0 && !esPretemporada(p.jornada),
-        ),
-      )?.id ?? "todos",
-  );
+  /* Derivado y no fijado al montar: cuando llega Opta, el último partido puede ser el suyo. */
+  const quienDefecto =
+    ultimoPorFecha(
+      PARTIDOS.filter((p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0 && !esPretemporada(p.jornada)),
+    )?.id ?? "todos";
   const quienElegido = quienSuelto ?? enlazado ?? quienDefecto;
   /** La fila encendida, compartida entre el campo y la tabla. */
   const [resaltado, setResaltado] = useState<string | null>(null);
@@ -690,7 +715,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   */
   const todos = useMemo(
     () => PARTIDOS.map((p) => (modo === "robos" ? p : { ...p, robos: p.perdidas ?? [] })),
-    [modo],
+    [PARTIDOS, modo],
   );
 
   const partidos = useMemo(
@@ -755,7 +780,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   );
 
   /* La columna del vídeo sólo sale si alguna jugada tiene su corte o su minuto en Hudl (J2 no tiene). */
-  const conVideo = robos.some((r) => r.video || (r.hudlUrl && r.hudl != null));
+  const conVideo = robos.some((r) => r.video || (r.hudlUrl && r.hudl != null) || esDeOpta(r));
 
   /** La barra de «Filtrando»: partido, dudosos y todo lo pinchado. */
   const partidoElegido = partidos.find((p) => p.id === quien);
@@ -1549,6 +1574,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
               const opciones = opcionesDeAccion({
                 video: r.video,
+                opta: enlaceOptaDe(r),
                 hudl: r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : null,
                 fila: robos.some((x) => idDe(x) === id) ? id : null,
                 /* La tabla vive en su pestaña: hay que ir a ella antes. */
@@ -1646,6 +1672,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {/* 16/11/2026 (expertos, ronda 17): un solo sello, con el mismo
                 recuento que la línea de debajo y sin la franja «incompleta». */}
             <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto />
+
+            {/* 17/11/2026: los partidos de lo que se ve que salen de Opta (aún sin etiquetar en Hudl). */}
+            <SelloOpta className="mt-2" partidos={elegidos.filter((p) => p.robos.some(esDeOpta)).map((p) => ({ jornada: p.jornada, rival: p.rival }))} />
 
             {/* 30/10/2026: por qué el selector no empieza en la J1 (análisis y marketing).
                 10/11/2026: con el número de partidos, como subtítulo. */}
@@ -2495,6 +2524,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                               <VerAccion
                                 video={r.video}
                                 hudl={r.hudlUrl && r.hudl != null ? { url: r.hudlUrl, seg: Math.round(r.hudl) } : undefined}
+                                opta={enlaceOptaDe(r)}
                                 que={T.verQue}
                               />
                             </td>
