@@ -85,6 +85,14 @@ function cuantoFalta(hasta: Date | null | undefined, ahora: Date) {
   return minutos <= 1 ? "falta 1 minuto" : `faltan ${minutos} minutos`;
 }
 
+/** El instante del cierre → «vie 20», en hora de Madrid. */
+function cierreCorto(cuando: Date) {
+  return new Intl.DateTimeFormat("es-ES", { weekday: "short", day: "numeric", timeZone: "Europe/Madrid" })
+    .format(cuando)
+    .replace(",", "")
+    .replace(".", "");
+}
+
 /** «A», «A y B», «A, B y C». */
 function enLista(nombres: string[]) {
   if (nombres.length <= 1) return nombres.join("");
@@ -234,13 +242,17 @@ export function EstadoJornada({
         tono={cerrada ? "normal" : ultimasHoras ? "aviso" : "oro"}
         className="sm:basis-full"
       >
+        {/* 17/11/2026 (marketing): una sola frase con el cierre y la cuenta atrás:
+            «Cierra el vie 20, 12:00 · faltan 3 días». */}
         {falta ? (
           <>
             <strong className="text-[15px] font-semibold text-white">
-              {falta.charAt(0).toUpperCase() + falta.slice(1)} para apostar
+              {ultimasHoras ? "Cierra hoy a las 12:00" : cierreEn ? `Cierra el ${cierreCorto(cierreEn)}, 12:00` : `Jornada ${numero} abierta`}
             </strong>
-            {` · jornada ${numero} ${ultimasHoras ? "· hoy cierra" : "abierta"}`}
-            {cierre ? ` hasta el ${cierre}` : ""}
+            <span className="font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
+              {` · ${falta}`}
+            </span>
+            {` · jornada ${numero}`}
           </>
         ) : (
           <>
