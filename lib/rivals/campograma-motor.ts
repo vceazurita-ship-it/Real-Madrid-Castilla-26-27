@@ -540,6 +540,171 @@ export function reparteEnOnce<T>(
   return reparto;
 }
 
+/* ------------------------------------------------------------------ */
+/*  UN TITULAR POR HUECO (17/11/2026, jueces de fútbol)                */
+/* ------------------------------------------------------------------ */
+
+/*
+| El once probable salía con J. Mier y Olmedo de titulares en el lateral
+| derecho y nadie en el extremo izquierdo: cada titular caía en el bloque de
+| su puesto, sin mirar si ese bloque ya tenía titular. Aquí se reparten los
+| titulares entre los once bloques del dibujo **de uno en uno**, con la cuenta
+| de mínimo coste (método húngaro): cada uno al hueco de su familia y de su
+| lado si puede; si no, al pariente más cercano; y lo que no se parece a nada
+| (un lateral de extremo) no se fuerza: se queda en su bloque y la pantalla
+| avisa del hueco.
+|
+| La usan el campograma de /rivals (para pintar), `colocacionDelOnce` (Duelos,
+| Plan, pizarra, ABP) y el once sugerido (para elegir quién entra), así que
+| todas las pantallas ven el mismo once en el mismo sitio.
+*/
+
+/** Coste a partir del cual un hueco no se le da a alguien: no se parece a lo que juega. */
+export const COSTE_IMPOSIBLE = 30;
+
+/** Lo que cuesta poner a un jugador (slot y lado) en un bloque. */
+export function costeDeBloque(bloque: BloqueOnce, slot: string, lado: number): number {
+  const esPortero = slot === "por";
+
+  if (bloque.key === "por" || bloque.admite.includes("por")) return esPortero ? 0 : 1e6;
+  if (esPortero) return 1e6;
+
+  const familia = FAMILIA_DE_SLOT[slot];
+  const orden: FamiliaPuesto[] = familia ? [familia, ...PARIENTES[familia]] : ["mediapunta", "interior", "pivote"];
+  const tramo = orden.findIndex((cual) => bloque.admite.includes(cual));
+  /* Un pariente cercano (el interior en el hueco del pivote) cuesta menos que
+     meter a quien no ha jugado: ver el peso en `asignaTitulares`. */
+  const base = tramo < 0 ? COSTE_IMPOSIBLE : tramo === 0 ? 0 : 1 + tramo * 4;
+
+  const suyo = LADO_DE_SLOT[slot] ?? (lado < 0 ? -1 : lado > 0 ? 1 : 0);
+  const otroLado = suyo !== 0 && bloque.lado !== 0 && bloque.lado !== suyo ? 3 : 0;
+
+  return base + otroLado;
+}
+
+/** Asignación de mínimo coste filas → columnas (filas ≤ columnas). Devuelve la columna de cada fila. */
+function hungaro(coste: number[][]): number[] {
+  const n = coste.length;
+  const m = n ? coste[0].length : 0;
+
+  if (!n || m < n) return [];
+
+  const u = new Array(n + 1).fill(0);
+  const v = new Array(m + 1).fill(0);
+  const p = new Array(m + 1).fill(0);
+  const via = new Array(m + 1).fill(0);
+
+  for (let i = 1; i <= n; i += 1) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Array(m + 1).fill(Infinity);
+    const usado = new Array(m + 1).fill(false);
+
+    do {
+      usado[j0] = true;
+      const i0 = p[j0];
+      let delta = Infinity;
+      let j1 = 0;
+
+      for (let j = 1; j <= m; j += 1) {
+        if (usado[j]) continue;
+        const cur = coste[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) {
+          minv[j] = cur;
+          via[j] = j0;
+        }
+        if (minv[j] < delta) {
+          delta = minv[j];
+          j1 = j;
+        }
+      }
+
+      for (let j = 0; j <= m; j += 1) {
+        if (usado[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+
+      j0 = j1;
+    } while (p[j0] !== 0);
+
+    do {
+      const j1 = via[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0);
+  }
+
+  const salida = new Array(n).fill(-1);
+
+  for (let j = 1; j <= m; j += 1) if (p[j]) salida[p[j] - 1] = j - 1;
+
+  return salida;
+}
+
+/**
+ * Reparte titulares entre los bloques del dibujo, uno por bloque.
+ *
+ * - `peso` (0..1, por defecto 1): cuánto ha jugado; a igualdad de puesto entra
+ *   el que más. Sirve para ELEGIR (once sugerido, con toda la plantilla como
+ *   candidata) y no molesta para COLOCAR (once ya marcado, todos con peso 1).
+ * - `fijado`: lo puesto a mano en el campograma, que se respeta y ocupa su bloque.
+ *
+ * Devuelve jugador → clave de bloque sólo de quien tiene hueco; el resto (los
+ * que sobran, o los que no se parecen a ningún hueco libre) no sale.
+ */
+export function asignaTitulares<T>(
+  titulares: T[],
+  lee: (jugador: T) => { slot: string; lado: number },
+  bloques: BloqueOnce[] = ONCE_1_4_2_3_1,
+  opciones: { peso?: (jugador: T) => number; fijado?: (jugador: T) => string | null | undefined } = {},
+): Map<T, string> {
+  const salida = new Map<T, string>();
+  const ocupados = new Set<string>();
+  const libres: T[] = [];
+
+  for (const jugador of titulares) {
+    const aMano = opciones.fijado?.(jugador);
+
+    if (aMano && bloques.some((b) => b.key === aMano)) {
+      salida.set(jugador, aMano);
+      ocupados.add(aMano);
+    } else {
+      libres.push(jugador);
+    }
+  }
+
+  const huecos = bloques.filter((b) => !ocupados.has(b.key));
+
+  if (huecos.length === 0 || libres.length === 0) return salida;
+
+  const lecturas = libres.map((jugador) => lee(jugador));
+  const pesos = libres.map((jugador) => Math.max(0, Math.min(1, opciones.peso?.(jugador) ?? 1)));
+
+  /* Filas = huecos; columnas = jugadores, con columnas de relleno si faltan jugadores. */
+  const columnas = Math.max(libres.length, huecos.length);
+  const coste = huecos.map((bloque) =>
+    Array.from({ length: columnas }, (_, j) =>
+      j < libres.length ? costeDeBloque(bloque, lecturas[j].slot, lecturas[j].lado) + (1 - pesos[j]) * 12 : 1e5,
+    ),
+  );
+
+  const asignado = hungaro(coste);
+
+  asignado.forEach((j, fila) => {
+    if (j < 0 || j >= libres.length) return;
+
+    if (costeDeBloque(huecos[fila], lecturas[j].slot, lecturas[j].lado) >= COSTE_IMPOSIBLE) return;
+
+    salida.set(libres[j], huecos[fila].key);
+  });
+
+  return salida;
+}
+
 /*
 | Tope de la fila de un bloque de banda.
 |

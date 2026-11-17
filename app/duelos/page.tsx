@@ -454,8 +454,8 @@ export default function DuelosPage() {
       : "Propuesto con los minutos de Wyscout en 4-2-3-1";
   /* El once único (ronda 17): cada uno de los suyos en el bloque del campograma de /rivals (capa común). */
   const colocacion = useMemo(
-    () => colocacionDelCampograma(plantillas, equipoVisto, findInforme(informes, equipoVisto), { dibujo: dibujoMarcado, puestos: puestosMarcados }),
-    [plantillas, equipoVisto, informes, dibujoMarcado, puestosMarcados],
+    () => colocacionDelCampograma(plantillas, equipoVisto, findInforme(informes, equipoVisto), { dibujo: dibujoMarcado, puestos: puestosMarcados, titulares: onceMarcado ?? [] }),
+    [plantillas, equipoVisto, informes, dibujoMarcado, puestosMarcados, onceMarcado],
   );
   const onceSuyo = useMemo(
     () => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(colocacion, onceMarcado ?? [])),

@@ -112,8 +112,8 @@ export function useRivalOnce(equipo: string) {
   | otro once: se cicla a un jugador, se arrastra en el pop-up o se sustituye.
   */
   const proponer = useCallback(
-    (titulares: string[], campo: Record<string, OncePos>) => {
-      setValue((actual) => conOnce(normalizarOnce(actual), titulares, campo));
+    (titulares: string[], campo: Record<string, OncePos>, extra?: { dibujo?: string; puestos?: Record<string, string> }) => {
+      setValue((actual) => conOnce(normalizarOnce(actual), titulares, campo, extra));
     },
     [setValue]
   );

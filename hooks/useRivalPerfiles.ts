@@ -22,6 +22,8 @@ export type PerfilesRival = PerfilesDeEquipo & {
   aspectos: AspectoDestacado[];
   /** Cuántos partidos suyos tiene Wyscout: la base de las cifras «por partido». Falta en respuestas viejas de la copia. */
   partidos?: number;
+  /** Su sistema principal partido a partido en Wyscout, de más a menos usado. Falta en respuestas viejas. */
+  sistemas?: { partidos: number; lista: { sistema: string; veces: number }[] };
 };
 
 export function useRivalPerfiles(equipo: string) {
@@ -36,7 +38,7 @@ export function useRivalPerfiles(equipo: string) {
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<PerfilesRival>>(
-      `/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=2`,
+      `/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=3`,
     )
       .then((r) => {
         if (cancelado) return;

@@ -1156,6 +1156,12 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-17",
     bloques: [
       {
+        titulo: "Lo nuevo (17/11/2026, ronda 21)",
+        filas: [
+          { que: "Su once, un titular por hueco", es: "Sus titulares se reparten entre los once puestos de su dibujo de uno en uno, con la misma cuenta que el campograma de Plantillas rivales: ya no salen dos en el mismo puesto con otro vacío (dos laterales derechos y nadie en el extremo izquierdo)", cuenta: "asignaTitulares en colocacionDelOnce (lib/rivals/colocacion-once.ts); el dibujo, el guardado con el once (al sugerirlo en Plantillas, el sistema más usado según Wyscout)" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
           { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
@@ -1568,10 +1574,25 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
-    resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
+    resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
     revisada: "2026-11-17",
     bloques: [
+      {
+        titulo: "Lo nuevo (17/11/2026, ronda 21): el campo y el once, primero",
+        filas: [
+          { que: "Orden de la pantalla", es: "Arriba, el rival en una frase y una sola fila de accesos; justo debajo, el campograma con su once y, a su lado (debajo en el móvil), «El once de un vistazo», los buscadores y la lista por puesto. «Cómo llega», el vídeo de sus partidos y los revulsivos van después. La tarjeta «Para la semana» ya no está: sus botones (Informe, PDF del once, PDF para el portero, PowerPoint y Enviar por WhatsApp o correo) son los de la barra del campograma («Informe» y «Más»)" },
+          { que: "El rival en una frase", es: "Lo más fuerte y lo más flojo contra la categoría, con una cifra («destaca en progresión, pero flojea en balón parado en contra (córners rematados 44,6 %, 20.º de 20)»); sin Wyscout, su puesto y su racha. Al lado, «Cómo juega ›» (Scout colectivo) y «Área del rival ›», con el rival ya puesto", cuenta: "La misma frase que «Cómo llega» (fuerteYFlojoDelRival, Wyscout de su competición esta temporada); sin ella, fraseDelVistazo con BeSoccer" },
+          { que: "Dibujo del once: su sistema más usado según Wyscout", es: "El campograma se dibuja por defecto con el sistema con el que más partidos ha salido según Wyscout, y lo dice: «Once probable en 4-3-3 · su sistema en 7 de 12 · Wyscout, tendencia». Si se elige otro a mano, la misma línea lo cuenta («elegido a mano · su sistema más usado: 4-3-3 ×7 de 12») y «Volver al 4-3-3» lo devuelve. Sin Wyscout, el que más repite en sus alineaciones de BeSoccer", cuenta: "Wyscout trae el sistema de cada partido con el % de tiempo («4-3-3 (70.4%)»); de cada partido de su liga esta temporada cuenta el de más tiempo (/api/data-analisis?perfiles=, sistemas). «Tendencia» con menos de 15 partidos. Se traduce al dibujo más parecido de los siete del campograma. «Cómo llega» enseña el mismo, rotulado Wyscout" },
+          { que: "Un titular por hueco", es: "El once probable llena los once puestos del dibujo, uno por puesto: el que más ha jugado de cada uno entra y el que sobra se queda en el banquillo. Nunca dos titulares en el mismo puesto con otro vacío. Si el once marcado no cuadra con el dibujo (dos laterales derechos y nadie en el extremo izquierdo), la barra lo dice («Sin titular en EI · Jorge Mier no tiene hueco en el 4-3-3») con «Rehacer el once en 4-3-3»", cuenta: "asignaTitulares (lib/rivals/campograma-motor.ts): reparto de mínimo coste (método húngaro) entre titulares y huecos; cuesta 0 su puesto, poco el pariente cercano (un interior de pivote), más el otro lado, y lo que no se parece (un lateral de extremo) no se fuerza. Al sugerir, toda la plantilla es candidata y pesa lo que ha jugado en sus últimas cinco alineaciones de liga (BeSoccer, la más reciente vale más). La misma cuenta usan Duelos, el Plan, la pizarra y las marcas de ABP (colocacionDelOnce), y el dibujo se guarda con el once: todos ven el mismo" },
+          { que: "El once de un vistazo", es: "Encima de la lista: los titulares por línea (portería, defensa, medio, ataque) en el orden del campo y, por línea, ▲ el que más daño hace y ▼ por dónde se le gana, con su cifra y su base. Cada nombre abre su ficha", cuenta: "▲: sus goles si lleva 3 o más (BeSoccer, medio y ataque); si no, lo mejor de Wyscout contra su puesto («mejor que 9 de cada 10 de su puesto · 8 partidos · Wyscout», con 270′ o más); si no, su etiqueta de fortaleza. ▼: lo peor de Wyscout contra su puesto o su etiqueta de debilidad. Lo que no tiene dato no sale" },
+          { que: "Lista por puesto, plegada", es: "Porteros, defensas, centrocampistas y atacantes, cerrados: la cabecera dice quién es titular y se abre sólo el puesto que se pulsa. Con una búsqueda, un puesto escrito o etiquetas activas se abren todos. En el móvil ya no hay «Ver listado»: el campo y la lista van seguidos" },
+          { que: "Etiquetas con su base", es: "Una sola línea por jugador: dos etiquetas, «+N» con el resto y sobre cuántos partidos suyos se han puesto («8 PJ»; con menos de 3, «tendencia · 2 PJ»). Así la fila no es más alta que la foto a 390 px", cuenta: "Partidos de esta temporada en BeSoccer. Las etiquetas las pone el analista en la ficha (columna IMPACTO)" },
+          { que: "Fichas sin foto", es: "Con sus iniciales (o el dorsal) en vez de un círculo vacío, en el campo y en la lista; la silueta genérica de BeSoccer cuenta como sin foto" },
+          { que: "Ficha del jugador: su vídeo y su duelo", es: "«Sus cortes (Scout individual)» abre Scout individual con él ya elegido y «Su duelo», Duelos con su rival puesto; debajo, sus clips de Hudl" },
+          { que: "Fila de equipos", es: "En el móvil se parte en renglones (no se corta ningún escudo); en el ordenador, un degradado sobre el borde y el botón dorado «N ›» que desliza la fila" },
+        ],
+      },
       {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
@@ -1580,8 +1601,6 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Chip del duelo", es: "En palabras: «con nuestro balón: ventaja Castilla (+20) · con el suyo: ventaja del rival (−33)», en diferencia de percentil. «Su duelo» abre Duelos con el rival puesto, en las dos cajas" },
           { que: "Le hacen los goles", es: "Una línea: cuántos de sus goles y en cuántos partidos (BeSoccer); la salvedad de Opta, al pasar el ratón" },
           { que: "Revulsivos", es: "Si la frase nombra al que más sale del banquillo, va el primero de la tabla" },
-          { que: "Para la semana", es: "WhatsApp y Correo, dentro de un solo «Enviar al cuerpo técnico»" },
-          { que: "Fila de equipos", es: "La flecha › al final desliza la fila: hay más equipos de los que caben" },
         ],
       },
       {
@@ -1593,7 +1612,7 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "«Cómo llega»",
             es: "Clasificación (con la mediana de goles del grupo), su balance en el campo del partido, los últimos cinco, el dibujo que más repite y quién le hace los goles",
-            cuenta: "BeSoccer, sólo su liga (sin copa ni torneos). Los últimos cinco, el más reciente a la derecha, y siempre como tendencia. La mediana de goles es por equipo, a favor y en contra (en contra, menos es mejor). El dibujo, «N de M partidos de liga (BeSoccer)», la misma cuenta que el campograma y el Scout colectivo. «Tendencia» con menos de 8 partidos en ese campo, menos de 15 partidos de liga o menos de 15 goles",
+            cuenta: "BeSoccer, sólo su liga (sin copa ni torneos). Los últimos cinco, el más reciente a la derecha, y siempre como tendencia. La mediana de goles es por equipo, a favor y en contra (en contra, menos es mejor). El dibujo, «N de M partidos de liga (Wyscout)», el mismo del campograma (sin Wyscout, el de BeSoccer, rotulado). «Tendencia» con menos de 8 partidos en ese campo, menos de 15 partidos de liga o menos de 15 goles",
           },
           {
             que: "Bajas y apercibidos",
@@ -1617,8 +1636,7 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "La misma en las ocho pantallas del rival y del partido: «▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» (en una ventana, sin salir), «⬇ Clips de Hudl (N)» si sus jugadores tienen listas en Hudl (en una ventana: jugador a jugador, .zip o uno a uno; 17/11/2026) y Plan de partido (con su jornada), Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto. En el móvil va en varias filas, a la vista (17/11/2026)",
             cuenta: "Los enlaces llevan ?equipo=NOMBRE y ?rival=ID (la fila de la hoja RIVALES del próximo partido contra él o, si ya se jugaron, del último); el rival queda apuntado durante la visita y las pestañas de la sección lo llevan también (components/rivals/AccesosDelRival.tsx, lib/rivals/rival-en-curso.ts). Sustituye a «Más de este rival»",
           },
-          { que: "Para la semana", es: "Sólo del próximo rival: informe y PDF del once probable a la vista (también en el móvil); PDF para el portero y PowerPoint de día de partido en «Más»" },
-          { que: "Vídeo de sus partidos (plegado, 17/11/2026)", es: "Los resúmenes y sus goles en vídeo van en un desplegable bajo «Para la semana»: ya están a un toque en la tira de arriba" },
+          { que: "Vídeo de sus partidos (plegado, 17/11/2026)", es: "Los resúmenes y sus goles en vídeo van en un desplegable bajo «Cómo llega», debajo del campograma: ya están a un toque en la tira de arriba" },
           { que: "Resúmenes de sus partidos", es: "El resumen oficial de sus tres últimos partidos de liga en el canal de la RFEF (abre YouTube); «Ver los N» despliega el resto" },
           { que: "Sus goles en vídeo (16/11/2026)", es: "Debajo de los resúmenes. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. El minuto, como en el campo («90+10′»), y «Falta» para la falta jugada. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF", cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes. Opta puede dar algún gol a otro jugador que BeSoccer (un rebote, un remate desviado): por eso «Le hacen los goles» y esta lista pueden no cuadrar en uno" },
           {

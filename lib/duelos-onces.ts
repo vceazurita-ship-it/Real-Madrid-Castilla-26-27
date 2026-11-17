@@ -364,7 +364,7 @@ export function colocacionDelCampograma(
   filasHoja: Fila[],
   equipo: string,
   informe: InformeEquipo | null,
-  doc: { dibujo?: string; puestos?: Record<string, string> },
+  doc: { dibujo?: string; puestos?: Record<string, string>; titulares?: string[] },
 ): Map<string, string> {
   const plantilla = filasHoja.filter((f) => texto(f.NOMBRE_EQUIPO) === equipo && texto(f.ESTADO).toUpperCase() !== "NO EN PLANTILLA");
   if (!plantilla.length) return new Map();
@@ -380,7 +380,8 @@ export function colocacionDelCampograma(
   );
   const colocados = colocacionDelOnce(
     plantilla.map((f) => ({ clave: playerKey(f as never), posicion: texto(f["POSICIÓN"]) })),
-    { dibujo: doc.dibujo || lectura.dibujo, sitios: lectura.porJugador, puestos: doc.puestos },
+    /* Los titulares, uno por hueco (17/11/2026): como el campograma, nunca dos en el mismo bloque. */
+    { dibujo: doc.dibujo || lectura.dibujo, sitios: lectura.porJugador, puestos: doc.puestos, titulares: doc.titulares },
   );
   return new Map([...colocados].map(([clave, bloque]) => [clave, bloque.key]));
 }
@@ -467,7 +468,7 @@ export function duelosDelPartido(entrada: {
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
   const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
   const referencias = referenciasPorPuesto(entrada.jugadores);
-  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDeBloques(colocacionDelCampograma(entrada.filasHoja, entrada.equipo, entrada.informe, { dibujo: entrada.dibujoPlantillas, puestos: entrada.puestosPlantillas }), entrada.marcados ?? []));
+  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDeBloques(colocacionDelCampograma(entrada.filasHoja, entrada.equipo, entrada.informe, { dibujo: entrada.dibujoPlantillas, puestos: entrada.puestosPlantillas, titulares: entrada.marcados ?? [] }), entrada.marcados ?? []));
   const onceNuestro = sinChoqueDeNombres(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo);
   return {
     duelos: separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo).conPareja,
