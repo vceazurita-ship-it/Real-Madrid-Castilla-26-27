@@ -299,6 +299,26 @@ export default function MicroCalendar() {
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  /*
+  | «?fecha=AAAA-MM-DD» (17/11/2026, r20, jueces): el análisis de entrenamiento
+  | abre aquí la sesión de su tarea con el día ya elegido. Se lee tras montar.
+  */
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const f = new URLSearchParams(window.location.search).get("fecha");
+
+      if (!f || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
+
+      const [a, mes] = f.split("-").map(Number);
+      const idx = months.findIndex((x) => x.month === mes - 1 && x.year === a);
+
+      if (idx !== -1) setCurrentMonth(idx);
+      setSelectedKey(f);
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [months]);
+
   /* Los escudos, los mismos que usan los gráficos de Data Análisis. */
   const [listaEscudos, setListaEscudos] = useState<Escudos>([]);
 

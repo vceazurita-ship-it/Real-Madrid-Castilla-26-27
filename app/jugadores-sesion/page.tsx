@@ -277,7 +277,9 @@ function Chip({
       title="Arrástralo a otro equipo, o tócalo y luego toca dónde va. Con él elegido: 1-6 equipo, C comodín, F fuera"
       /* El peto se ve en el borde izquierdo de la ficha (02/11/2026): de un vistazo, de qué color va cada uno. */
       style={{ touchAction: "pan-y", ...(color ? { borderLeftColor: color, borderLeftWidth: 3 } : {}) }}
-      className={`js-ficha group flex min-w-0 cursor-grab select-none items-center gap-2 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
+      /* 17/11/2026 (r20, jueces): el nombre ya no se corta («AIMAR …»): salta de línea y
+         las chapas (puesto, RMC) pasan debajo si no caben. */
+      className={`js-ficha group flex min-w-0 cursor-grab select-none flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border px-2.5 py-1.5 text-left text-[12px] font-semibold uppercase tracking-wide outline-none transition focus-visible:ring-2 focus-visible:ring-[#C8A96B] active:cursor-grabbing ${
         arrastrando
           ? "opacity-35"
           : encima
@@ -292,7 +294,7 @@ function Chip({
       ) : (
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "rgba(255,255,255,0.25)" }} />
       )}
-      <span className="min-w-0 truncate">{jugador.nombre}</span>
+      <span className="min-w-0 flex-1 basis-[7rem] break-words leading-tight">{jugador.nombre}</span>
       {puesto && (
         <span
           title={nombreDePuesto(puesto)}
@@ -359,9 +361,11 @@ function Chip({
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => e.stopPropagation()}
           onKeyDown={(e) => e.stopPropagation()}
-          className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/35 transition hover:bg-[#C8A96B]/20 hover:text-[#C8A96B] max-md:h-6 max-md:w-6 max-md:after:absolute max-md:after:-inset-2 max-md:after:content-['']"
+          /* 17/11/2026 (r20, jueces): con su palabra, no un icono sin destino claro. */
+          className="relative inline-flex h-5 shrink-0 items-center gap-0.5 rounded border border-white/15 px-1 text-[10px] font-bold normal-case tracking-normal text-white/60 transition hover:border-[#C8A96B]/60 hover:bg-[#C8A96B]/15 hover:text-[#C8A96B] max-md:h-6 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
         >
-          <UserRound size={12} aria-hidden />
+          <UserRound size={11} aria-hidden />
+          Ficha
         </a>
       )}
       {onQuitar && (
@@ -3589,8 +3593,13 @@ export default function JugadoresSesionPage() {
                     (() => {
                       const listas = estadoTareas.filter((a) => tareaLista(a) && !a.some((x) => x.nivel === "aviso")).length;
                       const pct = Math.round((listas / sesion.tareas.length) * 100);
+                      /* 17/11/2026 (r20, jueces): qué tarea falta, y un toque la abre. */
+                      const falta = estadoTareas.findIndex((a) => !(tareaLista(a) && !a.some((x) => x.nivel === "aviso")));
+                      const codigoFalta =
+                        falta >= 0 ? (enlacePlan[falta] != null && planSesion[enlacePlan[falta] as number]?.codigo) || `Tarea ${falta + 1}` : "";
 
                       return (
+                        <span className="flex flex-col gap-1">
                         <span className="js-cifra flex flex-col justify-center gap-1 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1" title="Tareas sin nada que corregir">
                           <span className="flex items-baseline gap-1.5">
                             <b className={`js-num text-[20px] leading-none ${listas === sesion.tareas.length ? "text-emerald-300" : "text-white"}`}>
@@ -3601,6 +3610,20 @@ export default function JugadoresSesionPage() {
                           <span className="block h-1 w-full overflow-hidden rounded-full bg-white/10">
                             <span className="js-barra block h-full rounded-full bg-[#C8A96B]" style={{ width: `${pct}%` }} />
                           </span>
+                        </span>
+                        {falta >= 0 && sesion.tareas[falta] ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setVista("equipos");
+                              irATarea(falta);
+                            }}
+                            className="max-w-[240px] truncate text-left text-[11px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                            title={`Abrir ${codigoFalta} · ${sesion.tareas[falta].nombre}`}
+                          >
+                            Falta {codigoFalta} · {sesion.tareas[falta].nombre} →
+                          </button>
+                        ) : null}
                         </span>
                       );
                     })()}
@@ -3906,8 +3929,9 @@ export default function JugadoresSesionPage() {
                       >
                         <GripVertical size={12} className="shrink-0 text-white/25" />
                         <span className={`mr-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${punto}`} />
-                        <span className="max-w-[190px] truncate text-[13px] font-semibold uppercase tracking-wide">
-                          {i + 1}. {t.nombre}
+                        {/* 17/11/2026 (r20, jueces): el mismo código del micro que el titular (M-T1…). */}
+                        <span className="max-w-[220px] truncate text-[13px] font-semibold uppercase tracking-wide">
+                          {(enlacePlan[i] != null && planSesion[enlacePlan[i] as number]?.codigo) || `${i + 1}.`} {t.nombre}
                         </span>
                         {/* Si el análisis la midió, su resultado (24/10/2026). */}
                         {(() => {
