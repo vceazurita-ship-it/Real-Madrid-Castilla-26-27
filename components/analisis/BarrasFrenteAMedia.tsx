@@ -1,0 +1,97 @@
+"use client";
+
+/*
+|--------------------------------------------------------------------------
+| ESTE PARTIDO FRENTE A LOS ANTERIORES, EN BARRAS (17/11/2026, ronda 19)
+|--------------------------------------------------------------------------
+|
+| Jueces de análisis y marketing: «Todas las cifras mejoran nuestra media…»
+| era sólo texto, y la tabla de faltas repetía el método en cada fila con
+| letra pequeña. Aquí cada cifra es una barra (este partido) con la raya de
+| la media de los anteriores y una franja gris con su rango; a la derecha la
+| cifra y la palabra («mejor», «peor», «normal») en todas las filas. El
+| sentido (▲ más es mejor / ▼ menos es mejor) va junto al nombre y el método
+| una sola vez, al pie.
+|
+| Lo usan robos, pérdidas y faltas en «Visual». La tabla de siempre sigue en
+| «Detalle».
+*/
+
+import type { MetricaComparada } from "@/components/abp/ComparativaPartido";
+
+const ORO = "#C8A96B";
+
+function juicio(m: MetricaComparada): { palabra: string; color: string } {
+  const a = m.actual!;
+  const media = m.media!;
+
+  if (m.mejorAlto !== true && m.mejorAlto !== false) return { palabra: "", color: ORO };
+
+  const rango = m.rango && m.rango[0] !== m.rango[1] ? [Math.min(m.rango[0], m.rango[1]), Math.max(m.rango[0], m.rango[1])] : null;
+  const dentro = rango ? a >= rango[0] && a <= rango[1] : Math.abs(a - media) < Math.max(0.5, Math.abs(media) * 0.1);
+  const mejor = m.mejorAlto ? a > media : a < media;
+
+  if (dentro) return { palabra: Math.abs(a - media) < Math.max(0.05, Math.abs(media) * 0.03) ? "igual" : mejor ? "normal, algo mejor" : "normal, algo peor", color: ORO };
+
+  return mejor ? { palabra: "mejor", color: "var(--rmcf-dif-mejor, #1B9E77)" } : { palabra: "peor", color: "var(--rmcf-dif-peor, #D95F02)" };
+}
+
+export function BarrasFrenteAMedia({
+  metricas,
+  anteriores,
+  titulo,
+}: {
+  metricas: MetricaComparada[];
+  /** Cuántos partidos hay detrás de la media. */
+  anteriores: number;
+  titulo?: string;
+}) {
+  const filas = metricas.filter((m) => m.actual !== null && m.media !== null);
+
+  if (filas.length === 0) return null;
+
+  return (
+    <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      {titulo ? <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">{titulo}</p> : null}
+      <ul className="space-y-2.5">
+        {filas.map((m) => {
+          const f = m.formato ?? ((n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",")));
+          const rango = m.rango && m.rango[0] !== m.rango[1] ? [Math.min(m.rango[0], m.rango[1]), Math.max(m.rango[0], m.rango[1])] : null;
+          const tope = Math.max(m.actual!, m.media!, rango?.[1] ?? 0, 0.0001) * 1.1;
+          const pos = (v: number) => `${Math.max(0, Math.min(100, (v / tope) * 100))}%`;
+          const j = juicio(m);
+          const sentido = m.mejorAlto === true ? "▲ más es mejor" : m.mejorAlto === false ? "▼ menos es mejor" : "";
+
+          return (
+            <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_8.5rem] sm:items-center sm:gap-3">
+              <span className="min-w-0 text-[13px] font-medium leading-tight text-white/85">
+                {m.nombre}
+                {sentido ? <span className="ml-1.5 text-[11px] font-normal text-white/55">{sentido}</span> : null}
+              </span>
+              <span className="relative block h-3 rounded-full bg-white/[0.06]" role="img" aria-label={`${m.nombre}: ${f(m.actual!)} frente a ${f(m.media!)} de media${rango ? `, rango de ${f(rango[0])} a ${f(rango[1])}` : ""}`}>
+                {rango ? <span className="absolute inset-y-0 rounded-full bg-white/[0.12]" style={{ left: pos(rango[0]), width: `calc(${pos(rango[1])} - ${pos(rango[0])})` }} /> : null}
+                <span className="absolute inset-y-[3px] left-0 rounded-full" style={{ width: pos(m.actual!), background: j.color }} />
+                <span className="absolute -inset-y-1 w-[2px] rounded bg-white/80" style={{ left: pos(m.media!) }} />
+              </span>
+              <span className="flex items-baseline justify-between gap-2 text-[12px] sm:justify-end">
+                <span className="font-semibold tabular-nums text-white">{f(m.actual!)}</span>
+                <span className="text-white/60">
+                  media {f(m.media!)}
+                  {j.palabra ? (
+                    <b className="ml-1 font-semibold" style={{ color: j.color === ORO ? "var(--rmcf-gold-ink)" : j.color }}>
+                      · {j.palabra}
+                    </b>
+                  ) : null}
+                </span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2.5 text-[11px] leading-snug text-white/60">
+        Barra: este partido · raya blanca: media de los {anteriores === 1 ? "un partido anterior" : `${anteriores} anteriores`} · franja gris: del mínimo al máximo de esos partidos. Dentro de la franja es lo normal.
+        {anteriores < 10 ? " Con menos de 10 partidos, tendencia." : ""}
+      </p>
+    </div>
+  );
+}

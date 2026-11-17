@@ -129,7 +129,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Ver otro partido (directo)", es: "Para todos: un desplegable con los partidos de la temporada que ya tienen todos sus datos (plan, mapas, 3D, jugadores) y se abren al momento, también el de ayer; sólo salen los que tienen datos. Con varios partidos en el directo, la tira de arriba y el selector cambian de uno a otro; en la tira, el archivo y la galería, el local va primero", cuenta: "opta:directo:archivo, que actualiza scripts/opta-directo.mjs con cada partido que guarda; la temporada se cargó entera el 14/11/2026 (SIN_INDICE=1 PARTIDO=<id> --chrome, uno a uno)" },
           {
             que: "Post del partido (16/11/2026)",
-            es: "Arriba el partido con el local primero («Gimnàstic Tarragona 0-1 Real Madrid Castilla»), y victoria, empate o derrota; el desplegable usa la misma convención. Lo primero, el cara a cara: las 8 cifras clave (goles, xG, remates, a puerta, toques en el área, centros, PPDA y duelos aéreos) y el resto bajo «Ver todas las cifras». En los remates del rival, «Nos marcaron» y la calidad del golpeo con su base (cuántos a puerta de cuántos; con un partido, tendencia). Después el 3D, que sale parado en el final con el partido entero (se reproduce al pulsar) y cuyas cifras siguen al minuto que se ve. Lo que una fuente aún no tiene no sale. Al pie, «¿Qué toca en el microciclo?» con una o dos órdenes atadas a una cifra del cara a cara cuando la diferencia es clara. Desde otra pantalla (Plan de partido, histórico, laboratorios) se abre ya en el partido que se pinchó. «xG por remate» lleva al lado la media del equipo en el resto de la temporada; en contra y sin gol, la calidad del golpeo se lee «sus N tiros a puerta valían X de xG y el portero los paró». «Visto en el vídeo» sólo enlaza robos, pérdidas o faltas si ese partido ya está etiquetado en cada una (16/11/2026)",
+            es: "Arriba el partido con el local primero («Gimnàstic Tarragona 0-1 Real Madrid Castilla»), y victoria, empate o derrota; el desplegable usa la misma convención. Lo primero, el cara a cara: las 8 cifras clave (goles, xG, remates, a puerta, toques en el área, centros, PPDA y duelos aéreos) y el resto bajo «Ver todas las cifras». Bajo el marcador, «De este partido» a un toque y con el partido ya elegido: sus robos, sus pérdidas y sus faltas (sólo si ese partido está etiquetado en cada laboratorio), nuestros goles en vídeo, el ABP del rival, el vídeo del partido y el plan del próximo partido (17/11/2026; sustituye al bloque «Visto en el vídeo» del pie). Los remates de cada equipo: tres cifras grandes (remates con los que fueron a puerta, goles con el xG que valían, xG por remate con su media) y la tarjeta «Remates mejor o peor colocados de lo que valían» con una frase que explica el signo («+0,7: sus 5 tiros a puerta valían 0,9 tras el golpeo y nuestro portero los paró todos») y, en escritorio, tres barras en la misma escala (lo que valían las ocasiones, lo que valían a puerta tras el golpeo y los goles); con un partido, tendencia. Después el 3D: encima, su titular con los goles esperados del mismo dato de Opta que el cara a cara, el Castilla primero y un decimal («Goles esperados, Castilla 0,5 – 0,7 Gimnàstic: creó más el Gimnàstic»); dentro, el local a la izquierda y los equipos con una palabra («manda Castilla», «manda Gimnàstic»). En el móvil el 3D va plegado («Ver el 3D»). Sale parado en el final con el partido entero (se reproduce al pulsar) y sus cifras siguen al minuto que se ve. Lo que una fuente aún no tiene no sale. Al pie, «¿Qué toca en el microciclo?» con una o dos órdenes atadas a una cifra del cara a cara cuando la diferencia es clara. Desde otra pantalla (Plan de partido, histórico, laboratorios) se abre ya en el partido que se pinchó. «xG por remate» lleva al lado la media del equipo en el resto de la temporada; en contra y sin gol, la calidad del golpeo se lee «sus N tiros a puerta valían X de xG y el portero los paró». Desde 1400 px de ancho, el buscador de áreas va en la misma fila que los bloques",
             cuenta: "Órdenes: duelos aéreos ganados por debajo del 45 % (objetivo: volver a nuestra media de la temporada en Opta sin ese partido, con 3 partidos o más); el rival centra 15 veces o más y al menos 1,5 veces lo nuestro; o nos crean 0,5 de xG más de lo que creamos. Como mucho dos",
           },
           { que: "Lecturas", es: "Cuando dos áreas contestaban lo mismo van en un botón con dos o tres lecturas; la primera es la que se abre" },
@@ -342,7 +342,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== MICROCICLOS ==================== */
@@ -1200,7 +1200,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Análisis de goles",
     resumen: "Los goles de un equipo y de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
     origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. «En el campo»: los remates uno a uno de Opta (doc opta:remates). Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Mandos",
@@ -1210,7 +1210,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
           {
             que: "Visual · Detalle (16/11/2026)",
-            es: "La pantalla se abre en «Visual»: la frase del balance y, cada una con su conclusión en el título, las franjas en espejo (a favor arriba, en contra abajo, con la raya de la liga), la nube de la liga (goles a favor y en contra por partido de cada equipo, el elegido en oro y el próximo rival en azul; pinchar un punto cambia de equipo) y, para el Castilla, cómo llegan los goles (Hudl; si Hudl no tiene todos, una línea dice cuántos de los del marcador tienen su jugada). Debajo de la frase, «A un toque»: para un rival, su plantilla, su ABP y, si es el próximo, el Plan de partido y «De un vistazo»; para el Castilla, el post del último partido, nuestro ABP y el histórico. Al final, los goles de ese equipo en vídeo, de seguido o uno a uno (con «?lado=contra», los que encaja). «Detalle» es la pantalla de siempre con sus seis pestañas. La elección se recuerda en este aparato (16/11/2026)",
+            es: "La pantalla se abre en «Visual»: la frase del balance y, cada una con su conclusión en el título, las franjas en espejo (a favor arriba, en contra abajo, con la raya de la liga), la nube de la liga (17/11/2026: su propio titular, dónde está y el equipo que más se le parece en las dos cifras; el lienzo mide lo que su caja, letra de 11 px como mínimo, las rayas son las MEDIAS de la liga como en la frase, nombre sólo del elegido en oro, del próximo rival en azul y de los dos extremos, y las esquinas dicen «Marca más, encaja menos» y «Marca menos, encaja más»; pinchar un escudo cambia de equipo) y, para el Castilla, cómo llegan los goles: los anillos cuentan los goles del marcador, con los que no tienen su jugada en Hudl en gris y su número («10 de 15 con su tipo · 5 en gris») y los partidos al lado (tendencia por debajo de 20); cada gol de la línea de minutos abre su vídeo, Hudl y el análisis de ese partido. Debajo de la frase, «A un toque»: para un rival, sus goles en vídeo, cómo le marcan, su ABP, su plan de partido con el rival puesto, su plantilla y, si es el próximo, «De un vistazo»; para el Castilla, el post del último partido, nuestro ABP y el histórico. Al final, los goles de ese equipo en vídeo, de seguido o uno a uno (con «?lado=contra», los que encaja). «Detalle» es la pantalla de siempre con sus seis pestañas. La elección se recuerda en este aparato (16/11/2026)",
             cuenta: "Mismos filtros de arriba. Nube: goles a favor y en contra entre partidos de cada equipo en las jornadas y la condición elegidas; el título compara con la media de los equipos (la misma de la frase de arriba): a menos de 0,1 por partido, «como la media». Título de las franjas: el tramo con más goles (si empatan tres o más, no se nombra) y, con menos de 20 partidos, «tendencia»",
           },
         ],
@@ -1266,15 +1266,15 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
     origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI queda como enlace secundario: la pantalla no depende de él.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
           { que: "El titular", es: "Puesto (y si subimos o bajamos en la última), puntos, la jornada y el día de corte, y los puntos por partido frente a la media de la liga" },
           { que: "Siguiente", es: "El próximo partido del calendario y lo que hay en juego: los puntos al equipo de arriba y sobre el de abajo (si coinciden los dos, «con los mismos puntos que el 5º y el 7º»)", cuenta: "De la tabla completa de nuestra última jornada; si esa tabla aún no está, no sale" },
-          { que: "Para la J· (16/11/2026)", es: "Debajo, a un toque y con el rival ya elegido: Plan de partido, sus goles en vídeo, su ABP y su plantilla" },
-          { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada" },
+          { que: "Para la J· (16/11/2026)", es: "Debajo, a un toque y con el rival ya elegido: Plan de partido (con el rival puesto), sus goles en vídeo, cómo le marcan, su ABP, su plantilla y su coding" },
+          { que: "Puesto", es: "De la clasificación, con el movimiento de la última jornada y, si los hay, con quién estamos empatados a puntos («empatados a 19 con el 5º y el 7º»)" },
           { que: "Puntos", es: "Con los partidos, los puntos por partido y la media de la liga al lado", cuenta: "Puntos ÷ partidos; liga = puntos repartidos (3 con ganador, 2 si empatan) ÷ (partidos × 2)" },
           { que: "Balance", es: "Tres cifras: ganados, empatados y perdidos, con su rótulo debajo" },
           { que: "Goles", es: "A favor-en contra, la diferencia y los goles a favor por partido con la media de la liga al lado", cuenta: "Liga = goles de la liga ÷ (partidos × 2)" },
@@ -1285,8 +1285,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Puntos acumulados",
         filas: [
           { que: "Visual · Detalle (16/11/2026)", es: "«Jornada a jornada» se abre en «Visual»: la curva de puntos con su conclusión en el título (cuántos llevamos tras la última jornada y cuántos más o menos que la media de la liga) y la racha partido a partido (G, E o P con el marcador y, si está en todas, nuestro puesto debajo), titulada con los 5 últimos. «Detalle» es la curva y la tabla de siempre. Se recuerda en este aparato", cuenta: "Mismos datos que la tabla; a menos de medio punto de la media se dice «en la media»" },
-          { que: "¿Dónde estamos en la tabla? (Visual)", es: "Entre la curva y la racha, el puesto tras cada jornada con el 1º arriba, y en el título el puesto de ahora, si subimos o bajamos desde la primera jornada y el mejor puesto", cuenta: "Sólo sale si está el puesto de todas las jornadas; con pocas jornadas, tendencia" },
-          { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada" },
+          { que: "¿Dónde estamos en la tabla? (Visual)", es: "Entre la curva y la racha, el puesto tras cada jornada con el 1º arriba: cada punto lleva su puesto escrito, una raya tenue por puesto y marcas en el 1º, 5º, 10º, 15º y 20º. Cada punto abre el post de esa jornada. El título dice el puesto de ahora, si es el mejor y dónde empezamos («6º tras la J12, nuestro mejor puesto; empezamos 13º en la J1»)", cuenta: "Sólo sale si está el puesto de todas las jornadas; con pocas jornadas, tendencia" },
+          { que: "¿Cómo va la racha? (Visual)", es: "Cada jornada (G, E o P, marcador y puesto) abre su post en Análisis de datos" },
+          { que: "La línea dorada", es: "Nuestros puntos acumulados, jornada a jornada. En escritorio la curva llena la tarjeta; en el móvil va en un lienzo más alto con la letra mayor" },
           { que: "La raya de puntos", es: "Lo que lleva de media un equipo de la liga tras cada jornada", cuenta: "Puntos por equipo y partido de la liga hasta esa jornada × partidos que llevamos" },
           { que: "Eje de puntos", es: "Una marca cada 3 puntos; pasados los 12, cada 6, para que se lea en el móvil" },
         ],
@@ -1305,8 +1306,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Power BI",
         filas: [
-          { que: "Abrir Power BI", es: "Plegado al pie («El informe en Power BI (aparte)»): enlace secundario al informe de la competición, en otra pestaña; pide la cuenta de Microsoft. Lo de arriba no depende de él" },
-          { que: "Vídeo / Ver explicación", es: "Cómo se lee el informe de Power BI; en escritorio, el botón flotante lleva al enlace" },
+          { que: "Al pie (17/11/2026)", es: "Una línea: el informe antiguo de la competición en Power BI (pide cuenta de Microsoft) y el vídeo de cómo se lee, los dos en otra pestaña. Ya no hay botón flotante «Ver explicación» ni pliegue. La pantalla no depende de él" },
         ],
       },
     ],
@@ -1448,7 +1448,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Coding de Partido",
     resumen: "Marcar las acciones de nuestro partido o de un rival y sacar los cortes en vídeo.",
     origen: "El vídeo lo pone el usuario (carpeta de partidos, enlace o su ordenador); los cortes, las listas y la configuración se guardan solos en Supabase («coding:…»). Partidos, del calendario de BeSoccer; rivales y plantillas, de la hoja RIVALES.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Qué se codifica",
@@ -1458,8 +1458,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Rival", es: "Viene puesto el de la jornada, arriba y aparte («El de esta semana»); los demás, debajo por calendario. Si un vídeo lleva el nombre de otro equipo, avisa con un botón para cada uno" },
           { que: "Guardado", es: "Cuántos cortes lleva la sesión y la hora del último guardado; «Sin guardar» mientras quede algo por mandar" },
           { que: "Marcador", es: "Escudos, resultado, competición y fecha, con los cortes que lleva cada categoría y cada comportamiento; el rival de la jornada dice «el de esta semana». Encima, «Análisis · Coding» (el equipo no se repite)", cuenta: "Cuenta los cortes de todo el partido, no sólo los del vídeo abierto" },
-          { que: "A un toque (16/11/2026)", es: "Bajo el marcador, con el equipo ya elegido. De un rival: sus goles en vídeo, cómo le marcan, su ABP, su plantilla y, si es el de esta semana, el Plan de partido. De nuestro partido: su post en Análisis de datos y robos, pérdidas y faltas si ese partido ya está etiquetado" },
-          { que: "Sin vídeo abierto", es: "En el hueco del vídeo, «Elegir vídeo», cuántos cortes lleva ya la sesión y, de un rival, «▶ Sus goles en vídeo» y «▶ Cómo le marcan»" },
+          { que: "A un toque (16/11/2026)", es: "Bajo el marcador, con el equipo ya elegido. De un rival: sus goles en vídeo, cómo le marcan, su Plan de partido (siempre, con el rival puesto), su ABP, su plantilla, sus jugadores uno a uno (Scout individual) y, si ya jugamos contra él, el post de ese partido. De nuestro partido: su post en Análisis de datos y robos, pérdidas y faltas si ese partido ya está etiquetado. Es el único sitio de la pantalla con sus goles y cómo le marcan (17/11/2026)" },
+          { que: "Sin vídeo abierto", es: "En el hueco del vídeo, «Elegir vídeo» y, si la sesión ya tiene cortes, cuántos lleva y el último (jugador, categoría y día). Sin vídeos suyos en la carpeta, sólo el botón de la carpeta de partidos. «Sacar los vídeos y subir a YouTube» no sale hasta que hay cortes" },
           { que: "El vídeo", es: "Carpeta de partidos (la del ordenador donde corre la app), «Desde un enlace» o «Abrir ficheros» del propio ordenador; se pueden abrir varios a la vez. En el móvil, sin vídeo abierto, va lo primero" },
           { que: "Carpeta de partidos", es: "Sólo los vídeos del rival elegido; los de otros equipos, plegados tras «Ver también». Si no hay ninguno suyo, en su sitio salen sus goles y cómo le marcan en vídeo, y la carpeta entera queda a un toque («Carpeta de partidos (N)»)", cuenta: "Un vídeo es del rival si su nombre lleva alguna palabra del rival sin siglas (Real Murcia → «murcia»)" },
           { que: "Para empezar", es: "Sin un solo corte, en vez del panel de marcar y la lista vacía: tres pasos (abrir el vídeo, elegir jugador, marcar con I y O), con lo hecho tachado y lo siguiente en oro" },
@@ -3247,14 +3247,16 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Todas / A favor / En contra", es: "A favor = nos la hacen a nosotros; en contra = la cometemos" },
           { que: "Filtrando", es: "Todo lo que se pincha (casilla del campo, distancia, número de defensores, celda de la tabla) filtra la pantalla entera" },
           { que: "Vistas", es: "Resumen, En el campo, Detalle, Por jugador y Falta a falta" },
-          { que: "A un toque", es: "Bajo la línea de datos: robos y pérdidas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y ABP ofensivo" },
+          { que: "A un toque", es: "Bajo la línea de datos: robos y pérdidas de este mismo partido, su post en Análisis de datos (abierto en ese partido), ABP ofensivo y el balón parado del próximo rival (17/11/2026)" },
+          { que: "Este partido frente a los anteriores (Visual, 17/11/2026)", es: "En Visual, una barra por cifra (este partido) con la raya blanca de la media de los anteriores y una franja gris del mínimo al máximo; al lado la cifra, la media y la palabra en todas las filas («mejor», «peor», «normal, algo mejor/peor», «igual»). El sentido (▲ más es mejor / ▼ menos es mejor) va junto al nombre y el método una sola vez, al pie. La tabla de siempre, en Detalle" },
+          { que: "Tocar una falta (17/11/2026)", es: "Bajo el campo se dice: su vídeo, Hudl y, si es nuestra, la ficha y el seguimiento de quien la comete" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: el partido y, justo debajo, el campo con cada falta y su conclusión en el título (de las que cometemos, cuántas en nuestro tercio; de las que nos hacen, cuántas en su tercio); después, el partido frente a los anteriores. Lo de Opta (la temporada entera, no el partido) va sólo en «Detalle», que deja las cinco vistas de siempre; abrir la tabla desde el campo pasa solo a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; tercios del campo de verdad (sitioEnCampo), el Castilla atacando hacia la derecha" },
         ],
       },
       {
         titulo: "Resumen",
         filas: [
-          { que: "Lo que pide trabajo / Qué entrenamos", es: "Arriba, como en Robos y Pérdidas: el objetivo en faltas en contra, lo del partido elegido (jornada y rival), la tarea y el criterio de éxito, en tres líneas", cuenta: "Media de los partidos anteriores con su mínimo y máximo; con menos de 10, tendencia. La zona sólo se nombra si reúne la mitad de las faltas o más y no empata" },
+          { que: "Lo que pide trabajo / Qué entrenamos", es: "Arriba, como en Robos y Pérdidas: el objetivo en faltas en contra, lo del partido elegido (jornada y rival), la tarea y el criterio de éxito, en tres líneas. Con menos de 10 partidos detrás, el rótulo dice «tendencia, media de N partidos»", cuenta: "Media de los partidos anteriores con su mínimo y máximo; con menos de 10, tendencia. La zona sólo se nombra si reúne la mitad de las faltas o más y no empata" },
           { que: "Comparativa", es: "El partido frente a la media de los anteriores: faltas a favor y en contra, frontales, en contra en nuestro campo y a favor en campo rival", cuenta: "Recuentos del partido sin decimales; medias con uno. Media por partido de los anteriores por fecha, con su mínimo y máximo; verde mejor, naranja peor, gris no se juzga. Una fila de «tendencia, pocos casos» (menos de 5) no lleva veredicto. Las faltas a favor dicen, en neutro, si caen por debajo, dentro o por encima de lo habitual. Los defensores por delante son una media por falta (la fila lo dice: «por falta»)" },
           { que: "Con 2 casos o menos", es: "Una frase con las filas de muy pocos casos y su media: sólo tendencia" },
           { que: "A balón parado", es: "Las faltas a favor en campo rival del partido (laterales y frontales), con el enlace a ABP Ofensivo" },
@@ -3285,7 +3287,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
       "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
@@ -3302,7 +3304,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo). Lo que aún no está etiquetado no se nombra (16/11/2026)" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
-          { que: "A un toque", es: "Bajo la línea de datos: pérdidas y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y la ficha del que más roba en lo que se ve" },
+          { que: "A un toque", es: "Bajo la línea de datos: pérdidas y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido), la ficha del que más roba en lo que se ve, su seguimiento y sus percentiles, y (17/11/2026) cómo le marcan al próximo rival, en vídeo" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: primero el campo con cada robo en su sitio y su conclusión en el título (en qué tercio se concentran, con su base y, con un partido, el % de esa zona en los otros partidos etiquetados); después lo que pide trabajo y las conclusiones. «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca los robos con confianza baja" },
@@ -3314,11 +3316,12 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Resumen",
         filas: [
           { que: "Comparativa", es: "El último partido frente a la media de los anteriores: robos, salen hacia delante, acaban en remate o área, la perdemos al momento y robos en campo rival (la duración, que es estilo, va en las conclusiones)", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; «muestra pequeña» por debajo de 15" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien; «para corregirlo» si la más justa queda por debajo de la media). El titular nombra la jornada y el rival del partido elegido; debajo, tres líneas: dónde estamos, la tarea y el criterio", cuenta: "Si la más justa queda por debajo de la media sin salirse de lo normal, se dice «ligeramente por debajo»; el rango es el de los partidos anteriores etiquetados" },
+          { que: "Lo que pide trabajo esta semana / Sin alarma", es: "Sólo hay tarea si una cifra queda peor que nuestra media y FUERA del rango de los partidos anteriores (17/11/2026). Entonces sale en ámbar con el objetivo, la jornada y el rival, la base de la media en el titular («media de 8 partidos etiquetados, tendencia») y debajo dónde estamos, la tarea y el criterio. Si todo cae dentro de lo normal, el bloque va en gris, «Sin alarma esta semana», con la cifra más justa y su rango, sin tarea ni «Llevarla al microciclo»", cuenta: "El rango es el de los partidos anteriores etiquetados; con menos de 10, tendencia" },
+          { que: "Frente a los anteriores (Visual, 17/11/2026)", es: "Antes de ese bloque, una barra por cifra (este partido) con la raya de la media y la franja gris del rango, y «mejor», «peor» o «normal» en cada fila" },
           { que: "Salen hacia delante", es: "Lo primero tras el robo es un pase o conducción hacia delante", cuenta: "Sobre los robos que se juegan con pase o conducción (la conclusión lo dice: «de los N que llegamos a jugar»)" },
           { que: "Conclusiones", es: "Cada porcentaje con su recuento («13,5 % · 5 de 37»)" },
           { que: "Dura la transición", es: "Segundos de media de la jugada tras el robo; con un partido, al lado la media de los otros partidos etiquetados (es estilo: ni mejor ni peor)", cuenta: "Cada partido pesa igual; hacen falta 2 partidos más" },
-          { que: "En el campo", es: "Cada casilla dice «3↑ · 5»: con flecha, los que salen hacia delante; sin ella, el resto" },
+          { que: "En el campo", es: "Cada casilla dice «3↑ · 5»: 3 que salen hacia delante (↑) y 5 que no; la leyenda lo explica y dice cuántos de los del partido están en el campo y cuántos no tienen carril anotado. Cifras de zona a unos 11 px en el móvil" },
           { que: "Opta · el Castilla en su grupo", es: "Recuperaciones (total y por tercio), intercepciones y PPDA por partido, con su puesto en el grupo: temporada hasta la jornada de nuestro último partido en Opta, no sólo el partido elegido" },
           { que: "Para nuestra salida", es: "Las recuperaciones en el último tercio y el PPDA del próximo rival, con su percentil, y lo que dicen de nuestra salida", cuenta: "PPDA en P60 o más = aprieta pronto; P40 o menos = espera en su campo. Recuperaciones arriba en P60 o más = recupera arriba" },
           PERCENTIL,
@@ -3343,7 +3346,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "La transición son los 15 s tras el robo: lo que llega después cuenta como posesión.",
       "La «recuperación» de Opta no es la misma cuenta que el robo de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== PÉRDIDAS Y TRANSICIONES DEFENSIVAS (12/11/2026) ==================== */
@@ -3360,7 +3363,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Datos hasta la J·", es: "Una línea: la última jornada etiquetada, su rival y fecha, y cuántos partidos hay (el mismo número que la línea de debajo). Lo que aún no está etiquetado no se nombra (16/11/2026)" },
           { que: "Partido", es: "Un desplegable con las jornadas (la última arriba, abre en ella) y «Temporada entera»" },
-          { que: "A un toque", es: "Bajo la línea de datos: robos y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido) y la ficha del que más pierde en lo que se ve" },
+          { que: "A un toque", es: "Bajo la línea de datos: robos y faltas de este mismo partido, su post en Análisis de datos (abierto en ese partido), la ficha del que más pierde en lo que se ve, su seguimiento y sus percentiles, y (17/11/2026) cómo marca el próximo rival, en vídeo" },
           { que: "Visual · Detalle (16/11/2026)", es: "La pantalla se abre en «Visual»: primero el campo con cada pérdida en su sitio y su conclusión en el título (en qué tercio se concentran, con su base y, con un partido, el % de esa zona en los otros partidos etiquetados); después lo que pide trabajo y las conclusiones. «Detalle» es la pantalla de siempre con sus cinco pestañas (Resumen, En el campo, Detalle, Por jugador y la lista); «Ver uno a uno» y la tabla desde el campo pasan solos a Detalle. Se recuerda en este aparato", cuenta: "Mismos filtros que arriba; el % de cada tercio es sobre todos los que se ven" },
           { que: "Ver en % / en número", es: "Cambia las cifras de los gráficos entre porcentaje y número" },
           { que: "Quitar los dudosos", es: "Saca las pérdidas con confianza media (las que Wyscout no clasifica como pase, conducción o duelo)" },
@@ -3372,7 +3375,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Resumen",
         filas: [
           { que: "Comparativa", es: "El último partido frente a la media de los anteriores: pérdidas, el rival sale hacia delante, acaban en remate o en nuestra área, la recuperamos al momento, pérdidas en campo propio y duración de su posesión", cuenta: "Media por partido con los mismos filtros, con mínimo y máximo; aquí, en casi todas, menos es mejor" },
-          { que: "Lo que pide trabajo esta semana", es: "La cifra peor que nuestra media, con la tarea y su criterio de éxito («Qué entrenamos para mantenerlo» si todo va bien; «para corregirlo» si la más justa queda por debajo). El titular nombra la jornada y el rival; debajo, tres líneas: dónde estamos (con su base, «17 de 30»), la tarea y el criterio con el rango de los partidos anteriores etiquetados" },
+          { que: "Lo que pide trabajo esta semana / Sin alarma", es: "Sólo hay tarea si una cifra queda peor que nuestra media y FUERA del rango de los partidos anteriores (17/11/2026). Entonces sale en ámbar con el objetivo, la jornada y el rival, la base de la media en el titular («media de 8 partidos etiquetados, tendencia») y debajo dónde estamos, la tarea y el criterio. Si todo cae dentro de lo normal, el bloque va en gris, «Sin alarma esta semana», con la cifra más justa y su rango, sin tarea ni «Llevarla al microciclo»", cuenta: "El rango es el de los partidos anteriores etiquetados; con menos de 10, tendencia" },
+          { que: "Frente a los anteriores (Visual, 17/11/2026)", es: "Antes de ese bloque, una barra por cifra (este partido) con la raya de la media y la franja gris del rango, y «mejor», «peor» o «normal» en cada fila" },
+          { que: "Vídeo frente a Opta (17/11/2026)", es: "Bajo el título del campo: aquí sólo cuentan las pérdidas que cambian la posesión en juego, vistas en el vídeo; Opta cuenta todo pase fallado, por eso en Análisis de datos salen más. Las conclusiones ya no repiten la tarea de contrapresión: va en «Qué entrenamos»" },
           { que: "Conclusiones", es: "Cuántas, dónde (campo rival = atacando, en su mitad), cuántas en nuestro campo y, si donde más perdemos es campo rival, la tarea de contrapresión con la referencia del partido (cuántas jugó el rival)" },
           { que: "El rival sale hacia delante", es: "Lo primero que hace con el balón es un pase o conducción hacia delante: lo malo", cuenta: "Sobre las pérdidas que el rival llega a jugar" },
           { que: "Dura su transición", es: "Segundos de media de la posesión del rival tras la pérdida; con un partido, al lado la media de los otros partidos etiquetados (cuanto más corta, antes la cortamos)" },
@@ -3400,7 +3405,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Pérdida es un balón nuestro que pasa al rival en juego: pase que no llega, conducción cortada, control o duelo perdido. Remates, despejes y faltas pitadas no cuentan.",
       "La «pérdida» de Opta no es la misma cuenta que la de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== CREAR O EDITAR EL MICROCICLO (12/11/2026) ==================== */
@@ -3476,8 +3481,9 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Ganamos · empatamos · perdimos", es: "El reparto de los partidos de liga con resultado; la pretemporada no cuenta. Pinchado, baja a la tira partido a partido; los resultados son del calendario de BeSoccer" },
           { que: "Tendencia reciente", es: "Los puntos de los últimos cinco y cuáles son, con el marcador del Castilla primero", cuenta: "Victoria 3, empate 1; sale con tres partidos o más" },
-          { que: "Visual · Detalle (16/11/2026)", es: "Se abre en «Visual»: el título dice los puntos sumados de los posibles y los de los últimos cinco; debajo, la curva de puntos acumulados (cada punto del color del resultado) y la tira partido a partido. «Detalle» añade las tarjetas de goles. Se recuerda en este aparato" },
-          { que: "Partido a partido", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha. En el móvil, una sola fila que se desliza", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
+          { que: "Visual · Detalle (16/11/2026)", es: "Se abre en «Visual»: el título dice los puntos sumados de los posibles y los de los últimos cinco; debajo, la curva de puntos acumulados (cada punto del color del resultado; tocarlo lleva a la tarjeta de ese partido) con la raya de lo que suma de media un equipo de la liga (17/11/2026). «Detalle» añade la tira partido a partido y las tarjetas de goles. Se recuerda en este aparato", cuenta: "Raya de la liga = puntos repartidos en la liga (3 con ganador, 2 si empatan) ÷ (partidos × 2), por cada partido jugado" },
+          { que: "Plan del próximo partido (17/11/2026)", es: "Bajo el subtítulo, el botón al Plan de partido de la próxima jornada con el rival ya puesto" },
+          { que: "Partido a partido (Detalle)", es: "La tira de resultados del más antiguo al más reciente: encima el escudo del rival; debajo la jornada, casa (C) o fuera (F) y la fecha; cada uno lleva a su tarjeta. En el móvil, una sola fila que se desliza", cuenta: "El marcador, el nuestro primero (como en Histórico); verde victoria, ámbar empate, rojo derrota; borde dorado, los cinco últimos" },
           { que: "Goles a favor / en contra (Detalle)", es: "La suma grande y, debajo, una sola unidad: por partido («1,3 por partido (16 en 12) · liga 1,3 por partido, media de los 20 equipos»), con el juicio frente a la liga", cuenta: "Diferencia = nuestros goles por partido − media de la liga por partido; ▲ mejor, ▼ peor, «Como la liga» si es menor de 0,05" },
           { que: "Diferencia", es: "Goles a favor menos goles en contra" },
         ],
@@ -3486,19 +3492,19 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "La lista",
         filas: [
           { que: "Buscar", es: "Por rival, partido, microciclo o fecha" },
-          { que: "Microciclo", es: "Todos los partidos, uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras. El recuento va una sola vez, al lado de los filtros («13 partidos (12 de liga y 1 sin contar en las cifras) · 12 con vídeo»)" },
+          { que: "Microciclo", es: "Todos los partidos («Todos (12 de liga + 1 de pretemporada)»), uno de liga o uno de pretemporada: la pretemporada va en su propio grupo del selector y no cuenta en las cifras. El recuento va una sola vez, al lado de los filtros («13 partidos (12 de liga y 1 sin contar en las cifras) · 12 con vídeo»)" },
           { que: "Victorias · Empates · Derrotas", es: "Filtra por resultado" },
           { que: "Solo con vídeo", es: "Encendido al entrar: sólo los partidos con vídeo en la hoja o en Coding. Si todos tienen vídeo no sale, porque no filtraría nada" },
           { que: "Ver vídeo análisis", es: "Abre el vídeo de la hoja en un pop-up, con anterior y siguiente" },
           { que: "Coding · Hudl · Grabación táctica · Resumen", es: "Debajo de cada tarjeta, con el mismo peso y lo que exista: Coding en los partidos de liga sin enlace en la hoja; Hudl abre el partido o, si aún no tiene enlace propio, la biblioteca del club (lo dice el título del botón); la grabación táctica sólo en el ordenador principal; el resumen, el de la RFEF en YouTube. Van abajo del todo, así las tarjetas de una fila quedan alineadas aunque falte alguno" },
-          { que: "Análisis post · Robos · Pérdidas · Faltas", es: "Debajo de los vídeos de cada partido jugado: «Análisis post» abre Análisis de datos en ese partido; robos, pérdidas y faltas abren su laboratorio en ese partido y sólo salen si ya está etiquetado (16/11/2026)" },
+          { que: "Estadísticas · Goles · Robos · Pérdidas · Faltas", es: "Debajo de los vídeos de cada partido jugado, como botones (44 px en el móvil): «Estadísticas» abre el post de ese partido en Análisis de datos; «Goles», nuestros goles en vídeo en Análisis de goles; robos, pérdidas y faltas abren su laboratorio en ese partido y sólo salen si ya está etiquetado (17/11/2026)" },
         ],
       },
     ],
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */

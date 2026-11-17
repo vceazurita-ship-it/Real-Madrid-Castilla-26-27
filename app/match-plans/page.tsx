@@ -17,7 +17,8 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
 import { useCalendario } from "@/hooks/useCalendario";
-import type { PartidoCastilla } from "@/lib/castilla/calendario";
+import { comoNuestro, ordenaPartidos, type PartidoCastilla } from "@/lib/castilla/calendario";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
@@ -25,6 +26,7 @@ import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { useEtiquetadoEnVideo, type Etiquetado } from "@/hooks/useEtiquetadoEnVideo";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import Link from "next/link";
 
 import {
@@ -340,6 +342,19 @@ export default function Page() {
     return ps.length > 0 ? ps.reduce((s, p) => s + p.gl + p.gv, 0) / (ps.length * 2) : null;
   }, [golesLiga.value.partidos]);
 
+  /* 17/11/2026 (ronda 19, análisis): los puntos por partido de un equipo medio de la liga (3 con ganador, 2 si empatan, entre dos), para la raya de la curva. */
+  const ligaPuntosPP = useMemo(() => {
+    const ps = golesLiga.value.partidos ?? [];
+
+    return ps.length > 0 ? ps.reduce((s, p) => s + (p.gl === p.gv ? 2 : 3), 0) / (ps.length * 2) : null;
+  }, [golesLiga.value.partidos]);
+
+  /* 17/11/2026 (ronda 19, marketing): el próximo rival, para su plan a un toque junto al título. */
+  const proximoRival = useMemo(
+    () => ordenaPartidos(calendario as PartidoCastilla[]).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado) ?? null,
+    [calendario],
+  );
+
   /* 30/10/2026: la base de esa media (cuántos equipos y jornadas), para escribirla una vez bajo las tarjetas. */
   const ligaBase = useMemo(() => {
     const ps = golesLiga.value.partidos ?? [];
@@ -430,7 +445,12 @@ export default function Page() {
     return {
       /* 16/11/2026 (expertos, ronda 18): sin número en el selector; el
          recuento, uno solo, va en la línea de los filtros (con la pretemporada aparte). */
-      todos: "Todos los partidos",
+      /* 17/11/2026 (ronda 19, fútbol): el selector dice qué entra en «todos». */
+      todos: (() => {
+        const deLiga = matches.filter((m) => m.esLiga).length;
+        const pre = matches.length - deLiga;
+        return pre > 0 ? `Todos (${deLiga} de liga + ${pre} de pretemporada)` : "Todos los partidos";
+      })(),
       liga: list.filter((m) => m.esLiga),
       pretemporada: list.filter((m) => !m.esLiga),
     };
@@ -641,13 +661,22 @@ export default function Page() {
               <p className="mt-2 max-w-2xl text-sm text-white/55">
                 El vídeo de análisis de cada partido ya jugado, microciclo a microciclo.
               </p>
+              {proximoRival ? (
+                <Link
+                  href={conRivalEnUrl("/match-preparation", { equipo: proximoRival.rival })}
+                  className="mt-3 inline-flex min-h-11 items-center gap-2 rounded-full bg-[#C8A96B] px-4 text-sm font-semibold text-black transition hover:brightness-110 sm:min-h-9"
+                >
+                  Plan del próximo partido · J{proximoRival.jornada} {proximoRival.rival}
+                  <ChevronRight className="h-4 w-4" aria-hidden />
+                </Link>
+              ) : null}
 
               {/* 16/11/2026 (marketing): sin «Jornada completa», que repetía «Datos hasta la J·». */}
               <SelloDeFechas fuente="Calendario" fechas={fechasJugadas} queEs="partidos" sinCompleta />
             </header>
 
             {/* MÉTRICAS */}
-            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} ligaBase={ligaBase} escudoDe={escudoDe} /> : null}
+            {metrics.played > 0 ? <MetricsPanel metrics={metrics} ligaPP={ligaPP} ligaPuntosPP={ligaPuntosPP} ligaBase={ligaBase} escudoDe={escudoDe} /> : null}
 
             {/* FILTROS */}
             <div className="sticky top-20 z-20 -mx-4 mt-8 border-y border-white/[0.08] bg-[#0B0F14]/90 px-4 py-4 backdrop-blur-xl sm:-mx-8 sm:px-8 md:top-24">
@@ -869,11 +898,13 @@ export default function Page() {
 function MetricsPanel({
   metrics,
   ligaPP,
+  ligaPuntosPP,
   ligaBase,
   escudoDe,
 }: {
   metrics: Metrics;
   ligaPP: number | null;
+  ligaPuntosPP: number | null;
   ligaBase: { equipos: number; jornadas: number } | null;
   escudoDe: (team: string) => string | undefined;
 }) {
@@ -919,7 +950,9 @@ function MetricsPanel({
         </TituloConclusion>
         <ConmutadorVista vista={vista} onCambia={setVista} />
       </div>
-      {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} /> : null}
+      {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} ligaPuntosPP={ligaPuntosPP} equipos={ligaBase?.equipos ?? 0} /> : null}
+      {/* 17/11/2026 (ronda 19, fútbol y marketing): en Visual la tira repetía la curva y las tarjetas; queda en Detalle. */}
+      {vista === "detalle" ? (
       <div className="grid grid-cols-1 gap-3">
 
         {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
@@ -940,7 +973,7 @@ function MetricsPanel({
               const texto = `${jornada ? `J${jornada}` : m.microciclo} · ${m.opponent} · ${marcador} (${m.isHome ? "en casa" : "fuera"}) · ${token.label} · ${formatDate(m)}`;
 
               return (
-                <span key={m.id} title={texto} className="flex w-[3.4rem] shrink-0 flex-col items-center gap-0.5">
+                <a key={m.id} href={`#partido-${m.id}`} title={`${texto}: ir a su tarjeta`} className="flex w-[3.4rem] shrink-0 flex-col items-center gap-0.5 rounded-md transition hover:bg-white/[0.05]">
                   {/* 16/11/2026 (marketing): el rival (escudo) y la fecha en cada recuadro. */}
                   <EscudoEquipo nombre={m.opponent} escudo={escudoDe(m.opponent)} lado={18} />
                   <span
@@ -956,21 +989,22 @@ function MetricsPanel({
                     {marcador && marcador.length <= 5 ? marcador : token.short}
                   </span>
                   {jornada ? (
-                    <span className="text-[10px] tabular-nums text-white/60">
+                    <span className="text-[11px] tabular-nums text-white/60">
                       J{jornada}
                       <span className="text-white/55"> · {m.isHome ? "C" : "F"}</span>
                     </span>
                   ) : null}
-                  {m.date ? <span className="text-[10px] tabular-nums text-white/55">{diaMes.format(m.date)}</span> : null}
-                </span>
+                  {m.date ? <span className="text-[11px] tabular-nums text-white/60">{diaMes.format(m.date)}</span> : null}
+                </a>
               );
             })}
           </div>
           <p className="mt-2 text-[11px] text-white/55">
-            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos. Encima, el escudo del rival; debajo, la jornada, C en casa o F fuera, y la fecha · el marcador, el nuestro primero: verde, victoria; ámbar, empate; rojo, derrota.
+            Del más antiguo al más reciente; con borde dorado, los {metrics.lastFive.length} últimos. Encima, el escudo del rival; debajo, la jornada, C en casa o F fuera, y la fecha · el marcador, el nuestro primero: verde, victoria; ámbar, empate; rojo, derrota. Cada uno lleva a su tarjeta.
           </p>
         </div>
       </div>
+      ) : null}
 
       {vista === "detalle" ? (
       <>
@@ -1021,16 +1055,18 @@ function MetricsPanel({
  * 16/11/2026 (ronda 18): los puntos acumulados partido a partido, con cada
  * punto del color del resultado. Sin referencia inventada: sólo la nuestra.
  */
-function CurvaPuntos({ puntos, partidos }: { puntos: number[]; partidos: Match[] }) {
+function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos }: { puntos: number[]; partidos: Match[]; ligaPuntosPP: number | null; equipos: number }) {
   const ancho = 640;
   const alto = 150;
   const m = { izq: 28, der: 12, arr: 10, abj: 22 };
+  /* 17/11/2026 (ronda 19, análisis): la raya de un equipo medio de la liga, como en Histórico. */
+  const liga = ligaPuntosPP !== null ? puntos.map((_, i) => ligaPuntosPP * (i + 1)) : null;
   const max = Math.max(3, puntos.length * 3);
   const x = (i: number) => m.izq + (i / Math.max(1, puntos.length - 1)) * (ancho - m.izq - m.der);
   const y = (v: number) => alto - m.abj - (v / max) * (alto - m.arr - m.abj);
   const color = (o: Outcome | null) => (o === "W" ? "#34D399" : o === "D" ? "#FBBF24" : "#FB7185");
   return (
-    <figure className="mb-3 min-w-0 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
+    <figure id="partido-a-partido" className="mb-3 min-w-0 scroll-mt-28 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
       <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puntos acumulados: ${puntos[puntos.length - 1]} en ${puntos.length} partidos`}>
         {[0, 0.5, 1].map((t) => (
           <g key={t}>
@@ -1040,15 +1076,20 @@ function CurvaPuntos({ puntos, partidos }: { puntos: number[]; partidos: Match[]
             </text>
           </g>
         ))}
+        {liga ? <polyline points={liga.map((v, i) => `${x(i)},${y(v)}`).join(" ")} fill="none" stroke="currentColor" strokeOpacity={0.5} strokeWidth={1.5} strokeDasharray="5 4" /> : null}
         <polyline points={puntos.map((v, i) => `${x(i)},${y(v)}`).join(" ")} fill="none" stroke="#C8A96B" strokeWidth={2.5} strokeLinejoin="round" />
         {puntos.map((v, i) => {
           const p = partidos[i];
           const j = p?.microciclo.match(/(\d+)/)?.[1];
           return (
             <g key={p?.id ?? i}>
-              <circle cx={x(i)} cy={y(v)} r={4.5} fill={color(p?.outcome ?? null)} stroke="#0B0F14" strokeWidth={1}>
-                <title>{`${j ? `J${j} · ` : ""}${p?.opponent ?? ""} ${p ? marcadorNuestro(p) : ""} · ${v} puntos`}</title>
-              </circle>
+              {/* 17/11/2026 (ronda 19): cada punto lleva a la tarjeta de su partido. */}
+              <a href={p ? `#partido-${p.id}` : undefined}>
+                <circle cx={x(i)} cy={y(v)} r={12} fill="transparent" />
+                <circle cx={x(i)} cy={y(v)} r={4.5} fill={color(p?.outcome ?? null)} stroke="#0B0F14" strokeWidth={1}>
+                  <title>{`${j ? `J${j} · ` : ""}${p?.opponent ?? ""} ${p ? marcadorNuestro(p) : ""} · ${v} puntos. Ir a su tarjeta`}</title>
+                </circle>
+              </a>
               {j && (i % Math.ceil(puntos.length / 12) === 0 || i === puntos.length - 1) ? (
                 <text x={x(i)} y={alto - 6} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.6}>
                   J{j}
@@ -1058,7 +1099,7 @@ function CurvaPuntos({ puntos, partidos }: { puntos: number[]; partidos: Match[]
           );
         })}
       </svg>
-      <figcaption className="mt-1 text-[11px] text-white/55">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos.</figcaption>
+      <figcaption className="mt-1 text-[12px] text-white/60">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos. Toca uno para ir a su tarjeta.{liga ? ` La raya: lo que suma de media un equipo de la liga${equipos ? ` (los ${equipos})` : ""}, ${liga[liga.length - 1].toFixed(1).replace(".", ",")} en ${puntos.length} partidos.` : ""}</figcaption>
     </figure>
   );
 }
@@ -1121,6 +1162,9 @@ function Stat({
 /* Tarjeta de partido                                                  */
 /* ------------------------------------------------------------------ */
 
+const BOTON_TARJETA =
+  "inline-flex min-h-11 items-center rounded-xl border border-white/15 bg-white/[0.03] px-3 text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white sm:min-h-9";
+
 function MatchCard({
   match,
   escudoDe,
@@ -1154,8 +1198,9 @@ function MatchCard({
 
   return (
     <div
+      id={`partido-${match.id}`}
       className={cn(
-        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition",
+        "group relative flex h-full scroll-mt-40 flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition",
         hasVideo && "hover:border-[#C8A96B]/40 hover:bg-white/[0.06]"
       )}
     >
@@ -1261,22 +1306,28 @@ function MatchCard({
       {/* El análisis del partido a un toque, con el partido ya elegido. Robos,
           pérdidas y faltas sólo si ese partido está etiquetado. */}
       {dia && match.outcome !== null ? (
-        <nav aria-label={`Análisis del partido contra ${match.opponent}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 pb-5 pl-6 text-xs font-semibold">
-          <Link href={urlPostDelPartido(dia, match.opponent)} className="text-[#C8A96B] underline-offset-2 hover:underline">
-            Análisis post
+        /* 17/11/2026 (ronda 19, marketing y análisis): botones táctiles (44 px en
+           el móvil) en vez de enlaces de letra pequeña, y los goles de ese
+           partido (análisis de goles con el Castilla) además de su post. */
+        <nav aria-label={`Análisis del partido contra ${match.opponent}`} className="flex flex-wrap items-center gap-1.5 px-5 pb-5 pl-6 text-[13px] font-semibold">
+          <Link href={urlPostDelPartido(dia, match.opponent)} className={`${BOTON_TARJETA} border-[#C8A96B]/50 text-[#C8A96B]`} title="Las estadísticas del partido, en Análisis de datos">
+            Estadísticas
+          </Link>
+          <Link href={urlGolesDelEquipo("Real Madrid Castilla")} className={BOTON_TARJETA} title="Nuestros goles en vídeo, en Análisis de goles">
+            Goles
           </Link>
           {etiquetado?.robos({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/transiciones", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+            <Link href={enlaceConPartido("/laboratorio/transiciones", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
               Robos
             </Link>
           ) : null}
           {etiquetado?.perdidas({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/perdidas", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+            <Link href={enlaceConPartido("/laboratorio/perdidas", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
               Pérdidas
             </Link>
           ) : null}
           {etiquetado?.faltas({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/faltas", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+            <Link href={enlaceConPartido("/laboratorio/faltas", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
               Faltas
             </Link>
           ) : null}

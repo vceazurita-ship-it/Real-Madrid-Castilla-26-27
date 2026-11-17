@@ -22,7 +22,9 @@ import { AbpHeader, Button, Dialog, Notice, Panel, SaveState, Segmented, Select,
 import { FichaGol, VerGol, type CambiaFicha } from "@/components/goles/FichaGol";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { DOC_TECNICO_MANUAL, fichaCoherente, fichaDe, nombreAccion, nombreCampo, nombreFase, tieneFicha, type FichaManual, type FichasManuales, type FichaTecnica } from "@/lib/goles/tecnico";
-import { Dispersion, MEJOR, ORO, PEOR, tinta, type Punto } from "@/components/data/graficas";
+import { MEJOR, ORO, PEOR, tinta, type Punto } from "@/components/data/graficas";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { urlPostDelPartido } from "@/lib/post-partido";
 import { Lamina, TituloConclusion, VistaVisualDetalle } from "@/components/ui/VistaVisual";
 import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
@@ -30,6 +32,8 @@ import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-anali
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
 import { GolesDelRivalEnVideo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { NubeGoles } from "@/components/goles/NubeGoles";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { useAsoma } from "@/hooks/useAsoma";
 import { GolesEnElCampo } from "@/app/opta/_piezas/Remates";
 import { avisoMuestra, loImportante, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
@@ -851,8 +855,15 @@ export function PantallaGoles() {
     const mejorY = !cerca(yoEnNube.y, my) && yoEnNube.y < my;
     const peorX = !cerca(yoEnNube.x, mx) && yoEnNube.x < mx;
     const peorY = !cerca(yoEnNube.y, my) && yoEnNube.y > my;
-    const juicio = mejorX && mejorY ? ": mejor que la media en las dos áreas" : peorX && peorY ? ": peor que la media en las dos áreas" : "";
-    return `${corto} ${marca} (${fmt(yoEnNube.x)} por partido; liga ${fmt(mx)}) y ${encaja} (${fmt(yoEnNube.y)}; liga ${fmt(my)})${juicio}`;
+    /*
+    | 17/11/2026 (ronda 19, marketing): la frase de arriba ya dice «marca como
+    | la media… encaja menos»; la nube lleva su propio titular: su sitio y el
+    | equipo que más se le parece en las dos cifras.
+    */
+    const otros = nubeLiga.filter((p) => p.equipo !== yoEnNube.equipo);
+    const vecino = otros.reduce((a, b) => (Math.hypot(b.x - yoEnNube.x, b.y - yoEnNube.y) < Math.hypot(a.x - yoEnNube.x, a.y - yoEnNube.y) ? b : a), otros[0]);
+    const cuadrante = mejorX && mejorY ? "en la esquina buena (marca más y encaja menos que la media)" : peorX && peorY ? "en la esquina mala (marca menos y encaja más que la media)" : `${marca} y ${encaja}`;
+    return `${corto}, ${cuadrante}; el más parecido en las dos cifras, ${nombreEquipo(vecino.equipo)} (${fmt(vecino.x)} y ${fmt(vecino.y)} por partido)`;
   })();
   /* «el tramo 76-90'» o «los tramos 0-15' y 76-90'»; con tres o más empatados no hay tramo que nombrar. */
   const enTramo = (t: { tramos: string[]; goles: number } | null) =>
@@ -872,9 +883,13 @@ export function PantallaGoles() {
         { href: "/collective_history", texto: "Histórico de la temporada", icono: ListOrdered },
       ]
     : [
-        { href: `/rivals?equipo=${encodeURIComponent(equipo)}`, texto: "Su plantilla", icono: Crosshair },
+        /* 17/11/2026 (ronda 19, los tres jueces): con el rival elegido, sus goles y cómo le marcan
+           en el campo (esta misma pantalla), su ABP y su plan con el rival puesto. */
+        { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", icono: Goal },
+        { href: urlGolesDelEquipo(equipo, "contra"), texto: "Cómo le marcan", icono: Goal },
         { href: `/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`, texto: "Su ABP", icono: Trophy },
-        esElProximo ? { href: "/match-preparation", texto: "Plan de partido", icono: Lightbulb } : { texto: "" },
+        { href: conRivalEnUrl("/match-preparation", { equipo }), texto: esElProximo ? "Plan de partido" : "Su plan de partido", icono: Lightbulb },
+        { href: `/rivals?equipo=${encodeURIComponent(equipo)}`, texto: "Su plantilla", icono: Crosshair },
         esElProximo ? { href: "/data-analisis?area=equipo", texto: "De un vistazo", icono: Microscope } : { texto: "" },
       ];
   const visualGoles = () => delEquipo.length ? (
@@ -895,12 +910,8 @@ export function PantallaGoles() {
             <TituloConclusion pregunta="¿Dónde está en la liga?" fuente={`BeSoccer · todos los equipos, J${jDesde}–J${jHasta}${condicion === "todos" ? "" : `, ${rotuloLugar(condicion)}`}`}>
               {tituloNube}
             </TituloConclusion>
-            <Dispersion
+            <NubeGoles
               puntos={nubeLiga}
-              etiquetaX="Goles a favor por partido"
-              etiquetaY="Goles en contra por partido"
-              unidadX="decimal"
-              unidadY="decimal"
               destacado={equipo}
               comparado={rivalEnLista && rivalEnLista !== equipo ? rivalEnLista : undefined}
               alPulsar={(e) => setEquipo(e)}
@@ -913,7 +924,7 @@ export function PantallaGoles() {
           <TituloConclusion pregunta="¿Cómo llegan los goles?" fuente="Hudl, nuestros partidos (con la corrección a mano)">
             {deTipologia[0] ?? "Nuestros goles y los que encajamos, por cómo llegan"}
           </TituloConclusion>
-          <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc }} />
+          <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc, partidos: delEquipo.length }} />
         </Lamina>
       ) : null}
       {/* 16/11/2026 (expertos, ronda 18): los goles de este equipo en vídeo, con el equipo ya elegido (y «?lado=contra», los que encaja). */}
@@ -990,7 +1001,14 @@ export function PantallaGoles() {
   const alPincharGol = (clave: string, titulo: string, origen: { currentTarget: EventTarget | null; clientX?: number; clientY?: number }) => {
     const ficha = fichas.get(clave);
 
-    abreMenu(origen, titulo, opcionesDeAccion({ video: ficha?.video, hudl: ficha?.hudl, fila: goles.some((g) => g.clave === clave) ? clave : null, aLaTabla: () => setVista("goles") }));
+    /* 17/11/2026 (ronda 19, fútbol): además del vídeo, el análisis de ese partido en Análisis de datos. */
+    const gol = goles.find((g) => g.clave === clave);
+    const rivalDelGol = gol ? (mismoEquipo(gol.partido.local, CASTILLA) ? gol.partido.visitante : gol.partido.local) : "";
+    const opciones = opcionesDeAccion({ video: ficha?.video, hudl: ficha?.hudl, fila: gol ? clave : null, aLaTabla: () => setVista("goles") });
+    if (esNuestro && gol?.partido.fecha && rivalDelGol) {
+      opciones.push({ clave: "post", etiqueta: "Análisis de ese partido", detalle: "Post en Análisis de datos", icono: "grafico", href: urlPostDelPartido(gol.partido.fecha, rivalDelGol) });
+    }
+    abreMenu(origen, titulo, opciones);
   };
 
   return (

@@ -41,7 +41,6 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import Link from "next/link";
 import {
   ArrowDownWideNarrow,
   BookOpen,
@@ -71,8 +70,11 @@ import {
   Video,
   X,
   ZoomIn,
+  ClipboardList,
 } from "lucide-react";
 import { toast } from "sonner";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 
 import {
   AbpHeader,
@@ -4057,15 +4059,28 @@ function Coding() {
   const esElDeLaSemana = Boolean(rival && rivales.length > 0 && rivales[0].origen === "liga" && rivales[0].clave === rival.clave);
   const diaPartido = ambito === "partido" && !rivalPropio ? (partido?.date ?? "") : "";
   const rivalPartido = partido?.opponent ?? "";
+  /* El último partido nuestro ya jugado contra el rival elegido (calendario de BeSoccer). */
+  const postContraElRival = (() => {
+    if (!nombreRival) return "";
+    const ultimo = ordenaPartidos(calendarioCastilla)
+      .map(comoNuestro)
+      .filter((uno) => uno.jugado && uno.cuando && mismoClub(uno.rival, nombreRival))
+      .at(-1);
+    return ultimo ? urlPostDelPartido(ultimo.cuando, ultimo.rival) : "";
+  })();
   const enlacesCoding =
     ambito === "rival"
       ? nombreRival
         ? [
             { href: urlGolesDelEquipo(nombreRival), texto: "Sus goles en vídeo", icono: Video },
             { href: urlGolesDelEquipo(nombreRival, "contra"), texto: "Cómo le marcan", icono: Video },
+            /* 17/11/2026 (ronda 19, los tres jueces): el plan siempre, con el rival puesto;
+               su scout individual y, si ya jugamos contra él, el post de ese partido. */
+            { href: conRivalEnUrl("/match-preparation", { equipo: nombreRival }), texto: esElDeLaSemana ? "Plan de partido" : "Su plan de partido", icono: ClipboardList },
             { href: `/scout-rival-abp?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su ABP" },
             { href: `/rivals?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su plantilla" },
-            esElDeLaSemana ? { href: "/match-preparation", texto: "Plan de partido" } : { texto: "" },
+            { href: `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}`, texto: "Sus jugadores, uno a uno" },
+            postContraElRival ? { href: postContraElRival, texto: "Post de nuestro partido contra él" } : { texto: "" },
           ]
         : []
       : diaPartido && rivalPartido
@@ -4667,20 +4682,24 @@ function Coding() {
                     {/* 16/11/2026 (expertos, ronda 18): sin vídeo del rival, el hueco
                         ofrece lo que sí hay: sus goles y cómo le marcan, en vídeo,
                         y cuántos cortes lleva ya. */}
+                    {/* 17/11/2026 (ronda 19, marketing): el trabajo ya hecho (cuántos
+                        cortes y el último), y sus goles sólo en «A un toque», arriba. */}
                     {sesion.sesion.clips.length > 0 ? (
-                      <span className="text-[12px] font-semibold text-white/80">
-                        {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}
-                        {nombreRival ? ` de ${nombreRival}` : ""}
-                      </span>
-                    ) : null}
-                    {nombreRival ? (
-                      <span className="flex flex-wrap items-center justify-center gap-2">
-                        <Link href={urlGolesDelEquipo(nombreRival)} className="rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white">
-                          ▶ Sus goles en vídeo
-                        </Link>
-                        <Link href={urlGolesDelEquipo(nombreRival, "contra")} className="rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white">
-                          ▶ Cómo le marcan
-                        </Link>
+                      <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold text-white/80">
+                        <span>
+                          {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}
+                          {nombreRival ? ` de ${nombreRival}` : ""}
+                        </span>
+                        {(() => {
+                          const ultimo = [...sesion.sesion.clips].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
+                          const categoria = config.categorias.find((una) => una.id === ultimo.categoriaId)?.nombre ?? "";
+                          const dia = ultimo.creadoEn ? new Date(ultimo.creadoEn).toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "") : "";
+                          return (
+                            <span className="font-normal text-white/65">
+                              Último: {[ultimo.jugadorNombre, categoria, dia].filter(Boolean).join(" · ")}
+                            </span>
+                          );
+                        })()}
                       </span>
                     ) : null}
                     </div>
@@ -5793,6 +5812,9 @@ function Coding() {
 
                 {/* ------------------------ EXPORTACIÓN ------------------ */}
 
+                {/* 17/11/2026 (ronda 19, análisis): sin cortes no hay nada que sacar;
+                    el botón no sale y la primera pantalla es elegir vídeo y marcar. */}
+                {(clips.length > 0 || exportador.exportando) && (
                 <button
                   type="button"
                   onClick={() => setVerExportacion((v) => !v)}
@@ -5807,6 +5829,7 @@ function Coding() {
                     {verExportacion || exportador.exportando ? "Ocultar" : "Mostrar"}
                   </span>
                 </button>
+                )}
 
                 {verExportacion || exportador.exportando ? (
                   <>

@@ -23,9 +23,11 @@
  * comparten entre las piezas (`hooks/useDocsOpta.ts`).
  */
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, Crosshair, Footprints, LayoutGrid, ShieldAlert, Swords, Timer } from "lucide-react";
+import { ArrowRight, CalendarDays, ClipboardList, Film, Footprints, LayoutGrid, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 import { CaraACara } from "@/app/opta/_piezas/FichaPartido";
 import { Fases } from "@/app/opta/_piezas/Fases";
@@ -43,7 +45,6 @@ import { DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { Hueso } from "@/components/ui/estados";
 import { SelloFuente } from "@/components/ui/SelloFuente";
-import { chipInk } from "@/lib/theme";
 import { partidoDeFecha } from "@/lib/data-analisis/alcance";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { temporadaDe } from "@/lib/data-analisis/metricas";
@@ -106,19 +107,6 @@ function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): 
 
 /** Las filas del cara a cara que se ven de entrada (16/11/2026): resultado, ocasiones, llegada, centros, presión y duelo aéreo. */
 const PRINCIPALES_CARA = ["Goal", "ExpG", "ShtIncBl", "SOG", "TouchOpBox", "Crosses", "PPDA", "Aerial%"];
-
-/**
- * Lo contado a mano no es de ningún proveedor: no lleva `SelloFuente` (sólo
- * Opta y Wyscout), sino esta chapa con su misma forma, para que se lea igual.
- */
-function SelloPropio({ children }: { children: ReactNode }) {
-  return (
-    <span className="inline-flex max-w-full shrink-0 items-center gap-1.5 rounded-full bg-white/[0.04] px-2 py-0.5 text-[10.5px] font-medium leading-tight text-white/55">
-      <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: chipInk("#C8A96B") }} />
-      <span className="min-w-0 truncate">{children}</span>
-    </span>
-  );
-}
 
 /**
  * Un bloque de la puerta: `section > header h2`, que es lo que lee el índice
@@ -256,6 +244,23 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
         )}
       </div>
 
+      {/* 17/11/2026 (ronda 19, análisis y marketing): desde el partido, a un
+          toque y con el partido ya elegido, lo que lo completa. Sustituye al
+          bloque «Visto en el vídeo» del pie. */}
+      <EnlacesRapidos
+        className="mt-3"
+        titulo="De este partido"
+        enlaces={[
+          { href: delVideo?.robos(visto) ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Sus robos", icono: Swords, title: "Robos y transiciones de este partido, jugada a jugada" },
+          { href: delVideo?.perdidas(visto) ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Sus pérdidas", icono: ShieldAlert, title: "Pérdidas y transiciones defensivas de este partido" },
+          { href: delVideo?.faltas(visto) ? enlaceConPartido("/laboratorio/faltas", visto) : null, texto: "Sus faltas", icono: Timer, title: "Faltas de este partido, con cuánta gente detrás" },
+          { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Nuestros goles en vídeo", icono: Video },
+          { href: visto.rival ? `/scout-rival-abp?equipo=${encodeURIComponent(visto.rival)}` : null, texto: `ABP de ${visto.rival}`, icono: Trophy },
+          { href: "/match-plans", texto: "Vídeo del partido", icono: Film },
+          { href: "/match-preparation", texto: "Plan del próximo partido", icono: ClipboardList },
+        ]}
+      />
+
       {/* 16/11/2026 (expertos, ronda 17): fuera el aviso «Wyscout aún no tiene
           este partido»: lo que no hay no se nombra; su bloque simplemente no sale. */}
 
@@ -264,7 +269,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
 
       {/* 2 · EL PARTIDO EN RELIEVE (14/11/2026): parado en el final, con el resumen. */}
-      {visto.opta && <RelieveDelPartido partido={visto.clave} />}
+      {visto.opta && <RelieveDelPartido partido={visto.clave} titular={titular3D(datos, visto.clave, visto.opta.rival ? nombreDe(visto.opta.rivalId, visto.opta.rival) : visto.rival)} />}
 
       {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
       {visto.wyscout && (
@@ -297,21 +302,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       {/* 3 · OPTA: LAS FASES ACCIÓN A ACCIÓN */}
       {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} hasta={hasta} />}
 
-      {/* 4 · LO CONTADO A MANO, ABIERTO EN ESTE PARTIDO */}
-      {delVideo && (delVideo.robos(visto) || delVideo.perdidas(visto) || delVideo.faltas(visto)) && (
-      <Bloque
-        titulo="Visto en el vídeo"
-        pregunta="Robos, pérdidas y faltas de este partido, contados jugada a jugada."
-        icono={Crosshair}
-        sello={<SelloPropio>Registro propio · vídeo</SelloPropio>}
-      >
-        <div className="grid gap-2 sm:grid-cols-3">
-          {delVideo.robos(visto) && <Enlace href={enlaceConPartido("/laboratorio/transiciones", visto)} icono={Swords} titulo="Robos y transiciones" texto="Qué hicimos con cada balón robado." />}
-          {delVideo.perdidas(visto) && <Enlace href={enlaceConPartido("/laboratorio/perdidas", visto)} icono={ShieldAlert} titulo="Pérdidas y transiciones defensivas" texto="Qué hizo el rival con cada balón perdido." />}
-          {delVideo.faltas(visto) && <Enlace href={enlaceConPartido("/laboratorio/faltas", visto)} icono={Timer} titulo="Faltas" texto="Dónde se pitaron y con cuánta gente detrás." />}
-        </div>
-      </Bloque>
-      )}
+      {/* 4 · Robos, pérdidas y faltas de este partido: arriba, en «De este partido» (17/11/2026). */}
 
       {/* AL PIE: QUÉ SE LLEVA A LA SEMANA */}
       <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] px-4 py-3 sm:px-5">
@@ -338,22 +329,6 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
         </div>
       </div>
     </>
-  );
-}
-
-/* «Visto en el vídeo»: cada enlace sale sólo si su laboratorio tiene ese partido (hooks/useEtiquetadoEnVideo.ts). */
-
-function Enlace({ href, icono: Icono, titulo, texto }: { href: string; icono: typeof Swords; titulo: string; texto: string }) {
-  return (
-    <Link href={href} className="group flex min-w-0 items-start gap-2.5 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5 transition hover:border-[#C8A96B]/50">
-      <Icono size={15} className="mt-0.5 shrink-0 text-[#C8A96B]" />
-      <span className="min-w-0">
-        <span className="flex items-center gap-1 text-sm font-semibold text-white">
-          {titulo} <ArrowRight size={13} className="shrink-0 opacity-60 transition group-hover:translate-x-0.5" />
-        </span>
-        <span className="mt-0.5 block text-xs text-white/55">{texto}</span>
-      </span>
-    </Link>
   );
 }
 
@@ -517,7 +492,7 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
               return (
                 <div key={lado.id} className="min-w-0">
                   <h3 className="mb-2 text-sm font-semibold text-white">Remates de {lado.n}</h3>
-                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} referenciaXgRemate={referencia} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} /> : <p className="text-sm text-white/55">No remató.</p>}
+                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} referenciaXgRemate={referencia} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} lectura /> : <p className="text-sm text-white/55">No remató.</p>}
                 </div>
               );
             })}
@@ -530,7 +505,40 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
 
 /* El relieve del partido: lo deja scripts/opta-directo.mjs en opta:directo:<partido>. Si aún no está, el
    administrador lo pide (1-2 minutos, desde GitHub). */
-function RelieveDelPartido({ partido }: { partido: string }) {
+/** El nombre corto del rival para el 3D: una sola palabra que diga quién es («Gimnàstic», «Murcia», «Andreu»). */
+const GENERICAS = new Set(["cd", "ud", "cf", "sd", "fc", "ad", "rcd", "sad", "club", "deportivo", "de", "del", "la", "real", "union", "unión", "juventud", "balompie", "balompié"]);
+function cortoRival(n: string) {
+  const palabras = n.split(/\s+/).filter(Boolean);
+  return palabras.find((p) => p.length > 4 && !GENERICAS.has(p.toLowerCase())) ?? palabras.find((p) => !GENERICAS.has(p.toLowerCase())) ?? n;
+}
+
+/* En el móvil el 3D va plegado (17/11/2026, ronda 19): no es lo primero que se ve. */
+const MOVIL = "(max-width: 639px)";
+const suscribeMovil = (avisa: () => void) => {
+  const mq = window.matchMedia(MOVIL);
+  mq.addEventListener("change", avisa);
+  return () => mq.removeEventListener("change", avisa);
+};
+const useEsMovil = () => useSyncExternalStore(suscribeMovil, () => window.matchMedia(MOVIL).matches, () => false);
+
+/**
+ * El titular del 3D (17/11/2026, ronda 19, fútbol): los goles esperados del
+ * MISMO dato de Opta que el cara a cara, con el Castilla primero y un decimal,
+ * y quién creó más. El 3D por dentro pone al local a la izquierda.
+ */
+function titular3D(datos: DatosOpta | null, partido: string, rival: string) {
+  const filas = datos?.partidos.filter((f) => String(f.partido ?? "") === partido) ?? [];
+  const xg = (f: (typeof filas)[number] | undefined) => (typeof f?.ExpG === "number" && Number.isFinite(f.ExpG) ? f.ExpG : null);
+  const nos = xg(filas.find((f) => f.teamId === CASTILLA_OPTA));
+  const ellos = xg(filas.find((f) => f.teamId !== CASTILLA_OPTA));
+  if (nos == null || ellos == null) return "";
+  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
+  const quien = Math.abs(nos - ellos) < 0.15 ? "parejo en ocasiones" : nos > ellos ? "creó más el Castilla" : `creó más el ${cortoRival(rival)}`;
+  return `Goles esperados, Castilla ${d1(nos)} – ${d1(ellos)} ${cortoRival(rival)}: ${quien}`;
+}
+
+function RelieveDelPartido({ partido, titular }: { partido: string; titular: string }) {
+  const esMovil = useEsMovil();
   const [doc, setDoc] = useState<{ eventos?: TablaOpta; equipos?: TablaOpta } | null | undefined>(undefined);
   const [vuelta, setVuelta] = useState(0);
   const [pedido, setPedido] = useState(false);
@@ -552,16 +560,19 @@ function RelieveDelPartido({ partido }: { partido: string }) {
   const filas = aObjetos(doc?.equipos ?? null).sort((x, y) => (x.teamId === CASTILLA_OPTA ? -1 : y.teamId === CASTILLA_OPTA ? 1 : 0));
   /* El local primero (el campo de Opta). */
   const [x, y] = [...filas].sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME"));
-  const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
+  /* 17/11/2026 (ronda 19, fútbol): «manda el Castilla / manda el Gimnàstic» en vez de «manda Real / manda Tarragona»: el 3D toma una palabra del nombre. */
+  const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : cortoRival(String(f.equipo ?? "")));
   if (doc === undefined) return null;
   return (
-    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/55">El partido en 3D</h3>
-      <p className="mb-2 text-[11px] text-white/45">
-        Minuto a minuto (a lo largo), carril del campo (al fondo) y presión de ataque (en altura): oro el Castilla, rojo el rival. Cada pico es un remate de verdad, más alto
-        cuanto más xG; la bola blanca, el gol. Sale parado en el final, con el partido entero: pulsa reproducir para verlo minuto a minuto. Los mapas, la red de pases y cada
-        jugador, en Análisis de datos → En directo.
-      </p>
+    <details key={String(esMovil)} open={!esMovil} className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">El partido en 3D</h3>
+        {titular && <p className="mt-1 text-base font-semibold text-white">{titular}</p>}
+        <p className="mb-2 mt-0.5 text-[12px] text-white/60">
+          Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG); el local, a la izquierda.
+          <span className="ml-1 font-medium text-[#C8A96B] group-open:hidden">Ver el 3D</span>
+        </p>
+      </summary>
       {doc?.eventos?.filas?.length && x && y ? (
         <RelievePartido quietoAlFinal eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
       ) : admin ? (
@@ -579,6 +590,6 @@ function RelieveDelPartido({ partido }: { partido: string }) {
       ) : (
         <p className="text-xs text-white/50">Aún no está el evento a evento de este partido.</p>
       )}
-    </section>
+    </details>
   );
 }

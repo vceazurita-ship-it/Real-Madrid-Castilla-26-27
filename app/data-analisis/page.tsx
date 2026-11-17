@@ -1519,8 +1519,8 @@ export default function DataAnalisisPage() {
   const barraYCabecera = (
     <>
 
-                {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). */}
-                <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 2xl:flex-row 2xl:items-center 2xl:justify-between">
+                {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). 17/11/2026 (ronda 19, análisis): desde 1400 px ya en una fila, una menos antes del contenido. */}
+                <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-between">
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Análisis de datos"
