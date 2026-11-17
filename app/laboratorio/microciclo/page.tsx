@@ -125,6 +125,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
 import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
+import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { aplicaPropuesta, aplicaTodasLasPropuestas, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
 import {
@@ -226,9 +227,30 @@ function diasDeVentana(proximo: PartidoNuestro, anterior: PartidoNuestro | null)
   });
 }
 
-/** Lo que se propone libre si nadie dice otra cosa: el día después del partido. */
-const libresPorDefecto = (dias: DiaVentana[]) =>
-  dias.filter((uno) => uno.postPartido && !uno.esPartido).map((uno) => uno.fecha);
+/**
+ * Cuántas semanas de liga de la temporada entrenan cada MD (16/11/2026,
+ * jueces): la propuesta de días sale de ahí, no de «todo entreno».
+ */
+export type UsoDeMd = { base: number; veces: Map<string, number> };
+
+/** Con menos semanas de liga que éstas no se propone por lo entrenado: sólo libre el MD+1. */
+const BASE_USO_MD = 5;
+
+const normalizaMd = (md: string) => md.trim().toUpperCase().replace(/\s+/g, "");
+
+/**
+ * Lo que se propone libre si nadie dice otra cosa: el día después del
+ * partido y, con base (5 semanas de liga o más), los MD que se entrenan en
+ * menos de la mitad de las semanas de la temporada.
+ */
+const libresPorDefecto = (dias: DiaVentana[], uso?: UsoDeMd | null) =>
+  dias
+    .filter(
+      (uno) =>
+        !uno.esPartido &&
+        (uno.postPartido || (uso && uso.base >= BASE_USO_MD ? (uso.veces.get(normalizaMd(uno.md)) ?? 0) * 2 < uso.base : false)),
+    )
+    .map((uno) => uno.fecha);
 
 /**
  * Las sesiones del microciclo, con los días libres que se han marcado antes.
@@ -277,17 +299,22 @@ function TiraDias({
   libres,
   onCambia,
   fechaPost,
+  uso,
 }: {
   dias: { fecha: string; md: string; esPartido: boolean }[];
   libres: Set<string>;
   onCambia: (fecha: string, libre: boolean) => void;
   /** El día siguiente al partido anterior: se rotula MD+1, como en el resto de la plataforma. */
   fechaPost?: string | null;
+  /** En cuántas semanas de liga se entrena cada MD (con base suficiente). */
+  uso?: UsoDeMd | null;
 }) {
   return (
     /* Tantas casillas como días haya: nueve de viernes a domingo, siete de
-       domingo a domingo. En ancho se reparten; en móvil, de dos en dos. */
-    <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-[repeat(auto-fit,minmax(118px,1fr))]">
+       domingo a domingo. En móvil, de dos en dos. 16/11/2026 (jueces): con
+       casillas de 150 px como mínimo —a 118 px «Entreno | Libre» se pisaban
+       a 1440—; si no caben en una fila, pasan a dos. */
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
 
@@ -310,6 +337,12 @@ function TiraDias({
             */}
             <p className="text-[11px] text-white/45">
               {uno.fecha === fechaPost ? <span title={`En la hoja: ${uno.md}`}>MD+1 · recuperación</span> : uno.md}
+              {!uno.esPartido && uso ? (
+                <span className="tabular-nums" title={`Semanas de liga de la temporada con entreno en ${uno.md}`}>
+                  {" "}
+                  · {uso.veces.get(normalizaMd(uno.md)) ?? 0} de {uso.base}
+                </span>
+              ) : null}
             </p>
 
             {uno.esPartido ? (
@@ -931,10 +964,47 @@ function ResumenOrigen({
   */
   const celda = "px-2 py-1 text-right tabular-nums";
 
+  /*
+  | 16/11/2026 (jueces, segunda vuelta): tres cifras grandes —tareas, días y
+  | minutos— con la media de la temporada debajo; la tabla y la explicación,
+  | plegadas en «Detalle». Y «Ver el micro», que abre su ficha en Microciclos
+  | en otra pestaña para revisar sus tareas antes de copiarlas.
+  */
+  const cifras = [
+    { etiqueta: "Tareas", valor: String(datos.tareas), media: hayMedia ? comaDecimal(datos.mediaTareas) : "" },
+    { etiqueta: "Días de entreno", valor: String(datos.diasEntreno), media: hayMedia ? comaDecimal(datos.mediaDias) : "" },
+    ...(conColTiempo || datos.media > 0
+      ? [{ etiqueta: "Tiempo", valor: conColTiempo ? minutosLegibles(datos.minutos) : "Sin minutos", media: datos.media > 0 ? minutosLegibles(datos.media) : "" }]
+      : []),
+  ];
+
   return (
     <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[12px] font-semibold text-white/80">Lo que se copia del micro {micro}</p>
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <p className="min-w-0 flex-1 text-[13px] font-semibold text-white/85">Lo que se copia del micro {micro}</p>
+        <a
+          href={`/microcycles?micro=${micro}`}
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-2 text-[12px] font-semibold text-[#C8A96B] hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+        >
+          Ver el micro {micro}
+          <ExternalLink size={12} aria-hidden />
+        </a>
+      </div>
 
+      <dl className="mt-2 grid grid-cols-3 gap-2">
+        {cifras.map((c) => (
+          <div key={c.etiqueta} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2">
+            <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">{c.etiqueta}</dt>
+            <dd className="mt-0.5 text-xl font-semibold tabular-nums text-white">{c.valor}</dd>
+            {c.media ? <dd className="text-[11px] tabular-nums text-white/55">media {c.media}</dd> : null}
+          </div>
+        ))}
+      </dl>
+
+      <details className="mt-2">
+        <summary className="cursor-pointer text-[12px] font-semibold text-white/60 hover:text-white/85">Detalle</summary>
       <table className="mt-1.5 w-full max-w-md text-[11px] text-white/70">
         <thead>
           <tr className="text-white/45">
@@ -978,6 +1048,7 @@ function ResumenOrigen({
             }`}
         {hayMedia && ` Media por semana de ${datos.baseMicros} micros ${datos.baseConTiempo ? "con tiempo apuntado" : "con tareas de entreno"}; sin el partido.`}
       </p>
+      </details>
 
       {/* Una frase y un botón (11/11/2026): antes eran el aviso, la explicación y un botón pequeño en ámbar. */}
       {/*
@@ -992,7 +1063,8 @@ function ResumenOrigen({
 
         return (
           <div
-            className={`mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-lg border px-3 py-2 ${
+            /* 16/11/2026 (jueces): en el móvil, el texto arriba y el botón debajo a todo el ancho (salía una palabra por línea). */
+            className={`mt-2.5 flex flex-col gap-2 rounded-lg border px-3 py-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-3 [&>button]:w-full sm:[&>button]:w-auto ${
               enBlanco.length ? "border-amber-400/30 bg-amber-400/[0.06]" : "border-emerald-400/30 bg-emerald-400/[0.06]"
             }`}
           >
@@ -1430,10 +1502,60 @@ export default function EditorMicrocicloPage() {
 
   const diasPlan = useMemo(() => (proximo ? diasDeVentana(proximo, anterior) : []), [proximo, anterior]);
 
+  /*
+  | LOS MD QUE SE ENTRENAN (16/11/2026, jueces): proponía «7 días de entreno,
+  | 1 libre» con una temporada que va a 3,5 días por micro. Ahora se cuenta,
+  | con la misma regla que /microcycles (lib/microciclo/cuenta.ts), en cuántas
+  | semanas de liga se entrena cada MD; la propuesta entrena los que salen en
+  | la mitad o más, y lo dice con su base.
+  */
+  const usoMd = useMemo<UsoDeMd | null>(() => {
+    const todas = registro?.tareas ?? [];
+
+    if (!todas.length) return null;
+
+    const deLiga = new Set(
+      cuentaMicros(filasDeCuenta(todas))
+        .filter((c) => c.partidos > 0 && c.tareasEntreno > 0 && c.rival && rivalDelMicro(c.rival) !== "Sin partido" && !/introduct|pretemporada|amistos/i.test(c.rival))
+        .map((c) => c.micro),
+    );
+    const porMicro = new Map<number, Set<string>>();
+
+    for (const t of todas) {
+      if (!deLiga.has(t.micro) || !t.md.trim() || !t.tarea.trim()) continue;
+      if (esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
+
+      const set = porMicro.get(t.micro) ?? new Set<string>();
+
+      set.add(normalizaMd(t.md));
+      porMicro.set(t.micro, set);
+    }
+
+    const veces = new Map<string, number>();
+
+    for (const set of porMicro.values()) for (const md of set) veces.set(md, (veces.get(md) ?? 0) + 1);
+
+    return { base: porMicro.size, veces };
+  }, [registro]);
+
   const libresMarcados = useMemo(
-    () => new Set(libresPlan ?? libresPorDefecto(diasPlan)),
-    [libresPlan, diasPlan],
+    () => new Set(libresPlan ?? libresPorDefecto(diasPlan, usoMd)),
+    [libresPlan, diasPlan, usoMd],
   );
+
+  /* La frase de la propuesta, con su base: «entrenar MD-4, MD-3, MD-2 y MD-1, como en la mayoría de 21 semanas de liga». */
+  const propuestaDias = useMemo(() => {
+    if (!usoMd || usoMd.base < BASE_USO_MD) return null;
+
+    const libresProp = new Set(libresPorDefecto(diasPlan, usoMd));
+    const entrena = diasPlan.filter((d) => !d.esPartido && !libresProp.has(d.fecha)).map((d) => d.md);
+
+    if (!entrena.length) return null;
+
+    const lista = entrena.length === 1 ? entrena[0] : `${entrena.slice(0, -1).join(", ")} y ${entrena[entrena.length - 1]}`;
+
+    return `Propuesta: entrenar ${lista}, los MD que se entrenan en la mitad o más de las ${usoMd.base} semanas de liga; libre el resto. Un día libre no escribe fila.`;
+  }, [usoMd, diasPlan]);
 
   /* El día siguiente al partido anterior: en pantalla se lee MD+1, como en la portada. */
   const fechaPost = useMemo(() => diasPlan.find((d) => d.postPartido && !d.esPartido)?.fecha ?? null, [diasPlan]);
@@ -2554,13 +2676,16 @@ export default function EditorMicrocicloPage() {
                   )}
                   <span className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 py-0.5 text-[#E9D5A8]">Partido</span>
                 </p>
+                {/* 16/11/2026 (jueces, segunda vuelta): el rival del micro, con su plan, su ABP, sus goles y su plantilla. */}
+                <EnlacesDelRival rival={proximo.rival} fecha={proximo.cuando.slice(0, 10)} className="mb-3" />
                 {/* 16/11/2026 (jueces): de dónde sale la propuesta, en una línea y junto a los días. */}
                 <p className="mb-2 text-[13px] text-white/55">
-                  Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila.
+                  {propuestaDias ?? "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila."}
                 </p>
 
                 <TiraDias
                   dias={diasPlan}
+                  uso={usoMd && usoMd.base >= BASE_USO_MD ? usoMd : null}
                   fechaPost={fechaPost}
                   libres={libresMarcados}
                   onCambia={(fecha, libre) => {
@@ -2638,22 +2763,24 @@ export default function EditorMicrocicloPage() {
                     Crear el microciclo {ultimoMicro + 1}
                   </Button>
 
-                  {/* Atajos con forma de botón secundario (10/11/2026): parecían texto. */}
-                  <div className="flex flex-wrap items-center gap-2 text-[12px]">
-                    <span className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Atajos</span>
+                  {/*
+                  | 16/11/2026 (jueces, segunda vuelta): un solo botón principal;
+                  | los atajos, como enlaces de texto subrayados.
+                  */}
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[13px]">
                     <button
                       type="button"
                       onClick={() => setLibresPlan(null)}
-                      title="Libre sólo el día después del partido"
-                      className="min-h-9 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 font-semibold text-white/80 hover:border-white/30 hover:text-white"
+                      title="Vuelve a la propuesta de días"
+                      className="min-h-9 font-semibold text-white/70 underline decoration-white/30 underline-offset-4 hover:text-white"
                     >
-                      Semana tipo
+                      Volver a la propuesta
                     </button>
                     <button
                       type="button"
                       onClick={() => setLibresPlan([])}
                       title="Todos los días con sesión"
-                      className="min-h-9 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 font-semibold text-white/80 hover:border-white/30 hover:text-white"
+                      className="min-h-9 font-semibold text-white/70 underline decoration-white/30 underline-offset-4 hover:text-white"
                     >
                       Todos los días de entreno
                     </button>

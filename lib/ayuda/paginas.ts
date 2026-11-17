@@ -391,15 +391,17 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "La semana en sesión, Lecturas del periodo, carga por día MD, perfil del micro, tendencia de la valoración y reparto por fase" },
+          { que: "Resumen", es: "Primero la conclusión: Lecturas del periodo, perfil del micro (a todo el ancho cuando va en barras), tendencia de la valoración, reparto por fase y carga por día MD; debajo, la semana en sesión tarea a tarea" },
+          { que: "Lecturas del periodo", es: "Frases con lo que destaca del periodo; la del mejor y el peor tipo de tarea sólo sale con 5 tareas valoradas o más de ese tipo", cuenta: "Con menos base no es una lectura y no se enseña" },
           {
             que: "La semana en sesión",
             es: "Cada día del micro elegido con TODAS sus tareas (nombre, formato, minutos y contenido), también las sólo planificadas; «Equipos hechos» y «Analizado» si ya los hay, y una sola acción: la que toca (hacer los equipos, analizar o ver el análisis)",
           },
-          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10; en barras, cada una con la marca y el valor de la media de la temporada («media 7,4 en 21 micros»). Con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "Media por eje de los demás micros con ese dato (3 o más). Carga: UA de los días hechos ÷ esos días (como /micro_calendar)" },
+          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10; en barras (una fila de tres), cada una con la marca y el valor de la media de la temporada («media 7,4 en 21 micros»). Con menos de 5 micros con dato en ese eje, «tendencia · 3 micros» y sin marca. Con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "Media por eje de los demás micros con ese dato (3 o más; firme con 5 o más). Carga: UA de los días hechos ÷ esos días (como /micro_calendar)" },
           { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10; el micro en curso sin valorar no entra", cuenta: "La línea se corta en los micros ya pasados sin tareas valoradas, y el subtítulo dice cuáles" },
           { que: "Titular del micro en curso", es: "Con el partido por jugar: «Micro 22 · MD-4 · J13 vs Murcia · vie 20/11, 21:15» y, debajo, las tareas", cuenta: "El partido es el primero del calendario de BeSoccer desde el último día con tareas; el MD, el de hoy con la regla común. Mientras no se juega, no sale «tareas sin evaluación»" },
           { que: "Nombre del rival", es: "El mismo en tarjetas, chapa y desplegable: nombre corto con mayúscula inicial («Hércules», «R.Ferrol»)" },
+          { que: "Accesos del rival", es: "En azul, bajo el titular: Plan de partido, Su ABP, Sus goles en vídeo y Su plantilla, con el rival del micro ya elegido", cuenta: "El Plan abre por el ID de la hoja RIVALES, buscado por la fecha del último día del micro; los demás, por el nombre del equipo" },
           { que: "Reparto por fase de juego", es: "Anillo con el peso de cada fase y el total en el centro; pulsar un tramo o una fila filtra" },
           { que: "Cargas", es: "Mapa de calor micro × día (pulsar filtra), carga acumulada por micro, física frente a cognitiva por tarea, tiempo por día e intensidad" },
           { que: "Contenidos", es: "Contenido principal y secundario (los 15 primeros), tabla comparativa, valoración por tipo de tarea y los 12 formatos más usados" },
@@ -411,13 +413,14 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Cómo se ordena",
         filas: [
           { que: "MD-5 … MD", es: "Días contando hacia atrás desde el partido. MD es el día de partido", cuenta: "En «La semana en sesión», con el calendario de BeSoccer: días que faltan para el próximo partido, hasta 14 (igual que el creador de micros y los calendarios)" },
-          { que: "Filtros", es: "Microciclo, día (MD), tipo de tarea, contenido principal, fase, valoración mínima y buscador" },
+          { que: "Filtros", es: "A la vista sólo el microciclo y el botón «Filtros (n)»; dentro, día (MD), tipo de tarea, contenido principal, fase, valoración mínima, buscador y «Cifras sin el partido / con el partido». Lo filtrado sale en píldoras aunque estén plegados. El micro y el día quedan en la dirección (?micro=22&md=MD-3)" },
+          { que: "No se hizo", es: "Tarea del plan que no se hizo en la sesión de Jugadores sesión de ese día: sale en su sitio, tachada" },
           { que: "Formato", es: "8v8+3 = ocho contra ocho más tres comodines" },
         ],
       },
     ],
     ojo: [
-      "«Competición excluida» (por defecto) quita el partido de los gráficos de método: un partido de 90 minutos tapa el reparto de la semana. Las tarjetas de cabecera sí lo cuentan.",
+      "«Cifras sin el partido» (por defecto) quita el partido de los gráficos de método: un partido de 90 minutos tapa el reparto de la semana. Las tarjetas de cabecera sí lo cuentan.",
       "Un micro sin minutos ni intensidad no enseña tiempo ni carga: sólo tareas y valoración.",
     ],
   },
@@ -985,7 +988,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "¿De quién hay que hablar esta semana?", es: "Arriba, un semáforo con cada jugador avisado (oro, un aviso; naranja, dos o más). Debajo, juega poco (menos del 25 %), tres partidos sin jugar, carga alta (90 % o más), a una amarilla del ciclo (4, 9, 14…) y nota a la baja; cada fila lleva el nombre a su ficha y el «qué hacer» a un toque: registrar seguimiento, sus valoraciones o sus vídeos, y la carga alta, a Microciclos", cuenta: "Sólo licencia del Castilla; los porteros no entran en los de minutos. Nota a la baja: media de las 3 últimas un punto o más por debajo de la de las 3 anteriores" },
           { que: "¿Qué edad tiene quien juega?", es: "Tramos de edad de Wyscout con su parte de los minutos jugados", cuenta: "Edad media ponderada por minutos" },
           { que: "¿Cuándo acaban los contratos?", es: "Fin de contrato que publica Wyscout" },
-          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones" },
+          { que: "¿Quién entrena con el grupo?", es: "Sesiones de cada uno en Jugadores sesión, de menos a más, y quién del Castilla no sale en ninguna", cuenta: "En naranja, por debajo del 70 % de las sesiones. Los porteros no cuentan (llevan registro aparte), tampoco en las sesiones guardadas antes con ellos dentro" },
         ],
       },
       {
@@ -1853,7 +1856,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo primero de la pantalla",
         filas: [
-          { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido e Informe del rival van en una sola fila; en el móvil se desliza de lado" },
+          { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido, Informe del rival y Sus goles en vídeo van en una sola fila, siempre con el rival de ese viaje ya elegido (por su fila de la hoja RIVALES o, sin ella, por su nombre); en el móvil se desliza de lado. Con el horario aún propuesto, la cabecera dice «Propuesto» (al pasar por encima: se guarda en cuanto cambies algo)" },
           { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Pinchándola se abre «Cómo va el viaje». Si lo único que queda son datos por completar, la chapa no sale: eso lo cuenta sólo «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
           { que: "Horas por fijar", es: "Una cita cuya hora no se ha podido calcular (por ejemplo, una ruta que llega sin minutos) sale «por fijar», al final de su día y en ámbar; nunca con una hora inventada. Es la primera tarea de «Cómo va el viaje», con «Poner la hora», y el botón de sacar dice «Faltan N horas» y lleva a la primera en vez de exportar", cuenta: "El dossier no nombra los trayectos sin hora ni ningún dato roto; la hoja A4 sólo coloca las citas con hora. Hoja, resumen y editor van en el mismo orden (por hora)" },
           { que: "Sacar igualmente", es: "Con errores en el horario el botón dice «Sacar igualmente»: se puede sacar, y el motivo va en el propio botón y en el diálogo («El horario tiene 2 errores; se puede sacar igual, pero saldrá así»)" },
@@ -1862,7 +1865,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "La primera cita no nombra Valdebebas", es: "Si la primera salida del viaje no nombra el sitio de «Sale de», es una tarea más de «por completar», con el cambio propuesto («Salida bus» → «Salida bus desde Valdebebas») y el botón «Corregir», que lo escribe en la cita" },
           { que: "Cada aviso", es: "Un titular con verbo y su botón («Mueve «Llegada aproximada Valdebebas»: va antes del partido» · Ver). Plegado en «¿por qué?»: de dónde sale cada dato (hoja del horario, hora del partido de la ficha, BeSoccer para el nombre del rival), la cuenta con sus cifras y la regla", cuenta: "Ejemplos: «llegada 13:15, partido 21:15 = 8 h antes»; «salida 12:30, llegada 12:39 = 9 min» (ningún tren dura menos de 20 min: una de las dos horas de la hoja está mal tecleada); con la ruta calculada, el trayecto se compara con lo que dura y se avisa por debajo del margen" },
           { que: "Aplicar los N arreglos seguros", es: "Con dos o más, un botón aplica de una vez los arreglos que no piden decidir nada (quitar las citas de partido de un día copiado, corregir erratas), con un solo «Deshacer»; cada uno sigue también en su aviso", cuenta: "Se aplican en orden: la errata de una cita que otro arreglo ya quita no se cuenta. «Convertirlo en víspera» no entra: es una decisión" },
-          { que: "Por completar", es: "Campo a campo, con el dato exacto que falta («foto del hotel», «teléfono del hotel», «lista «No olvidar»») y su botón «Poner», que abre el bloque y lleva a ese campo", cuenta: "Cuenta cada dato vacío que el documento llevaría (estadio: nombre, dirección, distancia, tiempo, foto, plano y ruta; hotel: nombre, teléfono, entrada, foto y ruta; hora; «No olvidar») más las medidas por elegir. Un bloque con su nombre escrito no sale si no le falta nada. El horario ya montado no cuenta: lo que tenga mal lo dicen sus avisos" },
+          { que: "Por completar", es: "Una lista con marca por punto, campo a campo, con el dato exacto que falta («foto del hotel», «teléfono del hotel», «lista «No olvidar»»); el propio dato y su botón «Poner» abren el bloque y llevan a ese campo", cuenta: "Cuenta cada dato vacío que el documento llevaría (estadio: nombre, dirección, distancia, tiempo, foto, plano y ruta; hotel: nombre, teléfono, entrada, foto y ruta; hora; «No olvidar») más las medidas por elegir. Un bloque con su nombre escrito no sale si no le falta nada. El horario ya montado no cuenta: lo que tenga mal lo dicen sus avisos" },
           { que: "No olvidar", es: "La línea del pie de la hoja del horario, una cosa por línea. El ejemplo («traje de paseo, DNI, botas de recambio») va fuera del cuadro, para que no parezca escrito" },
           { que: "Orden", es: "El mismo en el móvil y en el escritorio: «Partido · estadio · hotel», «Cómo va el viaje» plegado, el documento («Cómo va a quedar») y el formulario: el horario, «No olvidar» y, plegado, «Más datos». En escritorio ancho, el formulario a la izquierda y el documento a la derecha, en la columna ancha y siempre a la vista" },
           { que: "Más datos", es: "Lo que no es el horario, junto y plegado: cómo se llega al estadio y el hotel (si les falta algo), las fotos de los lugares de salida y «Cómo salió el viaje». Las tareas de «Cómo va el viaje» lo abren solas; después del partido sale abierto" },
@@ -1872,10 +1875,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El horario",
         filas: [
-          { que: "Viaje propuesto según la distancia", es: "Mientras no se toca, el viaje se propone con lo que se tarda de Valdebebas al estadio. Cerca, en el día y sin hotel: comida en Valdebebas, charla, salida, llegada al estadio, calentamiento, partido y vuelta. Lejos, la víspera con hotel. Sin distancia no se propone hotel: sólo llegada al estadio, calentamiento y partido. La distancia y el tiempo quedan escritos en el estadio", cuenta: "Se duerme fuera desde 150 km (o 2 h de autobús si sólo se sabe el tiempo). Cerca: salida = llegada al estadio (90 min antes del partido) − lo que tarda el autobús; vuelta = partido + 1 h 45 + el trayecto. Lejos: la víspera sale a las 16:00 salvo que no dé para llegar a las 20:00; llegada al hotel = salida + trayecto; vuelta a Valdebebas = partido + 1 h 45 + trayecto. El autobús es la ruta en coche de OSRM × 1,15 redondeada a 5 min" },
+          { que: "Viaje propuesto según la distancia", es: "Mientras no se toca, el viaje se propone con lo que se tarda de Valdebebas al estadio. Cerca, en el día y sin hotel: comida en Valdebebas, charla, salida, llegada al estadio, calentamiento, partido y vuelta. Lejos, la víspera con hotel. Sin ruta ni distancia en la hoja, se usa el tiempo de un viaje anterior guardado al mismo rival (el «Tiempo» de su estadio), y así sale la «Salida bus». Sin ninguna base no se propone hotel ni salida: sólo llegada al estadio, calentamiento y partido. La distancia y el tiempo quedan escritos en el estadio", cuenta: "Se duerme fuera desde 150 km (o 2 h de autobús si sólo se sabe el tiempo). Cerca: salida = llegada al estadio (90 min antes del partido) − lo que tarda el autobús; vuelta = partido + 1 h 45 + el trayecto. Lejos: la víspera sale a las 16:00 salvo que no dé para llegar a las 20:00; llegada al hotel = salida + trayecto; vuelta a Valdebebas = partido + 1 h 45 + trayecto. El autobús es la ruta en coche de OSRM × 1,15 redondeada a 5 min" },
           { que: "Días", es: "En casa abre con uno; fuera, según la distancia (arriba). Cada día es una hoja A4" },
           { que: "Horario elástico", es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj" },
-          { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min. En el editor, la letra no baja de 14 px" },
+          { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min. Lo dice la ayuda emergente de cada hora, no un texto fijo. En el editor, la letra no baja de 14 px" },
+          { que: "Editar · Opciones del día", es: "Un solo mando por día: plegado, sólo «Editar» (y «Pegar» si hay un día copiado); al abrirlo aparece «Opciones del día» (plantilla, mover, copiar, replicar, vaciar o quitar el día)" },
           { que: "Añadir cita", es: "La paleta de eventos (🚌 salida, 🍝 comida, ⚽ partido…) va plegada; se arrastra al día o se toca y llega con su hora. El emoticono sale del mismo catálogo por palabra clave" },
           { que: "Trayectos", es: "Cada salida dice de dónde a dónde; en autobús la duración se calcula sola (OSRM sobre OpenStreetMap) y la llegada cae sola" },
           { que: "Duraciones recordadas", es: "Si corriges una duración, ese trayecto vale así en los viajes que vengan" },
@@ -2263,10 +2267,11 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Antes de entrar",
         filas: [
-          { que: "Entra con tu cuenta del staff", es: "El correo y la contraseña, uno debajo de otro y a todo el ancho. Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
+          { que: "Entra con tu cuenta del staff", es: "El correo, la contraseña y un solo botón «Entrar». Sólo puede registrarse el cuerpo técnico: en «Registrarme» se elige el nombre de la lista del staff. Al entrar se abre el entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en ese navegador" },
           { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
-          { que: "Última sesión analizada", es: "Encima, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas y cuántos objetivos se midieron. Sólo lo agregado: sin jugadores, textos ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia»" },
-          { que: "Así se lee una tarea", es: "Un ejemplo inventado, marcado «Ejemplo» dentro de la tarjeta: la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador con la meta marcada (uno por debajo de 15 acciones, para ver cómo se lee la tendencia) y un clip con su veredicto", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
+          { que: "Última sesión analizada", es: "Lo primero, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas, cuántos objetivos se midieron y una barra por tarea (código, nombre de la tarea, acierto y correctas de revisadas). Sólo lo agregado: sin jugadores, textos de objetivo ni clips, porque esta puerta es pública", cuenta: "La más reciente con alguna acción revisada (lo propuesto sin revisar no cuenta). Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia» (barra atenuada). Por tarea se suman los objetivos atados a esa tarea" },
+          { que: "Equipos de la sesión · Microciclo de la semana", es: "Lo que completa la pantalla, a un toque y sin cuenta: Jugadores sesión del día de esa última sesión y Microciclos" },
+          { que: "Cómo se lee una tarea (ejemplo)", es: "Plegado: un ejemplo inventado, marcado «Ejemplo», con la tarea, su objetivo y su meta, el gráfico de correctas y mejorables de cada jugador y un clip con su veredicto. Sale abierto sólo si no hay ninguna sesión analizada que enseñar", cuenta: "El mismo umbral que dentro: con menos de 15 acciones no hay porcentaje ni «cumple»" },
         ],
       },
       {
@@ -2332,6 +2337,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Por jugador",
         filas: [
           { que: "Evolución", es: "Cada objetivo suyo sesión a sesión, con la anterior, el sentido y sus clips" },
+          { que: "Ficha de … · Su seguimiento", es: "Encima del jugador elegido: abren su ficha en Individual, en el perfil o en la pestaña de seguimiento" },
           { que: "Tu sesión", es: "Dos frases, su cuenta frente a la meta y su clip correcto y su clip mejorable, para WhatsApp; el texto se puede retocar" },
           { que: "Abrir su chat", es: "Abre WhatsApp con el mensaje escrito; lo mandas tú. El móvil sólo se recuerda en ese aparato" },
         ],
@@ -2467,7 +2473,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "disponibles · bajas · tareas listas", es: "Las cifras del día; las bajas, con su motivo al pasar por encima", cuenta: "Tareas listas = tareas sin nada que corregir ÷ tareas" },
           { que: "Porteros aparte: X, Y", es: "Los porteros no entran en los equipos, ni en el reparto, ni en las cifras de la sesión: llevan un registro independiente, con su entrenador", cuenta: "Se apartan si la lista los marca (apartado «PORTEROS:» o «(POR)» junto al nombre) o si su puesto es de portero (a mano, su ficha o la plantilla). Lo guardado antes con un portero en un equipo se lee sin él" },
           { que: "Las tareas del microciclo", es: "Al crear la sesión las tareas salen del plan de ese día, con equipos y comodines de su formato; casan con la hoja por nombre antes que por código" },
-          { que: "Traer", es: "Si el plan cambió (tareas que faltan, nombres u orden), las añade y las ata sin mover a nadie; se puede deshacer" },
+          { que: "No se hizo · Traer", es: "Una tarea del plan que no está en la sesión sale en gris con «no se hizo», igual que en Microciclos (no es un aviso). Los cambios de nombre u orden del plan, en ámbar. «Traer» añade lo del plan y lo ata sin mover a nadie; se puede deshacer", cuenta: "La misma regla que Microciclos: tarea del plan sin su tarea en la sesión de ese día = no se hizo" },
+          { que: "Sesión (menú)", es: "Arriba a la derecha: lo secundario de la sesión (el resto de acciones)" },
           { que: "Punto de cada tarea", es: "Verde, lista; ámbar, con avisos; rojo, falta algo" },
         ],
       },
@@ -2475,7 +2482,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Hacer los equipos",
         filas: [
           { que: "En un toque", es: "2 equipos, 2 + 1 comodín, 2 + 2 comodines, 3 grupos, 3 + 2 comodines o 4 rondos: pone la forma y propone el reparto" },
-          { que: "Más · criterio · repetir reparto", es: "El criterio del reparto y «Como el 28 oct» o copiar de otra tarea, de hoy o de otro día, casado por nombre" },
+          { que: "Criterio: … · repetir reparto", es:"El criterio del reparto y «Como el 28 oct» o copiar de otra tarea, de hoy o de otro día, casado por nombre" },
           { que: "Proponer equipos / Otra propuesta", es: "Reparte a todos los que hacen la tarea con el criterio elegido (P)", cuenta: "Sin porteros (van aparte) y los comodines rotan entre quienes menos lo han sido; debajo sale una línea por equipo que explica el reparto" },
           { que: "Titulares vs suplentes", es: "El once de la pizarra táctica (tablero «Once 4-2-3-1») en un equipo y los suplentes en el otro", cuenta: "Casado por nombre con la lista; si el once no llena el equipo, entran suplentes de la línea que falta" },
           { que: "Mezcla parcial / total", es: "Parcial: el porcentaje del deslizador cambia titulares de lado, cada uno por un suplente de su línea (100 % = mitad y mitad). Total: titulares a partes iguales y líneas parejas, al azar" },
@@ -2483,11 +2490,12 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Reparto propuesto / Criterio elegido", es: "Encima de los equipos: el criterio con que salieron (o el elegido, si se hicieron a mano) y cuántos hay en cada equipo" },
           { que: "11/10 en rojo", es: "Contador de cada campo: jugadores de campo del equipo / huecos del dibujo, contando a los que comparten puesto", cuenta: "Verde si cuadra; ámbar si falta alguien o las líneas no van parejas; rojo si hay más que huecos (al pasar, quiénes comparten): amplía el dibujo o pasa a uno" },
           { que: "X pasa a Naranja y Y a Amarillo", es: "El arreglo de un toque de las líneas descompensadas, con el sentido del cambio" },
-          { que: "La hoja dice 10v10…", es: "Aviso si el formato de la hoja no cuadra con lo colocado, en total o equipo a equipo (11 y 10 en un 10v10); si la tarea se renombró, dice de qué tarea de la hoja sale", cuenta: "Si falta gente, botón «Meter a X en Naranja»: el primero sin colocar o, si no hay, el primero que no hace la tarea, al equipo al que más le falta" },
+          { que: "La hoja dice 10v10…", es: "Aviso si el formato de la hoja no cuadra con lo colocado, en total o equipo a equipo (11 y 10 en un 10v10); si la tarea se renombró, dice de qué tarea de la hoja sale", cuenta: "Un aviso solo es una frase («La tarea pide 16 (8v8) y hay 14 colocados») con su acción en oro; con varios, el primero y «Ver el detalle». Si falta gente, botón «Meter a X en Naranja»: el primero sin colocar o, si no hay, el primero que no hace la tarea, al equipo al que más le falta" },
           { que: "Más opciones", es: "Plegados: formato con estructura, cambio a mitad, tamaño del campo, comodines y qué pasa al soltar encima de otro. Cada uno sale solo si ya se está usando" },
           { que: "Sinergias / Por perfiles", es: "Parten de «Por líneas» y sólo cambian jugadores de la misma línea", cuenta: "Sinergias: juntas las parejas que se potencian según Wyscout (Data análisis, once). Perfiles: el rasgo que más destaca de cada uno contra su puesto, repartido o junto" },
           { que: "Completar", es: "Coloca sólo a los que faltan, en el equipo más corto, sin mover a nadie", cuenta: "Sale cuando ya hay alguien colocado y alguien pendiente" },
-          { que: "Más (junto a Proponer)", es: "Vaciar la tarea, Como la anterior (equipos, colores y comodines de la tarea de antes), Duplicar, Mover antes o después y Quitar esta tarea" },
+          { que: "Ficha del jugador", es: "El icono de persona en cada jugador de un equipo (sólo los de la plantilla) abre su ficha en Individual, con su seguimiento, en otra pestaña; no empieza a arrastrar" },
+          { que: "Tarea (junto a Proponer)", es:"Vaciar la tarea, Como la anterior (equipos, colores y comodines de la tarea de antes), Duplicar, Mover antes o después y Quitar esta tarea" },
           { que: "Chip del puesto", es: "En los que suben del RMC o del Juvenil A, el puesto aprendido de cómo los colocáis (borde de puntos) o el fijado a mano (lleno). Tocarlo lo corrige para todas las sesiones" },
           { que: "Soltar encima de otro", es: "«Cambiar»: los dos se intercambian el sitio. «Compartir puesto»: van juntos en el mismo hueco (dos, tres o los que hagan falta)", cuenta: "Debajo del campo, «También en…» comparte ese mismo puesto en el otro equipo: entra el que esté fuera del dibujo o queda un «+» donde soltarlo" },
           { que: "Cambio a mitad", es: "Un segundo momento de la tarea con otros equipos; sale como otra diapositiva" },
@@ -2843,15 +2851,16 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Partido", es: "Jornada, rival con escudos, en casa o fuera y la hora; si ya se jugó, el resultado con su sentido («ganado 1-0», el Castilla primero)" },
           {
             que: "Viaje",
-            es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su salida",
+            es: "Un renglón ligero con punto morado (el partido manda en la casilla): «Viaje a…» los días antes, «Traslado al estadio» y «Vuelta de…» el día del partido, «Vuelta de…» los días de después, cada uno con su primera cita y su nombre: «salida 08:40» sólo si la cita es una salida; si no, la cita como se llama en Desplazamiento («llegada estadio 14:30»). En el día abierto, «Abrir el desplazamiento» lleva a ese viaje",
             cuenta: "El día del partido, las citas de viaje antes de la hora del partido son el traslado y las de después, la vuelta. Partido fuera sin viaje guardado: la misma propuesta que abre Desplazamiento sin distancia (viajeVacio); si esa propuesta no trae hora de salida, no se pinta nada. Una cita sin hora nunca sale",
           },
           {
             que: "Sesión (MD y minutos)",
             es: "El MD del día, los minutos de entreno y el contenido de más minutos, con un punto del color de la fase que manda (como /micro_calendar); en discontinuo y «planificada» si la hoja aún no tiene sus minutos",
-            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga",
+            cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga. En los días aún sin sesión, el MD previsto (discontinuo) sólo sale en la semana del partido: MD-5 a MD-1",
           },
           { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
+          { que: "El día abierto: accesos", es: "Una sesión abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado, «Informe del partido» (Microciclos en su micro); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival, ya elegido", cuenta: "El micro de cada fecha sale de la hoja de registro; el Plan, por el ID de la hoja RIVALES buscado por la fecha" },
         ],
       },
       {
@@ -2913,6 +2922,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "Las cifras del mes",
@@ -2931,11 +2941,12 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El calendario",
         filas: [
-          { que: "Fondo del día", es: "La fase con más minutos ese día, sin contar Global", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal" },
-          { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración" },
+          { que: "Fondo del día y su fase escrita", es: "La fase con más minutos ese día, sin contar Global, como fondo y escrita en una etiqueta del mismo color (para quien no distingue el color y en el móvil)", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal y sin etiqueta" },
+          { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración. Los días aún sin tareas de la semana del partido llevan su MD en gris (sólo MD-5 a MD-1)" },
+          { que: "Partido sin filas en la hoja", es: "El partido del calendario de BeSoccer sale aunque la hoja aún no tenga ese día (como en /calendar_general)" },
           { que: "Planificado", es: "Entreno de la hoja sin minutos todavía: borde discontinuo y la etiqueta «planificado»" },
           { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. La casilla crece para que no se corten" },
-          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene" },
+          { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene, en dos líneas (no se corta)" },
           { que: "Libre", es: "Día sin nada entre la primera y la última sesión apuntadas" },
           { que: "Siglas", es: "Bajo el calendario, las siglas de los contenidos que salen ese mes, desarrolladas (CP, CR, ABP, Ind., TAD = transición ataque-defensa, TDA = defensa-ataque)" },
         ],
@@ -2943,6 +2954,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El día abierto",
         filas: [
+          { que: "Accesos del día", es: "Arriba, a un toque y ya elegido: un entreno abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado abre Microciclos en su micro (botón «Informe del partido»); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival" },
           { que: "Bloques", es: "Las tareas agrupadas por contenido principal, con sus minutos" },
           { que: "Tarea", es: "Descripción, grupo y nº de jugadores" },
           { que: "Carga física / cognitiva", es: "Barra de cada tarea", cuenta: "Llena = la tarea más cargada de ese día" },
@@ -2953,7 +2965,6 @@ export const AYUDAS: AyudaDePagina[] = [
       "Más carga no es mejor: un mes con más partidos baja la media a propósito.",
       "Entrenos y partidos se cuentan igual que en /calendar_general y /microcycles.",
     ],
-    revisada: "2026-11-16",
   },
   /* ==================== JUGADORES SESIÓN · DISPONIBILIDAD (12/11/2026) ==================== */
   {
@@ -3326,17 +3337,19 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Crear o editar el microciclo",
     resumen: "Preparar la semana que viene, o retocar una ya escrita, y escribirla en la hoja de registro de tareas.",
     origen: "La hoja de registro de tareas (la misma que leen Microciclos, el microciclo de ABP y Data análisis) y el calendario del Castilla que baja de BeSoccer el ordenador del club. Los equipos del día salen de Jugadores sesión y del análisis de entrenamiento.",
+    revisada: "2026-11-16",
     bloques: [
       {
         titulo: "1 · La semana",
         filas: [
-          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. En el móvil, los botones Entreno/Libre miden 44 px de alto", cuenta: "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe ninguna fila" },
+          { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. Las casillas miden 150 px como mínimo y pasan a dos filas si no caben; en el móvil, los botones Entreno/Libre miden 44 px de alto. Bajo cada MD, en cuántas semanas de liga de la temporada se entrenó («· 18 de 21»)", cuenta: "Propuesta: libre el MD+1 y, con 5 semanas de liga o más, también los MD que se entrenan en menos de la mitad de ellas; el resto, entreno, y la frase lo dice con su base. Con menos base, libre sólo el MD+1. Un día libre no escribe ninguna fila. Semanas de liga = micros con partido y tareas de entreno, sin pretemporada ni amistosos; mismo recuento que Microciclos (lib/microciclo/cuenta.ts)" },
+          { que: "Accesos del rival", es: "En azul, bajo el titular: Plan de partido, Su ABP, Sus goles en vídeo y Su plantilla, con el rival del micro ya elegido", cuenta: "El Plan abre por el ID de la hoja RIVALES, buscado por la fecha del partido; los demás, por el nombre del equipo" },
           { que: "Partir de lo que ya está en la hoja", es: "El último microciclo con tareas, otro cualquiera o la semana en blanco", cuenta: "Las tareas entran atadas por MD: el MD-2 de aquella semana al MD-2 de ésta" },
-          { que: "Lo que se copia", es: "Tareas, días y tiempo planificado del micro de origen frente a la media de la temporada, con la base de cada cifra («13 tareas, 9 con tiempo»). Si ninguna tarea lleva minutos, la columna de tiempo no sale y una línea dice dónde se ponen y a cuánto va la temporada. La lista «Partir de…» enseña los 5 últimos; «Ver todos los microciclos…» despliega el resto", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
+          { que: "Lo que se copia", es: "Tres cifras grandes —tareas, días de entreno y tiempo— del micro de origen, con la media de la temporada debajo; «Ver el micro N» abre su ficha en Microciclos en otra pestaña para revisar sus tareas antes de copiarlas. En «Detalle», plegado, la tabla y la base de cada cifra («13 tareas, 9 con tiempo»); si ninguna tarea lleva minutos, dice dónde se ponen y a cuánto va la temporada. La lista «Partir de…» enseña los 5 últimos; «Ver todos los microciclos…» despliega el resto", cuenta: "Tiempo planificado = suma de los minutos de sus tareas, sin el partido. Media = media por semana de los micros con tiempo apuntado (si hay 3 o más; si no, de los micros con tareas)" },
           { que: "Días que entran en blanco", es: "Si el micro de origen no tiene algún MD de la semana nueva, el aviso lo dice y ofrece, en el mismo sitio, «Partir del micro N» (la última semana de liga que sí los tiene) y «Rellenar con la semana tipo»", cuenta: "La semana tipo de un MD es lo más repetido en sus sesiones de la hoja (hacen falta 2 o más); se pone al crear el microciclo y se cambia como cualquier tarea" },
           { que: "Así empieza el paso 2", es: "Vista previa, día a día, de con qué tareas nacerá la semana: el MD, el día, cuántas tareas y minutos, y sus tareas (hasta 4; con más, las 3 primeras y «+N»). Los pasos 2 y 3 se ven en gris con lo que llevan", cuenta: "Sale de las tareas del micro de origen con ese MD o, con «Rellenar con la semana tipo», de la sesión tipo; si no hay ninguna, «Se rellena en el paso 2»" },
           { que: "Copiar también el tiempo y la intensidad", es: "Si no se marca, se copian tareas y contenidos pero no los minutos ni la intensidad" },
-          { que: "Semana tipo / Todos los días de entreno", es: "Atajos: libre sólo el MD+1, o sesión todos los días" },
+          { que: "Volver a la propuesta / Todos los días de entreno", es: "Enlaces de texto junto al único botón principal, «Crear el microciclo N»: vuelven a la propuesta de días o ponen sesión todos los días. En el aviso de días en blanco, en el móvil, el texto va arriba y el botón debajo a todo el ancho" },
           { que: "Editar o copiar un microciclo", es: "Abre uno de la hoja con todas sus columnas, o copia la semana de uno sobre otro", cuenta: "La evaluación y el análisis post de sus filas no se tocan" },
         ],
       },
@@ -3377,7 +3390,6 @@ export const AYUDAS: AyudaDePagina[] = [
       "Carga ponderada, carga cognitiva y demanda cognitiva son fórmulas de la hoja: no se mandan, las filas nuevas las heredan de la de arriba.",
       "El borrador se guarda en este navegador mientras se rellena; si ya está en la hoja o tiene más de tres semanas, se tira.",
     ],
-    revisada: "2026-11-16",
   },
 
   /* ==================== VÍDEO ANÁLISIS PARTIDOS (12/11/2026) ==================== */

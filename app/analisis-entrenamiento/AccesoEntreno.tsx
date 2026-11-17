@@ -8,8 +8,9 @@
  */
 
 import { useEffect } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Play } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, Play, Users } from "lucide-react";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
 import { Acceso } from "@/components/quiniela/Acceso";
@@ -162,8 +163,54 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
           {` · ${ultima.objetivos} ${ultima.objetivos === 1 ? "objetivo medido" : "objetivos medidos"}`}
         </span>
       </p>
-      <p className="mt-1 text-[12px] text-white/50">El detalle por jugador, con sus clips, al entrar con la cuenta del staff.</p>
+      {/* 16/11/2026, segunda vuelta: el cumplimiento por tarea, en barras (sólo lo agregado). */}
+      {ultima.tareas?.length ? (
+        <ul className="mt-4 space-y-2.5" aria-label="Acierto por tarea">
+          {ultima.tareas.map((t) => (
+            <li key={t.codigo} className="min-w-0">
+              <p className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-[13px]">
+                <span className="font-semibold text-[#C8A96B]">{t.codigo}</span>
+                {t.nombre ? <span className="min-w-0 truncate text-white/80">{t.nombre}</span> : null}
+                <span className="flex-1" />
+                <span className="tabular-nums text-white/70">
+                  {t.pct !== null ? `${t.pct} %` : "tendencia"} · {t.correctas} de {t.total}
+                </span>
+              </p>
+              <div className={`mt-1 flex h-2.5 overflow-hidden rounded-full bg-white/10 ${t.pct === null ? "opacity-50" : ""}`} aria-hidden>
+                <span style={{ width: `${(t.correctas / t.total) * 100}%`, background: BIEN }} />
+                <span style={{ width: `${((t.total - t.correctas) / t.total) * 100}%`, background: MEJORABLE }} />
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <p className="mt-3 text-[12px] text-white/55">El detalle por jugador, con sus clips, al entrar con la cuenta del staff.</p>
     </section>
+  );
+}
+
+/** Lo que completa esta pantalla, a un toque y sin cuenta (16/11/2026, jueces). */
+function Accesos({ fecha }: { fecha?: string }) {
+  const q = fecha ? `?fecha=${fecha}` : "";
+  const enlaces = [
+    { href: `/jugadores-sesion${q}`, texto: "Equipos de la sesión", Icono: Users },
+    { href: "/microcycles", texto: "Microciclo de la semana", Icono: CalendarDays },
+  ];
+
+  return (
+    <nav aria-label="Lo que completa el análisis" className="flex flex-wrap gap-2">
+      {enlaces.map(({ href, texto, Icono }) => (
+        <Link
+          key={href}
+          href={href}
+          className="inline-flex min-h-[40px] items-center gap-2 rounded-xl border border-white/15 px-3 py-2 text-[13px] font-semibold text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+        >
+          <Icono size={15} className="text-[#C8A96B]" aria-hidden />
+          {texto}
+          <ArrowRight size={13} className="text-white/45" aria-hidden />
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -205,26 +252,29 @@ export function AccesoEntreno({ ultima = null }: { ultima?: UltimaSesionPublica 
             {/* Lo primero, la última sesión de verdad, con el acceso al lado (16/11/2026). */}
             {ultima ? <UltimaSesion ultima={ultima} /> : null}
 
-            {/* Lo que hay dentro, antes de entrar (24/10/2026): quien llega desde el menú no sabía qué aporta la pantalla. */}
-            <ul className="space-y-1.5 text-[15px] text-white/70">
-              {[
-                "Objetivos por jugador y por tarea, medidos en el vídeo del entrenamiento.",
-                "Su evolución sesión a sesión, con lo que se pidió y lo que salió.",
-                "Clips de lo correcto y de lo mejorable, y el mensaje para cada jugador.",
-              ].map((t) => (
-                <li key={t} className="flex gap-2">
-                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
-                  <span>{t}</span>
-                </li>
-              ))}
-            </ul>
+            {/*
+            | 16/11/2026 (jueces, segunda vuelta): fuera las tres viñetas que
+            | repetían el titular; en su sitio, lo que completa la pantalla a un
+            | toque (los equipos de ese día y el microciclo).
+            */}
+            <Accesos fecha={ultima?.fecha} />
 
             {/*
             | Una muestra de lo que hay dentro (07/11/2026), sin datos de nadie:
             | una tarea, un objetivo y su base, como lo enseña la ficha. Está
-            | escrita a mano y lo dice, para que no se lea como un dato.
+            | escrita a mano y lo dice. 16/11/2026: plegada por defecto (los
+            | jueces: el ejemplo no puede ser lo primero); abierta si no hay
+            | ninguna sesión analizada que enseñar.
             */}
-            <MuestraFicha />
+            <details open={!ultima} className="group rounded-2xl border border-white/10 bg-white/[0.02]">
+              <summary className="flex min-h-[44px] cursor-pointer list-none items-center gap-2 px-4 py-2.5 text-[14px] font-semibold text-white/80 [&::-webkit-details-marker]:hidden">
+                <ChevronDown size={16} className="shrink-0 text-[#C8A96B] transition group-open:rotate-180" aria-hidden />
+                Cómo se lee una tarea (ejemplo)
+              </summary>
+              <div className="px-2 pb-2 sm:px-3 sm:pb-3">
+                <MuestraFicha />
+              </div>
+            </details>
             </div>
 
             {/* 11/11/2026: en el móvil la entrada va primero; la muestra, debajo. */}
@@ -243,16 +293,9 @@ export function AccesoEntreno({ ultima = null }: { ultima?: UltimaSesionPublica 
               cargando={sesion.cargando}
               manda={sesion.manda}
               titulo="Entra con tu cuenta del staff"
-              botonEntrar="Ver el análisis"
+              botonEntrar="Entrar"
               subtitulo="La misma cuenta que la quiniela y las apuestas del staff"
-              pie={
-                <>
-                  Sólo el cuerpo técnico: en «Registrarme» eliges tu nombre de la lista del staff. Al entrar se abre el
-                  entrenamiento de hoy (o el último con trabajo) y no se vuelve a pedir la cuenta en un mes en este
-                  navegador. Si no recuerdas la contraseña,
-                  pídela al administrador.
-                </>
-              }
+              pie={<>Sólo el cuerpo técnico. Se abre el entrenamiento de hoy y no se vuelve a pedir la cuenta en un mes. ¿Sin contraseña? Pídela al administrador.</>}
             />
 
             {yo && !delCuerpoTecnico ? (

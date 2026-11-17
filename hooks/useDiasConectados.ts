@@ -13,7 +13,9 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { claveAnalisis, claveSesion, normalizaSesion, type AnalisisEntreno, type SesionEntreno } from "@/lib/entreno/modelo";
+import { usePlayers } from "@/hooks/usePlayers";
 import type { AlmacenEquipos } from "@/lib/sesion-equipos/modelo";
+import { almacenSinPorteros } from "@/lib/sesion-equipos/puestos";
 
 export type EntrenoDelDia = { sesion: SesionEntreno | null; analisis: AnalisisEntreno | null };
 
@@ -69,9 +71,18 @@ export function useDiasConectados(fechas: string[], { equipos = true, entreno = 
     };
   }, [entreno, lista]);
 
+  /*
+  | SIN PORTEROS (16/11/2026): llevan un registro independiente. Lo guardado
+  | antes con porteros dentro se lee sin ellos, con la misma decisión que
+  | /jugadores-sesion (lib/sesion-equipos/puestos.ts, `almacenSinPorteros`).
+  */
+  const { players } = usePlayers();
+  const fichas = useMemo(() => players.map((p) => ({ nombre: p.nombre, apodo: p.apodo, posicion: p.posicion })), [players]);
+  const almacenSin = useMemo(() => (almacen ? almacenSinPorteros(almacen, fichas) : null), [almacen, fichas]);
+
   return {
-    /** El almacén de Jugadores sesión (null mientras llega). */
-    almacen,
+    /** El almacén de Jugadores sesión (null mientras llega), sin porteros. */
+    almacen: almacenSin,
     /** Objetivos y análisis por fecha; vacío mientras llega o si las fechas han cambiado. */
     entrenos: porFecha?.clave === lista ? porFecha.dias : {},
     cargandoEntrenos: entreno && Boolean(lista) && porFecha?.clave !== lista,

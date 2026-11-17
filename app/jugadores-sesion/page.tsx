@@ -46,6 +46,7 @@ import {
   MessageSquareText,
   Repeat2,
   UsersRound,
+  UserRound,
   Users,
   Wand2,
   Shirt,
@@ -228,6 +229,7 @@ function Chip({
   onClick,
   onPointerDown,
   onQuitar,
+  enlaceFicha,
   destino,
   encima = false,
   conQuien,
@@ -254,6 +256,8 @@ function Chip({
   onPointerDown: (e: ReactPointerEvent) => void;
   /** Sacarlo de su equipo en un toque (sólo si está en uno). */
   onQuitar?: () => void;
+  /** Su ficha en /individual (sólo los de la plantilla). */
+  enlaceFicha?: string;
 }) {
   return (
     <div
@@ -339,6 +343,26 @@ function Chip({
         <span className="shrink-0 rounded border border-red-300/40 px-1 text-[11px] font-bold text-red-300">
           {jugador.baja.replace(/s$/i, "").toUpperCase()}
         </span>
+      )}
+      {/*
+      | Su ficha a un toque (16/11/2026, jueces), sin romper el arrastre: el
+      | icono no empieza a arrastrar y abre /individual en otra pestaña, para
+      | no perder el reparto.
+      */}
+      {enlaceFicha && (
+        <a
+          href={enlaceFicha}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Ficha de ${jugador.nombre}`}
+          title="Su ficha y su seguimiento (otra pestaña)"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="relative flex h-5 w-5 shrink-0 items-center justify-center rounded text-white/35 transition hover:bg-[#C8A96B]/20 hover:text-[#C8A96B] max-md:h-6 max-md:w-6 max-md:after:absolute max-md:after:-inset-2 max-md:after:content-['']"
+        >
+          <UserRound size={12} aria-hidden />
+        </a>
       )}
       {onQuitar && (
         <span
@@ -3405,6 +3429,8 @@ export default function JugadoresSesionPage() {
         }}
         onPointerDown={(e) => empiezaArrastre(j, colorDe(donde), e)}
         onQuitar={enEquipo ? () => coloca(j.id, null) : undefined}
+        /* 16/11/2026 (jueces): su ficha, en otra pestaña, sólo si está en la plantilla. */
+        enlaceFicha={enEquipo && puestosAuto[j.id] ? `/individual?nombre=${encodeURIComponent(limpiaJugador(j).nombre)}` : undefined}
         destino={`jug:${j.id}`}
         encima={sobre === `jug:${j.id}`}
         aprendido={puestoAprendidoDe(j)}
@@ -3607,7 +3633,7 @@ export default function JugadoresSesionPage() {
                     className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/75 transition hover:bg-white/[0.06] hover:text-white [&::-webkit-details-marker]:hidden"
                     aria-label="Más acciones de la sesión"
                   >
-                    <MoreHorizontal size={14} /> Más
+                    <MoreHorizontal size={14} /> Sesión
                   </summary>
                   <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col gap-1 rounded-xl border border-white/15 bg-[#11161C] p-1.5 shadow-2xl">
                     {[
@@ -3723,21 +3749,34 @@ export default function JugadoresSesionPage() {
                 {cambiosPlan && planSesion.length > 0 && (hayCambiosDelPlan(cambiosPlan) || cambiosPlan.sinVinculo > 0) ? (
                 <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 border-t border-white/[0.06] pt-2">
                 {hayCambiosDelPlan(cambiosPlan) ? (
-                  <p className="min-w-0 flex-1 text-[12px] leading-snug text-amber-300">
-                    {/* 07/11/2026: dice cuáles, con su código y nombre, y el botón «Traer» va al lado. */}
-                    {[
-                      cambiosPlan.nuevas.length
-                        ? `${cambiosPlan.nuevas.length === 1 ? "Falta esta tarea" : "Faltan estas tareas"} en la sesión: ${cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}. Añádela con «Traer» o ignórala`
-                        : "",
-                      /* 11/11/2026: las tareas ya casan por el nombre antes que por el código; aquí sólo llega un cambio de nombre de verdad. */
-                      cambiosPlan.renombradas.length
-                        ? `El plan ${cambiosPlan.renombradas.length === 1 ? "la llama" : "las llama"} de otra forma: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
-                        : "",
-                      cambiosPlan.orden ? "El plan tiene las tareas en otro orden" : "",
-                    ]
-                      .filter(Boolean)
-                      .join(". ")}
-                  </p>
+                  <div className="min-w-0 flex-1 space-y-0.5 text-[12px] leading-snug">
+                    {/*
+                    | 16/11/2026 (jueces): una tarea del plan que no está en la
+                    | sesión es la que Microciclos marca «no se hizo» (misma regla,
+                    | lib/sesion-dia/conexion.ts). Ya no se avisa en ámbar como si
+                    | faltara: sale en gris, igual que allí; «Traer» la añade si sí
+                    | se va a hacer.
+                    */}
+                    {cambiosPlan.nuevas.length ? (
+                      <p className="text-white/60">
+                        <span className="mr-1 rounded-full border border-white/15 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/60">no se hizo</span>
+                        {cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}
+                      </p>
+                    ) : null}
+                    {cambiosPlan.renombradas.length || cambiosPlan.orden ? (
+                      <p className="text-amber-300">
+                        {[
+                          /* 11/11/2026: las tareas ya casan por el nombre antes que por el código; aquí sólo llega un cambio de nombre de verdad. */
+                          cambiosPlan.renombradas.length
+                            ? `El plan ${cambiosPlan.renombradas.length === 1 ? "la llama" : "las llama"} de otra forma: ${cambiosPlan.renombradas.map((r) => `${r.de.toLowerCase()} → ${r.a.toLowerCase()}`).join(", ")}`
+                            : "",
+                          cambiosPlan.orden ? "El plan tiene las tareas en otro orden" : "",
+                        ]
+                          .filter(Boolean)
+                          .join(". ")}
+                      </p>
+                    ) : null}
+                  </div>
                 ) : (
                   <p className="min-w-0 flex-1 text-[12px] text-white/55">Hay tareas sin atar a las del plan.</p>
                 )}
@@ -3812,7 +3851,8 @@ export default function JugadoresSesionPage() {
               <>
                 {/* ---------------- TIRA DE TAREAS ---------------- */}
 
-                <div className="mt-5 flex min-w-0 flex-wrap items-stretch gap-1.5">
+                {/* 16/11/2026 (jueces): en el móvil, margen a la derecha para que el botón flotante no tape «+ Tarea». */}
+                <div className="mt-5 flex min-w-0 flex-wrap items-stretch gap-1.5 max-md:pr-12">
                   {sesion.tareas.map((t, i) => {
                     const suyos = estadoTareas[i] ?? [];
 
@@ -3894,7 +3934,7 @@ export default function JugadoresSesionPage() {
                   <span className="inline-flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-red-400" /> falta algo</span>
                 </p>
 
-                <div className="mt-4">
+                <div className="mt-4 max-md:pr-10">
                   <Pestanas
                     etiqueta="Vistas de la sesión"
                     valor={vista}
@@ -3957,7 +3997,8 @@ export default function JugadoresSesionPage() {
                             a la vista sólo la fila de formatos. El rótulo dice el criterio en uso. */}
                         <details className="group min-w-0">
                           <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-lg px-1 py-1 text-[12px] font-semibold text-white/70 hover:text-white [&::-webkit-details-marker]:hidden">
-                            <MoreHorizontal size={13} /> Más · criterio: {rotuloCriterio(criterio)}
+                            {/* 16/11/2026 (jueces): tres «Más» distintos confundían; éste dice lo que abre. */}
+                            <SlidersHorizontal size={13} /> Criterio: {rotuloCriterio(criterio)}
                             {ultimaVez || fuentesCopia.length > 0 ? " · repetir reparto" : ""}
                             <ChevronRight size={13} className="transition group-open:rotate-90" />
                           </summary>
@@ -4300,10 +4341,10 @@ export default function JugadoresSesionPage() {
                         )}
                         <details ref={menuTarea} className="relative">
                           <summary
-                            className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden"
+                            className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-[13px] font-medium text-white/70 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden"
                             aria-label="Más acciones de esta tarea"
                           >
-                            <MoreHorizontal size={13} /> Más
+                            <MoreHorizontal size={13} /> Tarea
                           </summary>
                           <div className="absolute left-0 top-full z-30 mt-1 flex w-60 flex-col gap-1 rounded-xl border border-white/15 bg-[#11161C] p-1.5 shadow-2xl">
                             {(
@@ -4464,8 +4505,9 @@ export default function JugadoresSesionPage() {
                               ) : (
                                 "Lista para presentar: nadie olvidado, nadie repetido y equipos parejos por puesto."
                               )
-                            ) : problemas.length === 1 && !problemas[0].titular ? (
-                              <span className="block">{problemas[0].texto}</span>
+                            ) : problemas.length === 1 ? (
+                              /* 16/11/2026 (jueces): un aviso solo es una frase y su acción; sin «Ver el detalle» que lo repite. */
+                              <span className="block font-semibold">{problemas[0].mete ? (problemas[0].titular ?? problemas[0].texto) : problemas[0].texto}</span>
                             ) : (
                               <>
                                 <span className="block font-semibold">
@@ -4523,7 +4565,8 @@ export default function JugadoresSesionPage() {
                                         cambiaTarea((t) => ({ ...t, sitio: { ...t.sitio, [a.mete!.id]: a.mete!.equipo } }));
                                         toast.success(a.mete!.texto, { action: { label: "Deshacer", onClick: deshaz } });
                                       }}
-                                      className="inline-flex rounded-md border border-current px-2 py-1 text-[12px] font-semibold"
+                                      /* 16/11/2026 (jueces): la acción principal del aviso, rellena en oro. */
+                                      className="inline-flex min-h-9 items-center rounded-lg bg-[#C8A96B] px-3 py-1.5 text-[13px] font-semibold text-black transition hover:bg-[#d8bc80]"
                                     >
                                       {a.mete!.texto}
                                     </button>

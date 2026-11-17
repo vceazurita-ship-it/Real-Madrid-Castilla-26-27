@@ -31,7 +31,9 @@ import {
   recordDateKey,
 } from "@/lib/calendar";
 import { traeJson } from "@/lib/hojaCsv";
-import { esFilaDePartido } from "@/lib/microciclo/cuenta";
+import { esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
+import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
+import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
@@ -139,6 +141,20 @@ const horaDeMinutos = (m: number) => {
   return `${String(Math.floor(d / 60)).padStart(2, "0")}:${String(d % 60).padStart(2, "0")}`;
 };
 
+/**
+ * Una cita del viaje con su nombre y su hora (16/11/2026, jueces): «salida»
+ * sólo cuando lo es. Salía «Viaje a Majadahonda · salida 14:30» y en
+ * /desplazamiento las 14:30 eran la «Llegada estadio».
+ */
+const horaDeCita = (c: { minuto: number; texto?: string }) => {
+  const texto = (c.texto ?? "").trim();
+  const hora = horaDeMinutos(c.minuto);
+
+  if (!texto || /^salida\b/i.test(texto)) return `salida ${hora}`;
+
+  return `${texto.charAt(0).toLowerCase()}${texto.slice(1)} ${hora}`;
+};
+
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
 const NOSOTROS = "RM Castilla";
 
@@ -163,7 +179,7 @@ function EscudoMini({ url, nombre }: { url: string | null; nombre: string }) {
     .toUpperCase();
 
   return (
-    <span title={nombre} className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[8px] font-bold text-white/70 md:h-5 md:w-5">
+    <span title={nombre} className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-[10px] font-bold text-white/70 md:h-5 md:w-5">
       {iniciales || "C"}
     </span>
   );
@@ -271,6 +287,19 @@ export default function CalendarGeneralPage() {
   | de partido para el MD salen de ahí también (misma regla que el creador).
   */
   const { registro, fechasDePartido: fechasPartido } = useSemanaDeHoy();
+
+  /* 16/11/2026 (jueces): el micro de cada fecha de la hoja, para abrir el día o el partido en Microciclos. */
+  const microDeFecha = useMemo(() => {
+    const mapa = new Map<string, number>();
+
+    for (const f of registro) {
+      const iso = fechaIsoDeHoja(f.fecha);
+
+      if (iso && Number.isInteger(f.micro) && f.micro > 0) mapa.set(iso, f.micro);
+    }
+
+    return mapa;
+  }, [registro]);
 
   const sesionesDia = useMemo(() => {
     const mapa = new Map(sesionesHechas);
@@ -556,7 +585,7 @@ export default function CalendarGeneralPage() {
             clase: "VIAJE",
             titulo: dia.fecha === m[1] ? `Viaje a ${rival} (en el día)` : `Viaje a ${rival}`,
             detalle: "Horario propuesto por Desplazamiento, aún sin guardar",
-            hora: `salida ${horaDeMinutos(salida.minuto)}`,
+            hora: horaDeCita(salida),
             enlace: `/desplazamiento?jornada=${p.jornada}`,
           });
         }
@@ -607,10 +636,10 @@ export default function CalendarGeneralPage() {
             const despues = minutoPartido === null ? undefined : deViaje.filter((c) => c.minuto > minutoPartido)[0];
 
             if (antes) {
-              lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-estadio`, fecha, clase: "VIAJE", titulo: "Traslado al estadio", detalle, hora: `salida ${horaDeMinutos(antes.minuto)}`, enlace });
+              lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-estadio`, fecha, clase: "VIAJE", titulo: "Traslado al estadio", detalle, hora: horaDeCita(antes), enlace });
             }
             if (despues) {
-              lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-vuelta`, fecha, clase: "VIAJE", titulo: `Vuelta de ${deDonde}`, detalle, hora: `salida ${horaDeMinutos(despues.minuto)}`, enlace });
+              lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-vuelta`, fecha, clase: "VIAJE", titulo: `Vuelta de ${deDonde}`, detalle, hora: horaDeCita(despues), enlace });
             }
             continue;
           }
@@ -621,7 +650,7 @@ export default function CalendarGeneralPage() {
             clase: "VIAJE",
             titulo: regreso ? `Vuelta de ${deDonde}` : `Viaje a ${viaje.rival}`,
             detalle,
-            hora: salida ? `salida ${horaDeMinutos(salida.minuto)}` : "",
+            hora: salida ? horaDeCita(salida) : "",
             enlace,
           });
         }
@@ -1147,7 +1176,8 @@ export default function CalendarGeneralPage() {
               {porVenir && !trasPartido && (() => {
                 const previsto = mdDelDia(key, fechasDelMd);
 
-                return previsto ? (
+                /* 16/11/2026 (jueces): sólo la semana del partido (MD-5 a MD-1); MD-7 y MD-6 lejos eran ruido. */
+                return /^MD-[1-5]$/.test(previsto) ? (
                   <span
                     className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
                     title="MD previsto por la fecha del próximo partido: la hoja aún no tiene la sesión"
@@ -1193,7 +1223,7 @@ export default function CalendarGeneralPage() {
                       ) : null}
                       <span className="line-clamp-2 min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
                     </p>
-                    <p className="text-[9px] text-white/60 md:text-[10px]">
+                    <p className="text-[10px] text-white/60 md:text-[10px]">
                       {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
                     </p>
                   </div>
@@ -1218,7 +1248,7 @@ export default function CalendarGeneralPage() {
                         {auto.enCasa ? "vs " : "en "}
                         {nombreCorto(auto.rival)}
                       </p>
-                      <p className="text-[9px] text-white/60 md:text-[10px]">
+                      <p className="text-[10px] text-white/60 md:text-[10px]">
                         {/* 16/11/2026: el resultado con su sentido («ganado 1-0», el Castilla primero); sin jugar, la hora. */}
                         {[auto.enCasa ? "En casa" : "Fuera", auto.marcador ? resultadoConSentido(auto.marcador) : auto.hora].filter(Boolean).join(" · ")}
                       </p>
@@ -1229,7 +1259,7 @@ export default function CalendarGeneralPage() {
                   <p
                     key={auto.id}
                     title={[auto.titulo, auto.detalle, auto.hora].filter(Boolean).join(" · ")}
-                    className="flex min-w-0 items-start gap-1 px-0.5 text-[9px] leading-tight text-white/70 md:text-[10px]"
+                    className="flex min-w-0 items-start gap-1 px-0.5 text-[10px] leading-tight text-white/70 md:text-[10px]"
                   >
                     <span aria-hidden className={cn("mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full", AUTO_THEMES[auto.clase].dot)} />
                     <span className="line-clamp-2 min-w-0 break-words">
@@ -1251,17 +1281,17 @@ export default function CalendarGeneralPage() {
                   >
                     <p
                       title={event.titulo}
-                      className="line-clamp-2 break-words text-[9px] font-semibold md:text-[11px]"
+                      className="line-clamp-2 break-words text-[10px] font-semibold md:text-[11px]"
                     >
                       {event.titulo}
                     </p>
 
-                    <p className="text-[8px] text-white/60 md:text-[9px]">
+                    <p className="text-[10px] text-white/60 md:text-[10px]">
                       {TYPE_THEMES[event.tipo]?.label ?? event.tipo}
                       {event.hora ? ` · ${event.hora}` : ""}
                     </p>
 
-                    <p className="truncate text-[8px] text-white/40 md:text-[10px]">
+                    <p className="truncate text-[10px] text-white/40 md:text-[10px]">
                       {event.responsable}
                     </p>
                   </div>
@@ -1385,9 +1415,26 @@ export default function CalendarGeneralPage() {
                       {[s.minutos > 0 ? `${formatMinutes(s.minutos)} de trabajo` : "", s.principal ? `sobre todo ${s.principal}` : ""].filter(Boolean).join(" · ")}
                     </p>
                   )}
-                  <Link href="/micro_calendar" className="mt-3 inline-block text-xs text-[#C8A96B] transition hover:underline">
-                    Ver las tareas en el calendario de microciclo →
-                  </Link>
+                  {/* 16/11/2026 (jueces): la sesión abre su día, ya elegido, en las pantallas que la completan. */}
+                  {(() => {
+                    const micro = microDeFecha.get(selectedKey);
+                    const md = (mdDelDia(selectedKey, fechasDelMd) || s.md).toUpperCase().replace(/\s+/g, "");
+                    const href = micro ? `/microcycles?micro=${micro}${md ? `&md=${encodeURIComponent(md)}` : ""}` : "/micro_calendar";
+
+                    return (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <Link href={href} className="inline-flex min-h-9 items-center rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20">
+                          {micro ? `Micro ${micro}${md ? ` · ${md}` : ""} en Microciclos` : "Ver las tareas"}
+                        </Link>
+                        <Link href={enlaceSesion(selectedKey)} className="inline-flex min-h-9 items-center rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/75 transition hover:text-white">
+                          Equipos de la sesión
+                        </Link>
+                        <Link href={enlaceAnalisis(selectedKey)} className="inline-flex min-h-9 items-center rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/75 transition hover:text-white">
+                          Análisis del entreno
+                        </Link>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })()}
@@ -1405,6 +1452,24 @@ export default function CalendarGeneralPage() {
                 <p className="mt-1 text-sm text-[#C8A96B]">
                   {[AUTO_THEMES[auto.clase].label, auto.marcador ? `resultado ${auto.marcador}` : "", auto.hora, auto.detalle].filter(Boolean).join(" · ")}
                 </p>
+
+                {/*
+                | 16/11/2026 (jueces): el partido lleva a lo suyo. Jugado: su micro
+                | en Microciclos, donde está «Informe del partido». Por jugar: el
+                | plan, el ABP y los goles en vídeo del rival, ya elegido.
+                */}
+                {auto.clase === "PARTIDO" && auto.rival ? (
+                  auto.marcador ? (
+                    <Link
+                      href={microDeFecha.get(auto.fecha) ? `/microcycles?micro=${microDeFecha.get(auto.fecha)}` : "/microcycles"}
+                      className="mt-3 inline-flex min-h-9 items-center rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                    >
+                      Informe del partido
+                    </Link>
+                  ) : (
+                    <EnlacesDelRival className="mt-3" rival={auto.rival} fecha={auto.fecha} solo={["Plan de partido", "Su ABP", "Sus goles en vídeo"]} />
+                  )
+                ) : null}
 
                 {auto.enlace && (
                   <Link

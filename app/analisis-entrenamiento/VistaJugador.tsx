@@ -7,6 +7,7 @@
  */
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { ArrowDownRight, ArrowRight, ArrowUpRight, CalendarDays, Film, MessageCircle, UserRound } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -153,6 +154,24 @@ export function VistaJugador({
           </button>
         ))}
       </div>
+
+      {/* 16/11/2026 (jueces): del jugador, a un toque, su ficha y su seguimiento. */}
+      {elegido ? (
+        <div className="flex flex-wrap gap-2">
+          <Link
+            href={`/individual?nombre=${encodeURIComponent(elegido.nombre)}`}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-3 py-1.5 text-xs font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+          >
+            <UserRound size={13} aria-hidden /> Ficha de {elegido.nombre}
+          </Link>
+          <Link
+            href={`/individual?nombre=${encodeURIComponent(elegido.nombre)}&pestana=seguimiento`}
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1.5 text-xs font-semibold text-white/75 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+          >
+            <CalendarDays size={13} aria-hidden /> Su seguimiento
+          </Link>
+        </div>
+      ) : null}
 
       {elegido ? (
         <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)]">
