@@ -2191,7 +2191,7 @@ export default function DesplazamientoPage() {
   };
 
   /* «Cómo va el viaje», plegado bajo su titular; la chapa de la cabecera lo abre (quinta vuelta). */
-  const [estadoAbierto, setEstadoAbierto] = useState(false);
+  const [estadoAbierto, setEstadoAbierto] = useState(true); /* 17/11/2026 (jueces): abierto de entrada, la lista de pendientes con su botón a la vista. */
   const abreEstado = () => {
     setEstadoAbierto(true);
     window.setTimeout(() => irA("viaje-estado"), 30);
@@ -2513,8 +2513,8 @@ export default function DesplazamientoPage() {
                       dice «Guardado 19:25» (era la hora de otro viaje del almacén). */}
                   {viaje && !guardado && status === "saved" && !localOnly ? (
                     /* 16/11/2026 (jueces): una palabra; la explicación, en la ayuda emergente. */
-                    <span className="cursor-help rounded-full border border-white/15 px-2 py-0.5 text-[12px] text-white/60" title="Horario propuesto: se guarda en cuanto cambies algo">
-                      Propuesto
+                    <span className="cursor-help rounded-full border border-white/15 px-2 py-0.5 text-[12px] text-white/60" title="Es el horario que propone la pantalla: se guarda en cuanto cambies algo. Se pueden sacar los documentos tal cual">
+                      Propuesta · aún sin guardar
                     </span>
                   ) : (
                     <SaveState
@@ -2623,7 +2623,7 @@ export default function DesplazamientoPage() {
               </div>
 
               {/* 12/11/2026 (quinta vuelta): en el móvil, los tres en una sola fila que se desliza de lado; ninguno suelto en otra línea. */}
-              <div className="-mx-4 flex min-w-0 flex-nowrap items-end gap-2 overflow-x-auto whitespace-nowrap px-4 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0 [&>*]:shrink-0">
+              <div className="grid min-w-0 grid-cols-2 items-end gap-2 max-md:pr-12 sm:flex sm:flex-wrap [&>*]:min-w-0 max-sm:[&_button]:w-full">
                 {viaje && otrosViajes.length > 0 && (
                   <Button
                     icon={Copy}
@@ -3281,6 +3281,8 @@ export default function DesplazamientoPage() {
                   <div className="mt-5 scroll-mt-20" id="viaje-avisos">
                     <SeccionMovil
                       titulo="No olvidar"
+                      /* 17/11/2026 (jueces): plegado también en el ordenador; el horario y la vista previa, primero. */
+                      escritorio
                       resumen={viaje.avisos.filter((a) => a.trim()).slice(0, 3).join(" · ")}
                       abierta={Boolean(abiertas["viaje-avisos"])}
                       onCambia={() => conmuta("viaje-avisos")}
@@ -3439,7 +3441,7 @@ export default function DesplazamientoPage() {
                   {/* `order-first`: en el móvil, el documento va justo detrás del semáforo (12/11/2026, expertos). */}
                   <div className="order-first min-w-0 xl:sticky xl:top-[104px] xl:order-none xl:max-h-[calc(100vh-112px)] xl:overflow-y-auto xl:overscroll-contain xl:pb-4">
 
-                  <div className="scroll-mt-20" id="viaje-vista">
+                  <div className="scroll-mt-20 max-md:pr-12" id="viaje-vista">
                     <Panel
                       title="Cómo va a quedar"
                       subtitle="Es el documento de verdad, a escala: lo que se ve aquí es exactamente lo que se exporta"
