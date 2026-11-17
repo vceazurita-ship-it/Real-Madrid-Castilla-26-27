@@ -90,8 +90,14 @@ function arco(r1: number, r2: number, a0: number, a1: number) {
   return `M ${x0} ${y0} A ${r2} ${r2} 0 ${grande} 1 ${x1} ${y1} L ${x2} ${y2} A ${r1} ${r1} 0 ${grande} 0 ${x3} ${y3} Z`;
 }
 
-function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string; goles: GolConTipo[]; color: string; resaltado: string | null; onResalta: (k: string | null) => void }) {
-  const total = goles.length;
+/*
+| 17/11/2026 (ronda 19, análisis): el anillo cuenta los goles del marcador.
+| Los que no tienen su jugada en Hudl van en gris con su número (no suman a
+| ningún tipo) y el pie dice cuántos tienen tipo.
+*/
+function Anillo({ titulo, goles, color, resaltado, onResalta, marcados }: { titulo: string; goles: GolConTipo[]; color: string; resaltado: string | null; onResalta: (k: string | null) => void; marcados?: number }) {
+  const faltan = Math.max(0, (marcados ?? goles.length) - goles.length);
+  const total = goles.length + faltan;
   const porTipo = new Map<string, number>();
 
   for (const g of goles) porTipo.set(g.tipoFinal ?? "sin", (porTipo.get(g.tipoFinal ?? "sin") ?? 0) + 1);
@@ -121,7 +127,16 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
   if (sin) {
     trozosTipo.push({ clave: "sin", n: sin, a0: a, a1: a + sin / total, fase: "sin" });
     trozosFase.push({ clave: "sin", n: sin, a0: a, a1: a + sin / total });
+    a += sin / total;
   }
+
+  if (faltan) {
+    trozosTipo.push({ clave: "nohudl", n: faltan, a0: a, a1: a + faltan / total, fase: "nohudl" });
+    trozosFase.push({ clave: "nohudl", n: faltan, a0: a, a1: a + faltan / total });
+  }
+
+  const gris = (clave: string) => clave === "sin" || clave === "nohudl";
+  const nombreGris = (clave: string) => (clave === "nohudl" ? "Sin su jugada en Hudl" : "Por elegir");
 
   const atenua = (clave: string, fase?: string) => (resaltado && resaltado !== clave && resaltado !== fase ? 0.25 : 1);
 
@@ -133,28 +148,30 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
           <path
             key={`f-${t.clave}`}
             d={arco(44, 70, t.a0, t.a1)}
-            fill={t.clave === "sin" ? SIN : COLOR_FASE[t.clave]}
+            fill={gris(t.clave) ? SIN : COLOR_FASE[t.clave]}
+            fillOpacity={t.clave === "nohudl" ? 0.35 : 1}
             stroke="var(--rmcf-surface, #0B0F14)"
             strokeWidth={1.5}
             opacity={atenua(t.clave)}
             onMouseEnter={() => onResalta(t.clave)}
             onMouseLeave={() => onResalta(null)}
           >
-            <title>{`${t.clave === "sin" ? "Por elegir" : NOMBRE_FASE[t.clave]}: ${t.n} de ${total}`}</title>
+            <title>{`${gris(t.clave) ? nombreGris(t.clave) : NOMBRE_FASE[t.clave]}: ${t.n} de ${total}`}</title>
           </path>
         ))}
         {trozosTipo.map((t) => (
           <path
             key={`t-${t.clave}`}
             d={arco(73, 104, t.a0, t.a1)}
-            fill={t.clave === "sin" ? SIN : COLOR_TIPO[t.clave as TipoGol]}
+            fill={gris(t.clave) ? SIN : COLOR_TIPO[t.clave as TipoGol]}
+            fillOpacity={t.clave === "nohudl" ? 0.35 : 1}
             stroke="var(--rmcf-surface, #0B0F14)"
             strokeWidth={1.5}
             opacity={atenua(t.clave, t.fase)}
             onMouseEnter={() => onResalta(t.clave)}
             onMouseLeave={() => onResalta(null)}
           >
-            <title>{`${t.clave === "sin" ? "Por elegir" : NOMBRE_TIPO[t.clave as TipoGol]}: ${t.n} de ${total}`}</title>
+            <title>{`${gris(t.clave) ? nombreGris(t.clave) : NOMBRE_TIPO[t.clave as TipoGol]}: ${t.n} de ${total}`}</title>
           </path>
         ))}
         {/* El número dentro de cada trozo de fuera, si cabe. */}
@@ -164,7 +181,7 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
             const m = (t.a0 + t.a1) / 2;
 
             return (
-              <text key={`n-${t.clave}`} x={Math.sin(m * 2 * Math.PI) * 88.5} y={-Math.cos(m * 2 * Math.PI) * 88.5 + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill={tintaSobre(t.clave === "sin" ? SIN : COLOR_TIPO[t.clave as TipoGol])} pointerEvents="none" opacity={atenua(t.clave, t.fase)}>
+              <text key={`n-${t.clave}`} x={Math.sin(m * 2 * Math.PI) * 88.5} y={-Math.cos(m * 2 * Math.PI) * 88.5 + 4} textAnchor="middle" fontSize={12} fontWeight={700} fill={t.clave === "nohudl" ? "currentColor" : tintaSobre(t.clave === "sin" ? SIN : COLOR_TIPO[t.clave as TipoGol])} pointerEvents="none" opacity={atenua(t.clave, t.fase)}>
                 {t.n}
               </text>
             );
@@ -179,6 +196,11 @@ function Anillo({ titulo, goles, color, resaltado, onResalta }: { titulo: string
       <figcaption className="mt-1 text-[11px] font-semibold uppercase tracking-[0.16em]" style={{ color: chipInk(color) }}>
         {titulo}
       </figcaption>
+      {faltan ? (
+        <p className="mt-0.5 text-[11px] text-white/60">
+          {goles.length} de {total} con su tipo · {faltan} en gris, sin su jugada en Hudl
+        </p>
+      ) : null}
     </figure>
   );
 }
@@ -334,7 +356,7 @@ export function GraficasTipologia({
   colorContra: string;
   onGol?: AlPincharGol;
   /** 16/11/2026 (ronda 18): los goles del marcador (BeSoccer), para decir cuántos tienen su vídeo en Hudl si no cuadran. */
-  totales?: { favor: number; contra: number };
+  totales?: { favor: number; contra: number; partidos?: number };
 }) {
   const [resaltado, setResaltado] = useState<string | null>(null);
   const favor = goles.filter((g) => g.aFavor);
@@ -344,27 +366,19 @@ export function GraficasTipologia({
   return (
     <div className="min-w-0 space-y-6">
       <div className="grid min-w-0 items-center gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1.3fr)]">
-        <Anillo titulo="A favor" goles={favor} color={colorFavor} resaltado={resaltado} onResalta={setResaltado} />
-        <Anillo titulo="En contra" goles={contra} color={colorContra} resaltado={resaltado} onResalta={setResaltado} />
+        <Anillo titulo="A favor" goles={favor} color={colorFavor} resaltado={resaltado} onResalta={setResaltado} marcados={totales?.favor} />
+        <Anillo titulo="En contra" goles={contra} color={colorContra} resaltado={resaltado} onResalta={setResaltado} marcados={totales?.contra} />
         <div className="min-w-0">
-          <p className="mb-2 text-[11px] text-white/45">Anillo de dentro: la fase. De fuera: el tipo. Pasa por encima para resaltarlo.</p>
+          <p className="mb-2 text-[11px] text-white/60">
+            Anillo de dentro: la fase. De fuera: el tipo. Pasa por encima para resaltarlo.
+            {totales?.partidos ? ` ${totales.partidos} ${totales.partidos === 1 ? "partido" : "partidos"}${totales.partidos < 20 ? ": tendencia" : ""}.` : ""}
+          </p>
           <Leyenda usados={usados} resaltado={resaltado} onResalta={setResaltado} />
         </div>
       </div>
-      {totales && (totales.favor > favor.length || totales.contra > contra.length) ? (
-        <p className="text-[12px] leading-snug text-white/65">
-          {[
-            totales.favor > favor.length ? `${favor.length} de los ${totales.favor} goles a favor` : "",
-            totales.contra > contra.length ? `${contra.length} de los ${totales.contra} en contra` : "",
-          ]
-            .filter(Boolean)
-            .join(" y ")}{" "}
-          tienen su jugada en el vídeo de Hudl y su tipo; el marcador (BeSoccer) los cuenta todos.
-        </p>
-      ) : null}
 
       <div className="min-w-0">
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">Cuándo y cómo: cada punto es un gol en su minuto</p>
+        <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">Cuándo y cómo: cada punto es un gol en su minuto · tócalo para su vídeo y su partido</p>
         <div className="min-w-0 overflow-x-auto">
           <div className="min-w-[560px] text-white">
             <LineaGoles goles={goles} resaltado={resaltado} onResalta={setResaltado} onGol={onGol} />
