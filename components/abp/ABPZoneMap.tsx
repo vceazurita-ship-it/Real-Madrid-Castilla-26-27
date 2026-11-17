@@ -273,7 +273,7 @@ export default function ABPZoneMap({
     else setZonaLocal(zona);
   };
 
-  const { stats, corto, barrera, sinZona } = useMemo(() => {
+  const { stats, corto, barrera, sinZona, conOcupacion, rematesConZona } = useMemo(() => {
     const base: Record<
       ZoneKey,
       {
@@ -377,7 +377,10 @@ export default function ABPZoneMap({
       };
     });
 
-    return { stats, corto, barrera, sinZona };
+    const conOcupacion = base["1P"].ocupacionMuestras;
+    const rematesConZona = (Object.keys(base) as ZoneKey[]).reduce((a, z) => a + base[z].remates, 0);
+
+    return { stats, corto, barrera, sinZona, conOcupacion, rematesConZona };
   }, [rows, def]);
 
   const METRICS = useMemo(() => metricsFor(def), [def]);
@@ -398,7 +401,7 @@ export default function ABPZoneMap({
   const format = (value: number) =>
     activeMetric.decimals === 0
       ? String(Math.round(value))
-      : value.toFixed(activeMetric.decimals);
+      : value.toFixed(activeMetric.decimals).replace(".", ",");
 
   return (
     <div className="w-full">
@@ -581,127 +584,6 @@ export default function ABPZoneMap({
               strokeOpacity="0.6"
             />
 
-            {/* Juego en corto del rival: no llega al área */}
-            {(corto > 0 || elegida === "corto") && (
-              <g
-                onClick={
-                  controlado
-                    ? () =>
-                        setSelectedZone(elegida === "corto" ? null : "corto")
-                    : undefined
-                }
-                style={controlado ? { cursor: "pointer" } : undefined}
-                opacity={
-                  controlado && elegida !== null && elegida !== "corto"
-                    ? 0.45
-                    : 1
-                }
-              >
-                {controlado && <title>Juego en corto · Pulsa para filtrar</title>}
-                <rect
-                  x="4"
-                  y="37"
-                  width="29"
-                  height="6"
-                  rx="1.4"
-                  fill="#0B1728"
-                  stroke={elegida === "corto" ? "#C8A96B" : "#3B82F6"}
-                  strokeWidth={elegida === "corto" ? 0.7 : 0.35}
-                />
-                <text
-                  x="18.5"
-                  y="40"
-                  textAnchor="middle"
-                  fontSize="2.2"
-                  fontWeight="700"
-                  fill="#93C5FD"
-                >
-                  Juego en corto
-                </text>
-                <text
-                  x="18.5"
-                  y="42.4"
-                  textAnchor="middle"
-                  fontSize="2"
-                  fill="#BFDBFE"
-                >
-                  {corto} envíos ·{" "}
-                  {rows.length
-                    ? ((corto / rows.length) * 100).toFixed(0)
-                    : 0}
-                  %
-                </text>
-              </g>
-            )}
-
-            {/* Golpeo directo contra la barrera */}
-            {def && (barrera > 0 || elegida === "barrera") && (
-              <g
-                onClick={
-                  controlado
-                    ? () =>
-                        setSelectedZone(
-                          elegida === "barrera" ? null : "barrera",
-                        )
-                    : undefined
-                }
-                style={controlado ? { cursor: "pointer" } : undefined}
-                opacity={
-                  controlado && elegida !== null && elegida !== "barrera"
-                    ? 0.45
-                    : 1
-                }
-              >
-                {controlado && (
-                  <title>Directa a barrera · Pulsa para filtrar</title>
-                )}
-                <rect
-                  x="35.5"
-                  y="37"
-                  width="29"
-                  height="6"
-                  rx="1.4"
-                  fill="#0B1728"
-                  stroke="#C8A96B"
-                  strokeWidth={elegida === "barrera" ? 0.8 : 0.35}
-                />
-                <text
-                  x="50"
-                  y="40"
-                  textAnchor="middle"
-                  fontSize="2.2"
-                  fontWeight="700"
-                  fill="#E7D2A0"
-                >
-                  Directa a barrera
-                </text>
-                <text
-                  x="50"
-                  y="42.4"
-                  textAnchor="middle"
-                  fontSize="2"
-                  fill="#D8C39A"
-                >
-                  {barrera} acciones ·{" "}
-                  {rows.length
-                    ? ((barrera / rows.length) * 100).toFixed(0)
-                    : 0}
-                  %
-                </text>
-              </g>
-            )}
-
-            {sinZona > 0 && (
-              <text
-                x="96"
-                y="42.4"
-                textAnchor="end"
-                fontSize="2"
-                fill="#64748B"
-              >
-                {sinZona} sin zona registrada
-              </text>
-            )}
           </svg>
           </BoardViewport>
 
@@ -720,6 +602,55 @@ export default function ABPZoneMap({
               {format(maxValue)}
             </span>
           </div>
+
+          {/*
+          | 17/11/2026 (jueces, ronda 19): lo que no cae en una de las cuatro
+          | zonas del área (en corto, directa a barrera, sin zona apuntada) va
+          | aparte, en su barra y con su base, y no en una esquina del campo.
+          */}
+          {corto + barrera + sinZona > 0 && rows.length > 0 ? (
+            <div className="mt-4 min-w-0">
+              <p className="text-[11px] text-white/60">
+                Fuera de las cuatro zonas del área: {corto + barrera + sinZona} de {rows.length}{" "}
+                {rows.length === 1 ? "acción" : "acciones"}
+              </p>
+              <div className="mt-1.5 flex h-2.5 w-full overflow-hidden rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .07)" }} aria-hidden>
+                {corto > 0 && <span style={{ width: `${(corto / rows.length) * 100}%`, background: "#3B82F6" }} />}
+                {barrera > 0 && <span style={{ width: `${(barrera / rows.length) * 100}%`, background: "#C8A96B" }} />}
+                {sinZona > 0 && <span style={{ width: `${(sinZona / rows.length) * 100}%`, background: "rgb(var(--rmcf-ink-rgb) / .3)" }} />}
+              </div>
+              <div className="mt-2 flex flex-wrap gap-1.5">
+                {(
+                  [
+                    corto > 0 || elegida === "corto" ? { clave: "corto", rotulo: "En corto", n: corto, color: "#3B82F6", filtra: true } : null,
+                    def && (barrera > 0 || elegida === "barrera") ? { clave: "barrera", rotulo: "Directa a barrera", n: barrera, color: "#C8A96B", filtra: true } : null,
+                    sinZona > 0 ? { clave: "sin", rotulo: "Sin zona apuntada en la hoja", n: sinZona, color: "rgb(var(--rmcf-ink-rgb) / .3)", filtra: false } : null,
+                  ].filter(Boolean) as { clave: string; rotulo: string; n: number; color: string; filtra: boolean }[]
+                ).map((t) =>
+                  t.filtra && controlado ? (
+                    <button
+                      key={t.clave}
+                      type="button"
+                      aria-pressed={elegida === t.clave}
+                      title="Pulsa para filtrar"
+                      onClick={() => setSelectedZone(elegida === t.clave ? null : t.clave)}
+                      className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] ${
+                        elegida === t.clave ? "border-[#C8A96B] bg-[#C8A96B]/15" : "border-white/10 bg-white/[0.04] hover:bg-white/[0.08]"
+                      } text-white/80`}
+                    >
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} aria-hidden />
+                      {t.rotulo} · {t.n} {t.n === 1 ? "acción" : "acciones"} · {Math.round((t.n / rows.length) * 100)} %
+                    </button>
+                  ) : (
+                    <span key={t.clave} className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-[12px] text-white/70">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: t.color }} aria-hidden />
+                      {t.rotulo} · {t.n} {t.n === 1 ? "acción" : "acciones"} · {Math.round((t.n / rows.length) * 100)} %
+                    </span>
+                  ),
+                )}
+              </div>
+            </div>
+          ) : null}
         </div>
 
         {/* Detalle de la zona seleccionada */}
@@ -764,9 +695,9 @@ export default function ABPZoneMap({
                       ? Math.round(
                           stats[selectedZone][m.key]
                         )
-                      : stats[selectedZone][m.key].toFixed(
-                          m.decimals
-                        )}
+                      : stats[selectedZone][m.key]
+                          .toFixed(m.decimals)
+                          .replace(".", ",")}
                   </dd>
                 </div>
               ))}
@@ -790,6 +721,12 @@ export default function ABPZoneMap({
               ? "Reparto de jugadores frente al reparto de xG que el rival genera en cada zona."
               : "Reparto de jugadores frente al reparto de xG generado en cada zona."}
           </p>
+          {conOcupacion > 0 || rematesConZona > 0 ? (
+            <p className="mt-1 text-[11px] leading-snug text-white/60">
+              Base: {[conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"} con ocupación apuntada` : "", rematesConZona > 0 ? `${rematesConZona} ${rematesConZona === 1 ? "remate" : "remates"} con zona` : ""].filter(Boolean).join(" · ")}
+              {rows.length > conOcupacion ? ` (de ${rows.length})` : ""}. Sólo las cuatro zonas del área; lo de fuera, bajo el campo.
+            </p>
+          ) : null}
 
           <div className="mt-4 space-y-4">
             {ZONES.map((z) => {
@@ -815,8 +752,10 @@ export default function ABPZoneMap({
                 >
                   <div className="mb-1.5 flex items-center justify-between text-[11px]">
                     <span className="text-zinc-300">{z.label}</span>
-                    <span className="text-zinc-500">
-                      {occShare.toFixed(0)}% / {xgShare.toFixed(0)}%
+                    <span className="tabular-nums text-zinc-500">
+                      {totalOcupacion ? `${occShare.toFixed(0)} %` : ""}
+                      {totalOcupacion && totalXg ? " / " : ""}
+                      {totalXg ? `${xgShare.toFixed(0)} %` : ""}
                     </span>
                   </div>
 

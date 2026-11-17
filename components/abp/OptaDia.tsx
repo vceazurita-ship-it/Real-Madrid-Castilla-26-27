@@ -28,6 +28,7 @@ import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { ORDEN_ZONAS, zonaCaida } from "@/components/abp-lab/OptaAbpEventos";
 import { Panel, Segmented } from "@/components/abp/ui";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { useAdmin } from "@/hooks/useAdmin";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { textoAbp } from "@/lib/opta-abp";
 import {
@@ -78,7 +79,12 @@ function Fuente({ children }: { children: ReactNode }) {
   return <p className="mt-3 text-[11px] text-white/45">{children}</p>;
 }
 
+/* 17/11/2026 (jueces, ronda 19): el Laboratorio es sólo del administrador; a
+   los demás no se les manda a una puerta cerrada (el detalle evento a evento
+   está plegado aquí debajo). */
 function AlLaboratorio() {
+  const { admin } = useAdmin();
+  if (!admin) return null;
   return (
     <Link
       href="/laboratorio/abp?seccion=opta"
@@ -152,7 +158,14 @@ function Plegado({ titulo, detalle, children }: { titulo: string; detalle: strin
 /*  1. El Castilla en la categoría (opta:equipos)                      */
 /* ------------------------------------------------------------------ */
 
-function ContextoOpta({ area, lado }: { area: AreaDia; lado: LadoDia }) {
+/** Lo que cuenta la hoja de ABP (el etiquetado del cuerpo técnico), para cuadrar los goles con Opta. */
+export type GolesHoja = { goles: number; acciones: number; jornadas: number };
+
+/* Una cifra de temporada de 0 a 3 (goles, penaltis) es tendencia: no se juzga como fortaleza ni carencia. */
+const POCOS_TOTAL = 3;
+const esTendencia = (l: LineaDia) => l.m.modo === "total" && l.valor <= POCOS_TOTAL;
+
+function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja?: GolesHoja | null }) {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.partidos);
   const [equiposT, partidosT] = docs;
   const ctx = useMemo(() => contextoDia(equiposT, partidosT, area, lado), [equiposT, partidosT, area, lado]);
@@ -169,7 +182,21 @@ function ContextoOpta({ area, lado }: { area: AreaDia; lado: LadoDia }) {
 
   const juzgable = (l: LineaDia) => l.m.mejorAlto !== null && !l.pocos;
   const pos = (l: LineaDia) => l.grupo ?? l.categoria;
-  const orden = ctx.lineas.filter((l) => juzgable(l) && pos(l).p != null).sort((a, b) => (pos(b).p ?? 0) - (pos(a).p ?? 0));
+  const orden = ctx.lineas.filter((l) => juzgable(l) && !esTendencia(l) && pos(l).p != null).sort((a, b) => (pos(b).p ?? 0) - (pos(a).p ?? 0));
+  /* 17/11/2026 (ronda 19): de mejor a peor puesto, para leerlo sin tabla; lo que es estilo o volumen, al final. */
+  const lineasOrdenadas = [...ctx.lineas].sort((a, b) => {
+    const pa = juzgable(a) && pos(a).p != null ? pos(a).p! : -1;
+    const pb = juzgable(b) && pos(b).p != null ? pos(b).p! : -1;
+    return pb - pa;
+  });
+  /* Los goles de Opta frente a los de la hoja: si no cuadran, se dice por qué. */
+  const lineaGoles = area === "abp" ? ctx.lineas.find((l) => l.m.clave === (lado === "favor" ? "GoalSetPly" : "GoalSetPly|OPP")) : undefined;
+  const golesOpta = lineaGoles ? Math.round(lineaGoles.valor) : null;
+  const nG = (n: number) => `${n} ${n === 1 ? "gol" : "goles"}`;
+  const cuadreGoles =
+    hoja && golesOpta != null && golesOpta !== hoja.goles
+      ? `${lado === "favor" ? "Goles a balón parado" : "Goles encajados a balón parado"}: la hoja de ABP cuenta ${nG(hoja.goles)} en ${hoja.acciones} acciones de ${hoja.jornadas} jornadas etiquetadas; Opta, ${nG(golesOpta)} en ${ctx.partidos} partidos. No miden lo mismo: la hoja es el etiquetado del cuerpo técnico (cada córner y falta con su desenlace, también la segunda jugada) y Opta aplica su propia regla de jugada a balón parado (y no cuenta los penaltis). Para la charla, la de la hoja: es la que se ve en el vídeo.`
+      : "";
   const mejor = orden[0];
   const peor = orden.at(-1);
   const pobl = ctx.nGrupo ? "grupo" : "categoría";
@@ -196,8 +223,10 @@ function ContextoOpta({ area, lado }: { area: AreaDia; lado: LadoDia }) {
         </div>
       )}
 
+      {cuadreGoles && <p className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3 text-[12px] leading-relaxed text-white/80">{cuadreGoles}</p>}
+
       <ul className="divide-y divide-white/[0.06]">
-        {ctx.lineas.map((l) => {
+        {lineasOrdenadas.map((l) => {
           const abiertaEsta = abierta === l.m.clave;
           const estilo = l.m.mejorAlto === null;
           return (
@@ -212,7 +241,8 @@ function ContextoOpta({ area, lado }: { area: AreaDia; lado: LadoDia }) {
                 >
                   {l.m.nombre}
                   {l.m.mejorAlto === false && <span className="ml-1.5 text-[10px] text-white/40">(menos es mejor)</span>}
-                  {estilo && <span className="ml-1.5 text-[10px] text-white/40">(volumen)</span>}
+                  {estilo && <span className="ml-1.5 text-[11px] text-white/50">(volumen)</span>}
+                  {esTendencia(l) && !estilo && <span className="ml-1.5 text-[11px] text-white/50">· tendencia, pocos casos</span>}
                 </button>
                 <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">
                   {textoAbp(l.m, l.valor)}
@@ -225,8 +255,8 @@ function ContextoOpta({ area, lado }: { area: AreaDia; lado: LadoDia }) {
                 <p className="mt-1 text-[11px] text-white/45">Muy pocos intentos para ponerlo en la tabla.</p>
               ) : (
                 <div className="mt-1.5 space-y-1">
-                  {l.grupo && <Pista pos={l.grupo} juzgable={juzgable(l)} rotulo="Su grupo" />}
-                  <Pista pos={l.categoria} juzgable={juzgable(l)} rotulo="Categoría" />
+                  {l.grupo && <Pista pos={l.grupo} juzgable={juzgable(l) && !esTendencia(l)} rotulo="Su grupo" />}
+                  <Pista pos={l.categoria} juzgable={juzgable(l) && !esTendencia(l)} rotulo="Categoría" />
                 </div>
               )}
               {abiertaEsta && (
@@ -629,10 +659,10 @@ function SaquesBanda({ lado }: { lado: LadoDia }) {
 /* ------------------------------------------------------------------ */
 
 /** La pestaña «Categoría · Opta» de ABP ofensivo (favor) y defensivo (contra). */
-export function OptaAbpDia({ lado }: { lado: LadoDia }) {
+export function OptaAbpDia({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | null }) {
   return (
     <div className="space-y-5">
-      <ContextoOpta area="abp" lado={lado} />
+      <ContextoOpta area="abp" lado={lado} hoja={hoja} />
       <Plegado
         titulo={lado === "favor" ? "Cada córner y falta de la temporada" : "Cada córner y falta que nos han sacado"}
         detalle="Dónde caen, remates, lanzadores y rematadores, evento a evento. Se carga al abrirlo (≈6 MB)."

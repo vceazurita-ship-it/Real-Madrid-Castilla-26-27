@@ -84,7 +84,7 @@ export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: Ex
 export type Unidad = { uno: string; varios: string; genero: "f" | "m" };
 
 /** Barra apilada al 100 %, con la leyenda y las cifras debajo. */
-function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
+export function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
   const total = filas.length;
   const tramos = categorias.map((c) => ({ ...c, n: filas.filter((f) => f.cat === c.clave).length })).filter((c) => c.n > 0);
   return (
@@ -119,7 +119,7 @@ function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; categoria
 type Partido = { jornada: JornadaAbp; filas: FilaVisualAbp[] };
 
 /** Una columna apilada por partido, en orden de calendario. */
-function ColumnasJornada({ partidos, categorias, exito }: { partidos: Partido[]; categorias: CategoriaVisual[]; exito: ExitoVisual }) {
+function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Partido[]; categorias: CategoriaVisual[]; exito: ExitoVisual; marca?: string | null }) {
   const tope = Math.max(...partidos.map((p) => p.filas.length), 1);
   return (
     <div className="min-w-0 overflow-x-auto">
@@ -127,10 +127,16 @@ function ColumnasJornada({ partidos, categorias, exito }: { partidos: Partido[];
         {partidos.map((p) => {
           const n = p.filas.length;
           const exitos = p.filas.filter((f) => f.exito).length;
+          const marcada = marca === p.jornada.clave;
           return (
             <div key={p.jornada.clave} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${p.jornada.etiqueta}: ${n} · ${exitos} de ${n}`}>
-              <span className="mb-1 text-[10px] tabular-nums text-white/60">{exitos ? `${exitos}/${n}` : n}</span>
-              <div className="flex w-full max-w-[34px] flex-col-reverse overflow-hidden rounded-t-[4px]" style={{ height: `${(n / tope) * 100}%` }}>
+              <span className={`mb-1 text-[11px] tabular-nums ${marcada ? "font-bold" : "text-white/60"}`} style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}>
+                {exitos ? `${exitos}/${n}` : n}
+              </span>
+              <div
+                className="flex w-full max-w-[34px] flex-col-reverse overflow-hidden rounded-t-[4px]"
+                style={{ height: `${(n / tope) * 100}%`, outline: marcada ? "2px solid #C8A96B" : undefined, outlineOffset: 1 }}
+              >
                 {categorias.map((c) => {
                   const k = p.filas.filter((f) => f.cat === c.clave).length;
                   return k ? <div key={c.clave} style={{ height: `${(k / n) * 100}%`, background: c.color }} /> : null;
@@ -142,12 +148,19 @@ function ColumnasJornada({ partidos, categorias, exito }: { partidos: Partido[];
       </div>
       <div className="mt-1 flex gap-1.5" style={{ minWidth: partidos.length * 26 }}>
         {partidos.map((p) => (
-          <span key={p.jornada.clave} className="min-w-0 flex-1 truncate text-center text-[10px] text-white/55">
+          <span
+            key={p.jornada.clave}
+            className={`min-w-0 flex-1 truncate text-center text-[11px] ${marca === p.jornada.clave ? "font-bold" : "text-white/55"}`}
+            style={marca === p.jornada.clave ? { color: "var(--rmcf-gold-ink)" } : undefined}
+          >
             {p.jornada.corto}
           </span>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-white/50">Encima de cada columna, las que {exito.varios} sobre el total del partido. Orden de calendario.</p>
+      <p className="mt-2 text-[11px] text-white/50">
+        Encima de cada columna, las que {exito.varios} sobre el total del partido. Orden de calendario.
+        {marca && partidos.some((p) => p.jornada.clave === marca) ? " En oro, el último partido." : ""}
+      </p>
     </div>
   );
 }
@@ -373,6 +386,8 @@ export function VisualAbp({
   ligaPregunta = "¿Y frente a la categoría?",
   comparativa,
   acciones,
+  marca,
+  repartoArriba = false,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -388,6 +403,10 @@ export function VisualAbp({
   comparativa?: ComparativaVisualDatos | null;
   /** La lista de acciones con su vídeo, bajo el campo. */
   acciones?: { titulo: string; nodo: ReactNode } | null;
+  /** 17/11/2026 (ronda 19): la jornada que se marca en oro sobre la temporada. */
+  marca?: string | null;
+  /** «¿Cómo acaban?» ya va en la conclusión de arriba: aquí no se repite. */
+  repartoArriba?: boolean;
 }) {
   if (!filas.length) return null;
 
@@ -441,19 +460,21 @@ export function VisualAbp({
           <LeyendaComparativa />
         </Lamina>
       ) : null}
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <Lamina>
-          <TituloConclusion pregunta="¿Cómo acaban?" fuente={fuente}>
-            {tituloReparto}
-          </TituloConclusion>
-          <BarraReparto filas={filas} categorias={categorias} />
-        </Lamina>
+      <div className={`grid min-w-0 gap-4 ${repartoArriba ? "" : "xl:grid-cols-2"}`}>
+        {repartoArriba ? null : (
+          <Lamina>
+            <TituloConclusion pregunta="¿Cómo acaban?" fuente={fuente}>
+              {tituloReparto}
+            </TituloConclusion>
+            <BarraReparto filas={filas} categorias={categorias} />
+          </Lamina>
+        )}
         {tituloJornadas ? (
           <Lamina>
             <TituloConclusion pregunta="¿Va a mejor?" fuente={`${partidos.length} partidos con estos filtros`}>
               {tituloJornadas}
             </TituloConclusion>
-            <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} />
+            <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} marca={marca} />
           </Lamina>
         ) : null}
       </div>

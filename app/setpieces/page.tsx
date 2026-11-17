@@ -34,7 +34,8 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
-import { COLOR_DESENLACE, VisualAbp } from "@/components/abp/VisualAbp";
+import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
+import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { patronEnvio, zonaLegible } from "@/lib/abp/accionFrase";
 import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
@@ -516,13 +517,10 @@ const [rutinaFilter, setRutinaFilter] = useState("ALL");
         setEnlaces(enlacesDeCortes(doc));
         setError(null);
 
-        /* La página abre en la última jornada analizada (11/10/2026): lo que se
-           mira el lunes es lo del domingo. Se decide una sola vez, al llegar la
-           hoja, y sólo si nadie ha tocado ya el filtro mientras cargaba:
-           «Todas» sigue a un toque en el cajón. */
-        const ultima = ultimaJornada(jornadasDe(filas));
-
-        if (ultima) setJornada((actual) => (actual === "ALL" ? ultima : actual));
+        /* 17/11/2026 (jueces, ronda 19): la página abre en la temporada entera y
+           el último partido va marcado encima (su acción a acción, «¿Es lo de
+           siempre?» y su columna en oro): con 5-7 acciones de una jornada el
+           campo salía casi vacío. La jornada sola sigue a un toque. */
       })
       .catch((e: unknown) => {
         if (vivo) setError(e);
@@ -780,7 +778,11 @@ const filtered = sin();
 
 /* Acción a acción (04/11/2026): lo que dejan los filtros, contado como en el vídeo post de ABP y con su corte. */
 const ordenJornada = new Map(jornadas.map((j, i) => [j.clave, i]));
-const accionesLista: AccionDeLista[] = filtered
+/* 17/11/2026 (ronda 19): con la temporada a la vista, la lista es la del último partido (la marca). */
+const jornadaMarca = jornada === "ALL" ? ultimaJornada(jornadas) : jornada;
+const listaDeLaMarca = jornada === "ALL" && rival === "ALL";
+const filasLista = listaDeLaMarca ? filtered.filter((r) => r.contexto.jornada.clave === jornadaMarca) : filtered;
+const accionesLista: AccionDeLista[] = filasLista
   .flatMap((r) => {
     const fila = filaAbpDeHoja(
       {
@@ -1011,8 +1013,8 @@ const rivalAnalizado =
     ? rival
     : jornada !== "ALL"
       ? rows.find((r) => r.contexto.jornada.clave === jornada)?.rival ?? ""
-      : "";
-const etiquetaAnalizada = jornada !== "ALL" ? jornadas.find((una) => una.clave === jornada)?.etiqueta : undefined;
+      : rows.find((r) => r.contexto.jornada.clave === jornadaMarca)?.rival ?? "";
+const etiquetaAnalizada = jornadas.find((una) => una.clave === jornadaMarca)?.etiqueta;
 const numeroEnHoja = jornadas.reduce<number | null>(
   (max, una) => (una.competicion === "liga" && una.numero != null && (max === null || una.numero > max) ? una.numero : max),
   null,
@@ -2821,6 +2823,31 @@ const pie = (
   />
 );
 
+
+/* 17/11/2026 (ronda 19): los goles de la hoja en la temporada, para cuadrarlos con Opta en «¿Y frente a la categoría?». */
+const ligaHoja = rows.filter((r) => r.contexto.jornada.competicion === "liga");
+const golesHoja = ligaHoja.length
+  ? { goles: ligaHoja.filter(LECTOR.gol).length, acciones: ligaHoja.length, jornadas: new Set(ligaHoja.map((r) => r.contexto.jornada.clave)).size }
+  : null;
+
+/* Las filas de «Visual» y sus colores: las comparten la conclusión (la barra de cómo acaban) y las láminas. */
+const filasVisual: FilaVisualAbp[] = filtered.map((r) => {
+  const res = normalizaResultado(r.resultadoFinal);
+  return {
+    jornada: r.contexto.jornada,
+    cat: res === "Gol" ? "gol" : res === "Ocasión" ? "ocasion" : LECTOR.remate(r) ? "remate" : "sin",
+    exito: LECTOR.peligro(r),
+    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+    tipo: r.tipoAccion ? hablado(r.tipoAccion.trim()) : "",
+  };
+});
+const categoriasVisual: CategoriaVisual[] = [
+  { clave: "gol", rotulo: "Gol", color: COLOR_DESENLACE.oro },
+  { clave: "ocasion", rotulo: "Ocasión", color: COLOR_DESENLACE.mejor },
+  { clave: "remate", rotulo: "Remate sin ocasión", color: COLOR_DESENLACE.remate },
+  { clave: "sin", rotulo: "Sin remate", color: COLOR_DESENLACE.nada },
+];
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -2862,6 +2889,7 @@ const pie = (
     rival={rivalAnalizado}
     etiqueta={etiquetaAnalizada}
     numeroEnHoja={numeroEnHoja}
+    ultimo={jornada === "ALL" && rival === "ALL"}
     className="mt-6"
   />
 
@@ -3018,14 +3046,34 @@ const pie = (
     {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
     {/* Las conclusiones antes que las tarjetas, también en el ordenador y con
         un titular con verbo y dato (10/11/2026, jueces). */}
-    {(vista === "resumen" || enVisual) && (
+    {/* 17/11/2026 (jueces, ronda 19): en Visual, primero el gráfico de cómo
+        acaban, luego el titular y la orden; el resto de frases, plegado. */}
+    {enVisual ? (
+      <ConclusionPlegada
+        items={conclusionesVista}
+        titular={titularConclusiones}
+        marca={filtered.length && filtered.length < MUESTRA_FIRME ? `tendencia · ${filtered.length} acciones` : undefined}
+        grafico={
+          filasVisual.length ? (
+            <>
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
+                ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"}
+              </p>
+              <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
+            </>
+          ) : null
+        }
+        enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo" }}
+        className="mt-5"
+      />
+    ) : vista === "resumen" ? (
       <Conclusiones
         items={conclusionesVista}
         titular={titularConclusiones}
         enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
         className="mt-5"
       />
-    )}
+    ) : null}
     {/* 30/10/2026 (expertos): cada fila de tarjetas se llena entera —la
         última no deja hueco a la derecha—: dos por fila en el móvil y las que
         quepan de 200 px en adelante, estiradas, en el ordenador. */}
@@ -3196,22 +3244,10 @@ const pie = (
 
             {soloVisual && (
               <VisualAbp
-                filas={filtered.map((r) => {
-                  const res = normalizaResultado(r.resultadoFinal);
-                  return {
-                    jornada: r.contexto.jornada,
-                    cat: res === "Gol" ? "gol" : res === "Ocasión" ? "ocasion" : LECTOR.remate(r) ? "remate" : "sin",
-                    exito: LECTOR.peligro(r),
-                    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
-                    tipo: r.tipoAccion ? hablado(r.tipoAccion.trim()) : "",
-                  };
-                })}
-                categorias={[
-                  { clave: "gol", rotulo: "Gol", color: COLOR_DESENLACE.oro },
-                  { clave: "ocasion", rotulo: "Ocasión", color: COLOR_DESENLACE.mejor },
-                  { clave: "remate", rotulo: "Remate sin ocasión", color: COLOR_DESENLACE.remate },
-                  { clave: "sin", rotulo: "Sin remate", color: COLOR_DESENLACE.nada },
-                ]}
+                filas={filasVisual}
+                categorias={categoriasVisual}
+                marca={jornada === "ALL" ? jornadaMarca : null}
+                repartoArriba
                 unidad={{ uno: "acción", varios: "acciones", genero: "f" }}
                 exito={{ uno: "acaba en gol u ocasión", varios: "acaban en gol u ocasión", mejorAlto: true }}
                 fuente="Hoja de ABP ofensivo · con los filtros de arriba"
@@ -3239,8 +3275,21 @@ const pie = (
                 acciones={
                   accionesLista.length
                     ? {
-                        titulo: `Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
-                        nodo: <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />,
+                        titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${rivalAnalizado}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
+                        nodo: (
+                          <>
+                            <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />
+                            {listaDeLaMarca && jornadaMarca ? (
+                              <button
+                                type="button"
+                                onClick={() => setJornada(jornadaMarca)}
+                                className="mt-3 inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 py-1.5 text-[12px] font-semibold text-white/80 hover:bg-white/[0.05]"
+                              >
+                                Ver toda la página sólo con {etiquetaAnalizada ?? "ese partido"}
+                              </button>
+                            ) : null}
+                          </>
+                        ),
                       }
                     : null
                 }
@@ -3254,7 +3303,7 @@ const pie = (
                       }
                     : null
                 }
-                liga={<OptaAbpDia lado="favor" />}
+                liga={<OptaAbpDia lado="favor" hoja={golesHoja} />}
               />
             )}
 
@@ -3286,7 +3335,7 @@ const pie = (
             {/* Opta (10/11/2026): el Castilla frente a la categoría y cada saque de la temporada. Sólo se monta (y se pide) en su pestaña. */}
             {!enVisual && vista === "opta" && (
               <div className="mt-5 lg:px-2">
-                <OptaAbpDia lado="favor" />
+                <OptaAbpDia lado="favor" hoja={golesHoja} />
               </div>
             )}
 
