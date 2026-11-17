@@ -926,7 +926,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard Seguimiento",
     resumen: "Cuánto se sigue a cada jugador de campo del Castilla, quién lo hace y de qué se le habla, en toda la temporada.",
     origen: "Hoja de seguimiento (una fila por registro, por el Apps Script) cruzada con la plantilla de la hoja JUGADORES. Cuenta toda la temporada (el corte del 21/10 es sólo de las sesiones de entrenamiento) y nada fechado después de hoy. Los filtros de estrategia leen cada parte: «VÍDEO» trae también los de «VÍDEO Y CHARLA». El de entrenador ofrece a cada autor suelto y casa por «incluye a»: «JULIÁN» trae los de «JULIÁN Y MIGUEL» y los de «TODOS» (todo el cuerpo técnico).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "A quién cuenta",
@@ -940,10 +940,10 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras de arriba",
         filas: [
-          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y cuántos llevan feedback", cuenta: "Con menos de 15, tendencia" },
-          { que: "Con seguimiento", es: "«N de M» jugadores de campo con algún registro en la temporada, registros por jugador con seguimiento y la mediana por jugador (con los que tienen 0)", cuenta: "Registros de la plantilla ÷ jugadores con registro" },
+          { que: "Seguimientos", es: "Registros de la temporada de los jugadores de campo del Castilla y, de ellos, cuántos llevan feedback escrito", cuenta: "Con menos de 15, tendencia" },
+          { que: "Con seguimiento", es: "«N de M» jugadores de campo con algún registro en la temporada, registros por jugador con seguimiento y la mediana por jugador (con los que tienen 0)", cuenta: "Registros de la plantilla ÷ jugadores con registro. La mediana sale de la misma función que en Plantilla (lib/seguimiento, a un decimal), así las dos pantallas dan la misma cifra" },
           { que: "Cobertura · últimos 14 días", es: "Cuántos tienen algún registro en la misma ventana que el aviso (14 días que acaban hoy); debajo, la cobertura de la temporada", cuenta: "Con registro en 14 días ÷ jugadores de campo del Castilla (de la posición filtrada) × 100; verde desde el 80 %, oro desde el 50 %" },
-          { que: "Media semanal", es: "Registros por semana completa", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
+          { que: "Media semanal", es: "Registros por semana completa; el título dice cuántas semanas entran. El Calendario de Seguimiento da otra cifra porque mira sólo las últimas 8", cuenta: "Sólo semanas cerradas de lunes a domingo; la primera (si empezó a media semana) y la actual van aparte. Con una sola semana, «Esta semana»" },
           { que: "Individualización", es: "Registros de modalidad individual ÷ total × 100; el resto, grupales" },
           { que: "Último registro", es: "Hace cuánto fue el más reciente y de quién" },
         ],
@@ -951,9 +951,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las pestañas",
         filas: [
-          { que: "Resumen", es: "Lecturas del periodo, evolución semanal (cada barra partida en individuales, oro, y grupales, gris, con la media en raya y una nota si el pico es de registros grupales), foco de los objetivos (ofensivo, defensivo, mental), estrategias, el cruce estrategia × momento (con lo más repetido en el título y el total de cada momento en su cabecera) y quién no tiene ningún registro" },
+          { que: "Resumen", es: "Lecturas del periodo (la del foco menos usado nombra, con su enlace, a quién le falta ese objetivo en sus 3 últimos registros), evolución semanal (cada barra partida en individuales, oro, y grupales, gris, la semana en curso rayada, la media en raya y una nota si el pico es de registros grupales; pulsar una barra filtra esa semana y volver a pulsarla lo quita), foco de los objetivos (ofensivo, defensivo, mental), estrategias, el cruce estrategia × momento (con lo más repetido en el título y el total de cada momento en su cabecera) y quién no tiene ningún registro" },
           { que: "Sin seguimiento en 14 días", es: "Va arriba, sobre las cifras: quién no tiene registro en los 14 días que acaban hoy, con los días desde su último; si no hay nadie, los tres con menos", cuenta: "La misma ventana que Calendario y la ficha individual" },
-          { que: "Jugadores", es: "Ranking por registros (de cuántos, con la mediana del grupo en raya, semanas cubiertas y días desde el último) con Ficha, Calendario y Registrar en cada fila; mapa jugador × semana, reparto por posición, contactos más antiguos (con sus accesos) y el más y el menos seguido", cuenta: "Pinchar la fila filtra por él" },
+          { que: "Jugadores", es: "Ranking por registros (de cuántos, con la mediana del grupo en raya, semanas cubiertas y días desde el último) con Ficha, Comparativa, Calendario y Registrar en cada fila; mapa jugador × semana, reparto por posición, contactos más antiguos (con sus accesos) y el más y el menos seguido", cuenta: "Pinchar la fila filtra por él" },
           { que: "Metodología", es: "Modalidad individual o grupal, carga por entrenador (un registro compartido suma a cada autor; «TODOS» va en su fila, «Todo el cuerpo técnico»), matriz entrenador × estrategia, distribución mensual y jugadores alcanzados por semana" },
           { que: "Registros", es: "Una tarjeta por registro con sus objetivos y el feedback, de 20 en 20", cuenta: "«Exportar CSV» baja lo filtrado en segundo plano" },
         ],

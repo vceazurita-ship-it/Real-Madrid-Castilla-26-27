@@ -15,7 +15,7 @@ const cm = (v: ReactNode) =>
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
-import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, sinSeguimientoReciente } from "@/lib/seguimiento";
+import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, medianaSeguimientos, sinSeguimientoReciente } from "@/lib/seguimiento";
 import { recordDateKey } from "@/lib/calendar";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
@@ -54,7 +54,6 @@ import {
   LineChart,
   Line,
   LabelList,
-  ReferenceLine,
 } from "recharts";
 
 
@@ -666,13 +665,8 @@ export default function DashboardSeguimiento() {
 
     filteredTracking.forEach((s) => cuenta.set(s.ID_JUGADOR, (cuenta.get(s.ID_JUGADOR) ?? 0) + 1));
 
-    const lista = plantillaEnFoco.map((p) => cuenta.get(p.id) ?? 0).sort((a, b) => a - b);
-
-    if (!lista.length) return 0;
-
-    const mitad = Math.floor(lista.length / 2);
-
-    return lista.length % 2 ? lista[mitad] : +((lista[mitad - 1] + lista[mitad]) / 2).toFixed(1);
+    /* La misma cuenta que /individual (lib/seguimiento, 17/11/2026). */
+    return medianaSeguimientos(plantillaEnFoco.map((p) => cuenta.get(p.id) ?? 0));
   }, [filteredTracking, plantillaEnFoco]);
 
   /* 30/10/2026: el último registro de cada uno en TODA la temporada (no sólo
@@ -1122,10 +1116,28 @@ export default function DashboardSeguimiento() {
     );
 
     if (mayor && menor && mayor.percentage > menor.percentage) {
+      /* 17/11/2026 (ronda 19): la lectura nombra a quién le falta ese
+         objetivo en sus 3 últimos registros, cada uno con su enlace. */
+      const campo = /^def/i.test(menor.name) ? "OBJETIVO_DEFENSIVO" : /^men/i.test(menor.name) ? "OBJETIVO_MENTAL" : "OBJETIVO_OFENSIVO";
+      const sinObjetivo = plantillaEnFoco
+        .map((p) => {
+          const ultimos = filteredTracking
+            .filter((s) => s.ID_JUGADOR === p.id)
+            .sort((a, b) => String(b.FECHA).localeCompare(String(a.FECHA)))
+            .slice(0, 3);
+
+          return { p, ultimos, falta: ultimos.length > 0 && !ultimos.some((s) => clean(s[campo])) };
+        })
+        .filter((x) => x.falta)
+        .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), detalle: `0 de ${x.ultimos.length}` }));
+
       out.push({
         icon: Target,
         tone: "text-sky-400",
-        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}.`,
+        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}${
+          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus 3 últimos registros (${sinObjetivo.length}): anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
+        }.`,
+        jugadores: sinObjetivo.length ? sinObjetivo : undefined,
       });
     }
 
@@ -1141,6 +1153,7 @@ export default function DashboardSeguimiento() {
     weeklyMean,
     plantillaEnFoco,
     focusData,
+    filteredTracking,
   ]);
 
   const lecturasDelResumen = insights.filter((i, idx) => !(idx === 0 && i.jugadores && i.jugadores.length > 0));
@@ -1305,7 +1318,12 @@ export default function DashboardSeguimiento() {
                 <span>
                   Filtrar por jugador, posición o entrenador{activeFilterCount > 0 ? ` (${activeFilterCount})` : ""}
                 </span>
-                <span className="text-white/50">{filtrosAbiertos || activeFilterCount > 0 ? "Ocultar" : "Mostrar"}</span>
+                {/* 17/11/2026 (ronda 19): «Mostrar» parecía un botón sin
+                    función; ahora dice qué despliega y lleva su flecha. */}
+                <span className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-xs text-white/70">
+                  {filtrosAbiertos || activeFilterCount > 0 ? "Ocultar filtros" : "Ver 8 filtros"}
+                  <ChevronDown size={14} aria-hidden className={`transition ${filtrosAbiertos || activeFilterCount > 0 ? "rotate-180" : ""}`} />
+                </span>
               </button>
 
               {/* 16/11/2026 (jueces): plegados también en escritorio, para que
@@ -1497,7 +1515,7 @@ export default function DashboardSeguimiento() {
                   /* 10/11/2026: la ventana dicha (el registro de la temporada
                      está en /calendar) y, con un filtro que deja menos de 15,
                      el aviso de que es tendencia. */
-                  hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
+                  hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} con feedback escrito${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
 
                 <StatCard
@@ -1521,7 +1539,7 @@ export default function DashboardSeguimiento() {
 
                 <StatCard
                   icon={CalendarDays}
-                  title={semanasCerradas.length >= 1 && weeklyData.length > 1 ? "Media semanal" : "Esta semana"}
+                  title={semanasCerradas.length >= 1 && weeklyData.length > 1 ? `Media semanal · ${semanasCerradas.length} sem. completas` : "Esta semana"}
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
                   hint={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
@@ -1692,102 +1710,18 @@ export default function DashboardSeguimiento() {
                         })}
                       </div>
                     ) : (
-                      <ChartBox>
-                      {/* 07/11/2026: barras con su cifra y la media en raya;
-                         la semana en curso, atenuada y rotulada, para que no
-                         se lea como un bajón. */}
-                      <BarChart
-                        data={weeklyData}
-                        margin={{ top: 22, right: 8, left: -8, bottom: 0 }}
-                        onClick={(state) => {
-                          if (!state?.activeLabel) return;
-
-                          updateFilter(
-                            "week",
-                            String(state.activeLabel).replace("S", "")
-                          );
-                        }}
-                      >
-                        <CartesianGrid stroke="rgb(var(--rmcf-ink-rgb) / 0.1)" vertical={false} />
-
-                        <XAxis
-                          dataKey="week"
-                          tick={AXIS}
-                          axisLine={false}
-                          tickLine={false}
-                          interval="preserveStartEnd"
-                          tickFormatter={(w: string) => {
-                            const fila = weeklyData.find((x) => x.week === w);
-                            const enCurso = w === semanaDeHoy && diaDeSemana < 7;
-
-                            /* «lun 2 – dom 8 nov» no cabe en el eje: se queda el lunes y el mes. */
-                            const lunes = fila ? fila.desde.split(" – ")[0] : "";
-                            const mes = fila ? fila.desde.split(" ").slice(-1)[0] : "";
-                            return fila ? `${/\d+ \p{L}+$/u.test(lunes) ? lunes : `${lunes} ${mes}`}${enCurso ? " (en curso)" : ""}` : w;
-                          }}
-                        />
-
-                        <YAxis tick={AXIS} axisLine={false} tickLine={false} />
-
-                        <Tooltip
-                          content={
-                            <DarkTooltip
-                              rows={[["Jugadores distintos", "jugadores"]]}
-                            />
-                          }
-                        />
-
-                        <ReferenceLine
-                          y={weeklyMean}
-                          stroke="rgb(var(--rmcf-ink-rgb) / 0.5)"
-                          strokeDasharray="4 4"
-                          label={{
-                            value: `Media ${cm(weeklyMean)}`,
-                            position: "insideTopRight",
-                            fill: "#94A3B8",
-                            fontSize: 11,
-                          }}
-                        />
-
-                        <Bar
-                          dataKey="individual"
-                          name="Individuales"
-                          stackId="semana"
-                          maxBarSize={56}
-                          isAnimationActive={false}
-                        >
-                          {weeklyData.map((w) => (
-                            <Cell
-                              key={w.week}
-                              fill={GOLD}
-                              fillOpacity={w.week === semanaDeHoy && diaDeSemana < 7 ? 0.45 : 1}
-                            />
-                          ))}
-                        </Bar>
-
-                        <Bar
-                          dataKey="grupal"
-                          name="Grupales"
-                          stackId="semana"
-                          radius={[6, 6, 0, 0]}
-                          maxBarSize={56}
-                          isAnimationActive={false}
-                        >
-                          {weeklyData.map((w) => (
-                            <Cell
-                              key={w.week}
-                              fill="#6E7F99"
-                              fillOpacity={w.week === semanaDeHoy && diaDeSemana < 7 ? 0.45 : 1}
-                            />
-                          ))}
-                          <LabelList
-                            dataKey="value"
-                            position="top"
-                            style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.85)", fontSize: 12, fontWeight: 700 }}
-                          />
-                        </Bar>
-                      </BarChart>
-                    </ChartBox>
+                      /* 17/11/2026 (ronda 19): barras en HTML, sin recharts. En
+                         escritorio el gráfico salía como un recuadro vacío (el
+                         contenedor medía 0 al montar, el mismo fallo del anillo
+                         de estrategias); estas se pintan siempre y se pulsan
+                         igual en el móvil. */
+                      <BarrasSemanales
+                        datos={weeklyData}
+                        media={weeklyMean}
+                        semanaEnCurso={diaDeSemana < 7 ? semanaDeHoy : ""}
+                        activa={filters.week ? `S${filters.week}` : ""}
+                        onSelect={(w) => updateFilter("week", filters.week === w.replace("S", "") ? "" : w.replace("S", ""))}
+                      />
                     )}
                   </Panel>
 
@@ -2034,7 +1968,7 @@ export default function DashboardSeguimiento() {
 
                           <EnlacesJugador
                             jugador={{ id: p.id, nombre: nombreVisible(p.name) }}
-                            destinos={["ficha", "calendario", "registrar"]}
+                            destinos={["ficha", "comparativa", "calendario", "registrar"]}
                             compacto
                             className="order-last w-full justify-end sm:order-none sm:w-auto"
                           />
@@ -2241,7 +2175,7 @@ export default function DashboardSeguimiento() {
                             </p>
                             <EnlacesJugador
                               jugador={{ id: p.id, nombre: nombreVisible(p.name) }}
-                              destinos={["calendario", "registrar"]}
+                              destinos={["ficha", "comparativa", "calendario", "registrar"]}
                               compacto
                               className="mt-1"
                             />
@@ -2725,6 +2659,72 @@ function Panel({
       </div>
 
       {children}
+    </div>
+  );
+}
+
+/* EVOLUCIÓN SEMANAL en HTML (17/11/2026, ronda 19). Barra apilada por semana:
+   oro, individuales; gris, grupales; la semana en curso rayada; la media de
+   las semanas completas en raya. Pulsar una barra filtra esa semana. */
+function BarrasSemanales({
+  datos,
+  media,
+  semanaEnCurso,
+  activa,
+  onSelect,
+}: {
+  datos: { week: string; desde: string; value: number; individual: number; grupal: number; jugadores: number }[];
+  media: number;
+  semanaEnCurso: string;
+  activa: string;
+  onSelect: (week: string) => void;
+}) {
+  const tope = Math.max(...datos.map((d) => d.value), media, 1);
+  const alto = 220;
+  const rayado = "repeating-linear-gradient(135deg, rgb(var(--rmcf-ink-rgb) / 0.22) 0 4px, transparent 4px 8px)";
+
+  return (
+    <div className="pt-2">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} />Individuales</span>
+        <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#6E7F99]" />Grupales</span>
+        {media > 0 && <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-white/50" />Media {String(media).replace(".", ",")}</span>}
+        {semanaEnCurso && datos.some((d) => d.week === semanaEnCurso) && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-white/30" style={{ background: rayado }} />En curso</span>}
+      </div>
+      <div className="overflow-x-auto pb-1">
+        <div className="relative flex items-end gap-1 sm:gap-1.5" style={{ height: alto + 40, minWidth: datos.length * 26 }}>
+          {media > 0 && (
+            <div className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-white/40" style={{ bottom: 22 + (media / tope) * alto }} aria-hidden />
+          )}
+          {datos.map((d) => {
+            const enCurso = d.week === semanaEnCurso;
+            const elegida = activa === d.week;
+            const atenuada = Boolean(activa) && !elegida;
+            const lunes = d.desde.split(" – ")[0].replace(/^lun /, "");
+            const hInd = (d.individual / tope) * alto;
+            const hGru = (d.grupal / tope) * alto;
+
+            return (
+              <button
+                key={d.week}
+                type="button"
+                onClick={() => onSelect(d.week)}
+                aria-pressed={elegida}
+                title={`Semana del ${lunes}${enCurso ? " (en curso)" : ""}: ${d.value} registros (${d.individual} individuales, ${d.grupal} grupales) · ${d.jugadores} jugadores distintos`}
+                className={`group flex min-w-[22px] flex-1 flex-col items-center justify-end transition ${atenuada ? "opacity-40" : ""}`}
+                style={{ height: alto + 40 }}
+              >
+                <span className="mb-0.5 text-[11px] font-bold tabular-nums text-white/85">{d.value}</span>
+                <span className={`flex w-full max-w-[48px] flex-col overflow-hidden rounded-t-md ${elegida ? "ring-2 ring-[#C8A96B]" : ""}`}>
+                  <span className="block w-full bg-[#6E7F99]" style={{ height: hGru, backgroundImage: enCurso ? rayado : undefined }} />
+                  <span className="block w-full" style={{ height: hInd, background: GOLD, backgroundImage: enCurso ? rayado : undefined }} />
+                </span>
+                <span className="mt-1 h-[18px] whitespace-nowrap text-[11px] tabular-nums text-white/55">{lunes.replace(/ \p{L}+$/u, "")}</span>
+              </button>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
