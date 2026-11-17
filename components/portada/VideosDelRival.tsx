@@ -60,7 +60,9 @@ export function VideosDelRival({
   tipo?: Tipo;
 }) {
   const [abierto, setAbierto] = useState<LadoGoles | null>(null);
-  const [sinGoles, setSinGoles] = useState(false);
+  /* De qué rival se supo que no hay goles (17/11/2026): al cambiar de rival vuelven a salir sus botones. */
+  const [sinGolesDe, setSinGolesDe] = useState<string | null>(null);
+  const sinGoles = sinGolesDe === rival;
   const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
   /* 17/11/2026 (ronda 21, fútbol): hasta que llega la lista, el hueco de «Su último partido» se guarda; así el móvil y el escritorio enseñan lo mismo. */
   const [conResumenes, setConResumenes] = useState(false);
@@ -100,9 +102,9 @@ export function VideosDelRival({
   }, [abierto]);
 
   const alVacio = useCallback(() => {
-    setSinGoles(true);
+    setSinGolesDe(rival);
     setAbierto(null);
-  }, []);
+  }, [rival]);
 
   const abre = (lado: LadoGoles) => {
     trackModuleVisit("/analisis-goles");

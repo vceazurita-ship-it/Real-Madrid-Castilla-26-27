@@ -33,7 +33,8 @@ const suscribe = (f: () => void) => {
 export function useEquipoElegido(): string {
   return useSyncExternalStore(
     suscribe,
-    () => equipo,
+    /* Sin elección aún, el `?equipo=` del enlace (17/11/2026): la portada abre así «Un equipo de un vistazo» aunque sea en otra pestaña. */
+    () => equipo || (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("equipo") ?? "")),
     () => "",
   );
 }
