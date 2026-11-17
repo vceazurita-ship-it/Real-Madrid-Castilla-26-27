@@ -52,7 +52,7 @@ const CHIP =
   "inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full border border-white/15 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-white/75 transition hover:border-[#C8A96B] hover:text-white sm:min-h-0";
 
 /** La fila de la hoja que le toca a este equipo: el próximo partido contra él y, si ya se jugaron los dos, el último. */
-function filaDelEquipo(jornadas: JornadaRival[], equipo: string, hoy: string) {
+export function filaDelEquipo(jornadas: JornadaRival[], equipo: string, hoy: string) {
   const suyas = jornadas.filter((j) => mismoEquipo(j.equipo, equipo));
   const porVenir = suyas.filter((j) => !j.fecha || j.fecha >= hoy).sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999"));
 
