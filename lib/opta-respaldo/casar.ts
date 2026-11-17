@@ -21,7 +21,10 @@ export function casaPorMinuto(a: AccionParaCasar, opta: FilaHojaOpta[]): FilaHoj
   if (a.jornada == null || a.minuto == null) return null;
   const familia = abpFamily(a.accion);
   const candidatas = opta
-    .filter((f) => parseJornada(f.JORNADA ?? "").numero === a.jornada)
+    .filter((f) => {
+      const j = parseJornada(f.JORNADA ?? "");
+      return j.competicion === "liga" && j.numero === a.jornada;
+    })
     .filter((f) => a.parte == null || parteDe(f.Tiempo ?? "") === a.parte)
     .filter((f) => abpFamily(f.Tipo_Accion || "banda") === familia)
     .map((f) => ({ f, d: Math.abs(Number(f.Minuto) - a.minuto!) }))

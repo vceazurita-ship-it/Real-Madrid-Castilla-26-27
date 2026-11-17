@@ -40,7 +40,8 @@ const json = (v: unknown) => encodeURIComponent(JSON.stringify(v));
 
 /** El enlace que abre el vídeo de ese evento en ProVision. */
 export function urlVideoOpta(evento: EventoOpta, tipo: TipoEventoOpta = "touches"): string | null {
-  if (!evento.partido || !/^\d{4}-\d{2}-\d{2}/.test(evento.fecha) || !Number.isFinite(evento.segundo)) return null;
+  /* Segundo 0 = la fila no traía reloj (las lecturas ponen 0 por defecto): mejor sin enlace que el saque inicial (17/11/2026). */
+  if (!evento.partido || !/^\d{4}-\d{2}-\d{2}/.test(evento.fecha) || !Number.isFinite(evento.segundo) || evento.segundo <= 0) return null;
 
   /* Un segundo de margen a cada lado: el reloj de nuestra descarga y el de la tabla pueden ir medio segundo cambiados. */
   const desde = Math.max(0, (evento.segundo - 1) / 60).toFixed(3);

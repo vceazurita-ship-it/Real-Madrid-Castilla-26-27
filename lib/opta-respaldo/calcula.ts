@@ -61,6 +61,8 @@ export type DocsRespaldo = {
   jugadores: TablaOpta[];
   directos: Record<string, DocDirecto>;
   clips: ClipsVideo;
+  /** `castilla:calendario` (BeSoccer): la jornada oficial de cada partido. */
+  calendario?: JornadaCalendario[];
 };
 
 /** La clave de un corte: la misma de `opta:goles-video` y `opta:acciones-video`. */
@@ -115,7 +117,29 @@ const esCastilla = (teamId: string) => teamId === CASTILLA_OPTA;
 /*  Partidos                                                           */
 /* ------------------------------------------------------------------ */
 
-export function partidosCastilla(t: TablaOpta | null, directos: Record<string, DocDirecto> = {}): PartidoOpta[] {
+/** Un partido del calendario de BeSoccer: su jornada oficial y cuándo se juega. */
+export type JornadaCalendario = { jornada?: number | null; cuando?: string | null };
+
+/*
+| LA JORNADA OFICIAL (17/11/2026, revisión): numerar por orden de fecha
+| descuadra con un aplazado o con un partido que Opta no tenga, y entonces la
+| hoja (LIGA 09) y Opta (LIGA 08) no casan: el saque entraba dos veces. Si el
+| calendario tiene un partido a ±2 días de la fecha de Opta, manda su jornada.
+*/
+function jornadaDelCalendario(fecha: string, calendario: JornadaCalendario[]): number | null {
+  const t = Date.parse(`${fecha}T12:00:00`);
+  if (!Number.isFinite(t)) return null;
+  let mejor: { j: number; d: number } | null = null;
+  for (const c of calendario) {
+    const j = Number(c.jornada);
+    const d = Math.abs(Date.parse(String(c.cuando ?? "")) - t);
+    if (!Number.isFinite(j) || j <= 0 || !Number.isFinite(d) || d > 2 * 86_400_000) continue;
+    if (!mejor || d < mejor.d) mejor = { j, d };
+  }
+  return mejor?.j ?? null;
+}
+
+export function partidosCastilla(t: TablaOpta | null, directos: Record<string, DocDirecto> = {}, calendario: JornadaCalendario[] = []): PartidoOpta[] {
   const filas = aObjetos(t);
   const nuestras = filas.filter((f) => String(f.teamId) === CASTILLA_OPTA);
   const salida = nuestras
@@ -135,7 +159,7 @@ export function partidosCastilla(t: TablaOpta | null, directos: Record<string, D
     })
     .filter((p) => p.partido && p.fecha)
     .sort((a, b) => a.fecha.localeCompare(b.fecha));
-  salida.forEach((p, i) => (p.jornada = i + 1));
+  salida.forEach((p, i) => (p.jornada = jornadaDelCalendario(p.fecha, calendario) ?? i + 1));
   return salida;
 }
 
@@ -565,7 +589,7 @@ function faltasDe(c: Contexto): FaltaOpta[] {
 /* ------------------------------------------------------------------ */
 
 export function calculaRespaldo(d: DocsRespaldo): RespaldoOpta {
-  const partidos = partidosCastilla(d.partidos, d.directos);
+  const partidos = partidosCastilla(d.partidos, d.directos, d.calendario ?? []);
   const pista = pistaDe(...d.jugadores.map((t) => aObjetos(t)));
   const remates = rematesDe(d.remates, pista);
   const saques = saquesDe(d.abpEventos, remates, pista);

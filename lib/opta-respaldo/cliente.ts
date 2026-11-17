@@ -21,7 +21,11 @@ function pide<T>(url: string): Promise<Respuesta<T>> {
   let p = pedidas.get(url);
   if (!p) {
     p = fetch(url)
-      .then((r) => (r.ok ? r.json() : null))
+      /* Un 500 no se queda guardado toda la visita (17/11/2026): va al catch, que borra la entrada. */
+      .then((r) => {
+        if (!r.ok) throw new Error(`respaldo de Opta: ${r.status}`);
+        return r.json();
+      })
       .then((j) => ({ partidos: Array.isArray(j?.partidos) ? j.partidos : [], filas: Array.isArray(j?.filas) ? j.filas : [] }))
       .catch(() => {
         pedidas.delete(url);

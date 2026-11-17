@@ -30,6 +30,8 @@ export function presionDeTemporada(equipos: Fila[], grupos: Map<string, number>,
   const v = valorEquipo(fila, "PPDA", "partido");
   if (v == null) return null;
   const grupo = grupos.get(teamId);
+  /* Sin grupo conocido no hay población con la que compararlo (17/11/2026). */
+  if (grupo == null) return null;
   const valores = equipos
     .filter((f) => grupos.get(String(f.teamId ?? "")) === grupo)
     .map((f) => valorEquipo(f, "PPDA", "partido"))
