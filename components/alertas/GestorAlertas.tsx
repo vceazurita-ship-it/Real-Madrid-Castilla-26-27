@@ -469,6 +469,8 @@ export default function GestorAlertas() {
           </button>
         </div>
       ) : (
+        <>
+        <SemanaDeAlertas alertas={alertas} />
         <ListaAlertas
           alertas={alertas}
           comprobando={comprobando}
@@ -480,6 +482,7 @@ export default function GestorAlertas() {
           partidos={partidos}
           agenda={agenda}
         />
+        </>
       )}
 
       {/* ---------------------- DIÁLOGOS ----------------------- */}
@@ -584,4 +587,53 @@ function conFechaDePartido(
   );
 
   return { ...alerta, proximoEnvio: cuando ? cuando.toISOString() : "" };
+}
+
+/**
+ * LA SEMANA DE LAS ALERTAS (17/11/2026, ronda 20, los tres jueces): en una
+ * línea de siete días, de MD-6 al partido, dónde cae cada tarea atada al
+ * partido, para ver qué sale cuándo sin leer las tarjetas. Oro, la que va a
+ * salir; apagada, la silenciada. Sólo con sitio (pantalla de Tareas y
+ * alertas, no el panel del botón) y sólo si hay alguna atada al partido.
+ */
+function SemanaDeAlertas({ alertas }: { alertas: Alerta[] }) {
+  const delPartido = alertas.filter((a) => a.repeticion === "partido");
+
+  if (!delPartido.length) return null;
+
+  const dias = [6, 5, 4, 3, 2, 1, 0];
+  const nombre = (a: Alerta) => tituloLegible(a.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""));
+
+  return (
+    <div className="hidden @3xl:block" aria-label="Las tareas atadas al partido, día a día">
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">La semana del partido · cuándo sale cada una</p>
+      <ol className="grid grid-cols-7 gap-1.5">
+        {dias.map((d) => {
+          const del = delPartido.filter((a) => Math.max(0, Math.round(a.diasAntesDelPartido ?? 2)) === d);
+
+          return (
+            <li
+              key={d}
+              className={`min-w-0 rounded-2xl border p-2.5 ${d === 0 ? "border-[#C8A96B]/50 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03]"}`}
+            >
+              <p className={`text-[12px] font-bold uppercase tracking-[0.08em] ${d === 0 ? "text-[#C8A96B]" : "text-white/60"}`}>{d === 0 ? "MD" : `MD-${d}`}</p>
+              <ul className="mt-1.5 space-y-1">
+                {del.map((a) => (
+                  <li
+                    key={a.id}
+                    title={a.activa ? "Va a salir" : "Silenciada"}
+                    className={`rounded-lg px-2 py-1 text-[12.5px] font-semibold leading-tight [overflow-wrap:anywhere] ${
+                      a.activa ? "bg-[#C8A96B] text-[#0B0F14]" : "border border-white/15 text-white/70"
+                    }`}
+                  >
+                    {nombre(a)}
+                  </li>
+                ))}
+              </ul>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
 }
