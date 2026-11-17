@@ -351,7 +351,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Microciclos",
     resumen: "Cada tarea de cada sesión, con su contenido, su carga y su valoración, micro a micro.",
     origen: "Hoja de microciclos, una fila por tarea (la escribe el cuerpo técnico). Los equipos del día, de Jugadores sesión; lo medido en la sesión, del análisis de entrenamiento. El micro de hoy y el MD de cada día, de la regla común de las cuatro pantallas de planificación (lib/microciclo/semana-de-hoy.ts).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "La tira de microciclos",
@@ -366,6 +366,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "La barra", es: "Su carga física frente al micro que más carga tiene" },
           { que: "Editar este micro", es: "Lo abre en el editor de microciclos (mover tareas, copiar días, sacar la lámina)" },
           { que: "Informe del partido", es: "Previa o post del partido de ese micro: resumen en tres diapositivas e informe completo, por correo" },
+          { que: "Post del M21 · rival", es: "Junto a «Informe del partido»: elige el micro anterior y abre su informe post, que es lo que corrige la semana" },
         ],
       },
       {
@@ -392,17 +393,18 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las pestañas",
         filas: [
           { que: "Resumen", es: "Primero la conclusión: Lecturas del periodo, perfil del micro (a todo el ancho cuando va en barras), tendencia de la valoración, reparto por fase y carga por día MD; debajo, la semana en sesión tarea a tarea" },
-          { que: "Lecturas del periodo", es: "Frases con lo que destaca del periodo; la del mejor y el peor tipo de tarea sólo sale con 5 tareas valoradas o más de ese tipo", cuenta: "Con menos base no es una lectura y no se enseña" },
+          { que: "Lecturas del periodo", es: "Frases con lo que destaca del periodo, entre ellas qué tareas del plan no se hicieron en la sesión («L-T1 Juego de Posesión: no se hizo en la sesión, aunque estaba en el plan»); la del mejor y el peor tipo de tarea sólo sale con 5 tareas valoradas o más de ese tipo", cuenta: "Con menos base no es una lectura y no se enseña" },
           {
             que: "La semana en sesión",
             es: "Cada día del micro elegido con TODAS sus tareas (nombre, formato, minutos y contenido), también las sólo planificadas; «Equipos hechos» y «Analizado» si ya los hay, y una sola acción: la que toca (hacer los equipos, analizar o ver el análisis)",
           },
-          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10; en barras (una fila de tres), cada una con la marca y el valor de la media de la temporada («media 7,4 en 21 micros»). Con menos de 5 micros con dato en ese eje, «tendencia · 3 micros» y sin marca. Con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "Media por eje de los demás micros con ese dato (3 o más; firme con 5 o más). Carga: UA de los días hechos ÷ esos días (como /micro_calendar)" },
-          { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10; el micro en curso sin valorar no entra", cuenta: "La línea se corta en los micros ya pasados sin tareas valoradas, y el subtítulo dice cuáles" },
+          { que: "Perfil del microciclo", es: "Los ejes con dato de 0 a 10; en barras (una fila de tres), cada una con la marca y el valor de la media de la temporada («media 7,4 en 21 micros»). Con menos de 5 micros con dato en ese eje, «tendencia · 3 micros», sin marca y con la barra atenuada y rayada (no se lee como fortaleza). Con carga medida, la carga física por entreno frente a la media de la temporada", cuenta: "Media por eje de los demás micros con ese dato (3 o más; firme con 5 o más). Carga: UA de los días hechos ÷ esos días (como /micro_calendar)" },
+          { que: "Tendencia de evaluación", es: "Valoración media de cada micro, eje de 5 a 10; el micro en curso sin valorar no entra. Debajo, el mejor, el peor y el último micro valorados, con su rival. Mide lo mismo que el anillo de al lado", cuenta: "La línea se corta en los micros ya pasados sin tareas valoradas, y el subtítulo dice cuáles" },
           { que: "Titular del micro en curso", es: "Con el partido por jugar: «Micro 22 · MD-4 · J13 vs Murcia · vie 20/11, 21:15» y, debajo, las tareas", cuenta: "El partido es el primero del calendario de BeSoccer desde el último día con tareas; el MD, el de hoy con la regla común. Mientras no se juega, no sale «tareas sin evaluación»" },
           { que: "Nombre del rival", es: "El mismo en tarjetas, chapa y desplegable: nombre corto con mayúscula inicial («Hércules», «R.Ferrol»)" },
           { que: "Accesos del rival", es: "En azul, bajo el titular: Plan de partido, Su ABP, Sus goles en vídeo y Su plantilla, con el rival del micro ya elegido", cuenta: "El Plan abre por el ID de la hoja RIVALES, buscado por la fecha del último día del micro; los demás, por el nombre del equipo" },
-          { que: "Reparto por fase de juego", es: "Anillo con el peso de cada fase y el total en el centro; pulsar un tramo o una fila filtra" },
+          { que: "Reparto por fase de juego", es: "El título dice la conclusión («Sin organización defensiva esta semana: 0 de 14» o la fase que más pesa). Anillo con el peso de cada fase y el total en el centro; pulsar un tramo o una fila filtra", cuenta: "«Global» va aparte, en el subtítulo: está en casi todas y tapaba lo demás. Una tarea con dos fases cuenta media en cada una. Las fases con una tarea o menos se juntan en «Otras» (debajo, cuáles)" },
+          { que: "Carga por día frente a su media", es: "Con carga medida, va primero: barras de carga física y cognitiva por día, intensidad y, en discontinuo, la media de la temporada de cada MD. El título es la orden: «MD-1 va un 22 % por encima de su media: bajar volumen si no se busca»", cuenta: "Media de un MD = carga de ese día en los demás micros con carga (3 o más). Se nombra el MD que más se aparta, si es un 15 % o más" },
           { que: "Cargas", es: "Mapa de calor micro × día (pulsar filtra), carga acumulada por micro, física frente a cognitiva por tarea, tiempo por día e intensidad" },
           { que: "Contenidos", es: "Contenido principal y secundario (los 15 primeros), tabla comparativa, valoración por tipo de tarea y los 12 formatos más usados" },
           { que: "Cognitivo", es: "Normativa, incertidumbre, dificultad y motivación llevadas a 0-10; su evolución por día, demanda frente a valoración y análisis post-tarea" },
@@ -415,6 +417,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "MD-5 … MD", es: "Días contando hacia atrás desde el partido. MD es el día de partido", cuenta: "En «La semana en sesión», con el calendario de BeSoccer: días que faltan para el próximo partido, hasta 14 (igual que el creador de micros y los calendarios)" },
           { que: "Filtros", es: "A la vista sólo el microciclo y el botón «Filtros (n)»; dentro, día (MD), tipo de tarea, contenido principal, fase, valoración mínima, buscador y «Cifras sin el partido / con el partido». Lo filtrado sale en píldoras aunque estén plegados. El micro y el día quedan en la dirección (?micro=22&md=MD-3)" },
           { que: "No se hizo", es: "Tarea del plan que no se hizo en la sesión de Jugadores sesión de ese día: sale en su sitio, tachada" },
+          { que: "Ver sus clips", es: "En cada tarea que midió el análisis de entrenamiento: abre ese día del análisis, con sus clips" },
           { que: "Formato", es: "8v8+3 = ocho contra ocho más tres comodines" },
         ],
       },
