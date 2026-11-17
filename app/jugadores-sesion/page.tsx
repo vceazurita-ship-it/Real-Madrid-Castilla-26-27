@@ -2925,7 +2925,12 @@ export default function JugadoresSesionPage() {
         titular:
           hay > esperados
             ? `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados: ${dif === 1 ? "sobra 1 o es comodín" : `sobran ${dif} o son comodines`}`
-            : `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados`,
+            : /* 17/11/2026 (jueces): si ni con todos los disponibles se llega, se dice. */
+              `La tarea pide ${esperados} (${formato.trim()}) y hay ${hay} colocados${
+                sesion && sesion.jugadores.filter((j) => !j.baja).length < esperados
+                  ? `: faltan ${esperados - sesion.jugadores.filter((j) => !j.baja).length} aunque entren los ${sesion.jugadores.filter((j) => !j.baja).length} disponibles`
+                  : ""
+              }`,
         mete,
       },
     ];
@@ -3481,7 +3486,8 @@ export default function JugadoresSesionPage() {
                     `${[
                       sesion.fecha ? fechaCortaTitular(sesion.fecha) : "",
                       contexto?.md ?? "",
-                      `Tarea ${activa + 1}${tarea.nombre?.trim() ? `, ${tituloTarea(tarea.nombre)}` : ""}`,
+                      /* 17/11/2026 (jueces): el código del microciclo (L-T2), el mismo que usan Microciclos y el análisis; sin plan, el número. */
+                      `${(enlacePlan[activa] != null && planSesion[enlacePlan[activa] as number]?.codigo) || `Tarea ${activa + 1}`}${tarea.nombre?.trim() ? `, ${tituloTarea(tarea.nombre)}` : ""}`,
                     ]
                       .filter(Boolean)
                       .join(" · ")}: ${sesion.jugadores.filter((j) => !j.baja).length} disponibles${
@@ -3616,11 +3622,8 @@ export default function JugadoresSesionPage() {
                   </button>
                 )}
 
-                <Button icon={Keyboard} onClick={() => setChuleta(true)} title="Atajos de teclado (?)" aria-label="Atajos de teclado" />
-
-                <Button icon={Undo2} disabled={pasos.atras === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)">
-                  Deshacer
-                </Button>
+                {/* 17/11/2026 (jueces): franja más ligera; deshacer y rehacer, sólo icono; los atajos de teclado, en el menú «Sesión». */}
+                <Button icon={Undo2} disabled={pasos.atras === 0} onClick={deshaz} title="Deshacer el último cambio (Ctrl+Z)" aria-label="Deshacer" />
                 <Button icon={Redo2} disabled={pasos.adelante === 0} onClick={rehaz} title="Rehacer lo deshecho (Ctrl+Y)" aria-label="Rehacer" />
 
                 {/*
@@ -3638,6 +3641,7 @@ export default function JugadoresSesionPage() {
                   <div className="absolute right-0 top-full z-30 mt-1 flex w-56 flex-col gap-1 rounded-xl border border-white/15 bg-[#11161C] p-1.5 shadow-2xl">
                     {[
                       { icono: MessageSquareText, texto: "Copiar todo", titulo: "Todas las tareas en texto, para el grupo", hace: () => void copiaTexto(true) },
+                      { icono: Keyboard, texto: "Atajos de teclado", titulo: "Atajos de teclado (?)", hace: () => setChuleta(true) },
                       {
                         icono: ClipboardPaste,
                         texto: "Cambiar la lista",
@@ -3688,7 +3692,8 @@ export default function JugadoresSesionPage() {
             {/* ---------------- LA FECHA PEDIDA, SIN SESIÓN ---------------- */}
 
             {faltaLaPedida && fechaPedida && sesion && status !== "loading" && (
-              <div className="mt-4">
+              /* max-md:pr-12 (17/11/2026, jueces): el botón flotante ⋮ tapaba la tarjeta en el móvil. */
+              <div className="mt-4 max-md:pr-12">
                 <Notice
                   title={
                     deHoy
@@ -3758,9 +3763,15 @@ export default function JugadoresSesionPage() {
                     | se va a hacer.
                     */}
                     {cambiosPlan.nuevas.length ? (
-                      <p className="text-white/60">
-                        <span className="mr-1 rounded-full border border-white/15 px-1.5 text-[11px] font-semibold uppercase tracking-wide text-white/60">no se hizo</span>
-                        {cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}
+                      /* 17/11/2026 (jueces): chip de estado con color y enlace al análisis de ese día. */
+                      <p className="flex flex-wrap items-center gap-1.5 text-white/70">
+                        <span className="rounded-full border border-amber-400/40 bg-amber-400/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-amber-300">no se hizo</span>
+                        <span>{cambiosPlan.nuevas.map((p) => `${p.codigo} ${nombreEnSesion(p).toLowerCase()}`).join(", ")}</span>
+                        {sesion.fecha ? (
+                          <a href={`/analisis-entrenamiento?fecha=${sesion.fecha}`} className="text-[12px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                            Análisis del día →
+                          </a>
+                        ) : null}
                       </p>
                     ) : null}
                     {cambiosPlan.renombradas.length || cambiosPlan.orden ? (
@@ -4120,10 +4131,14 @@ export default function JugadoresSesionPage() {
                         return (
                           <div className="w-full min-w-0 space-y-1 rounded-xl border border-white/[0.06] px-3 py-2">
                             {p && (p.evaluacion > 0 || p.analisisPost) ? (
-                              <p className="text-[11px] text-white/60">
+                              <p
+                                className="text-[11px] text-white/60"
+                                title={postLegible ? "Lo que el cuerpo técnico apuntó en la hoja después de la tarea: «conceptual» = sobre la idea de juego; «sensación jugador» = cómo la vivieron los jugadores" : undefined}
+                              >
                                 {[
                                   p.evaluacion > 0 ? `Valoración en el microciclo: ${String(p.evaluacion).replace(".", ",")} de 10` : "",
-                                  postLegible ? `${p.evaluacion > 0 ? "a" : "A"}nálisis post: ${postLegible}` : "",
+                                  /* 17/11/2026 (jueces): «análisis post: Conceptual» no se entendía; dice qué es. */
+                                  postLegible ? `${p.evaluacion > 0 ? "r" : "R"}evisión del cuerpo técnico tras la tarea: ${postLegible === "conceptual" ? "conceptual (sobre la idea de juego)" : postLegible}` : "",
                                 ]
                                   .filter(Boolean)
                                   .join(" · ")}
@@ -4617,11 +4632,36 @@ export default function JugadoresSesionPage() {
                     )}
 
                     {elegido && (
-                      <p className="-mt-2 text-[11px] text-[#C8A96B]">
-                        <b>{sesion.jugadores.find((j) => j.id === elegido)?.nombre}</b>: toca su equipo
-                        {tarea.equipos.length > 1 ? ` (o pulsa 1-${tarea.equipos.length}` : " (o pulsa 1"}
-                        {tarea.comodines > 0 ? ", C comodín" : ""}, F fuera, Esc cancelar)
-                      </p>
+                      <div className="-mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-[#C8A96B]">
+                        <p>
+                          <b>{sesion.jugadores.find((j) => j.id === elegido)?.nombre}</b>: toca su equipo
+                          {tarea.equipos.length > 1 ? ` (o pulsa 1-${tarea.equipos.length}` : " (o pulsa 1"}
+                          {tarea.comodines > 0 ? ", C comodín" : ""}, F fuera, Esc cancelar)
+                        </p>
+                        {/*
+                        | 17/11/2026 (jueces): con un jugador elegido, su ficha y su
+                        | seguimiento, rotulados y con él ya elegido (otra pestaña, para
+                        | no perder el reparto). Sólo los de la plantilla.
+                        */}
+                        {(() => {
+                          const j = sesion.jugadores.find((x) => x.id === elegido);
+
+                          if (!j || !puestosAuto[j.id]) return null;
+
+                          const nombre = encodeURIComponent(limpiaJugador(j).nombre);
+
+                          return (
+                            <span className="flex flex-wrap gap-2">
+                              <a href={`/individual?nombre=${nombre}`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-[#C8A96B]/40 px-2 py-0.5 font-semibold hover:bg-[#C8A96B]/10">
+                                <UserRound size={12} aria-hidden /> Su ficha
+                              </a>
+                              <a href={`/individual?nombre=${nombre}&pestana=seguimiento`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 rounded-lg border border-white/15 px-2 py-0.5 font-semibold text-white/75 hover:text-white">
+                                Su seguimiento
+                              </a>
+                            </span>
+                          );
+                        })()}
+                      </div>
                     )}
 
                     {/* --- el cambio a mitad de tarea --- */}
@@ -4887,6 +4927,16 @@ export default function JugadoresSesionPage() {
                       vacio="Los lesionados empiezan aquí; si alguno hace la tarea, muévelo a un equipo."
                     >
                       {ordenPorPuesto(reparto.fuera, puestoDe).map(chip)}
+                      {/* 17/11/2026 (jueces): el porqué de cada uno; sin baja, es que no se le ha colocado. */}
+                      {(() => {
+                        const sinBaja = reparto.fuera.filter((j) => !j.baja);
+
+                        return sinBaja.length ? (
+                          <p className="mt-1 w-full text-[12px] text-white/60">
+                            {sinBaja.map((j) => j.nombre).join(", ")}: {sinBaja.length === 1 ? "está disponible y no se le ha colocado" : "están disponibles y no se les ha colocado"} en esta tarea. Arrástralo a un equipo si la hace.
+                          </p>
+                        ) : null;
+                      })()}
                     </Caja>
                     )}
                   </div>
