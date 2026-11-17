@@ -4,7 +4,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { Brain, CalendarDays, ClipboardCheck, Clock3, Dumbbell, FileText, Users } from "lucide-react";
-import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
+import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import {
   CalendarShell,
@@ -332,6 +332,23 @@ export default function MicroCalendar() {
 
     return mapa;
   }, [calendarioBesoccer]);
+
+  /*
+  | 16/11/2026 (jueces): los enlaces también DENTRO de la casilla, no sólo en
+  | el día abierto. El partido jugado lleva a su micro en Microciclos (donde
+  | está «Informe del partido»); el que falta, a su Plan de partido con el
+  | rival ya elegido. Pulsarlos no abre el día (stopPropagation).
+  */
+  const jornadasRivales = useJornadasRivales();
+  const enlaceDelPartido = (key: string, rival: string, micro?: string) => {
+    const p = partidoDelDia.get(key);
+    const n = Number(micro);
+
+    if (p?.jugado) return { href: Number.isInteger(n) && n > 0 ? `/microcycles?micro=${n}` : "/microcycles", texto: "Informe del partido" };
+
+    return { href: enlacesDelRival(jornadasRivales, nombreBonito(rival), key)[0]?.href ?? "/match-preparation", texto: "Plan de partido" };
+  };
+  const sinAbrirElDia = (e: { stopPropagation: () => void }) => e.stopPropagation();
 
   /** «16:00 · en casa · 2-1» — sólo las piezas que hay. */
   const lineaPartido = (key: string) => {
@@ -883,6 +900,15 @@ export default function MicroCalendar() {
                     <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreBonito(suyo.rival)}</span>
                   </div>
                   {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
+                  {(() => {
+                    const e = enlaceDelPartido(key, suyo.rival);
+
+                    return (
+                      <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+                        {e.texto} →
+                      </Link>
+                    );
+                  })()}
                 </>
               ),
               crece: true,
@@ -1003,6 +1029,15 @@ export default function MicroCalendar() {
                   {detallePartido}
                 </p>
               )}
+              {partido ? (() => {
+                const e = enlaceDelPartido(key, partido, String(dayTasks[0]?.Micro ?? ""));
+
+                return (
+                  <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+                    {e.texto} →
+                  </Link>
+                );
+              })() : null}
 
               {/* 16/11/2026 (jueces): la fase escrita, no sólo el color de fondo (daltonismo y móvil). */}
               {theme !== NEUTRAL_THEME && !partido ? (
@@ -1040,6 +1075,17 @@ export default function MicroCalendar() {
                 </div>
               ))}
               </div>
+
+              {/* 16/11/2026 (jueces): el día de entreno abre su sesión en Microciclos, con su micro y su MD, desde la propia casilla. */}
+              {!partido && Number(dayTasks[0]?.Micro) > 0 ? (
+                <Link
+                  href={`/microcycles?micro=${Number(dayTasks[0]?.Micro)}${md ? `&md=${encodeURIComponent(md.toUpperCase().replace(/\s+/g, ""))}` : ""}`}
+                  onClick={sinAbrirElDia}
+                  className="block text-[11px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                >
+                  Ver la sesión →
+                </Link>
+              ) : null}
             </>
           ),
           /* 16/11/2026: la casilla crece con su contenido; los nombres ya no se cortan dentro de su propio scroll. */

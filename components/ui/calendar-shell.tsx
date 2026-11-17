@@ -417,6 +417,8 @@ function MobileDayList({
               tabIndex={cell.onClick ? 0 : undefined}
               onClick={cell.onClick}
               onKeyDown={(e) => {
+                /* 16/11/2026: un enlace dentro de la casilla se abre con su Intro, no abre el día. */
+                if (e.target !== e.currentTarget) return;
                 if (cell.onClick && (e.key === "Enter" || e.key === " ")) {
                   e.preventDefault();
                   cell.onClick();
@@ -490,6 +492,8 @@ function DayCell({
       onKeyDown={
         interactive
           ? (e) => {
+              /* 16/11/2026: un enlace dentro de la casilla se abre con su Intro, no abre el día. */
+              if (e.target !== e.currentTarget) return;
               if (e.key === "Enter" || e.key === " ") {
                 e.preventDefault();
                 cell.onClick?.();

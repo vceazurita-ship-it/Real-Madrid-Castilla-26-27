@@ -32,7 +32,7 @@ import {
 } from "@/lib/calendar";
 import { traeJson } from "@/lib/hojaCsv";
 import { esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
-import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
+import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
@@ -287,6 +287,9 @@ export default function CalendarGeneralPage() {
   | de partido para el MD salen de ahí también (misma regla que el creador).
   */
   const { registro, fechasDePartido: fechasPartido } = useSemanaDeHoy();
+
+  /* 16/11/2026 (jueces): la hoja RIVALES, para el Plan de partido con el rival elegido desde la casilla. */
+  const jornadasRivales = useJornadasRivales();
 
   /* 16/11/2026 (jueces): el micro de cada fecha de la hoja, para abrir el día o el partido en Microciclos. */
   const microDeFecha = useMemo(() => {
@@ -1226,6 +1229,20 @@ export default function CalendarGeneralPage() {
                     <p className="text-[10px] text-white/60 md:text-[10px]">
                       {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
                     </p>
+                    {/* 16/11/2026 (jueces): la sesión abre su día en Microciclos desde la casilla. */}
+                    {microDeFecha.get(key) ? (
+                      <Link
+                        href={`/microcycles?micro=${microDeFecha.get(key)}${(() => {
+                          const md = (mdDelDia(key, fechasDelMd) || sesionDia.md).toUpperCase().replace(/\s+/g, "");
+
+                          return md ? `&md=${encodeURIComponent(md)}` : "";
+                        })()}`}
+                        onClick={(e) => e.stopPropagation()}
+                        className="block text-[10px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline md:text-[11px]"
+                      >
+                        Ver la sesión →
+                      </Link>
+                    ) : null}
                   </div>
                 )}
                 {autoVisible.map((auto) =>
@@ -1252,6 +1269,20 @@ export default function CalendarGeneralPage() {
                         {/* 16/11/2026: el resultado con su sentido («ganado 1-0», el Castilla primero); sin jugar, la hora. */}
                         {[auto.enCasa ? "En casa" : "Fuera", auto.marcador ? resultadoConSentido(auto.marcador) : auto.hora].filter(Boolean).join(" · ")}
                       </p>
+                      {/* 16/11/2026 (jueces): el partido lleva a lo suyo desde la propia casilla, sin abrir el día. */}
+                      <Link
+                        href={
+                          auto.marcador
+                            ? microDeFecha.get(auto.fecha)
+                              ? `/microcycles?micro=${microDeFecha.get(auto.fecha)}`
+                              : "/microcycles"
+                            : (enlacesDelRival(jornadasRivales, auto.rival, auto.fecha)[0]?.href ?? "/match-preparation")
+                        }
+                        onClick={(e) => e.stopPropagation()}
+                        className="mt-0.5 block text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                      >
+                        {auto.marcador ? "Informe →" : "Plan de partido →"}
+                      </Link>
                     </div>
                   ) : (
                   /* 16/11/2026: el viaje es un renglón ligero (punto morado, sin caja) para
@@ -1262,11 +1293,16 @@ export default function CalendarGeneralPage() {
                     className="flex min-w-0 items-start gap-1 px-0.5 text-[10px] leading-tight text-white/70 md:text-[10px]"
                   >
                     <span aria-hidden className={cn("mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full", AUTO_THEMES[auto.clase].dot)} />
-                    <span className="line-clamp-2 min-w-0 break-words">
+                    {/* 16/11/2026 (jueces): el viaje abre su desplazamiento desde la casilla. */}
+                    <Link
+                      href={auto.enlace || "/desplazamiento"}
+                      onClick={(e) => e.stopPropagation()}
+                      className="line-clamp-2 min-w-0 break-words underline decoration-white/25 decoration-dotted underline-offset-2 hover:text-white"
+                    >
                       {/* El rival con el mismo nombre corto que el partido de la casilla. */}
                       {auto.titulo.replace(/^(Viaje a|Regreso de|Vuelta de) (.+)$/, (_, que: string, quien: string) => `${que} ${nombreCorto(quien)}`)}
                       {auto.hora ? <span className="text-white/55"> · {auto.hora}</span> : null}
-                    </span>
+                    </Link>
                   </p>
                   )
                 )}

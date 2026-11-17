@@ -1773,7 +1773,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Desplazamiento de Partido",
     resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
     origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap; la distancia y el tiempo de Valdebebas al estadio, de la ruta de OSRM (o de la memoria de trayectos del analista).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Lo primero de la pantalla",
@@ -1797,7 +1797,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El horario",
         filas: [
-          { que: "Viaje propuesto según la distancia", es: "Mientras no se toca, el viaje se propone con lo que se tarda de Valdebebas al estadio. Cerca, en el día y sin hotel: comida en Valdebebas, charla, salida, llegada al estadio, calentamiento, partido y vuelta. Lejos, la víspera con hotel. Sin ruta ni distancia en la hoja, se usa el tiempo de un viaje anterior guardado al mismo rival (el «Tiempo» de su estadio), y así sale la «Salida bus». Sin ninguna base no se propone hotel ni salida: sólo llegada al estadio, calentamiento y partido. La distancia y el tiempo quedan escritos en el estadio", cuenta: "Se duerme fuera desde 150 km (o 2 h de autobús si sólo se sabe el tiempo). Cerca: salida = llegada al estadio (90 min antes del partido) − lo que tarda el autobús; vuelta = partido + 1 h 45 + el trayecto. Lejos: la víspera sale a las 16:00 salvo que no dé para llegar a las 20:00; llegada al hotel = salida + trayecto; vuelta a Valdebebas = partido + 1 h 45 + trayecto. El autobús es la ruta en coche de OSRM × 1,15 redondeada a 5 min" },
+          { que: "Viaje propuesto según la distancia", es: "Mientras no se toca, el viaje se propone con lo que se tarda de Valdebebas al estadio. Cerca, en el día y sin hotel: comida en Valdebebas, charla, salida, llegada al estadio, calentamiento, partido y vuelta. Lejos, la víspera con hotel. Sin ruta ni distancia en la hoja, se usa el tiempo de un viaje anterior guardado al mismo rival (el «Tiempo» de su estadio), y así sale la «Salida bus»; si no lo hay, la media de los viajes fuera de la temporada con tiempo escrito (3 o más), que sólo coloca la salida: no se escribe en el estadio y nunca propone hotel. Sin ninguna base no se propone hotel ni salida: sólo llegada al estadio, calentamiento y partido. La distancia y el tiempo quedan escritos en el estadio", cuenta: "Se duerme fuera desde 150 km (o 2 h de autobús si sólo se sabe el tiempo). Cerca: salida = llegada al estadio (90 min antes del partido) − lo que tarda el autobús; vuelta = partido + 1 h 45 + el trayecto. Lejos: la víspera sale a las 16:00 salvo que no dé para llegar a las 20:00; llegada al hotel = salida + trayecto; vuelta a Valdebebas = partido + 1 h 45 + trayecto. El autobús es la ruta en coche de OSRM × 1,15 redondeada a 5 min" },
           { que: "Días", es: "En casa abre con uno; fuera, según la distancia (arriba). Cada día es una hoja A4" },
           { que: "Horario elástico", es: "Al cambiar la hora del partido, el día del partido se mueve solo; los demás días van por reloj" },
           { que: "Horas", es: "Se escriben enteras («1830», «18.30») y se guardan al salir del campo; flechas ±5 min. Lo dice la ayuda emergente de cada hora, no un texto fijo. En el editor, la letra no baja de 14 px" },
@@ -2180,7 +2180,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Antes de entrar",
@@ -2226,7 +2226,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cumplimiento por objetivo", es: "Barra de correctas y mejorables; la raya dorada es la meta" },
           { que: "Cuándo pasa en la sesión", es: "Acciones por tramo y una calle por objetivo con cada acción en su minuto", cuenta: "Tramos de 2 min hasta media hora de vídeo; de 5 min si es más largo" },
           { que: "Tramo sombreado", es: "Minutos que el análisis no pudo mirar: ahí no hay acciones porque no se vieron" },
-          { que: "Por tarea / Por jugador", es: "Sólo si hay dos o más; las acciones de grupo sin jugador reconocido van aparte" },
+          { que: "Por tarea / Por jugador", es: "Desde una tarea o un jugador: pulsar su nombre o su barra abre sus clips; cada jugador lleva «Ficha», que abre su ficha individual. Las acciones de grupo sin jugador reconocido van aparte" },
           { que: "Evolución entre sesiones", es: "Acierto de cada entrenamiento analizado; columna rayada = menos de 15 acciones" },
         ],
       },
@@ -2776,7 +2776,8 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Sin la fila del partido. MD = días que faltan para el próximo partido, hasta 14, con la regla común del creador de micros; lo planificado sale de la hoja publicada aunque la copia de lo hecho no lo traiga. En los días aún sin sesión, el MD previsto (discontinuo) sólo sale en la semana del partido: MD-5 a MD-1",
           },
           { que: "Libre", es: "Día sin sesión ni partido entre la primera y la última sesión apuntadas, y el día después de un partido más adelante" },
-          { que: "El día abierto: accesos", es: "Una sesión abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado, «Informe del partido» (Microciclos en su micro); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival, ya elegido", cuenta: "El micro de cada fecha sale de la hoja de registro; el Plan, por el ID de la hoja RIVALES buscado por la fecha" },
+          { que: "Enlaces en la casilla", es: "Sin abrir el día: la sesión lleva «Ver la sesión →» (Microciclos en su micro y MD), el partido «Informe →» si ya se jugó o «Plan de partido →» con el rival elegido, y el renglón del viaje abre su desplazamiento" },
+          { que: "El día abierto: accesos", es:"Una sesión abre su micro y su MD en Microciclos, sus equipos en Jugadores sesión y su análisis de entrenamiento. Un partido jugado, «Informe del partido» (Microciclos en su micro); uno por jugar, el Plan de partido, el ABP y los goles en vídeo del rival, ya elegido", cuenta: "El micro de cada fecha sale de la hoja de registro; el Plan, por el ID de la hoja RIVALES buscado por la fecha" },
         ],
       },
       {
@@ -2800,7 +2801,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una fuente no llega en 15 s se ofrece reintentar; lo que sí llegó se pinta igual.",
       "Entrenos y partidos se cuentan igual que en /micro_calendar: la fila de competición no es sesión.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
   /* ==================== CALENDARIO CONDICIONAL (12/11/2026) ==================== */
   {
@@ -2838,7 +2839,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las cifras del mes",
@@ -2859,7 +2860,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Fondo del día y su fase escrita", es: "La fase con más minutos ese día, sin contar Global, como fondo y escrita en una etiqueta del mismo color (para quien no distingue el color y en el móvil)", cuenta: "Ofensiva, Defensiva, Transición ofensiva, Transición defensiva o ABP; sólo Global deja el fondo normal y sin etiqueta" },
           { que: "MD", es: "Días que faltan para el próximo partido del calendario, hasta 14: la misma numeración que el creador de micros y /calendar_general. El día de partido es «MD» y no lleva duración. Los días aún sin tareas de la semana del partido llevan su MD en gris (sólo MD-5 a MD-1)" },
-          { que: "Partido sin filas en la hoja", es: "El partido del calendario de BeSoccer sale aunque la hoja aún no tenga ese día (como en /calendar_general)" },
+          { que: "Enlaces en la casilla", es: "Sin abrir el día: un entreno lleva «Ver la sesión →» (su micro y su MD en Microciclos); un partido, «Informe del partido →» si ya se jugó o «Plan de partido →» con el rival elegido" },
+          { que: "Partido sin filas en la hoja", es:"El partido del calendario de BeSoccer sale aunque la hoja aún no tenga ese día (como en /calendar_general)" },
           { que: "Planificado", es: "Entreno de la hoja sin minutos todavía: borde discontinuo y la etiqueta «planificado»" },
           { que: "Contenidos", es: "Minutos por contenido principal, de más a menos; sin contenido, el tipo de tarea. La casilla crece para que no se corten" },
           { que: "Partido", es: "Rival con escudo, hora, en casa o fuera y resultado, si BeSoccer lo tiene, en dos líneas (no se corta)" },

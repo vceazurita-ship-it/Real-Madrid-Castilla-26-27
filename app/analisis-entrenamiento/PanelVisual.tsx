@@ -32,6 +32,7 @@
  */
 
 import { type ReactNode } from "react";
+import Link from "next/link";
 import { AlertTriangle, CheckCircle2, TrendingDown, TrendingUp } from "lucide-react";
 
 import { accionesDelJugador, normaliza, sinDueno, type DiaEntreno } from "@/lib/entreno/jugador";
@@ -327,10 +328,15 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
       </Bloque>
 
       {/* 5. Por tarea y por jugador */}
-      {porTarea.length >= 2 || porJugador.length >= 2 ? (
+      {/*
+      | 16/11/2026 (jueces): cada tarea y cada jugador, con sus clips (pulsar el
+      | nombre o la barra) y el jugador con su ficha; desde una tarea o un
+      | jugador, no desde dos.
+      */}
+      {porTarea.length >= 1 || porJugador.length >= 1 ? (
         <div className="grid gap-5 lg:grid-cols-2">
-          {porTarea.length >= 2 ? (
-            <Bloque titulo="Por tarea" nota="Los objetivos atados a una tarea del registro, juntos.">
+          {porTarea.length >= 1 ? (
+            <Bloque titulo="Por tarea" nota="Los objetivos atados a una tarea del registro, juntos. Pulsa la tarea o su barra para ver sus clips.">
               <div className="space-y-3.5">
                 {porTarea.map((t) => (
                   <FilaBarra
@@ -350,13 +356,14 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
               </div>
             </Bloque>
           ) : null}
-          {porJugador.length >= 2 ? (
-            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, a cada uno se le cuenta la acción en la que se le nombra.">
+          {porJugador.length >= 1 ? (
+            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, a cada uno se le cuenta la acción en la que se le nombra. Pulsa el nombre o la barra para ver sus clips; «Ficha», su ficha individual.">
               <div className="space-y-3.5">
                 {porJugador.map((j) => (
                   <FilaBarra
                     key={j.clave}
                     titulo={j.nombre}
+                    enlace={{ href: `/individual?nombre=${encodeURIComponent(j.nombre)}`, texto: "Ficha" }}
                     detalle={`${j.fs.length} ${j.fs.length === 1 ? "objetivo" : "objetivos"}`}
                     acciones={j.fs.flatMap((f) => f.acciones)}
                     val={val}
@@ -503,9 +510,12 @@ function FilaBarra({
   meta,
   cumple = null,
   onAbre,
+  enlace,
 }: {
   titulo: string;
   detalle?: string;
+  /** Un enlace junto al título (16/11/2026: la ficha del jugador). */
+  enlace?: { href: string; texto: string };
   acciones: AccionEntreno[];
   val: Record<string, Validacion> | undefined;
   c: Cuentas;
@@ -525,10 +535,17 @@ function FilaBarra({
 
   return (
     <div className="grid min-w-0 gap-1.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,3fr)] sm:items-center sm:gap-4">
-      <button type="button" onClick={() => onAbre(null)} className={`min-w-0 rounded text-left ${FOCO}`} title={titulo}>
-        <p className="truncate text-sm text-white/90 hover:underline">{titulo}</p>
-        {detalle ? <p className="truncate text-[11px] text-white/50">{detalle}</p> : null}
-      </button>
+      <div className="flex min-w-0 items-start gap-2">
+        <button type="button" onClick={() => onAbre(null)} className={`min-w-0 flex-1 rounded text-left ${FOCO}`} title={`${titulo}: ver sus clips`}>
+          <p className="truncate text-sm text-white/90 hover:underline">{titulo}</p>
+          {detalle ? <p className="truncate text-[11px] text-white/50">{detalle}</p> : null}
+        </button>
+        {enlace ? (
+          <Link href={enlace.href} className={`shrink-0 rounded px-1 text-[11px] font-semibold text-[#C8A96B] hover:underline ${FOCO}`}>
+            {enlace.texto}
+          </Link>
+        ) : null}
+      </div>
       <div className="min-w-0 space-y-1">
         <div className="relative">
           <div className="flex h-4 overflow-hidden rounded-[4px] bg-white/[0.04]">
