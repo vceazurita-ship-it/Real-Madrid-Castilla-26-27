@@ -41,6 +41,7 @@ import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
+import { CambioModelo } from "@/components/rivals/CambioModelo";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -1966,6 +1967,9 @@ export default function ScoutRivalCollective() {
 
           {/* Evolución comparada (13/11/2026): xG a favor y en contra, media acumulada, Castilla contra el rival. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <EvolucionComparada equipo={rivalActivo.EQUIPO} />}
+
+          {/* ¿Ha cambiado su modelo? (17/11/2026): PPDA y pases por partido, media móvil de 5 y últimos 5 contra el resto. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <CambioModelo equipo={rivalActivo.EQUIPO} />}
 
           {/* Embudo del ataque (16/11/2026): secuencias → último tercio → área → remate, el suyo y el que le hacen. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <EmbudoAtaque equipo={rivalActivo.EQUIPO} />}
