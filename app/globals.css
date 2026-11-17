@@ -1476,10 +1476,19 @@ scrollbar-width:none;
   --campo-vineta: #14281e;
   --campo-vineta-opacidad: 0.18;
 }
+/* 17/11/2026: sin backdrop-filter. Dentro de la tarjeta fija (sticky) del
+   campograma, decenas de cajas con desenfoque hacían que Safari y Chrome en Mac
+   soltaran y repintaran la capa del césped al hacer scroll (el fondo aparecía y
+   desaparecía). El fondo, un poco más opaco, se lee igual. */
 .caja-puesto {
-  background: rgba(11, 15, 20, 0.72);
-  backdrop-filter: blur(4px);
+  background: rgba(11, 15, 20, 0.8);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+}
+/* La tarjeta del campograma en su propia capa de composición: no se repinta al hacer scroll. */
+.campograma-capa {
+  transform: translateZ(0);
+  backface-visibility: hidden;
+  isolation: isolate;
 }
 :root[data-theme="light"] .caja-puesto {
   background: rgba(255, 255, 255, 0.88);

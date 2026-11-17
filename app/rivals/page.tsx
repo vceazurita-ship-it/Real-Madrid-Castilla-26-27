@@ -4515,7 +4515,7 @@ export default function RivalPlayersPage() {
                       showPitch ? "" : "hidden lg:flex"
                     }`}
                   >
-                    <div className="sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
+                    <div className="campograma-capa sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
                       {/*
                         La cabecera se **parte en dos renglones** cuando no
                         caben los botones.
@@ -8866,7 +8866,7 @@ function TacticalPitch({
       {clusters.map((cluster) => (
         <span
           key={cluster.key}
-          className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider backdrop-blur-sm"
+          className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider"
           /* Chapa sólida del color de la línea: es el rótulo del bloque y
              tiene que ganarle al césped y a los bloques de al lado. Antes era
              texto de color sobre fondo oscuro y, en una columna con tres
@@ -9208,7 +9208,7 @@ function TacticalPitch({
             {/* DETALLE AL PASAR EL RATÓN */}
 
             <span
-              className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl backdrop-blur transition group-hover:opacity-100 ${
+              className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl transition group-hover:opacity-100 ${
                 /* En móvil no hay ratón: el detalle sólo aparecía recortado
                    por el borde del campo al tocar la ficha. Y con la ficha en
                    la mano tampoco: el cuadro seguía al puntero tapando medio
