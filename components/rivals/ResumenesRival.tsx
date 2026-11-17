@@ -27,7 +27,7 @@ const LETRA = { G: "V", E: "E", P: "D" } as const;
 const PALABRA = { G: "Ganó", E: "Empató", P: "Perdió" } as const;
 
 /** Los que se ven sin desplegar: dos filas en el portátil. */
-const A_LA_VISTA = 6;
+const A_LA_VISTA = 3; // una fila: la plantilla y el campograma, más arriba (16/11/2026, ronda 18)
 
 /* La descarga en curso —o ya terminada—, viva mientras dure la pestaña. */
 let enVuelo: Promise<ResumenRfef[] | null> | null = null;

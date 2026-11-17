@@ -19,7 +19,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { Clapperboard, Play, X } from "lucide-react";
 
-import { GolesDelRivalEnVideo, type LadoGoles } from "@/components/rivals/GolesDelRivalEnVideo";
+import { GolesDelRivalEnVideo, type LadoGoles, type Tipo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { cargaResumenesRfef, mismoEquipo, urlResumen } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { trackModuleVisit } from "@/lib/module-usage";
@@ -27,6 +27,10 @@ import { trackModuleVisit } from "@/lib/module-usage";
 /* Mismo canto y sombra que los demás accesos de la portada (`.portada-viva`), en oro: es lo del rival en vídeo. */
 const CHIP =
   "portada-viva group flex min-h-[52px] min-w-0 items-center gap-2.5 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-left text-[13.5px] font-semibold leading-tight text-[#C8A96B] hover:bg-[#C8A96B]/20";
+
+/* Chip suelto para la tira de accesos del área rival (AccesosDelRival). */
+const CHIP_TIRA =
+  "inline-flex min-h-9 min-w-0 shrink-0 items-center whitespace-nowrap justify-center rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-center text-[13px] font-semibold leading-tight text-[#C8A96B] transition-colors hover:border-[#C8A96B]/70 hover:bg-[#C8A96B]/20 sm:min-h-0";
 
 /** El botón de reproducir, en su círculo de oro. */
 function Icono() {
@@ -37,7 +41,17 @@ function Icono() {
   );
 }
 
-export function VideosDelRival({ rival }: { rival: string }) {
+export function VideosDelRival({
+  rival,
+  etiqueta = "Próximo rival · vídeo",
+  tipo = "todos",
+}: {
+  rival: string;
+  /** Fuera de la portada (tira de accesos del área rival, 16/11/2026) el rival no tiene por qué ser el próximo. */
+  etiqueta?: string;
+  /** «abp»: desde ABP del rival, los goles a balón parado. */
+  tipo?: Tipo;
+}) {
   const [abierto, setAbierto] = useState<LadoGoles | null>(null);
   const [sinGoles, setSinGoles] = useState(false);
   const [resumenes, setResumenes] = useState<ResumenRfef[]>([]);
@@ -85,9 +99,13 @@ export function VideosDelRival({ rival }: { rival: string }) {
   };
 
   const hayAlgo = !sinGoles || Boolean(ultimo);
+  /* En la portada, bloque propio con rótulo; en la tira de accesos del área rival, chips sueltos. */
+  const enPortada = etiqueta === "Próximo rival · vídeo";
 
   return (
     <>
+      {enPortada ? (
+        <>
       {/* 16/11/2026 (rediseño): bloque propio con rótulo, tres botones con el icono de reproducir y lo que enseña cada uno debajo. */}
       {hayAlgo && (
         <div className="min-w-0">
@@ -101,14 +119,14 @@ export function VideosDelRival({ rival }: { rival: string }) {
                 <button type="button" className={CHIP} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
                   <Icono />
                   <span className="min-w-0">
-                    <span className="block">Sus goles</span>
+                    <span className="block">{tipo === "abp" ? "Sus goles a balón parado" : "Sus goles"}</span>
                     <span className="block text-[12px] font-medium opacity-75">lo que marca</span>
                   </span>
                 </button>
                 <button type="button" className={CHIP} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
                   <Icono />
                   <span className="min-w-0">
-                    <span className="block">Cómo le marcan</span>
+                    <span className="block">{tipo === "abp" ? "Cómo le marcan a balón parado" : "Cómo le marcan"}</span>
                     <span className="block text-[12px] font-medium opacity-75">por dónde dañarle</span>
                   </span>
                 </button>
@@ -134,6 +152,32 @@ export function VideosDelRival({ rival }: { rival: string }) {
           </div>
         </div>
       )}
+        </>
+      ) : (
+        <>
+      {!sinGoles && (
+        <>
+          <button type="button" className={CHIP_TIRA} onClick={() => abre("favor")} title={`Los goles de ${rival}, de seguido o uno a uno`}>
+            {tipo === "abp" ? "▶ Sus goles a balón parado" : "▶ Sus goles en vídeo"}
+          </button>
+          <button type="button" className={CHIP_TIRA} onClick={() => abre("contra")} title={`Los goles que le han marcado a ${rival}: por dónde hacerle daño`}>
+            {tipo === "abp" ? "▶ Cómo le marcan a balón parado" : "▶ Cómo le marcan"}
+          </button>
+        </>
+      )}
+      {ultimo && (
+        <a
+          href={urlResumen(ultimo)}
+          target="_blank"
+          rel="noreferrer"
+          className={CHIP_TIRA}
+          title={`Resumen de la RFEF · J${ultimo.jornada}: ${ultimo.local} ${ultimo.golesLocal}-${ultimo.golesVisitante} ${ultimo.visitante}`}
+        >
+          ▶ Su último partido
+        </a>
+      )}
+        </>
+      )}
 
       {abierto &&
         typeof document !== "undefined" &&
@@ -153,7 +197,7 @@ export function VideosDelRival({ rival }: { rival: string }) {
             >
               <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5 sm:py-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">Próximo rival · vídeo</p>
+                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">{etiqueta}</p>
                   <h2 className="mt-1 text-lg font-semibold text-white">{rival}, gol a gol</h2>
                 </div>
                 <button
@@ -166,7 +210,7 @@ export function VideosDelRival({ rival }: { rival: string }) {
                 </button>
               </div>
               <div className="min-w-0 px-4 py-4 sm:px-5">
-                <GolesDelRivalEnVideo equipo={rival} ladoInicial={abierto} alVacio={alVacio} />
+                <GolesDelRivalEnVideo equipo={rival} ladoInicial={abierto} tipoInicial={tipo} alVacio={alVacio} />
               </div>
             </div>
           </div>,

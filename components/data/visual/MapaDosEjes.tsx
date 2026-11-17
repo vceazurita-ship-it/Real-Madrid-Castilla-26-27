@@ -124,6 +124,10 @@ export function MapaDosEjes({
       { x: cx - 14, y: cy + t + 18, fin: true },
       { x: cx - 14, y: cy + t + 32, fin: true },
       { x: cx + 14, y: cy + t + 32, fin: false },
+      /* Más arriba (16/11/2026, ronda 18): un punto pegado a una esquina («Real Murcia» en «Mucho, sin acierto») pisaba su rótulo. */
+      { x: cx - 14, y: cy - 38, fin: true },
+      { x: cx + 14, y: cy - 38, fin: false },
+      { x: cx - 14, y: cy - 54, fin: true },
     ].filter((s) => (s.fin ? s.x - w > 2 : s.x + w < W - 2));
     let puesto = false;
     for (const s of sitios) {

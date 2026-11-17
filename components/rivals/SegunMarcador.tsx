@@ -34,10 +34,130 @@ import {
   segunMarcador,
   UMBRAL,
   valorTexto,
+  type ClaveMetrica as ClaveMetricaMarcador,
   type Estado,
+  type SegunMarcador as SegunMarcadorDatos,
 } from "@/lib/rivals/segun-marcador";
+import { VistaVisualDetalle } from "@/components/ui/VistaVisual";
+import { chipInk } from "@/lib/theme";
 
 const COLOR_ESTADO: Record<Estado, string> = { ganando: MEJOR, empatando: tinta(0.22), perdiendo: PEOR };
+
+/** Por debajo de tres partidos enteros en un estado, lo que se lee es tendencia (16/11/2026, ronda 18, fútbol: «Va perdiendo» con 188′). */
+const MINUTOS_TENDENCIA = 270;
+
+const coma = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
+const baseDe = (min: number) => `${Math.round(min)}′ de base${min < MINUTOS_TENDENCIA ? ", tendencia" : ""}`;
+
+/*
+| LA ORDEN DE VESTUARIO QUE SALE DEL DATO (16/11/2026, ronda 18, fútbol): «si
+| nos adelantamos, sube a 16,7 remates/90 con 188′ de base (tendencia):
+| defender el área y la segunda jugada». Sólo con lo que se aparta más del
+| umbral de su media y con al menos 90′ en ese estado; si nada se aparta, no hay orden.
+*/
+function ordenesDelMarcador(s: SegunMarcadorDatos, nombre: string): string[] {
+  const col = (e: Estado) => s.columnas.find((c) => c.estado === e);
+  const ordenes: string[] = [];
+  const perdiendo = col("perdiendo");
+
+  if (perdiendo && perdiendo.minutos >= MINUTOS_MINIMOS) {
+    const r = perdiendo.valores.remates;
+    const t = perdiendo.valores.tercio;
+
+    if (r.valor != null && r.desvio != null && r.desvio > UMBRAL) {
+      ordenes.push(
+        `Si nos adelantamos, ${nombre} sube a ${coma(r.valor)} remates por 90′ (su media, ${coma(s.media.remates ?? 0)}; ${baseDe(perdiendo.minutos)}): defender el área y la segunda jugada.`,
+      );
+    } else if (t.valor != null && t.desvio != null && t.desvio > UMBRAL) {
+      ordenes.push(
+        `Si nos adelantamos, ${nombre} vive en nuestro campo: ${coma(t.valor)} toques por 90′ en el último tercio (su media, ${coma(s.media.tercio ?? 0)}; ${baseDe(perdiendo.minutos)}). Salida limpia y transición a su espalda.`,
+      );
+    }
+  }
+
+  const ganando = col("ganando");
+
+  if (ganando && ganando.minutos >= MINUTOS_MINIMOS) {
+    const p = ganando.valores.posesion;
+    const x = ganando.valores.xgc;
+
+    if (p.valor != null && p.desvio != null && p.desvio < -UMBRAL / 2) {
+      ordenes.push(
+        `Si se adelanta, ${nombre} nos da el balón (${coma(p.valor, 0)} % de posesión; su media, ${coma(s.media.posesion ?? 0, 0)} %; ${baseDe(ganando.minutos)}): no adelantarnos en el marcador con prisa; amplitud, paciencia y llegada al área.`,
+      );
+    } else if (x.valor != null && x.desvio != null && x.desvio > UMBRAL) {
+      ordenes.push(
+        `Si se adelanta, le llegan más (${coma(x.valor, 2)} xG en contra por 90′; su media, ${coma(s.media.xgc ?? 0, 2)}; ${baseDe(ganando.minutos)}): no bajar los brazos, el empate llega.`,
+      );
+    }
+  }
+
+  return ordenes;
+}
+
+/* Las métricas que se comparan en barras: las cuatro «/90» con la misma escala dentro de cada una. */
+const EN_BARRAS: ClaveMetricaMarcador[] = ["remates", "xg", "xgc", "tercio"];
+
+/** Barras agrupadas: por métrica, los tres estados y la raya de su media (Visual, 16/11/2026, ronda 18, marketing). */
+function BarrasMarcador({ s }: { s: SegunMarcadorDatos }) {
+  const metricas = METRICAS.filter((m) => EN_BARRAS.includes(m.clave));
+
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/65">
+        {s.columnas.map((c) => (
+          <span key={c.estado} className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="inline-block h-2.5 w-4 rounded-sm" style={{ background: COLOR_ESTADO[c.estado] }} />
+            {NOMBRE_ESTADO[c.estado]} · {minutosTexto(c.minutos)}
+            {c.minutos < MINUTOS_MINIMOS ? " (pocos minutos)" : c.minutos < MINUTOS_TENDENCIA ? " (tendencia)" : ""}
+          </span>
+        ))}
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-3 w-0.5" style={{ background: tinta(0.7) }} />
+          su media
+        </span>
+      </div>
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2">
+        {metricas.map((m) => {
+          const valores = s.columnas.map((c) => c.valores[m.clave].valor ?? 0);
+          const media = s.media[m.clave] ?? 0;
+          const tope = Math.max(...valores, media, 0.0001) * 1.08;
+
+          return (
+            <div key={m.clave} className="min-w-0">
+              <p className="mb-1 text-[12px] font-semibold text-white" title={m.nota}>
+                {m.rotulo} <span className="font-normal text-white/55">por 90′</span>
+              </p>
+              <div className="relative space-y-1">
+                {s.columnas.map((c) => {
+                  const v = c.valores[m.clave];
+                  const poco = c.minutos < MINUTOS_MINIMOS;
+
+                  return (
+                    <div key={c.estado} className="flex min-w-0 items-center gap-2">
+                      <div className="relative h-4 min-w-0 flex-1 rounded-sm" style={{ background: tinta(0.06) }}>
+                        {v.valor != null && (
+                          <div
+                            className="absolute inset-y-0 left-0 rounded-sm"
+                            style={{ width: `${(v.valor / tope) * 100}%`, background: COLOR_ESTADO[c.estado], opacity: poco ? 0.4 : 1 }}
+                          />
+                        )}
+                        <div aria-hidden className="absolute inset-y-[-2px] w-0.5" style={{ left: `${(media / tope) * 100}%`, background: tinta(0.7) }} />
+                      </div>
+                      <span className={`w-14 shrink-0 text-right text-[12px] tabular-nums ${marcado(v) && !poco ? "font-bold text-white" : "text-white/70"}`}>
+                        {valorTexto(v.valor, m.unidad, m.decimales)}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 export function SegunMarcador({ equipo }: { equipo: string }) {
   /* El mismo «al asomar o, como muy tarde, a los 2,5 s» que los demás bloques del rival: sin bajar (captura, exportación) también se pinta. */
@@ -71,21 +191,9 @@ function Bloque({ equipo }: { equipo: string }) {
   const lineas = verTodos ? s.lineas : s.lineas.slice(0, 8);
   const finEje = Math.max(...s.lineas.map((l) => l.fin), 5400);
 
-  return (
-    <section aria-label="Según el marcador" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-        Según el marcador
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
-          dato · Opta, {s.partidos} {s.partidos === 1 ? "partido" : "partidos"}
-        </span>
-      </p>
-      <p className="mt-1 text-sm leading-6 text-white/75">
-        Lo que hace {nombre} por cada 90 minutos jugados yendo por delante, igualado o por detrás.
-        {frase && <> <strong className="text-white">{frase}</strong></>}
-      </p>
-
-      {/* Tres columnas; en móvil, desliza de lado. */}
-      <div className="mt-3 min-w-0 overflow-x-auto">
+  /* La tabla de siempre: en «Detalle» (16/11/2026, ronda 18). En móvil, desliza de lado. */
+  const tabla = (
+      <div className="min-w-0 overflow-x-auto">
         <table className="w-full min-w-[520px] border-separate border-spacing-0 text-[12px]">
           <thead>
             <tr>
@@ -96,9 +204,9 @@ function Bloque({ equipo }: { equipo: string }) {
                     <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_ESTADO[c.estado] }} />
                     {NOMBRE_ESTADO[c.estado]}
                   </span>
-                  <span className={`block text-[10px] font-normal ${c.minutos < MINUTOS_MINIMOS ? "text-white/40" : "text-white/55"}`}>
+                  <span className={`block text-[11px] font-normal ${c.minutos < MINUTOS_MINIMOS ? "text-white/40" : "text-white/55"}`}>
                     {minutosTexto(c.minutos)}
-                    {c.minutos < MINUTOS_MINIMOS && " · pocos minutos"}
+                    {c.minutos < MINUTOS_MINIMOS ? " · pocos minutos" : c.minutos < MINUTOS_TENDENCIA ? " · tendencia" : ""}
                   </span>
                 </th>
               ))}
@@ -123,7 +231,7 @@ function Bloque({ equipo }: { equipo: string }) {
                       title={pct ? `${pct} sobre su media` : undefined}
                     >
                       {valorTexto(v.valor, m.unidad, m.decimales)}
-                      {rojo && <span className="ml-1 text-[10px] font-semibold">{pct}</span>}
+                      {rojo && <span className="ml-1 text-[11px] font-semibold">{pct}</span>}
                     </td>
                   );
                 })}
@@ -133,6 +241,44 @@ function Bloque({ equipo }: { equipo: string }) {
           </tbody>
         </table>
       </div>
+  );
+  const ordenes = ordenesDelMarcador(s, nombre);
+
+  return (
+    <section aria-label="Según el marcador" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
+        Según el marcador
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+          dato · Opta, {s.partidos} {s.partidos === 1 ? "partido" : "partidos"}
+        </span>
+      </p>
+      <p className="mt-1 text-sm leading-6 text-white/75">
+        Lo que hace {nombre} por cada 90 minutos jugados yendo por delante, igualado o por detrás.
+        {frase && <> <strong className="text-white">{frase}</strong></>}
+      </p>
+
+      {/* La orden de vestuario que sale del dato (16/11/2026, ronda 18, fútbol). */}
+      {ordenes.length > 0 && (
+        <ul className="mt-2 min-w-0 space-y-1">
+          {ordenes.map((o) => (
+            <li key={o} className="rounded-lg border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3 py-1.5 text-[13px] leading-snug text-white/85">
+              <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: chipInk("#C8A96B") }}>
+                Qué hacemos
+              </span>
+              {o}
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <div className="mt-3 min-w-0">
+        <VistaVisualDetalle
+          pantalla="scout-colectivo-marcador"
+          visual={<BarrasMarcador s={s} />}
+          detalle={tabla}
+        />
+      </div>
+
 
       <p className="mt-4 text-[12px] font-semibold text-white">Partido a partido: cuándo cambió el marcador</p>
       <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
@@ -175,7 +321,7 @@ function Bloque({ equipo }: { equipo: string }) {
                 <span
                   key={i}
                   aria-hidden
-                  className="absolute -translate-x-1/2 text-[9px] leading-none text-white"
+                  className="absolute -translate-x-1/2 text-[11px] leading-none text-white"
                   style={{ left: `${(g.segundo / finEje) * 100}%`, top: g.suyo ? "-10px" : "13px" }}
                 >
                   {g.suyo ? "▲" : "▼"}

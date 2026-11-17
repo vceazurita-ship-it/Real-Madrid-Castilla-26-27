@@ -70,6 +70,7 @@ import { AnalisisRival } from "@/components/rivals/analisis/AnalisisRival";
 import { ApuntesAbp } from "@/components/abp/apuntes/ApuntesAbp";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useOrdenRivales } from "@/hooks/useOrdenRivales";
 import { useLento } from "@/hooks/useLento";
@@ -825,6 +826,9 @@ export default function ScoutRivalAbpPage() {
               ) : undefined
             }
           />
+
+          {/* El resto del rival a un toque, con él puesto; los goles en vídeo, a balón parado (16/11/2026, ronda 18, área rival). */}
+          {equipo && <AccesosDelRival equipo={equipo} aqui="/scout-rival-abp" tipoVideo="abp" className="mt-3" />}
 
           {loading ? (
             <div className="mt-8 space-y-4">

@@ -43,6 +43,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { DUELOS, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 
 import {
   Activity,
@@ -550,19 +551,34 @@ const SIGLAS_PLAN: Record<string, string> = {
  * El texto tal cual lo escribió el analista, con un `title` en cada sigla
  * conocida (y en Z1, Z2…: zonas del campo). No cambia ni una letra.
  */
+/* La glosa corta que va al lado de la sigla la primera vez en cada línea (16/11/2026, ronda 18: «explicar las siglas junto a su primer uso»). */
+const GLOSA_CORTA: Record<string, string> = {
+  CP: "ataque posicional",
+  CR: "contraataque",
+  ABP: "balón parado",
+  PTO: "portero",
+};
+
 function ConSiglas({ texto }: { texto: string }) {
   const partes = texto.split(/(?<![\p{L}\d])(CP|CR|ABP|PTO|Z\d|def|Meso|MdJ)(?![\p{L}\d])/u);
+  const vistas = new Set<string>();
 
   return (
     <>
       {partes.map((p, i) => {
         const significado = i % 2 === 1 ? (SIGLAS_PLAN[p] ?? (/^Z\d$/.test(p) ? `Zona ${p.slice(1)} del campo` : "")) : "";
+        const glosa = significado && !vistas.has(p) ? (GLOSA_CORTA[p] ?? (/^Z\d$/.test(p) ? `zona ${p.slice(1)}` : "")) : "";
+
+        if (significado) vistas.add(p);
 
         return significado ? (
           /* Subrayado de puntos siempre a la vista: que se note que se explica (30/10/2026). */
-          <abbr key={i} title={significado} tabIndex={0} className="cursor-help underline decoration-white/40 decoration-dotted underline-offset-2">
-            {p}
-          </abbr>
+          <span key={i}>
+            <abbr title={significado} tabIndex={0} className="cursor-help underline decoration-white/40 decoration-dotted underline-offset-2">
+              {p}
+            </abbr>
+            {glosa && <span className="text-[0.85em] text-white/55"> ({glosa})</span>}
+          </span>
         ) : (
           p
         );
@@ -1678,9 +1694,17 @@ export default function MatchPreparation() {
         .sort((a, b) => Math.max(Math.abs(b.conBalon ?? 0), Math.abs(b.sinBalon ?? 0)) - Math.max(Math.abs(a.conBalon ?? 0), Math.abs(a.sinBalon ?? 0)))[0]?.clave
     : undefined;
   const tresIdeas = (() => {
-    const ideas: { titulo: string; texto: string; base: string; enlace?: string }[] = [];
+    /* Cada idea, con el enlace al dato que la sostiene y el rival puesto (16/11/2026, ronda 18). */
+    const ideas: { titulo: string; texto: string; base: string; enlaces?: { href: string; texto: string }[] }[] = [];
+    const equipoQ = rivalActivo?.EQUIPO ? `?equipo=${encodeURIComponent(String(rivalActivo.EQUIPO))}` : "";
     const salida = proyeccionJuego?.fases.find((f) => f.titulo === "Su salida ante nuestra presión" && f.consigna);
-    if (salida) ideas.push({ titulo: "Sin balón · su salida", texto: salida.consigna, base: salida.frase });
+    if (salida)
+      ideas.push({
+        titulo: "Sin balón · su salida",
+        texto: salida.consigna,
+        base: salida.frase,
+        enlaces: rivalActivo ? [{ href: enlaceAnalisisRival(rivalActivo), texto: "Su salida en Scout colectivo →" }] : undefined,
+      });
     const nuestro = proyeccionJuego?.nuestroFuerte;
     const VERBO: Record<string, string> = {
       TouchOpBox: "Entrar al área con gente",
@@ -1697,9 +1721,18 @@ export default function MatchPreparation() {
         titulo: "Su punto débil",
         texto: "El córner a favor: atacar el primer palo con bloqueo",
         base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate (${cornerEnContra.puesto}.º de ${cornerEnContra.de}; ${partidosW}): unos ${decimas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de cada 10.`,
+        enlaces: [
+          { href: `/scout-rival-abp${equipoQ}`, texto: "Su ABP →" },
+          ...(rivalActivo ? [{ href: enlacePizarraAbp(rivalActivo), texto: "La rutina en la Pizarra ABP →" }] : []),
+        ],
       });
     } else if (extremosRival?.flojo)
-      ideas.push({ titulo: "Su punto débil", texto: `Atacar su ${extremosRival.flojo.split(" (")[0]}`, base: `${enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1))} (${partidosW}).` });
+      ideas.push({
+        titulo: "Su punto débil",
+        texto: `Atacar su ${extremosRival.flojo.split(" (")[0]}`,
+        base: `${enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1))} (${partidosW}).`,
+        enlaces: [{ href: `/rivals${equipoQ}`, texto: "Cómo llega, en Plantillas →" }],
+      });
     const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
     const duelo = duelosClave
       ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
@@ -1712,7 +1745,7 @@ export default function MatchPreparation() {
         titulo: "El duelo que decide",
         texto: duelo.consigna.split(" (")[0],
         base: `${duelo.titulo}, ${momento}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}.${duelo.base ? ` ${duelo.base.replace(/^Base, /, "").replace(/^m/, "M")}.` : ""}`,
-        enlace: enlaceDuelos,
+        enlaces: [{ href: enlaceDuelos, texto: "Ver el duelo →" }],
       });
     }
     return ideas;
@@ -2435,6 +2468,16 @@ export default function MatchPreparation() {
               Estrategia operativa de la jornada: contexto, plan de juego,
               duelos y recursos de vídeo.
             </p>
+
+            {/* Todo el rival a un toque, con este partido ya puesto: sus goles en vídeo, su último partido, el ABP, Duelos… (16/11/2026, ronda 18). */}
+            {rivalActivo && (
+              <AccesosDelRival
+                equipo={String(rivalActivo.EQUIPO ?? "")}
+                rivalId={String(rivalActivo.ID ?? "")}
+                aqui="/match-preparation"
+                className="mp-no-print mt-4"
+              />
+            )}
           </header>
 
           {/* «Los duelos, en una línea» se quitó (10/11/2026, jueces): repetía la sección «Duelos», que es la que queda, con su enlace al detalle. */}
@@ -2963,10 +3006,14 @@ export default function MatchPreparation() {
                         </p>
                         <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{idea.texto}</p>
                         {idea.base && <p className="mt-1 text-xs leading-snug text-white/60">{idea.base}</p>}
-                        {idea.enlace && (
-                          <Link href={idea.enlace} className="mt-1 inline-block text-xs font-semibold text-[#C8A96B] hover:underline">
-                            Ver el duelo →
-                          </Link>
+                        {idea.enlaces && idea.enlaces.length > 0 && (
+                          <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
+                            {idea.enlaces.map((e) => (
+                              <Link key={e.href} href={e.href} className="inline-block text-xs font-semibold text-[#C8A96B] hover:underline">
+                                {e.texto}
+                              </Link>
+                            ))}
+                          </p>
                         )}
                       </div>
                     ))}

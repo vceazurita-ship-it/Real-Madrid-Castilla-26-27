@@ -30,7 +30,7 @@ import { casaEquipo, pistaDe, rematesDe, type Remate } from "@/lib/opta-eventos"
 import { urlGolesDelEquipo, type LadoGoles } from "@/lib/rivals/goles-en-video";
 
 export type { LadoGoles };
-type Tipo = "todos" | "jugada" | "abp";
+export type Tipo = "todos" | "jugada" | "abp";
 type Ultimos = "todos" | "3" | "5";
 
 /** Situaciones de Opta que son juego (el resto —córner, faltas, banda, penalti— es balón parado). */
@@ -51,11 +51,14 @@ export function SeccionGolesDelRival({ equipo }: { equipo: string }) {
 export function GolesDelRivalEnVideo({
   equipo,
   ladoInicial = "favor",
+  tipoInicial = "todos",
   enMarco = false,
   alVacio,
 }: {
   equipo: string;
   ladoInicial?: LadoGoles;
+  /** «abp»: abre con el filtro de balón parado puesto (desde ABP del rival, 16/11/2026). */
+  tipoInicial?: Tipo;
   /** Con su caja y su título (en una pantalla); sin ellos, para un modal que ya los pone. */
   enMarco?: boolean;
   /** Cuando ya se sabe que no hay goles que enseñar (el modal se cierra). */
@@ -64,7 +67,7 @@ export function GolesDelRivalEnVideo({
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.jugadoresPartidos, DOCS_OPTA.remates);
   const [tEquipos, tJugPartidos, tRemates] = docs;
   const [lado, setLado] = useState<LadoGoles>(ladoInicial);
-  const [tipo, setTipo] = useState<Tipo>("todos");
+  const [tipoPedido, setTipo] = useState<Tipo>(tipoInicial);
   const [ultimos, setUltimos] = useState<Ultimos>("todos");
 
   const base = useMemo(() => {
@@ -99,6 +102,8 @@ export function GolesDelRivalEnVideo({
   const delLado = golesDe[lado];
   const enJugada = delLado.filter((r) => tipoDe(r) === "jugada").length;
   const aBalonParado = delLado.length - enJugada;
+  /* Un filtro que se quedaría vacío (pedido «a balón parado» y no hay ninguno) no se aplica: se ven todos. */
+  const tipo: Tipo = (tipoPedido === "abp" && aBalonParado === 0) || (tipoPedido === "jugada" && enJugada === 0) ? "todos" : tipoPedido;
   /* Memorizado: una lista nueva en cada pintado rehacía las tomas y volvía a cargar el corte que se estaba viendo. */
   const goles = useMemo(() => (tipo === "todos" ? delLado : delLado.filter((r) => tipoDe(r) === tipo)), [delLado, tipo]);
 

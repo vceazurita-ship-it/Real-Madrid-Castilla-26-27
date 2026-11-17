@@ -10,7 +10,13 @@
  * defienden los centros ya tiene su sección aunque todavía no haya material.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
+import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+
+const suscribeNada = () => () => {};
+const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get("equipo") ?? "";
 
 import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
 import { AbpHeader, EmptyState, TeamPicker } from "@/components/abp/ui";
@@ -40,7 +46,15 @@ export default function AreaRivalPage() {
   | `localStorage` y el lunes la pantalla abría con el rival del partido ya
   | jugado; ahora abre con el del próximo (10/10/2026).
   */
-  const [elegido, setElegido] = useState<string | null>(null);
+  const [elegidoAMano, setElegido] = useState<string | null>(null);
+
+  /*
+  | El rival que trae la dirección (`?equipo=`, 16/11/2026, ronda 18): desde la
+  | tira de accesos de las demás pantallas del rival se llega con él puesto.
+  | Leído sin `useSearchParams` (pediría Suspense), como en /duelos.
+  */
+  const enlazado = useSyncExternalStore(suscribeNada, leeEquipoEnlazado, () => "");
+  const elegido = elegidoAMano ?? (enlazado || null);
 
   const escudoDe = useEscudos();
 
@@ -90,8 +104,14 @@ export default function AreaRivalPage() {
 
   /* Sin elegir a mano, nada hasta saber el calendario: antes caía en el primero
      por alfabeto (Alcorcón) y luego saltaba al rival de la semana (24/10/2026). */
-  const equipo =
-    elegido && equipos.includes(elegido) ? elegido : listo ? proximoDe(equipos) || (equipos[0] ?? "") : "";
+  /* El de la dirección puede venir escrito de otra manera («Real Murcia» / «REAL MURCIA CF»): se casa con `mismoClub`. */
+  const delElegido = elegido ? (equipos.includes(elegido) ? elegido : equipos.find((e) => mismoClub(e, elegido)) ?? "") : "";
+  const equipo = delElegido ? delElegido : listo ? proximoDe(equipos) || (equipos[0] ?? "") : "";
+
+  const plantillaDelEquipo = useMemo(
+    () => (Array.isArray(plantilla) ? (plantilla as Record<string, unknown>[]) : []).filter((fila) => String(fila.NOMBRE_EQUIPO ?? "").trim() === equipo),
+    [plantilla, equipo],
+  );
 
   const lento = useLento(cargando);
 
@@ -118,6 +138,9 @@ export default function AreaRivalPage() {
             /* 07/11/2026 (jueces): la entrada prometía perfil, trayectoria y caída de los remates, que no siempre hay; dice lo que se ve. */
             lead="Cuánto centran y con qué acierto, cuántos centros reciben y qué hacemos en cada caso, según Wyscout."
           />
+
+          {/* La tira de accesos del rival (16/11/2026, ronda 18): sus goles en vídeo, Plan, ABP, Individual… con este rival puesto. */}
+          {equipo && <AccesosDelRival equipo={equipo} aqui="/scout-rival-area" className="mt-4" />}
 
           {cargando ? (
             <div className="mt-8 space-y-4">
@@ -164,6 +187,12 @@ export default function AreaRivalPage() {
 
               {/* Las cifras primero: lo que Wyscout dice de sus centros, con la mediana de la liga. Si no hay dato, no sale. */}
               {equipo && <AbpWyscoutRival ambito="area" equipo={equipo} plantilla={[]} />}
+
+              {/*
+                Quién centra (16/11/2026, ronda 18, fútbol): el mismo «Por dónde ataca»
+                de Scout colectivo, con quién carga cada banda y su ficha y su vídeo a un toque.
+              */}
+              {equipo && <PorDondeAtaca equipo={equipo} plantilla={plantillaDelEquipo} />}
 
               {equipo && (
                 <AnalisisRival

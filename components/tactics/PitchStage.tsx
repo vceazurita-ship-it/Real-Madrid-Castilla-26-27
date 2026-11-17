@@ -38,7 +38,7 @@ import {
   useRef,
   useState,
 } from "react";
-import { Maximize2, Minimize2 } from "lucide-react";
+import { ChevronDown, Maximize2, Minimize2, Wrench } from "lucide-react";
 
 import type { PitchCamera } from "@/hooks/usePitchCamera";
 import { cn } from "@/lib/utils";
@@ -104,6 +104,8 @@ interface Props {
    * se le vuelve a abrir en el siguiente render.
    */
   aPantallaCompleta?: boolean;
+  /** La herramienta en uso, junto al botón del muelle plegado («Herramientas · Mover»). */
+  rotuloMuelle?: string;
   className?: string;
 }
 
@@ -127,9 +129,13 @@ export default function PitchStage({
   timeline,
   pie,
   aPantallaCompleta = false,
+  rotuloMuelle,
   className,
 }: Props) {
   const stageRef = useRef<HTMLDivElement>(null);
+
+  /** El muelle del móvil, plegado tras «Herramientas» hasta que se pide (16/11/2026). */
+  const [muelle, setMuelle] = useState(false);
 
   /** Pizarra a pantalla completa: en el móvil es lo que la hace grande. */
   const [expanded, setExpanded] = useState(false);
@@ -484,9 +490,26 @@ export default function PitchStage({
             expanded && "max-h-[30svh]"
           )}
         >
-          {dockToolbar && <div className="p-2">{dockToolbar}</div>}
+          {/*
+            Plegado tras un solo botón (16/11/2026, ronda 18, jueces de fútbol):
+            a 390 px dos filas de herramientas y la cámara dejaban el campo en
+            menos de un tercio de la pantalla.
+          */}
+          <button
+            type="button"
+            onClick={() => setMuelle((v) => !v)}
+            aria-expanded={muelle}
+            className="flex min-h-10 w-full items-center justify-between gap-2 px-3 py-2 text-[13px] font-semibold text-white/80"
+          >
+            <span className="inline-flex items-center gap-1.5">
+              <Wrench size={14} aria-hidden /> Herramientas{rotuloMuelle ? <span className="font-normal text-white/55"> · {rotuloMuelle}</span> : null}
+            </span>
+            <ChevronDown size={15} aria-hidden className={cn("transition", muelle && "rotate-180")} />
+          </button>
 
-          {dockPanel && (
+          {muelle && dockToolbar && <div className="border-t border-white/[0.06] p-2">{dockToolbar}</div>}
+
+          {muelle && dockPanel && (
             <div className="border-t border-white/[0.06] p-2">{dockPanel}</div>
           )}
         </div>

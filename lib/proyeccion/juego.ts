@@ -241,6 +241,8 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
       return p ? `${p.puesto}.º que más ${lado === "propio" ? "genera" : "concede"} de ${p.de}` : "";
     };
     const f = (v: number) => fmt(l.metrica, v);
+    /* Qué media es (16/11/2026, ronda 18): la de los equipos del grupo en Opta, la misma población que la tabla. */
+    const mediaDe = (v: string) => `media de los ${L.porEquipo.size} equipos del grupo en Opta: ${v}`;
     /*
     | Una sola variable por cifra (lo de la temporada, por partido), en ese
     | sentido frente a la media y, desde el 16/11/2026, entre los 6 extremos de
@@ -253,10 +255,10 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
       if (!enElExtremo(puestoDe(L, equipo, lado))) return;
       cand.push({ clave: l.metrica.clave, quien, clase, indice: r.temporada / l.liga, frase: `${frase(f(r.temporada))} ${base(l.metrica, r.n)}` });
     };
-    mete("riv", "fuerte", l.contra.ataque, (v) => `${l.metrica.nombre}: el ${R} hace ${v} por partido (media ${f(l.liga)}; ${sitio(riv, "propio")}).`);
-    mete("riv", "debil", l.favor.defensa, (v) => `${l.metrica.nombre}: el ${R} concede ${v} por partido (media ${f(l.liga)}; ${sitio(riv, "concede")}).`);
-    mete("nos", "fuerte", l.favor.ataque, (v) => `${l.metrica.nombre}: hacemos ${v} por partido (media ${f(l.liga)}; ${sitio(nos, "propio")}).`);
-    mete("nos", "debil", l.contra.defensa, (v) => `${l.metrica.nombre}: concedemos ${v} por partido (media ${f(l.liga)}; ${sitio(nos, "concede")}).`);
+    mete("riv", "fuerte", l.contra.ataque, (v) => `${l.metrica.nombre}: el ${R} hace ${v} por partido (${mediaDe(f(l.liga))}; ${sitio(riv, "propio")}).`);
+    mete("riv", "debil", l.favor.defensa, (v) => `${l.metrica.nombre}: el ${R} concede ${v} por partido (${mediaDe(f(l.liga))}; ${sitio(riv, "concede")}).`);
+    mete("nos", "fuerte", l.favor.ataque, (v) => `${l.metrica.nombre}: hacemos ${v} por partido (${mediaDe(f(l.liga))}; ${sitio(nos, "propio")}).`);
+    mete("nos", "debil", l.contra.defensa, (v) => `${l.metrica.nombre}: concedemos ${v} por partido (${mediaDe(f(l.liga))}; ${sitio(nos, "concede")}).`);
   }
   const elige = (quien: "nos" | "riv", clase: "fuerte" | "debil") => cand.filter((c) => c.quien === quien && c.clase === clase).sort((a, b) => b.indice - a.indice)[0] ?? null;
 
@@ -272,19 +274,21 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
     const D = fmt(m, dT);
     const A = fmt(m, aT);
     const Lm = fmt(m, l.liga);
+    const Lgrupo = liga(t, m.clave);
+    const mediaCv = Lgrupo ? `media de los ${Lgrupo.porEquipo.size} equipos del grupo en Opta: ${Lm}` : `media del grupo en Opta: ${Lm}`;
     const cv: Record<string, string> = {
-      ExpG: `Generar remates de calidad: el ${R} concede ${D} xG por partido (media ${Lm}). Llegar al área con gente en vez de rematar de lejos.`,
-      ShtIncBl: `Terminar las jugadas: al ${R} le rematan ${D} veces por partido (media ${Lm}).`,
-      TouchOpBox: `Pisar su área: concede ${D} toques en su área por partido (media ${Lm}). Llegadas de segunda línea.`,
-      PosWonA3rd: `Presionar su salida: le recuperan ${D} balones en su último tercio por partido (media ${Lm}). Apretar su primer pase.`,
-      wContra: `Correr al robo: concede ${D} contraataques por partido (media ${Lm}).`,
+      ExpG: `Generar remates de calidad: el ${R} concede ${D} xG por partido (${mediaCv}). Llegar al área con gente en vez de rematar de lejos.`,
+      ShtIncBl: `Terminar las jugadas: al ${R} le rematan ${D} veces por partido (${mediaCv}).`,
+      TouchOpBox: `Pisar su área: concede ${D} toques en su área por partido (${mediaCv}). Llegadas de segunda línea.`,
+      PosWonA3rd: `Presionar su salida: le recuperan ${D} balones en su último tercio por partido (${mediaCv}). Apretar su primer pase.`,
+      wContra: `Correr al robo: concede ${D} contraataques por partido (${mediaCv}).`,
     };
     const cr: Record<string, string> = {
-      ExpG: `Cerrar el área: el ${R} genera ${A} xG por partido (media ${Lm}).`,
-      ShtIncBl: `Limitar sus remates: el ${R} remata ${A} veces por partido (media ${Lm}).`,
-      TouchOpBox: `Defender el área: el ${R} da ${A} toques en el área rival por partido (media ${Lm}).`,
-      PosWonA3rd: `Cuidar la salida de balón: el ${R} recupera ${A} balones en el último tercio por partido (media ${Lm}).`,
-      wContra: `Vigilancias ante pérdida: el ${R} sale a la contra ${A} veces por partido (media ${Lm}).`,
+      ExpG: `Cerrar el área: el ${R} genera ${A} xG por partido (${mediaCv}).`,
+      ShtIncBl: `Limitar sus remates: el ${R} remata ${A} veces por partido (${mediaCv}).`,
+      TouchOpBox: `Defender el área: el ${R} da ${A} toques en el área rival por partido (${mediaCv}).`,
+      PosWonA3rd: `Cuidar la salida de balón: el ${R} recupera ${A} balones en el último tercio por partido (${mediaCv}).`,
+      wContra: `Vigilancias ante pérdida: el ${R} sale a la contra ${A} veces por partido (${mediaCv}).`,
     };
     /*
     | Un punto sólo es ventaja (o riesgo) si las dos cifras van en ese sentido

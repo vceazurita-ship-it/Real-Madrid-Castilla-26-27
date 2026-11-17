@@ -19,9 +19,17 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { SECCIONES } from "@/components/ui/sidebar";
+import { conRivalEnUrl, rivalEnCursoActual, rivalEnCursoServidor, suscribeRivalEnCurso } from "@/lib/rivals/rival-en-curso";
+
+/*
+| En las secciones del rival y del partido, las pestañas llevan el rival que se
+| está mirando (16/11/2026, ronda 18): de Plantillas a Scout colectivo, al Plan
+| o a Duelos sin volver a elegirlo. Lo apunta cada pantalla al elegirlo.
+*/
+const SECCIONES_CON_RIVAL = new Set(["Rival", "Partido"]);
 
 /** La sección de una ruta: la entrada que coincide, o la más larga que la contiene (/laboratorio/microciclo?micro=3). */
 function seccionDe(ruta: string) {
@@ -48,6 +56,8 @@ export function NavSeccion() {
   const tira = useRef<HTMLDivElement>(null);
   const seccion = seccionDe(ruta);
   const entradas = (seccion?.entradas ?? []).filter((e) => !e.obras && e.href.startsWith("/"));
+  const rivalEnCurso = useSyncExternalStore(suscribeRivalEnCurso, rivalEnCursoActual, rivalEnCursoServidor);
+  const conRival = !!seccion && SECCIONES_CON_RIVAL.has(seccion.titulo);
 
   /* La altura de la cabecera entera (con esta tira o sin ella), para las pestañas pegadas. */
   useEffect(() => {
@@ -135,7 +145,7 @@ export function NavSeccion() {
           return (
             <Link
               key={href}
-              href={href}
+              href={conRival && !activa ? conRivalEnUrl(href, rivalEnCurso) : href}
               aria-current={activa ? "page" : undefined}
               /* Más alta en el móvil (14/11/2026): 40 px para el dedo. */
               className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition sm:min-h-0 ${

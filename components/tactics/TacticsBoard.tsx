@@ -2218,6 +2218,8 @@ export default function TacticsBoard({
                 <option key={player.id} value={player.id}>
                   {player.dorsal ? `${player.dorsal} · ` : ""}
                   {player.apodo || player.nombre}
+                  {/* Con su puesto (16/11/2026, ronda 18, análisis). */}
+                  {player.posicion ? ` · ${player.posicion.split(/[,/]/)[0].trim()}` : ""}
                 </option>
               );
 
@@ -2680,6 +2682,7 @@ export default function TacticsBoard({
 
       <PitchStage
         className="max-sm:-order-1 max-sm:-mx-3 max-sm:rounded-2xl"
+        rotuloMuelle={pista?.label}
         camera={camera}
         aPantallaCompleta={aPantallaCompleta}
         aspect={`${viewBox.width} / ${viewBox.height}`}

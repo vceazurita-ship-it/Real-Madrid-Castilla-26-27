@@ -119,12 +119,26 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
       </>
     );
 
-    return href ? (
-      <Link href={href} className={`${clase} hover:text-sky-300 hover:underline`} title={`Abrir la ficha de ${jugador} en Plantillas rivales`}>
-        {texto}
-      </Link>
-    ) : (
-      <span className={clase}>{texto}</span>
+    /* Su vídeo en Scout individual, con el jugador ya elegido (16/11/2026, ronda 18, fútbol). */
+    const video = `/scout-rival-individual?${new URLSearchParams({ equipo, jugador }).toString()}`;
+
+    return (
+      <>
+        {href ? (
+          <Link href={href} className={`${clase} hover:text-sky-300 hover:underline`} title={`Abrir la ficha de ${jugador} en Plantillas rivales`}>
+            {texto}
+          </Link>
+        ) : (
+          <span className={clase}>{texto}</span>
+        )}
+        <Link
+          href={video}
+          className="ml-1.5 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
+          title={`Los cortes de ${jugador} en Scout individual`}
+        >
+          ▶ Su vídeo
+        </Link>
+      </>
     );
   };
 
