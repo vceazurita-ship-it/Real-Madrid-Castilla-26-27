@@ -28,6 +28,9 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, ClipboardList, Film, Footprints, LayoutGrid, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { ClavesDelPartido, useLaboratorioDelPartido, type CifrasLaboratorio } from "@/components/data/ClavesDelPartido";
+import { GolesDeSeguido } from "@/app/opta/_piezas/GolesDeSeguido";
+import { useAsoma } from "@/hooks/useAsoma";
 
 import { CaraACara } from "@/app/opta/_piezas/FichaPartido";
 import { Fases } from "@/app/opta/_piezas/Fases";
@@ -35,7 +38,7 @@ import { Momentum } from "@/app/opta/_piezas/Momentum";
 import { MapaRemates } from "@/app/opta/_piezas/Remates";
 import { Elegir } from "@/app/opta/_piezas/comun";
 import { nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
-import { alturaAccion, esPerdida, esProgresivo, esRecuperacion } from "@/lib/opta-eventos";
+import { esProgresivo, type Remate } from "@/lib/opta-eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
@@ -142,7 +145,16 @@ function Bloque({ titulo, pregunta, sello, icono: Icono, children }: { titulo: s
  * `wyscoutCaido`: el informe de Wyscout no se ha podido leer. Entonces sólo se
  * quita lo de Wyscout, con un aviso corto, y lo de Opta sigue entero.
  */
-export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: FilaPartido[]; wyscoutCaido?: boolean }) {
+export function PanelPostPartido({
+  wyscout,
+  wyscoutCaido = false,
+  onIr,
+}: {
+  wyscout: FilaPartido[];
+  wyscoutCaido?: boolean;
+  /** 17/11/2026 (ronda 21): las tres claves llevan a su área de Análisis de datos. */
+  onIr?: (area: string) => void;
+}) {
   const { datos, cargando } = useOpta();
   const calendario = useCalendarioCastilla();
 
@@ -162,6 +174,8 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
   );
   const visto = lista.find((p) => p.clave === (elegido || desdeUrl)) ?? lista[0] ?? null;
   const delVideo = useEtiquetadoEnVideo();
+  /* 17/11/2026 (ronda 21): robos y pérdidas con la cuenta de los laboratorios. */
+  const lab = useLaboratorioDelPartido(visto);
 
   /* Lo de Wyscout para el campograma: la temporada de liga y la de la categoría. */
   const nuestrosW = useMemo(() => castillaWyscout(wyscout, temporada), [wyscout, temporada]);
@@ -219,7 +233,8 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
   const enCasa = enCasaDe(visto);
   const jornada = jornadaDe(visto);
   const cabecera = marcadorLocal(visto, NOMBRE_CASTILLA);
-  const ordenes = visto.opta ? ordenesMicro(datos, visto.clave, visto.opta.rival ? nombreDe(visto.opta.rivalId, visto.opta.rival) : visto.rival) : [];
+  const nombreRival = visto.opta?.rival ? nombreDe(visto.opta.rivalId, visto.opta.rival) : visto.rival;
+  const ordenes = visto.opta ? ordenesMicro(datos, visto.clave, nombreRival) : [];
   const resultado =
     visto.gf == null || visto.gc == null ? "" : visto.gf > visto.gc ? "victoria" : visto.gf < visto.gc ? "derrota" : "empate";
   /* La jornada sólo si es la de verdad (la del calendario de BeSoccer). */
@@ -255,17 +270,23 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       {/* 17/11/2026 (ronda 19, análisis y marketing): desde el partido, a un
           toque y con el partido ya elegido, lo que lo completa. Sustituye al
           bloque «Visto en el vídeo» del pie. */}
+      {/* 17/11/2026 (ronda 21): las tres conclusiones del partido, en dibujo, antes de cualquier tabla. */}
+      <ClavesDelPartido datos={datos} visto={visto} rival={cortoRival(nombreRival)} lab={lab} onIr={onIr} />
+
+      {/* 17/11/2026 (ronda 21, marketing): los botones con el mismo nombre que
+          en el menú, y cada uno abre ya en este partido (o en este rival). */}
       <EnlacesRapidos
         className="mt-3"
         titulo="De este partido"
         enlaces={[
-          { href: delVideo?.robos(visto) ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Sus robos", icono: Swords, title: "Robos y transiciones de este partido, jugada a jugada" },
-          { href: delVideo?.perdidas(visto) ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Sus pérdidas", icono: ShieldAlert, title: "Pérdidas y transiciones defensivas de este partido" },
-          { href: delVideo?.faltas(visto) ? enlaceConPartido("/laboratorio/faltas", visto) : null, texto: "Sus faltas", icono: Timer, title: "Faltas de este partido, con cuánta gente detrás" },
-          { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Nuestros goles en vídeo", icono: Video },
-          { href: visto.rival ? `/scout-rival-abp?equipo=${encodeURIComponent(visto.rival)}` : null, texto: `ABP de ${visto.rival}`, icono: Trophy },
-          { href: "/match-plans", texto: "Vídeo del partido", icono: Film },
-          { href: "/match-preparation", texto: "Plan del próximo partido", icono: ClipboardList },
+          { href: delVideo?.robos(visto) || lab.robos ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Robos y transiciones", icono: Swords, title: "Los robos de este partido, jugada a jugada" },
+          { href: delVideo?.perdidas(visto) || lab.perdidas ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Pérdidas y transiciones", icono: ShieldAlert, title: "Las pérdidas de este partido y lo que hizo el rival con ellas" },
+          { href: delVideo?.faltas(visto) ? enlaceConPartido("/laboratorio/faltas", visto) : null, texto: "Análisis de faltas", icono: Timer, title: "Las faltas de este partido, con cuánta gente detrás" },
+          { href: visto.opta ? "#goles-del-partido" : null, texto: "Los goles del partido en vídeo", icono: Video, title: "Más abajo, en esta misma pantalla" },
+          { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Análisis de goles", icono: Video, title: "Todos nuestros goles de la temporada, en el campo" },
+          { href: visto.rival ? `/scout-rival-abp?equipo=${encodeURIComponent(visto.rival)}` : null, texto: `ABP del Rival · ${cortoRival(nombreRival)}`, icono: Trophy },
+          { href: "/match-plans", texto: "Vídeo Análisis Partidos", icono: Film },
+          { href: "/match-preparation", texto: "Plan de Partido", icono: ClipboardList },
         ]}
       />
 
@@ -277,7 +298,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
 
       {/* 2 · EL PARTIDO EN RELIEVE (14/11/2026): parado en el final, con el resumen. */}
-      {visto.opta && <RelieveDelPartido partido={visto.clave} titular={titular3D(datos, visto.clave, visto.opta.rival ? nombreDe(visto.opta.rivalId, visto.opta.rival) : visto.rival)} />}
+      {visto.opta && <RelieveDelPartido partido={visto.clave} titular={titular3D(datos, visto.clave, nombreRival)} xgFinal={xgDelPartido(datos, visto.clave)} />}
 
       {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
       {visto.wyscout && (
@@ -308,7 +329,7 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
       )}
 
       {/* 3 · OPTA: LAS FASES ACCIÓN A ACCIÓN */}
-      {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} hasta={hasta} />}
+      {visto.opta && datos && <BloqueFases datos={datos} partido={visto.clave} hasta={hasta} lab={lab} />}
 
       {/* 4 · Robos, pérdidas y faltas de este partido: arriba, en «De este partido» (17/11/2026). */}
 
@@ -341,51 +362,38 @@ export function PanelPostPartido({ wyscout, wyscoutCaido = false }: { wyscout: F
 }
 
 /** Las fases de Opta del partido; si su documento aún no trae el partido, el bloque no sale. */
-function BloqueFases({ datos, partido, hasta }: { datos: DatosOpta; partido: string; hasta?: string }) {
+function BloqueFases({
+  datos,
+  partido,
+  hasta,
+  lab,
+}: {
+  datos: DatosOpta;
+  partido: string;
+  hasta?: string;
+  lab: { robos: CifrasLaboratorio | null; perdidas: CifrasLaboratorio | null };
+}) {
   const { acciones, cargando } = useAcciones(datos);
   const delPartido = useMemo(() => acciones.filter((a) => a.nuestra && a.partido === partido), [acciones, partido]);
   const hay = delPartido.length > 0;
   /* 10/11/2026: tres ideas a la vista y el detalle plegado; la pantalla era muy larga. */
   /*
-  | 11/11/2026 (experto de fútbol): las recuperaciones y las pérdidas, con los
-  | MISMOS totales agregados de Opta que el cara a cara y los laboratorios de
-  | robos y pérdidas (Recovery / PosWonA3rd, PossLost / PsLostD3). La cuenta
-  | evento a evento daba 60 y 89 en el partido en que el resto de la app decía
-  | 43 y 108. Sólo si la fila agregada falta se cae a los eventos, diciendo qué
-  | cuentan.
+  | 17/11/2026 (ronda 21, análisis): robos y pérdidas con la MISMA cuenta,
+  | nombre y cifra que /laboratorio/transiciones y /laboratorio/perdidas
+  | (lib/transiciones/partidos-laboratorio.ts): el vídeo etiquetado y, si aún
+  | no lo está, el evento a evento de Opta en juego. Antes se daban las
+  | «recuperaciones» y «pérdidas» agregadas de Opta (28 y 99 en la J12 frente
+  | a los 40 robos y 65 pérdidas de los laboratorios): dos cifras para lo
+  | mismo. Si el laboratorio no tiene el partido, no se dice nada.
   */
-  const fila = useMemo(
-    () => datos.partidos.find((f) => String(f.partido ?? "") === partido && f.teamId === CASTILLA_OPTA),
-    [datos.partidos, partido],
-  );
   const ideas = useMemo(() => {
-    const num = (k: string) => {
-      const v = fila?.[k];
-      return typeof v === "number" && Number.isFinite(v) ? v : null;
-    };
     const pases = delPartido.filter((a) => a.tipo === "Pass").length;
     const prog = delPartido.filter(esProgresivo).length;
     const pc = (n: number, de: number) => (de ? `${Math.round((n / de) * 100)} %` : "");
-    const recT = num("Recovery");
-    const recA = num("PosWonA3rd");
-    const perT = num("PossLost");
-    const perD = num("PsLostD3");
-    const rec = delPartido.filter(esRecuperacion);
-    const per = delPartido.filter(esPerdida);
-    const recuperaciones =
-      recT !== null && recA !== null
-        ? `${recA} de ${recT} recuperaciones en el último tercio (${pc(recA, recT)})`
-        : rec.length
-          ? `${rec.filter((a) => alturaAccion(a.x) === "alta").length} de ${rec.length} recuperaciones en el último tercio (recuperaciones + intercepciones + entradas ganadas)`
-          : "";
-    const perdidas =
-      perT !== null && perD !== null
-        ? `${perD} de ${perT} pérdidas en nuestro primer tercio (${pc(perD, perT)})`
-        : per.length
-          ? `${per.filter((a) => alturaAccion(a.x) === "baja").length} de ${per.length} pérdidas en nuestro primer tercio (pases fallados + regates perdidos + robos en conducción)`
-          : "";
-    return [pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "", recuperaciones, perdidas].filter(Boolean);
-  }, [delPartido, fila]);
+    const robos = lab.robos ? `${lab.robos.clave} de ${lab.robos.total} robos en campo rival (${pc(lab.robos.clave, lab.robos.total)})` : "";
+    const perdidas = lab.perdidas ? `${lab.perdidas.clave} de ${lab.perdidas.total} pérdidas en campo propio (${pc(lab.perdidas.clave, lab.perdidas.total)})` : "";
+    return [pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "", robos, perdidas].filter(Boolean);
+  }, [delPartido, lab]);
   if (!cargando && !hay) return null;
   return (
     <Bloque
@@ -486,6 +494,8 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} />
       <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />
 
+      {!cargando && <GolesDelPartidoEnVideo goles={delPartido.filter((r) => r.gol)} />}
+
       {cargando ? (
         <div className="mt-5 h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los remates" />
       ) : (
@@ -508,6 +518,29 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
         )
       )}
     </Bloque>
+  );
+}
+
+/*
+| LOS GOLES DEL PARTIDO EN VÍDEO (17/11/2026, ronda 21, análisis): antes el
+| botón llevaba a todos nuestros goles de la temporada en Análisis de goles;
+| ahora se ven aquí, los de este partido y de los dos equipos, con el mismo
+| reproductor (`GolesDeSeguido`: corte de Opta o resumen de la RFEF). Se pide
+| al asomar. Sin goles, no sale.
+*/
+function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
+  const { caja, abierto } = useAsoma<HTMLDivElement>();
+  const lista = useMemo(() => [...goles].sort((a, b) => a.minuto - b.minuto), [goles]);
+  if (!lista.length) return null;
+  return (
+    <div ref={caja} id="goles-del-partido" className="mt-5 min-w-0 scroll-mt-44 border-t border-white/10 pt-4">
+      <h3 className="mb-2 text-sm font-semibold text-white">Los goles del partido en vídeo</h3>
+      {abierto ? (
+        <GolesDeSeguido goles={lista} titulo={lista.length === 1 ? "El gol del partido" : `Los ${lista.length} goles del partido`} conLista />
+      ) : (
+        <div className="h-40 rounded-2xl bg-white/[0.04]" />
+      )}
+    </div>
   );
 }
 
@@ -543,6 +576,14 @@ function titular3D(datos: DatosOpta | null, partido: string, rival: string) {
   return { nos, ellos, rival: cortoRival(rival) };
 }
 
+/** Los goles esperados del partido por equipo, de la fila de Opta del cara a cara (para el panel del 3D). */
+function xgDelPartido(datos: DatosOpta | null, partido: string): Record<string, number> | undefined {
+  const filas = datos?.partidos.filter((f) => String(f.partido ?? "") === partido) ?? [];
+  const m: Record<string, number> = {};
+  for (const f of filas) if (typeof f.ExpG === "number" && Number.isFinite(f.ExpG)) m[String(f.teamId ?? "")] = f.ExpG;
+  return Object.keys(m).length ? m : undefined;
+}
+
 /*
 | 17/11/2026 (ronda 20, fútbol): el titular del 3D en el mismo orden que el
 | marcador del propio 3D (el local primero, como el campo) y diciendo quién es
@@ -556,7 +597,15 @@ function textoTitular3D(t: { nos: number; ellos: number; rival: string }, castil
   return `Goles esperados, ${marcador}: ${quien}`;
 }
 
-function RelieveDelPartido({ partido, titular: datosTitular }: { partido: string; titular: { nos: number; ellos: number; rival: string } | null }) {
+function RelieveDelPartido({
+  partido,
+  titular: datosTitular,
+  xgFinal,
+}: {
+  partido: string;
+  titular: { nos: number; ellos: number; rival: string } | null;
+  xgFinal?: Record<string, number>;
+}) {
   const esMovil = useEsMovil();
   const [doc, setDoc] = useState<{ eventos?: TablaOpta; equipos?: TablaOpta } | null | undefined>(undefined);
   const [vuelta, setVuelta] = useState(0);
@@ -591,12 +640,12 @@ function RelieveDelPartido({ partido, titular: datosTitular }: { partido: string
         {titular && <p className="mt-1 text-base font-semibold text-white">{titular}</p>}
         <p className="mb-2 mt-0.5 text-[12px] text-white/60">
           Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG).
-          {x && y ? ` ${nom(x)}, el local, a la izquierda y primero en el marcador del 3D; ${nom(y)}, a la derecha. «Territorio» es el campo rival que pisa cada uno: en el tramo final y en todo el partido.` : ""}
+          {x && y ? ` ${nom(x)}, el local, a la izquierda y primero en el marcador del 3D; ${nom(y)}, a la derecha. «Campo rival pisado» es cuánto juega el ${nom(x)} en campo contrario: en el tramo final y en todo el partido.` : ""}
           <span className="ml-1 font-medium text-[#C8A96B] group-open:hidden">Ver el 3D</span>
         </p>
       </summary>
       {doc?.eventos?.filas?.length && x && y ? (
-        <RelievePartido quietoAlFinal eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
+        <RelievePartido quietoAlFinal xgFinal={xgFinal} eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
       ) : admin ? (
         <button
           type="button"

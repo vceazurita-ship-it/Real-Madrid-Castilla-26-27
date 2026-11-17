@@ -63,21 +63,32 @@ function LecturaRemates({
   referencia: { valor: number; partidos: number } | null;
 }) {
   const aPuerta = visibles.filter((x) => x.aPuerta);
-  const xgPuerta = aPuerta.reduce((s, x) => s + x.xG, 0);
   const xgot = aPuerta.reduce((s, x) => s + x.xGOT, 0);
-  const dif = r.xGOTmenosXG;
   const tope = Math.max(r.xG, xgot, r.goles, 0.5);
-  const quien = enContra ? "sus" : "nuestros";
-  const tiros = `${r.aPuerta} ${r.aPuerta === 1 ? "tiro" : "tiros"} a puerta`;
-  const frase =
-    dif == null || !r.aPuerta
-      ? ""
-      : enContra
-        ? r.goles === 0
-          ? `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo y nuestro portero ${r.aPuerta === 1 ? "lo paró" : "los paró"} todos.`
-          : `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo (${dec(xgPuerta, 1)} antes); ${dif >= 0 ? "remataron mejor colocado de lo que valía la ocasión" : "remataron peor colocado de lo que valía la ocasión"}.`
-        : /* 17/11/2026 (ronda 20, fútbol): cada una de las tres cifras dice de qué sale. */
-          `De nuestros ${dec(r.xG, 1)} de goles esperados, los ${tiros} valían ${dec(xgPuerta, 1)}; tras el golpeo, ${dec(xgot, 1)} (${conSigno(dif, 1)}: ${dif >= 0.05 ? "rematamos mejor colocado de lo que valía la ocasión" : dif <= -0.05 ? "rematamos peor colocado de lo que valía la ocasión" : "rematamos como valía la ocasión"}).`;
+  /*
+  | 17/11/2026 (ronda 21, fútbol): una sola cuenta, la de las tres barras de
+  | debajo: los goles esperados de TODOS los remates (xG) frente a lo que
+  | valían tras el golpeo (xGOT, que sólo tienen los que van a puerta). La
+  | diferencia es de dónde sale el signo; y, en contra, lo que valían a puerta
+  | menos los goles encajados son los goles que evitó el portero. Antes el
+  | «+0,7» se calculaba sólo con los tiros a puerta y no se veía de dónde salía.
+  */
+  const cambio = xgot - r.xG;
+  const uno = r.aPuerta === 1;
+  const verbo = (nos: boolean) =>
+    Math.abs(cambio) < 0.05
+      ? `se quedaron en ${dec(xgot, 1)} tras el golpeo (${nos ? "rematamos" : "remataron"} como valía la ocasión)`
+      : `${cambio > 0 ? "subieron" : "bajaron"} a ${dec(xgot, 1)} tras el golpeo (${conSigno(cambio, 1)}: ${nos ? "rematamos" : "remataron"} ${cambio > 0 ? "mejor" : "peor"} colocado${cambio < 0 ? " o fuera" : ""})`;
+  const evitados = xgot - r.goles;
+  const frase = !r.aPuerta
+    ? ""
+    : enContra
+      ? `Sus ${dec(r.xG, 1)} de goles esperados ${verbo(false)} y nuestro portero ${
+          r.goles === 0 ? `paró ${uno ? "el único" : `los ${r.aPuerta}`} a puerta` : `encajó ${r.goles} de ${r.aPuerta} a puerta`
+        }: ${evitados >= 0 ? `${dec(evitados, 1)} goles evitados` : `${dec(-evitados, 1)} goles más de lo que valían`}.`
+      : `Nuestros ${dec(r.xG, 1)} de goles esperados ${verbo(true)} y marcamos ${r.goles} de ${r.aPuerta} a puerta${
+          r.goles - xgot >= 0.05 ? `: ${dec(r.goles - xgot, 1)} por encima de lo que valían` : ""
+        }.`;
   const barras: { rotulo: string; valor: number; texto: string; opacidad: number }[] = [
     { rotulo: "Valían las ocasiones (xG)", valor: r.xG, texto: dec(r.xG, 1), opacidad: 0.45 },
     { rotulo: "Valían a puerta, tras el golpeo", valor: xgot, texto: dec(xgot, 1), opacidad: 0.75 },
