@@ -134,7 +134,8 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
 
         puntos.push({
           clave: "centros",
-          dato: `Centra sobre todo por la ${banda.banda}: ${parte} % de sus ${totalCentros} centros; ${nombre}, el ${Math.round((100 * lider.acciones) / totalCentros)} % del equipo (Wyscout, temporada)`,
+          /* 17/11/2026 (ronda 20, fútbol): «207» aquí y «208» en Área; éste es la suma de sus jugadores, no el total del equipo, y se dice. */
+          dato: `Centra sobre todo por la ${banda.banda}: ${parte} % de los ${totalCentros} centros de sus jugadores; ${nombre}, el ${Math.round((100 * lider.acciones) / totalCentros)} % (Wyscout, temporada, sumados jugador a jugador)`,
           orden: `cerrar el carril de ${nombre} antes del centro y defender el área con la línea ya hecha`,
           jugador: nombre,
         });

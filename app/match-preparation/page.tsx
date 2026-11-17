@@ -1667,7 +1667,8 @@ export default function MatchPreparation() {
   const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
   /* El balón parado, plegado: sólo se pide al abrirlo (pesa en el servidor). */
-  const [abpAbierto, setAbpAbierto] = useState(false);
+  /* Abierto (17/11/2026, ronda 20, fútbol y marketing): contra un rival que defiende mal el córner es lo que más pesa. */
+  const [abpAbierto, setAbpAbierto] = useState(true);
   /*
   | TRES IDEAS ARRIBA (16/11/2026, jueces): dónde hacerle daño, de qué cuidarnos
   | y el duelo que decide, cada una con su dato. Salen de la proyección y de los
@@ -3042,15 +3043,19 @@ export default function MatchPreparation() {
 
                 {!editando && tresIdeas.length > 0 && (
                   <div className="mp-no-print" aria-label="Cómo le ganamos">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Cómo le ganamos</p>
+                  <p className="mb-2 flex flex-wrap items-baseline gap-x-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">
+                    Cómo le ganamos
+                    <span className="text-[12px] font-normal normal-case tracking-normal text-white/55">la orden es lectura nuestra; debajo, el dato del que sale y su pantalla</span>
+                  </p>
                   <div className={`grid gap-3 sm:grid-cols-2 ${tresIdeas.length === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
                     {tresIdeas.map((idea, i) => (
                       <div key={idea.titulo} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-4">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
                           {i + 1} · {idea.titulo}
                         </p>
+                        {/* Dato y decisión separados (17/11/2026, ronda 20, análisis): la orden es lectura nuestra; el dato, su origen. */}
                         <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{idea.texto}</p>
-                        {idea.base && <p className="mt-1 text-xs leading-snug text-white/60">{idea.base}</p>}
+                        {idea.base && <BaseDeLaIdea texto={idea.base} />}
                         {idea.enlaces && idea.enlaces.length > 0 && (
                           <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-1">
                             {idea.enlaces.map((e) => (
@@ -3399,7 +3404,7 @@ export default function MatchPreparation() {
                           </a>
                         </span>
                       ))}
-                      {r.partes.length > 0 && <span className="text-[13px] font-normal text-white/55"> · cuenta a partir de ±{UMBRAL_DUELO} de diferencia de percentil</span>}
+                      {r.partes.length > 0 && <span className="text-[13px] font-normal text-white/55"> · cada uno con nuestro balón y con el suyo; cuenta desde ±{UMBRAL_DUELO} de diferencia de percentil, como en Duelos</span>}
                     </p>
                   );
                 })()}
@@ -3444,8 +3449,27 @@ export default function MatchPreparation() {
                             <span className="text-white/55">con el suyo</span>
                           </span>
                         )}
+                        {/* Cada jugador, a su ficha (17/11/2026, ronda 20, marketing): los nuestros en Individual; los suyos, con sus vídeos. */}
                         <span className="block text-[13px] text-white/60">
-                          {d.nuestros.join(" y ")} contra {d.suyos.join(" y ")}
+                          {d.nuestros.map((n, i) => (
+                            <span key={n}>
+                              {i > 0 && " y "}
+                              <Link href={`/individual?nombre=${encodeURIComponent(n)}`} className="underline decoration-white/20 underline-offset-2 hover:text-[#C8A96B]">{n}</Link>
+                            </span>
+                          ))}{" "}
+                          contra{" "}
+                          {d.suyos.map((n, i) => (
+                            <span key={n}>
+                              {i > 0 && " y "}
+                              <Link
+                                href={`/scout-rival-individual?${new URLSearchParams({ equipo: String(rivalActivo.EQUIPO ?? ""), jugador: n.replace(/\s*\(.*\)\s*$/, "") }).toString()}`}
+                                title={`La ficha y los vídeos de ${n}`}
+                                className="underline decoration-white/20 underline-offset-2 hover:text-[#C8A96B]"
+                              >
+                                {n}
+                              </Link>
+                            </span>
+                          ))}
                         </span>
                         {d.base && <span className="block text-[13px] text-white/50">{d.base}</span>}
                         {/* La consigna de vestuario, sacada del enfrentamiento que más pierde (16/11/2026, fútbol). */}
@@ -3886,5 +3910,23 @@ export default function MatchPreparation() {
         {avisoGuardado}
       </main>
     </div>
+  );
+}
+
+/** El dato de cada idea de «Cómo le ganamos»: tres líneas y «ver más» (17/11/2026, ronda 20, marketing). */
+function BaseDeLaIdea({ texto }: { texto: string }) {
+  const [entero, setEntero] = useState(false);
+  const largo = texto.length > 170;
+
+  return (
+    <p className="mt-1 text-[13px] leading-snug text-white/65">
+      <b className="font-semibold text-white/75">Dato: </b>
+      <span className={largo && !entero ? "line-clamp-3" : undefined}>{texto}</span>
+      {largo && (
+        <button type="button" onClick={() => setEntero((v) => !v)} className="mt-0.5 block text-[12px] font-semibold text-[#C8A96B] hover:underline">
+          {entero ? "Ver menos" : "Ver más"}
+        </button>
+      )}
+    </p>
   );
 }

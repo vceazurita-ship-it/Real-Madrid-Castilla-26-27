@@ -1143,6 +1143,16 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-17",
     bloques: [
       {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Dónde les podemos hacer daño / Dónde nos pueden hacer daño", es: "Cada duelo abre con los jugadores («Leiva vs Jorge Mier»), sus minutos de Wyscout y la cifra en la misma línea; el puesto («nuestro extremo izquierdo vs su lateral derecho») va debajo. Bajo cada uno, «su ficha y vídeo» de cada rival en Scout individual" },
+          { que: "Qué hacemos", es: "Los tres duelos con nombre delante y el puesto y los minutos debajo, con el mismo rótulo que las cajas" },
+          { que: "Titular", es: "«8 duelos medidos, cada uno con nuestro balón y con el suyo»: cada duelo cuenta en los dos momentos; desde ±10 de diferencia de percentil, como en el Plan de partido" },
+          { que: "En el móvil", es: "La lista de duelos va antes que el campo; los nombres del campo, más grandes en escritorio" },
+        ],
+      },
+      {
         titulo: "Arriba",
         filas: [
           { que: "Rival", es: "Abre con el próximo partido; el desplegable va con la jornada delante" },
@@ -1321,6 +1331,16 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-17",
     bloques: [
       {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Cómo le ganamos", es: "La orden es lectura nuestra; debajo, «Dato:» con la cifra de la que sale (tres líneas y «Ver más») y el enlace a su pantalla" },
+          { que: "Balón parado", es: "Abierto al entrar: el mismo panel de ABP del rival y el enlace a la pizarra de balón parado" },
+          { que: "Proyección · Por qué", es: "En la fila de posesión, la del rival es su posesión media (54 %), no la que le tienen sus rivales" },
+          { que: "Duelos", es: "Cada jugador enlaza a su ficha: los nuestros a Individual; los suyos a Scout individual, con sus vídeos. El recuento dice que cada duelo cuenta con nuestro balón y con el suyo, como en Duelos" },
+        ],
+      },
+      {
         titulo: "Arriba",
         filas: [
           { que: "Selector y flechas", es: "Abre el próximo partido (o el de ?rival=ID); los demás, en el orden del calendario" },
@@ -1399,6 +1419,16 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Las fichas propias salen de la plantilla (con su nombre corto, el mismo de Duelos y del Plan) y las rivales de Plantillas rivales, con sus tildes. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer). Pizarras, bajas y once se guardan en Supabase.",
     revisada: "2026-11-17",
     bloques: [
+      {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, Plan de partido, Duelos y Plantilla; el vídeo del rival y el resto, tras «Ir a…»: en el móvil el campo sube" },
+          { que: "Ver duelos de este once", es: "Junto al título: los duelos de estos dos onces, con el rival puesto" },
+          { que: "Su once no es el de Plantillas y Duelos", es: "Aviso bajo el campo cuando una sola ficha del rival difiere del once probable guardado (el mismo motor de Duelos y Plantillas); si nadie ha tocado el tablero, se actualiza solo" },
+          { que: "Añadir jugador…", es: "Dorsal, el mismo nombre corto que la ficha del campo y el puesto en palabras («7 · Yáñez · Extremo derecho»)" },
+          { que: "Leyenda en el móvil", es: "Bajo el campo, «dorsal → nombre» de los dos onces" },
+        ],
+      },
       {
         titulo: "El once de la semana",
         filas: [
@@ -1529,6 +1559,18 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-17",
     bloques: [
       {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Dónde nos hacen daño", es: "Primero su amenaza con balón, la misma de «Cómo nos hacen daño» del Scout colectivo y del Plan: quién suma su xG (Opta) y por dónde centra (Wyscout), con su orden y su ficha. Después los duelos que perdemos con su balón, sin sus defectos (ésos van en «Dónde hacerles daño»)" },
+          { que: "Chip del duelo", es: "En palabras: «con nuestro balón: ventaja Castilla (+20) · con el suyo: ventaja del rival (−33)», en diferencia de percentil. «Su duelo» abre Duelos con el rival puesto, en las dos cajas" },
+          { que: "Le hacen los goles", es: "Una línea: cuántos de sus goles y en cuántos partidos (BeSoccer); la salvedad de Opta, al pasar el ratón" },
+          { que: "Revulsivos", es: "Si la frase nombra al que más sale del banquillo, va el primero de la tabla" },
+          { que: "Para la semana", es: "WhatsApp y Correo, dentro de un solo «Enviar al cuerpo técnico»" },
+          { que: "Fila de equipos", es: "La flecha › al final desliza la fila: hay más equipos de los que caben" },
+        ],
+      },
+      {
         titulo: "Arriba, antes de mirar a nadie",
         filas: [
           { que: "El campo del campograma", es: "Dibujado, no una foto: césped verde con franjas de corte en día y verde muy oscuro en noche, líneas en blanco roto y cada puesto en una caja casi opaca con el borde de su color, para que las fichas se lean. De pie (móvil) se dibuja de pie, sin estirar", cuenta: "components/rivals/CampoVectorial.tsx; colores en app/globals.css (--campo-*). Propuesta del experto de diseño del 15/11/2026" },
@@ -1632,6 +1674,15 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos).",
     revisada: "2026-11-17",
     bloques: [
+      {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Titular de «Partido a partido»", es: "Cuando marca y encaja poco: «sus partidos dan pocos goles» (de sus partidos, no del nuestro; el tipo de nuestro partido lo proyecta el Plan con Opta)" },
+          { que: "Cómo nos hacen daño · centros", es: "«54 % de los 207 centros de sus jugadores»: la suma jugador a jugador de Wyscout; el total del equipo (208) sale en Área del rival" },
+          { que: "Embudo del ataque y según el marcador", es: "Plegados tras su resumen, debajo de las gráficas de xG y PPDA" },
+        ],
+      },
       {
         titulo: "Arriba",
         filas: [
@@ -1832,6 +1883,13 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-17",
     bloques: [
       {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Por dónde ataca · el centro", es: "Quién carga el carril central sale de centros, regates y pases al área; las acciones progresivas (que suman los centrales) sólo si no hay nada más" },
+        ],
+      },
+      {
         titulo: "Sus centros según Wyscout",
         filas: [
           { que: "El rival", es: "Abre con el del próximo partido, o con el que trae la dirección (?equipo=, desde las demás pantallas del rival); «Cambiar equipo» despliega los demás, por calendario" },
@@ -1879,7 +1937,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Área Condicional",
     resumen: "El seguimiento semanal del área de rendimiento: las imágenes y los PDF de cada semana de la temporada.",
     origen: "Lo sube el área condicional desde la propia pantalla; los archivos se guardan en Supabase (carpeta 2026/performance), semana a semana.",
-    revisada: "2026-11-12",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -3613,6 +3671,14 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Los cortes de cada rival que montamos en el coding, repartidos por jugador, y cuántas veces se ven.",
     origen: "El canal de YouTube del club, con una lista por rival. La plantilla, el puesto y las etiquetas (campo IMPACTO) salen de la hoja de plantillas rivales; partidos y minutos, de BeSoccer; el once probable, de Plantillas rivales (Supabase).",
     bloques: [
+      {
+        titulo: "Lo nuevo (17/11/2026, ronda 20)",
+        filas: [
+          { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
+          { que: "Pie de cada vídeo", es: "Contra quién es el corte si el título lo dice («vs Alcorcón»), «lista J13» (la lista de nuestro partido, no la jornada del corte), el minuto y lo que dura" },
+          { que: "Su ficha · Su duelo · Su ABP", es: "Botones a la vista bajo cada vídeo" },
+        ],
+      },
       {
         titulo: "Clips",
         filas: [

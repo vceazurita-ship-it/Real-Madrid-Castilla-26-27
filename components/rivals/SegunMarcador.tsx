@@ -264,7 +264,7 @@ function Bloque({ equipo }: { equipo: string }) {
             <li key={o} className="rounded-lg border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3 py-1.5 text-[13px] leading-snug text-white/85">
               <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.12em]" style={{ color: chipInk("#C8A96B") }}>
                 Qué hacemos
-              </span>
+              </span>{" "}
               {o}
             </li>
           ))}

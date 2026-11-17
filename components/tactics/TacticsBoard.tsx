@@ -12,6 +12,8 @@
  * (`usePitchTimeline`) recorre las escenas interpolando las fichas.
  */
 
+import { nombrePuesto } from "@/lib/posiciones";
+import { nombreCortoUnico } from "@/lib/tactics/nombreCorto";
 import {
   PointerEvent as ReactPointerEvent,
   useCallback,
@@ -2205,21 +2207,22 @@ export default function TacticsBoard({
               if (player) addToken("home", player);
             }}
             aria-label="Añadir un jugador de la plantilla al campo"
-            className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[11px] text-white/75 outline-none sm:w-auto"
+            className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[12px] text-white/75 outline-none sm:w-auto"
           >
             <option value="">Añadir jugador…</option>
 
             {/* Los que ya están en el campo, aparte del resto de la plantilla. */}
             {(() => {
               const puestos = new Set(scene.tokens.filter((t) => t.kind === "home" && t.nombre).map((t) => t.nombre));
-              const enCampo = roster.filter((p) => puestos.has(p.apodo || p.nombre));
-              const resto = roster.filter((p) => !puestos.has(p.apodo || p.nombre));
+              const enElCampo = (p: (typeof roster)[number]) => puestos.has(p.apodo || p.nombre) || puestos.has(nombreCortoUnico(p, roster));
+              const enCampo = roster.filter(enElCampo);
+              const resto = roster.filter((p) => !enElCampo(p));
               const opcion = (player: (typeof roster)[number]) => (
                 <option key={player.id} value={player.id}>
                   {player.dorsal ? `${player.dorsal} · ` : ""}
-                  {player.apodo || player.nombre}
-                  {/* Con su puesto (16/11/2026, ronda 18, análisis). */}
-                  {player.posicion ? ` · ${player.posicion.split(/[,/]/)[0].trim()}` : ""}
+                  {/* El mismo nombre corto que la ficha del campo y la puesta en palabras (17/11/2026, ronda 20): «7 · Dani · 7» frente a «7 Yáñez». */}
+                  {nombreCortoUnico(player, roster)}
+                  {player.posicion ? ` · ${nombrePuesto(player.posicion.split(/[,/]/)[0].trim())}` : ""}
                 </option>
               );
 

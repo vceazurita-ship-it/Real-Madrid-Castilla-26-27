@@ -59,12 +59,17 @@ function filaDelEquipo(jornadas: JornadaRival[], equipo: string, hoy: string) {
   return porVenir[0] ?? [...suyas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
 }
 
+/** Los que se ven siempre (17/11/2026, ronda 20, marketing): el resto, en «Más». */
+const PRINCIPALES = ["/match-preparation", "/duelos", "/scout-rival-abp"];
+
 export function AccesosDelRival({
   equipo = "",
   rivalId = "",
   aqui,
   tipoVideo = "todos",
   className = "",
+  principales = PRINCIPALES,
+  videosEnMas = false,
 }: {
   /** El nombre del equipo, si la pantalla lo sabe. */
   equipo?: string;
@@ -75,6 +80,10 @@ export function AccesosDelRival({
   /** «abp» en ABP del rival: los goles en vídeo, a balón parado. */
   tipoVideo?: Tipo;
   className?: string;
+  /** Las rutas que van a la vista; las demás, en «Más». */
+  principales?: string[];
+  /** En la pizarra (charla), los vídeos también van en «Más»: el campo manda. */
+  videosEnMas?: boolean;
 }) {
   const [jornadas, setJornadas] = useState<JornadaRival[]>([]);
   const [hoy, setHoy] = useState("");
@@ -120,6 +129,35 @@ export function AccesosDelRival({
   if (!nombre && !id) return null;
 
   const llaves = { equipo: nombre, id };
+  const destinos = DESTINOS.filter((d) => d.ruta !== aqui);
+  /* Si la pantalla en la que se está es una de las principales, entra la siguiente del menú. */
+  const aLaVista = destinos.filter((d) => principales.includes(d.ruta));
+  const enMas = destinos.filter((d) => !principales.includes(d.ruta));
+
+  const enlace = (d: Destino, enMenu = false) => {
+    const href = d.ruta === "/pizarra-tactica" ? "/pizarra-tactica?once=1" : conRivalEnUrl(d.ruta, llaves);
+    const esPlan = d.ruta === "/match-preparation" && !enMenu;
+
+    return (
+      <Link
+        key={d.ruta}
+        href={href}
+        title={d.title(nombre || "este rival")}
+        onClick={() => trackModuleVisit(d.ruta)}
+        className={
+          enMenu
+            ? "flex min-h-10 items-center rounded-lg px-2.5 py-1.5 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white sm:min-h-0"
+            : esPlan
+              ? "inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-[#C8A96B] px-3 py-1 text-[13px] font-semibold text-black transition hover:brightness-110 sm:min-h-0"
+              : CHIP
+        }
+      >
+        {d.ruta === "/match-preparation" && jornada ? `${d.texto} ${jornada}` : d.texto}
+      </Link>
+    );
+  };
+
+  const videos = nombre ? <VideosDelRival key={`${nombre}-${tipoVideo}`} rival={nombre} etiqueta={`${nombre} · vídeo`} tipo={tipoVideo} /> : null;
 
   return (
     <nav
@@ -131,31 +169,29 @@ export function AccesosDelRival({
         En varias filas también en el móvil (17/11/2026, jueces de marketing): la
         fila que se deslizaba cortaba «Sus goles en vídeo / Cómo le marcan / Plan»
         a la derecha y el resto no se veía.
+        Ronda 20 (17/11/2026, marketing y análisis): doce chips en cada cabecera
+        eran mucho. A la vista, el vídeo, el Plan y dos más; el resto en «Más».
       */}
       <div className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1">
-        {nombre && <VideosDelRival key={`${nombre}-${tipoVideo}`} rival={nombre} etiqueta={`${nombre} · vídeo`} tipo={tipoVideo} />}
+        {!videosEnMas && videos}
         {/* Los clips de Hudl de sus jugadores, para bajar al portátil (17/11/2026). Sin listas en Hudl no sale. */}
         {nombre && <AccesoClipsHudl equipo={nombre} className={CHIP} />}
-        {DESTINOS.filter((d) => d.ruta !== aqui).map((d) => {
-          const href = d.ruta === "/pizarra-tactica" ? "/pizarra-tactica?once=1" : conRivalEnUrl(d.ruta, llaves);
-          const esPlan = d.ruta === "/match-preparation";
-
-          return (
-            <Link
-              key={d.ruta}
-              href={href}
-              title={d.title(nombre || "este rival")}
-              onClick={() => trackModuleVisit(d.ruta)}
-              className={
-                esPlan
-                  ? "inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full bg-[#C8A96B] px-3 py-1 text-[13px] font-semibold text-black transition hover:brightness-110 sm:min-h-0"
-                  : CHIP
-              }
+        {aLaVista.map((d) => enlace(d))}
+        {(enMas.length > 0 || videosEnMas) && (
+          <details className="group relative open:basis-full sm:open:basis-auto">
+            <summary
+              className={`${CHIP} cursor-pointer list-none gap-1 [&::-webkit-details-marker]:hidden`}
+              title={nombre ? `Más pantallas de ${nombre}, con el rival ya puesto` : "Más pantallas de este rival"}
             >
-              {esPlan && jornada ? `${d.texto} ${jornada}` : d.texto}
-            </Link>
-          );
-        })}
+              {videosEnMas ? "Ir a…" : "Más"}
+              <span aria-hidden className="text-[11px] transition group-open:rotate-180">▾</span>
+            </summary>
+            <div className="mt-1.5 grid grid-cols-2 gap-0.5 rounded-xl border border-white/10 bg-[#11161C] p-1.5 shadow-xl sm:absolute sm:left-0 sm:z-40 sm:w-64 sm:grid-cols-1">
+              {videosEnMas && videos && <div className="col-span-2 flex flex-wrap gap-1.5 border-b sm:col-span-1 border-white/[0.08] px-1 pb-2 pt-1">{videos}</div>}
+              {enMas.map((d) => enlace(d, true))}
+            </div>
+          </details>
+        )}
       </div>
     </nav>
   );

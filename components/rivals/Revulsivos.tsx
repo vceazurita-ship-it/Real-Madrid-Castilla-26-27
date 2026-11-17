@@ -56,7 +56,13 @@ function Bloque({ equipo }: { equipo: string }) {
   | (G+A o «revulsivo»), hasta tres; la tabla entera, plegada. Y un /90 sacado
   | de menos de 90′ de suplente se marca «tendencia».
   */
-  const conAlgo = lista.filter((j) => j.destacado || j.golesSup + j.asistSup > 0).slice(0, 3);
+  /*
+  | 17/11/2026 (ronda 20, fútbol): la frase nombra al que más sale (Álvaro
+  | Bustos, 8 veces) y no estaba en la tabla. Ahora va el primero si la frase
+  | habla de él (ningún revulsivo claro).
+  */
+  const elQueMasSale = lista.some((j) => j.destacado) ? null : [...lista].sort((x, y) => y.entradas - x.entradas)[0] ?? null;
+  const conAlgo = [...(elQueMasSale ? [elQueMasSale] : []), ...lista.filter((j) => j !== elQueMasSale && (j.destacado || j.golesSup + j.asistSup > 0))].slice(0, 3);
   const visibles = verTodos ? lista : conAlgo;
   const hayBanda = lista.some((j) => j.banda);
 

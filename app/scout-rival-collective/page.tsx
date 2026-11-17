@@ -1976,11 +1976,29 @@ export default function ScoutRivalCollective() {
           {/* ¿Ha cambiado su modelo? (17/11/2026): PPDA y pases por partido, media móvil de 5 y últimos 5 contra el resto. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <CambioModelo equipo={rivalActivo.EQUIPO} />}
 
-          {/* Embudo del ataque (16/11/2026): secuencias → último tercio → área → remate, el suyo y el que le hacen. */}
-          {!modoEdicion && rivalActivo?.EQUIPO && <EmbudoAtaque equipo={rivalActivo.EQUIPO} />}
+          {/*
+            Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.
+            Arriba las gráficas de xG y PPDA; el embudo y «Según el marcador»,
+            plegados tras su resumen; se abren de un toque.
+          */}
+          {!modoEdicion && rivalActivo?.EQUIPO && (
+            <details className="group mb-6 rounded-2xl border border-white/10 bg-white/[0.02]">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-5 py-3 [&::-webkit-details-marker]:hidden">
+                <span className="min-w-0">
+                  <span className="block text-base font-bold text-white">Embudo del ataque y según el marcador</span>
+                  <span className="block text-[13px] text-white/60">Cuánto de su ataque llega al área y al remate, y qué cambia cuando gana, empata o pierde (Opta)</span>
+                </span>
+                <ChevronDown size={16} className="shrink-0 transition group-open:rotate-180" aria-hidden />
+              </summary>
+              <div className="px-2 pb-2 sm:px-3">
+                {/* Embudo del ataque (16/11/2026): secuencias → último tercio → área → remate, el suyo y el que le hacen. */}
+                <EmbudoAtaque equipo={rivalActivo.EQUIPO} />
 
-          {/* Según el marcador (16/11/2026): ganando, empatando y perdiendo, por 90′, y la línea de cada partido. */}
-          {!modoEdicion && rivalActivo?.EQUIPO && <SegunMarcador equipo={rivalActivo.EQUIPO} />}
+                {/* Según el marcador (16/11/2026): ganando, empatando y perdiendo, por 90′, y la línea de cada partido. */}
+                <SegunMarcador equipo={rivalActivo.EQUIPO} />
+              </div>
+            </details>
+          )}
 
           {/* Reparto del xG (13/11/2026): de quién depende el gol del rival (o el nuestro). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <RepartoXg equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
