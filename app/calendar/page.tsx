@@ -222,6 +222,19 @@ export default function Calendar() {
      estilo y no entra en «hasta hoy». */
   const hoyKey = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
+  /* 17/11/2026 (ronda 19): el MD de cada día de la semana del próximo
+     partido («MD-3» el 17/11 frente al partido del 20/11), para programar el
+     seguimiento dentro del microciclo. */
+  const proximoPartidoKey = useMemo(
+    () => [...partidosPorDia.keys()].filter((k) => k >= hoyKey).sort()[0] ?? null,
+    [partidosPorDia, hoyKey],
+  );
+  const mdDe = (key: string) => {
+    if (!proximoPartidoKey || key < hoyKey || key > proximoPartidoKey) return null;
+    const d = Math.round((Date.parse(`${proximoPartidoKey}T12:00:00Z`) - Date.parse(`${key}T12:00:00Z`)) / 86_400_000);
+    return d >= 0 && d <= 6 ? (d === 0 ? "MD" : `MD-${d}`) : null;
+  };
+
   /* 16/11/2026 (jueces): las cifras sin filtro son de los jugadores de campo
      del Castilla, la misma población que Plantilla y Dashboard Seguimiento;
      los de otros equipos se pintan en la rejilla pero se cuentan aparte. */
@@ -533,13 +546,14 @@ export default function Calendar() {
                   </span>
                 </span>
               }
-              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última va en curso`}
+              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última va en curso · de los ${castillaTotal} de campo del Castilla`}
             />
           )}
           <CalendarStat
             label="Por tipo"
+            hint={!playerFilter && castillaTotal > 0 ? `registros del mes de los ${castillaTotal} de campo del Castilla` : undefined}
             value={
-              <span className="mt-1 grid grid-cols-2 gap-x-3 gap-y-0.5 text-[13px] font-medium">
+              <span className="mt-1 grid grid-cols-1 gap-x-3 gap-y-0.5 text-[13px] font-medium min-[400px]:grid-cols-2">
                 {TIPOS.filter((tipo) => monthStats.porTipo[tipo] > 0).map((tipo) => (
                   <span key={tipo} className="flex min-w-0 items-center gap-1.5">
                     <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", STRATEGY_STYLES[tipo].dot)} />
@@ -611,19 +625,31 @@ export default function Calendar() {
 
         /* 16/11/2026 (jueces): el día de partido, marcado con su rival y su
            resultado, para leer el seguimiento contra el microciclo. */
+        /* 17/11/2026 (ronda 19): la marca es un enlace: jugado, a su análisis
+           post; por jugar, al rival ya elegido (goles, ABP, plan). */
         const marcaPartido = partido ? (
-          <p
-            className="truncate rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300"
-            title={`Partido · J${partido.jornada} · ${rotuloPartido(partido)}`}
+          <Link
+            href={partido.jugado ? "/data-analisis?area=post" : `/rivals?equipo=${encodeURIComponent(partido.rival)}`}
+            onClick={(e) => e.stopPropagation()}
+            className="block truncate rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline"
+            title={`Partido · J${partido.jornada} · ${rotuloPartido(partido)} · ${partido.jugado ? "abrir su análisis" : "abrir el rival"}`}
           >
-            ⚽ {rotuloPartido(partido)}
-          </p>
+            ⚽ {rotuloPartido(partido)} →
+          </Link>
+        ) : null;
+        const md = mdDe(key);
+        const marcaMd = md ? (
+          <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300" title="Días que faltan para el próximo partido">
+            {md}
+          </span>
         ) : null;
 
         if (!hasSessions) {
           return partido
-            ? { hasContent: true, onClick: () => setSelectedKey(key), children: marcaPartido }
-            : {};
+            ? { hasContent: true, onClick: () => setSelectedKey(key), badges: marcaMd ?? undefined, children: marcaPartido }
+            : marcaMd
+              ? { badges: marcaMd }
+              : {};
         }
 
         const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
@@ -636,12 +662,15 @@ export default function Calendar() {
           crece: true,
           onClick: () => setSelectedKey(key),
           badges: (
+            <>
+            {marcaMd}
             <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">
               {daySessions.length}
               <span className="hidden md:inline">
                 {daySessions.length === 1 ? " seguimiento" : " seguimientos"}
               </span>
             </span>
+            </>
           ),
           children: (
             <>
@@ -683,13 +712,23 @@ export default function Calendar() {
 
                     {/* 16/11/2026 (jueces): sin autor escrito, la segunda
                         línea dice el tipo; la tarjeta no queda con hueco. */}
-                    <p className="truncate text-[9px] text-white/55 md:text-[11px]">
-                      {session.QUIEN?.trim() || style.label}
-                    </p>
+                    {/* 17/11/2026 (ronda 19): sin autor, nada (el tipo ya lo dice la franja). */}
+                    {session.QUIEN?.trim() && (
+                      <p className="truncate text-[10px] text-white/60 md:text-[11px]">{session.QUIEN.trim()}</p>
+                    )}
                   </div>
                 );
               })}
 
+              {/* 17/11/2026 (ronda 19): con más de 3, el reparto por tipo en una barra, para leer el día sin abrirlo. */}
+              {hidden > 0 && (
+                <span className="flex h-1.5 w-full overflow-hidden rounded-full" title={TIPOS.filter((t) => daySessions.some((x) => strategyKey(x.ESTRATEGIA) === t)).map((t) => `${STRATEGY_STYLES[t].label} ${daySessions.filter((x) => strategyKey(x.ESTRATEGIA) === t).length}`).join(" · ")}>
+                  {TIPOS.map((t) => {
+                    const n = daySessions.filter((x) => strategyKey(x.ESTRATEGIA) === t).length;
+                    return n ? <span key={t} className={STRATEGY_STYLES[t].dot} style={{ width: `${(n / daySessions.length) * 100}%` }} /> : null;
+                  })}
+                </span>
+              )}
               {hidden > 0 && (
                 <button
                   type="button"
@@ -750,6 +789,14 @@ export default function Calendar() {
                   <p className="mt-1 text-lg font-semibold">{rotuloPartido(p)}</p>
                   {/* El post de Análisis de datos abre en el último partido y
                       deja elegir el resto en su desplegable. */}
+                  {!p.jugado && (
+                    <Link
+                      href={`/rivals?equipo=${encodeURIComponent(p.rival)}`}
+                      className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#C8A96B] hover:underline"
+                    >
+                      El rival: goles, ABP y su once <ArrowRight size={14} aria-hidden />
+                    </Link>
+                  )}
                   {p.jugado && (
                     <Link
                       href="/data-analisis?area=post"
