@@ -3128,7 +3128,13 @@ export default function RivalPlayersPage() {
     return [...deAnalista.map((uno) => ({ ...uno, cifra: "" })), ...deWyscout].slice(0, 3).map((uno) => {
       const delDuelo = ordenDelDuelo(uno.nombre, duelosDelRival?.grupos, mismoNombreRival);
 
-      return delDuelo ? { ...uno, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
+      /*
+      | 17/11/2026 (ronda 20, fútbol): en «Dónde nos hacen daño» salían sus
+      | defectos («pierde duelos», «se carga de amarillas») bajo una orden
+      | defensiva. Ahí manda lo que nos hace el duelo con su balón: sus
+      | debilidades se quedan para «Dónde hacerles daño».
+      */
+      return delDuelo ? { ...uno, rasgos: delDuelo.enContra ? [] : uno.rasgos, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
     });
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos]);
 
@@ -4019,6 +4025,16 @@ export default function RivalPlayersPage() {
                     <div className="scrollbar-none flex min-w-0 flex-1 gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)]">
                       {teams.filter((team) => team !== proximo).map((team) => chip(team, false))}
                     </div>
+                    {/* Que se vea que la fila sigue (17/11/2026, ronda 20, análisis): una flecha que la desliza. */}
+                    <button
+                      type="button"
+                      aria-label="Ver más equipos"
+                      title={`${teams.length - (proximo ? 1 : 0)} equipos: desliza o pulsa para ver más`}
+                      onClick={(e) => (e.currentTarget.previousElementSibling as HTMLElement | null)?.scrollBy({ left: 260, behavior: "smooth" })}
+                      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-white/15 text-lg text-white/70 transition hover:border-[#C8A96B] hover:text-white"
+                    >
+                      ›
+                    </button>
                   </>
                 );
               })()}

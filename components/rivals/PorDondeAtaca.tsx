@@ -151,7 +151,8 @@ export function PorDondeAtaca({
       <>
         {jugador}
         {/* En castellano (16/11/2026, jueces de fútbol): «lateral izquierdo», no «LB». */}
-        {puesto && <span className="ml-1 text-[12px] font-normal text-white/60">({puesto})</span>}
+        {/* Con espacio de verdad (17/11/2026, ronda 20): con sólo margen se copiaba «Javi Moreno(extremo derecho)». */}
+        {puesto && <>{" "}<span className="text-[12px] font-normal text-white/60">({puesto})</span></>}
       </>
     );
 
@@ -166,10 +167,10 @@ export function PorDondeAtaca({
           </Link>
         ) : (
           <span className={clase}>{texto}</span>
-        )}
+        )}{" "}
         <Link
           href={video}
-          className="ml-1.5 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
+          className="ml-1 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
           title={`Los cortes de ${jugador} en Scout individual`}
         >
           ▶ Su vídeo
@@ -227,8 +228,16 @@ export function PorDondeAtaca({
           const suma = parte ? TIPOS_ACCION.reduce((x, t) => x + parte.acciones[t.key], 0) : 0;
           /* Quién más carga ese carril, sumando sus cuatro tipos de acción. */
           const lideres = new Map<string, { jugador: string; posicion: string; n: number }>();
+          /*
+          | 17/11/2026 (ronda 20, fútbol): «Centro: lo carga Alberto González
+          | (central)» no se dice en el vestuario. En el centro, el que carga sale
+          | de centros, regates y pases al área; las acciones progresivas (que
+          | suman los centrales) sólo si no hay nada más.
+          */
+          const sinProgresivas = key === "centro" && parte && TIPOS_ACCION.some((t) => t.key !== "progresivas" && parte.lider[t.key]);
           if (parte)
             for (const t of TIPOS_ACCION) {
+              if (sinProgresivas && t.key === "progresivas") continue;
               const l = parte.lider[t.key];
               if (!l) continue;
               const v = lideres.get(l.jugador) ?? { jugador: l.jugador, posicion: l.posicion, n: 0 };

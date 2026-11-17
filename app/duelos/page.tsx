@@ -632,8 +632,9 @@ export default function DuelosPage() {
                 Contra {equipoVisto}: {recuentoBase.replace(/^\d+ duelos? medidos?: /, "")}
                 {" "}
                 <span className="text-sm font-normal text-white/50">
-                  · {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}
-                  {tendencias.size ? ` y ${tendencias.size} con pocos minutos (tendencia)` : ""}, como en el Plan de partido. Cuenta a partir de ±{UMBRAL_DUELO} de diferencia de percentil; «Dónde les podemos hacer daño» lleva todos los de +{UMBRAL_DUELO} o más con nuestro balón, también los de doble cara. Menos de 450′ en un lado es tendencia
+                  {/* Ronda 20 (17/11/2026, análisis): que «8 duelos» no se lea como 16 momentos, y el umbral dicho una vez. */}
+                  · {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}, cada uno con nuestro balón y con el suyo
+                  {tendencias.size ? `, y ${tendencias.size} con pocos minutos (tendencia: menos de 450′ en un lado)` : ""}. Cuenta desde ±{UMBRAL_DUELO} de diferencia de percentil, como en el Plan de partido.
                 </span>
               </p>
             )}
@@ -765,10 +766,11 @@ export default function DuelosPage() {
                             <li key={d.def.clave} className="min-w-0">
                               <button type="button" onClick={() => eligeYMuestra(d.def.clave)} className="w-full text-left">
                                 <span className="flex items-baseline justify-between gap-2 text-sm font-semibold text-white/90">
-                                  <span className="min-w-0">{i + 1}. {d.def.titulo}</span>
+                                  {/* Los nombres delante y el puesto debajo (17/11/2026, ronda 20): el mismo rótulo que en las cajas de abajo. */}
+                                  <span className="min-w-0">{i + 1}. {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} <span className="font-normal text-white/50">vs</span> {d.suyos.map((j) => apellidoDe(j)).join(" y ")}</span>
                                   <b className="shrink-0 tabular-nums" style={{ color: (v ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(v)}</b>
                                 </span>
-                                <span className="block text-xs text-white/55">{sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} contra {d.suyos.map((j) => `${apellidoDe(j)} (${j.minutos}′)`).join(" y ")} · minutos en Wyscout</span>
+                                <span className="block text-xs text-white/55">{d.def.titulo} · {sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => `${j.minutos}′`).join(" y ")} / {d.suyos.map((j) => `${j.minutos}′`).join(" y ")} en Wyscout</span>
                                 {/* Una línea con la orden; la consigna entera, en la tarjeta del duelo (sin repetirla en tres sitios). */}
                                 <span className="mt-1 block text-[13px] leading-snug text-white/85">{ordenCorta(consignaDelDuelo(d, sentido))}</span>
                                 {/* Y qué se entrena, si la consigna trae su tarea (16/11/2026, ronda 18, fútbol). */}
@@ -856,9 +858,10 @@ export default function DuelosPage() {
                   {modo !== "nuestro" && robadores.length > 0 && <Robadores lista={robadores} equipo={equipoVisto} huecoDe={huecoDe} />}
                   </div>
 
-                  <div className="grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-1">
-                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" huecoDe={huecoDe} lista={atacar} pocos={atacarTodos.filter((d) => !fiable(d))} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo con minutos suficientes claramente a favor." onElige={eligeYMuestra} />}
-                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" huecoDe={huecoDe} lista={vigilar} pocos={vigilarTodos.filter((d) => !fiable(d))} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo con minutos suficientes claramente en contra." onElige={eligeYMuestra} />}
+                  {/* En el móvil, la lista antes que el campo (17/11/2026, ronda 20): a 390 px las etiquetas del campo no se leen. */}
+                  <div className="order-first grid min-w-0 grid-cols-1 gap-4 sm:grid-cols-2 xl:order-none xl:grid-cols-1">
+                    {modo !== "suyo" && <Claves titulo="Dónde les podemos hacer daño · con balón nuestro" equipo={equipoVisto} huecoDe={huecoDe} lista={atacar} pocos={atacarTodos.filter((d) => !fiable(d))} contraria={vigilar} sentido="con" color={MEJOR} vacio="Con balón, ningún duelo con minutos suficientes claramente a favor." onElige={eligeYMuestra} />}
+                    {modo !== "nuestro" && <Claves titulo="Dónde nos pueden hacer daño · con balón suyo" equipo={equipoVisto} huecoDe={huecoDe} lista={vigilar} pocos={vigilarTodos.filter((d) => !fiable(d))} contraria={atacar} sentido="sin" color={PEOR} vacio="Sin balón, ningún duelo con minutos suficientes claramente en contra." onElige={eligeYMuestra} />}
                   </div>
                 </div>
 
@@ -1031,13 +1034,13 @@ function Campo({
     const puestos: { x: number; y: number; w: number }[] = [];
     const salida = new Map<string, number>();
     for (const r of rotulos) {
-      const w = apellidoDe(r.j!).length * 9.5 + 8;
+      const w = apellidoDe(r.j!).length * 11.5 + 8; /* a 20 px (17/11/2026, ronda 20) */
       let dy = r.nuestro ? 44 : -28;
       for (let vez = 0; vez < 3; vez++) {
         const y = r.p.y + dy;
-        const choca = puestos.some((o) => Math.abs(o.x - r.p.x) < (o.w + w) / 2 && Math.abs(o.y - y) < 20);
+        const choca = puestos.some((o) => Math.abs(o.x - r.p.x) < (o.w + w) / 2 && Math.abs(o.y - y) < 22);
         if (!choca) break;
-        dy += r.nuestro ? 20 : -20;
+        dy += r.nuestro ? 22 : -22;
       }
       puestos.push({ x: r.p.x, y: r.p.y + dy, w });
       salida.set(r.key, dy);
@@ -1055,7 +1058,7 @@ function Campo({
       <g key={key} onClick={estrecho && j ? () => setTocada((t) => (t === key ? null : key)) : undefined} className={estrecho && j ? "cursor-pointer" : undefined}>
         {/* 07/11/2026: letra más grande (en el móvil el campo se desliza y no baja de 680 px de ancho: ≥12 px reales). */}
         <circle cx={x} cy={y} r={19} fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.88)"} stroke="rgba(0,0,0,0.4)" strokeWidth={1} />
-        <text x={x} y={y + 7} textAnchor="middle" className="text-[27px] sm:text-[15px]" fontWeight={700} fill="#0B0F14">
+        <text x={x} y={y + 7} textAnchor="middle" className="text-[27px] sm:text-[17px]" fontWeight={700} fill="#0B0F14">
           {enCirculo}
         </text>
         {j && !estrecho && (
@@ -1064,7 +1067,7 @@ function Campo({
             x={x}
             y={y + (desplaza.get(key) ?? (nuestro ? 44 : -28))}
             textAnchor="middle"
-            className="cursor-pointer text-[25px] hover:underline sm:text-[17px]"
+            className="cursor-pointer text-[25px] hover:underline sm:text-[20px]"
             fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"}
             fontWeight={600}
             role="link"
@@ -1226,6 +1229,7 @@ function BarraDosExtremos({ titulo, nuestro, suyo }: { titulo: string; nuestro: 
 
 function Claves({
   titulo,
+  equipo,
   huecoDe,
   lista,
   sentido,
@@ -1236,6 +1240,7 @@ function Claves({
   pocos = [],
 }: {
   titulo: string;
+  equipo: string;
   huecoDe: Map<string, string>;
   lista: ResultadoDuelo[];
   /** Los que también entrarían pero con menos de 450′ en un lado: plegados debajo. */
@@ -1258,14 +1263,14 @@ function Claves({
       {lista.length === 0 ? (
         <p className="mt-2 text-sm text-white/45">{vacio}</p>
       ) : (
-        <FilasClaves lista={lista} sentido={sentido} color={color} contraria={contraria} onElige={onElige} huecoDe={huecoDe} />
+        <FilasClaves equipo={equipo} lista={lista} sentido={sentido} color={color} contraria={contraria} onElige={onElige} huecoDe={huecoDe} />
       )}
       {pocos.length > 0 && (
         <details className="mt-3 border-t border-white/[0.06] pt-2">
           <summary className="cursor-pointer select-none text-xs font-semibold text-white/55 hover:text-white">
             Con pocos minutos: {pocos.length} {pocos.length === 1 ? "duelo más" : "duelos más"}
           </summary>
-          <FilasClaves lista={pocos} sentido={sentido} color={color} contraria={contraria} onElige={onElige} huecoDe={huecoDe} />
+          <FilasClaves equipo={equipo} lista={pocos} sentido={sentido} color={color} contraria={contraria} onElige={onElige} huecoDe={huecoDe} />
         </details>
       )}
     </div>
@@ -1273,6 +1278,7 @@ function Claves({
 }
 
 function FilasClaves({
+  equipo,
   lista,
   sentido,
   color,
@@ -1280,6 +1286,7 @@ function FilasClaves({
   onElige,
   huecoDe,
 }: {
+  equipo: string;
   huecoDe: Map<string, string>;
   lista: ResultadoDuelo[];
   sentido: "con" | "sin";
@@ -1309,20 +1316,32 @@ function FilasClaves({
                 }}
                 className={`w-full text-left ${pocaMuestra ? "opacity-70" : ""}`}
               >
-                <span className="flex min-w-0 items-baseline justify-between gap-2 text-sm text-white/85">
-                  <span className="min-w-0 break-words">
-                    {d.def.titulo}
-                    <span className="ml-1.5 text-xs font-normal text-white/40">{sentido === "con" ? "con balón nuestro" : "con balón suyo"}</span>
-                  </span>
-                  {/* Con poca muestra, la cifra va en gris y con el aviso pegado (30/10/2026). */}
-                  <b
-                    className="shrink-0 tabular-nums"
-                    style={{ color: pocaMuestra ? "var(--rmcf-muted, #9CA3AF)" : color }}
-                    title={tambien ? `Con el balón nuestro ${firmaN(d.conBalon)}; con el suyo ${firmaN(d.sinBalon)}` : undefined}
-                  >
-                    {firmaN(valor)}
-                    {pocaMuestra && <span className="ml-1 text-xs font-normal">· tendencia</span>}
+                {/*
+                  Ronda 20 (17/11/2026, análisis): sin nombres, «nuestro extremo
+                  izquierdo vs su lateral derecho» y «nuestro extremo derecho vs su
+                  lateral izquierdo» se confundían de una caja a otra. Arriba los
+                  jugadores y la cifra con sus minutos, en la misma línea; el
+                  puesto, debajo y en pequeño.
+                */}
+                <span className="flex min-w-0 items-baseline justify-between gap-2 text-sm text-white/90">
+                  <b className="min-w-0 break-words font-semibold">
+                    {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} <span className="font-normal text-white/50">vs</span> {d.suyos.map((j) => apellidoDe(j)).join(" y ")}
                   </b>
+                  {/* Con poca muestra, la cifra va en gris y con el aviso pegado (30/10/2026). */}
+                  <span className="shrink-0 text-right">
+                    <span className="mr-1.5 text-[12px] font-normal tabular-nums text-white/55" title={base.texto}>{base.corto}</span>
+                    <b
+                      className="tabular-nums"
+                      style={{ color: pocaMuestra ? "var(--rmcf-muted, #9CA3AF)" : color }}
+                      title={tambien ? `Con el balón nuestro ${firmaN(d.conBalon)}; con el suyo ${firmaN(d.sinBalon)}` : undefined}
+                    >
+                      {firmaN(valor)}
+                      {pocaMuestra && <span className="ml-1 text-xs font-normal">· tendencia</span>}
+                    </b>
+                  </span>
+                </span>
+                <span className="mt-0.5 block text-[12px] text-white/50">
+                  {d.def.titulo} · {sentido === "con" ? "con balón nuestro" : "con balón suyo"}
                 </span>
                 {/* Una regla por enfrentamiento: la distancia se ve sin leer (10/11/2026, jueces). */}
                 {marcadas.length ? (
@@ -1334,17 +1353,20 @@ function FilasClaves({
                 ) : (
                   <span className="mt-0.5 block break-words text-xs text-white/50">Ventaja repartida, sin un enfrentamiento que se despegue.</span>
                 )}
-                <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-white/55">
-                  {/* «Cuenta en los dos sentidos» salía en casi todas las filas: ahora
-                      va en el título de la cifra, al pasar el ratón (30/10/2026). */}
-                  <span className="truncate text-white/60">
-                    {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} contra {d.suyos.map((j) => apellidoDe(j)).join(" y ")}
+                {pocaMuestra && (
+                  <span className="mt-1 block text-xs font-semibold" style={{ color: ORO }}>
+                    tendencia: menos de {MINUTOS_MUESTRA}′ en un lado
                   </span>
-                  <span className="tabular-nums text-white/60" title={base.texto}>{base.corto}</span>
-                  {pocaMuestra && <span className="font-semibold" style={{ color: ORO }}>tendencia: menos de {MINUTOS_MUESTRA}′ en un lado</span>}
-                </span>
-
+                )}
               </button>
+              {/* Su ficha y sus vídeos a un toque (17/11/2026, ronda 20, marketing): fuera del botón, que no se anidan enlaces. */}
+              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                {d.suyos.map((j) => (
+                  <Link key={j.clave} href={fichaDe(j, false, equipo)} className="font-semibold text-[#C8A96B] hover:underline">
+                    {apellidoDe(j)}: su ficha y vídeo
+                  </Link>
+                ))}
+              </span>
             </li>
             );
           })}

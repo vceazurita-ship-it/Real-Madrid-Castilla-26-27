@@ -1,5 +1,6 @@
 "use client";
 
+import { EnlacesAmenaza, useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 import Link from "next/link";
 import { useMemo } from "react";
 
@@ -203,6 +204,12 @@ export type Dano = {
   duelo?: { titulo: string; conBalon: number | null; sinBalon: number | null; tarea: string; objetivo: string; base: string };
 };
 
+/** El mismo jugador dicho de dos formas («Jorge Mier» y «J. Mier»): por el último apellido. */
+const mismoApellido = (a: string, b: string) => {
+  const ultimo = (x: string) => x.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim().split(/\s+/).pop() ?? "";
+  return Boolean(ultimo(a)) && ultimo(a) === ultimo(b);
+};
+
 const signoDuelo = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}`;
 
 function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; equipo: string; abre: (() => void) | null }) {
@@ -223,8 +230,14 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
           {uno.puesto ? <span className="text-white/55"> · {uno.puesto}</span> : null}
         </p>
         {d && (d.conBalon != null || d.sinBalon != null) && (
-          <span className="shrink-0 rounded-full border border-white/15 px-2 py-px text-[12px] font-semibold tabular-nums text-white/80" title="El duelo de Duelos: con nuestro balón · con el suyo">
-            {[d.conBalon != null ? `nuestro balón ${signoDuelo(d.conBalon)}` : "", d.sinBalon != null ? `el suyo ${signoDuelo(d.sinBalon)}` : ""].filter(Boolean).join(" · ")}
+          /* En palabras (17/11/2026, ronda 20, fútbol): «nuestro balón +20 · el suyo −33» era jerga. */
+          <span className="shrink-0 rounded-full border border-white/15 px-2 py-px text-[12px] font-semibold tabular-nums text-white/80" title="El duelo de Duelos, en diferencia de percentil: + a favor del Castilla, − a favor del rival">
+            {[
+              d.conBalon != null ? `con nuestro balón: ${d.conBalon >= 10 ? "ventaja Castilla" : d.conBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.conBalon)})` : "",
+              d.sinBalon != null ? `con el suyo: ${d.sinBalon >= 10 ? "ventaja Castilla" : d.sinBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.sinBalon)})` : "",
+            ]
+              .filter(Boolean)
+              .join(" · ")}
           </span>
         )}
       </div>
@@ -242,6 +255,12 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
       ) : null}
       {uno.contraste ? <p className="mt-0.5 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>{uno.contraste}</p> : null}
 
+      {/* «Su duelo» a la vista en las dos cajas (17/11/2026, ronda 20, análisis). */}
+      {d && (
+        <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+          Su duelo <ArrowUpRight size={12} aria-hidden />
+        </Link>
+      )}
       {d && (d.tarea || d.objetivo) && (
         <details className="mt-1 min-w-0">
           <summary className="cursor-pointer text-[13px] font-semibold text-white/65 hover:text-white">Ver el duelo</summary>
@@ -303,6 +322,12 @@ export function VistazoRival({
   | 2.ª lectura en el detalle. Y en cada grupo, primero el aspecto más extremo.
   */
   const { tablas } = useOptaLigero();
+  /*
+  | 17/11/2026 (ronda 20, fútbol): «Dónde nos hacen daño» sale primero de su
+  | amenaza con balón (quién suma su xG, por dónde centra), la misma cuenta que
+  | «Cómo nos hacen daño» del Scout colectivo y el Plan de partido.
+  */
+  const amenaza = useAmenazaDelRival(equipo);
   const aspectos = useMemo(
     () => ordenaAspectos(aspectosConCifraPrincipal(aspectosWyscout, equipo, tablas, equipos), equipos),
     [aspectosWyscout, equipo, tablas, equipos],
@@ -441,7 +466,10 @@ export function VistazoRival({
             /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
             pie={
               tabla && tabla.favor > 0
-                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados. «Sus goles en vídeo» cuenta con Opta, que puede dar algún gol a otro jugador (un rebote o un remate desviado)`
+                ? /* Una línea (17/11/2026, ronda 20, marketing): la salvedad de Opta, al pasar el ratón. */
+                  <span title="BeSoccer, todos los jugados. «Sus goles en vídeo» cuenta con Opta, que puede dar algún gol a otro jugador (un rebote o un remate desviado).">
+                    {goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus {tabla.favor} goles en {tabla.jugados} {tabla.jugados === 1 ? "partido" : "partidos"} (BeSoccer)
+                  </span>
                 : undefined
             }
           >
@@ -630,7 +658,7 @@ export function VistazoRival({
         </div>
       )}
 
-      {dano.length > 0 && (
+      {(dano.length > 0 || amenaza.length > 0) && (
         /*
           17/11/2026 (ronda 19, jueces de fútbol y marketing): dos bloques según
           el signo del duelo de /duelos, cada jugador en una tarjeta que abre con
@@ -641,9 +669,9 @@ export function VistazoRival({
         <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
           {[
             { clave: "ataque", titulo: "Dónde hacerles daño", sub: "con nuestro balón", color: "#34D399", lista: dano.filter((d) => !d.enContra) },
-            { clave: "defensa", titulo: "Dónde nos hacen daño", sub: "con el suyo", color: "#F87171", lista: dano.filter((d) => d.enContra) },
+            { clave: "defensa", titulo: "Dónde nos hacen daño", sub: "con el suyo", color: "#F87171", lista: dano.filter((d) => d.enContra && !amenaza.some((p) => mismoApellido(p.jugador, d.nombre))) },
           ]
-            .filter((b) => b.lista.length > 0)
+            .filter((b) => b.lista.length > 0 || (b.clave === "defensa" && amenaza.length > 0))
             .map((bloque) => (
               <div key={bloque.clave} className="min-w-0">
                 <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: chipInk(bloque.color) }}>
@@ -651,6 +679,14 @@ export function VistazoRival({
                   <span className="text-[12px] font-medium normal-case tracking-normal text-white/55">{bloque.sub}</span>
                 </p>
                 <ul className="grid min-w-0 gap-2">
+                  {bloque.clave === "defensa" &&
+                    amenaza.map((p) => (
+                      <li key={p.clave} className="min-w-0 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: `${bloque.color}44`, background: `${bloque.color}0f` }}>
+                        <p className="font-medium text-white">{p.orden.charAt(0).toUpperCase() + p.orden.slice(1)}.</p>
+                        <p className="mt-0.5 text-[13px] tabular-nums text-white/70">{p.dato}.</p>
+                        <EnlacesAmenaza punto={p} equipo={equipo} />
+                      </li>
+                    ))}
                   {bloque.lista.map((uno) => (
                     <TarjetaDano key={uno.nombre} uno={uno} color={bloque.color} equipo={equipo} abre={abreJugador?.(uno.nombre) ?? null} />
                   ))}

@@ -765,9 +765,15 @@ function BoardEditor({
   /* Los puntos de «Cómo le ganamos» del Plan, para precargarlos como escenas al rellenar (17/11/2026). */
   const notasDelPlan = useRef<string[]>([]);
 
+  const rosterVivo = useRef(roster);
+
   useEffect(() => {
     docVivo.current = doc;
   }, [doc]);
+
+  useEffect(() => {
+    rosterVivo.current = roster;
+  }, [roster]);
 
   /*
   | `siCompleta` (29/10/2026): el tablero de esta semana tiene menos de once
@@ -917,16 +923,28 @@ function BoardEditor({
     const semana = doc.semanaOnces;
 
     void fichasDeSuOnceMarcado(partido.rival)
-      .then((marcadas) => {
+      .then(async (marcadas) => {
         const tablero = new Set((docVivo.current.scenes[0]?.tokens ?? []).filter((t) => t.kind === "away").map((t) => t.id));
 
         if (!vivo || !marcadas) return;
 
         /*
-        | Dos o más que faltan: con uno solo puede ser un marcado que no cabe en
-        | ningún hueco o el que se cambió a mano en Duelos, y el aviso no se iría nunca.
+        | 17/11/2026 (ronda 20, fútbol): con UN solo cambio (Olmedo marcado,
+        | Usse Diao en el tablero) no avisaba, porque se pedían dos que faltasen
+        | para no saltar con un marcado que no cabe o con lo cambiado en Duelos.
+        | Ahora se compara con lo que daría el mismo motor que Duelos y
+        | Plantillas: si falta uno solo de ese once, ya es otro once.
         */
-        const distinto = [...marcadas].filter((id) => !tablero.has(id)).length >= 2;
+        let distinto = [...marcadas].filter((id) => !tablero.has(id)).length >= 2;
+
+        if (!distinto && rosterVivo.current.length > 0) {
+          const esperado = await oncesDeLaSemana(rosterVivo.current).catch(() => null);
+
+          if (!vivo) return;
+          if (esperado && mismoClub(esperado.rival, partido.rival)) {
+            distinto = esperado.tokens.some((t) => t.kind === "away" && t.id.startsWith("rival-") && !tablero.has(t.id));
+          }
+        }
 
         /* Sin tocar desde el relleno: se actualiza solo, una vez por visita (08/11/2026, fútbol). */
         if (distinto && !autoActualizado.current && tableroSinTocar(docVivo.current.scenes)) {
@@ -942,7 +960,7 @@ function BoardEditor({
     return () => {
       vivo = false;
     };
-  }, [deLaSemana, partido?.rival, doc.semanaOnces, status, rellenaSemana]);
+  }, [deLaSemana, partido?.rival, doc.semanaOnces, status, rellenaSemana, roster.length]);
 
   /* El tablero de los onces guardado con dos «6»: se arregla una vez al abrirlo (21/10/2026). */
   const numerosMirados = useRef(false);
@@ -1095,6 +1113,16 @@ function BoardEditor({
         </h2>
 
         <div className="flex flex-wrap items-center gap-2">
+        {/* Los duelos de estos dos onces, a un toque y con el rival puesto (17/11/2026, ronda 20). */}
+        {rivalDelTablero && !enPantallaCompleta && (
+          <Link
+            href={`/duelos?equipo=${encodeURIComponent(rivalDelTablero)}`}
+            title={`Nuestro once contra el de ${rivalDelTablero}, duelo a duelo`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[12px] font-semibold text-white/80 transition hover:border-[#C8A96B] hover:text-white"
+          >
+            Ver duelos de este once
+          </Link>
+        )}
         {disponible && (
           <button
             type="button"
@@ -1172,7 +1200,8 @@ function BoardEditor({
             )}
             {doc.semanaOnces && <b className="block font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>}
             {/* La tira de accesos del rival (16/11/2026, ronda 18): Plan, Duelos, Pizarra ABP… con este rival puesto. */}
-            {rivalDelTablero && <AccesosDelRival equipo={rivalDelTablero} aqui="/pizarra-tactica" className="mt-1.5" />}
+            {/* Ronda 20 (17/11/2026): tres a la vista y el resto, con los vídeos, tras «Ir a…»: en el móvil ocupaba media pantalla antes del campo. */}
+            {rivalDelTablero && <AccesosDelRival equipo={rivalDelTablero} aqui="/pizarra-tactica" className="mt-1.5" principales={["/match-preparation", "/duelos", "/rivals"]} videosEnMas />}
           </span>
           {/*
             16/11/2026 (marketing): arriba sólo el tablero y las acciones. Las
@@ -1196,7 +1225,7 @@ function BoardEditor({
                 <span className="h-3 w-3 rounded-full border-2" style={{ background: "#1E293B", borderColor: "#F87171" }} aria-hidden /> Ficha oscura con borde rojo: rival
               </p>
               <p>Este once lo leen también Emocional, Duelos, Plan de partido, el once de Data análisis y el balón parado (pizarra y marcas del córner): lo que cambies aquí se guarda y les llega.</p>
-              <p>En el móvil, bajo cada ficha va el dorsal; tócala para ver el nombre.</p>
+              <p>En el móvil, cada ficha lleva el dorsal; bajo el campo va la lista «dorsal → nombre» de los dos onces, y al tocar una ficha sale su nombre.</p>
               <p>Los que salen sin número no tienen dorsal publicado en la plantilla del Castilla (juveniles y licencias de otro equipo).</p>
             </div>
           </details>
@@ -1353,6 +1382,32 @@ function BoardEditor({
         />
       </div>
 
+      {/*
+        En el móvil las fichas sólo llevan el dorsal (17/11/2026, ronda 20,
+        fútbol): debajo del campo, la leyenda «dorsal → nombre» de los dos
+        onces, para enseñarlo en la charla sin tocar ficha por ficha.
+      */}
+      {deLaSemana && (() => {
+        const fichas = (prueba ?? doc).scenes[0]?.tokens ?? [];
+        const lado = (kind: "home" | "away") =>
+          fichas
+            .filter((t) => t.kind === kind && (t.nombre ?? "").trim())
+            .sort((a, b) => (Number(a.label) || 99) - (Number(b.label) || 99))
+            .map((t) => `${t.label} ${t.nombre}`)
+            .join(" · ");
+        const nuestro = lado("home");
+        const suyo = lado("away");
+
+        if (!nuestro && !suyo) return null;
+
+        return (
+          <div className="space-y-1 px-1 text-[12px] leading-snug text-white/70 sm:hidden" aria-label="Dorsal y nombre de cada ficha">
+            {nuestro && <p><b className="font-semibold text-white/85">Castilla:</b> {nuestro}</p>}
+            {suyo && <p><b className="font-semibold text-white/85">{rivalDelTablero || "Rival"}:</b> {suyo}</p>}
+          </div>
+        );
+      })()}
+
 
       {/*
         Los avisos del once rival, como pie del tablero y no encima (08/11/2026,
@@ -1368,8 +1423,8 @@ function BoardEditor({
           )}
         {suOnceDistinto && suOnceDistinto === doc.semanaOnces && !rellenando && (
           <span className="flex flex-wrap items-center gap-2 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-2.5 py-1.5 text-[12px] text-white/80">
-            <b className="font-semibold text-amber-300">El once del rival ha cambiado</b>
-            en Plantillas o en Duelos después de rellenar el tablero.
+            <b className="font-semibold text-amber-300">Su once del tablero no es el de Plantillas y Duelos</b>
+            (el once probable guardado del rival). Actualízalo para que la charla enseñe el mismo.
             <button
               type="button"
               onClick={() => {

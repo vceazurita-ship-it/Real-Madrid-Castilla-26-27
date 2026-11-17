@@ -151,7 +151,7 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
       : marca === "más"
         ? [`marca ${coma(favor)} por partido${med(liga?.favor)}`, "cerrar primero su vía de gol y no partirse"]
         : encaja === "menos" && marca === "menos"
-          ? [`encaja ${coma(contra)}${med(liga?.contra)} y marca ${coma(favor)} por partido${med(liga?.favor)}`, "partido cerrado, en el que el balón parado decide"]
+          ? [`encaja ${coma(contra)}${med(liga?.contra)} y marca ${coma(favor)} por partido${med(liga?.favor)}`, "sus partidos dan pocos goles: paciencia, y el balón parado pesa más"] /* 17/11/2026 (ronda 20, fútbol): «partido cerrado» chocaba con el tipo de partido del Plan, que proyecta el NUESTRO con Opta; aquí se habla de los suyos. */
           : encaja === "menos"
             ? [`encaja ${coma(contra)} por partido${med(liga?.contra)}, menos que la mayoría`, "paciencia con balón: el partido se abre con el balón parado y las transiciones"]
             : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];

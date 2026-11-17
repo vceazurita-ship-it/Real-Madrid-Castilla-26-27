@@ -1723,7 +1723,7 @@ function Rejilla({
               const vacio = !texto || (conJugador && jugador && (/^Corte \d+$/.test(texto) || (equipo && desnuda(texto) === desnuda(equipo))));
 
               return vacio ? null : (
-                <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[11px] text-white/55" : "text-[13px] text-white/85"}`}>
+                <p className={`line-clamp-2 leading-snug ${conJugador ? "text-[12px] text-white/60" : "text-[13px] text-white/85"}`}>
                   {texto}
                 </p>
               );
@@ -1732,19 +1732,20 @@ function Rejilla({
             {/* Del vídeo a la consigna (16/11/2026, fútbol): su ficha en /rivals y su duelo en /duelos. */}
             {jugador && equipo && (
               /* 44 px de alto en el móvil para el dedo (16/11/2026, análisis). */
-              <p className="mt-1 flex flex-wrap gap-x-4 text-[12px]">
+              /* Botones a la vista, no texto pequeño (17/11/2026, ronda 20, análisis). */
+              <p className="mt-1.5 flex flex-wrap gap-1.5 text-[12px]">
                 <Link
                   href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`}
-                  className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0"
+                  className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5"
                 >
                   Su ficha →
                 </Link>
-                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
+                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5">
                   Su duelo →
                 </Link>
                 {/* Rematador o lanzador de ABP: su balón parado (16/11/2026, ronda 18, fútbol). */}
                 {etiquetas.some((e) => ES_ABP.test(e)) && (
-                  <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
+                  <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5">
                     Su ABP →
                   </Link>
                 )}
@@ -1754,9 +1755,11 @@ function Rejilla({
             {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
                 el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}
             <div className="mt-1.5 flex items-center gap-2">
-              <span className="min-w-0 flex-1 truncate text-[11px] tabular-nums text-white/50">
+              <span className="min-w-0 flex-1 truncate text-[12px] tabular-nums text-white/55" title={video.titulo}>
                 {[
-                  soloJornada(etiqueta),
+                  /* 17/11/2026 (ronda 20, fútbol): «J13» se leía como la jornada del corte; es la lista de NUESTRO partido. El rival del corte, si el título lo dice. */
+                  rivalDelCorte(video.titulo, equipo ?? ""),
+                  soloJornada(etiqueta) ? `lista ${soloJornada(etiqueta)}` : "",
                   minutoDe(video),
                   duracionLegible(video.duracion),
                   visionados[video.id] ? `${visionados[video.id]} ${visionados[video.id] === 1 ? "vista" : "vistas"} en YouTube` : "",
@@ -1779,6 +1782,18 @@ function Rejilla({
       ))}
     </div>
   );
+}
+
+/** «vs Alcorcón» si el título del vídeo dice contra quién es el corte («… vs Alcorcón», «… contra el Ibiza»); si no, nada. */
+function rivalDelCorte(titulo: string, suEquipo: string): string {
+  const m = /(?:^|\s)(?:vs\.?|v\.|contra(?:\s+el)?|ante(?:\s+el)?|frente\s+al?)\s+([A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñü.'-]*(?:\s+[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñü.'-]*){0,3})/u.exec(titulo ?? "");
+
+  const otro = m?.[1].trim() ?? "";
+
+  /* «Alcorcón vs Real Murcia» en un vídeo del Murcia: el del corte es el otro, no él. */
+  if (!otro || (suEquipo && (desnuda(otro).includes(desnuda(suEquipo)) || desnuda(suEquipo).includes(desnuda(otro))))) return "";
+
+  return `vs ${otro}`;
 }
 
 /* ------------------------------------------------------------------ */

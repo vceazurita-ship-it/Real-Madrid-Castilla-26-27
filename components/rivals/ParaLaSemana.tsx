@@ -121,24 +121,30 @@ export function ParaLaSemana({
         </details>
       )}
 
-      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 text-[13px]">
-        <span className="text-white/50">Mandar al cuerpo técnico:</span>
-        <a
-          href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`}
-          target="_blank"
-          rel="noreferrer"
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-[#C8A96B]"
-        >
-          <MessageCircle size={13} aria-hidden /> WhatsApp
-        </a>
-        <a
-          href={`mailto:?subject=${encodeURIComponent(cabecera)}&body=${encodeURIComponent(mensaje)}`}
-          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-[#C8A96B]"
-        >
-          <Mail size={13} aria-hidden /> Correo
-        </a>
-        <span className="text-[12px] text-white/40">Se abre con el mensaje escrito; lo descargado se adjunta a mano.</span>
-      </div>
+      {/* Un solo «Enviar» (17/11/2026, ronda 20, marketing): WhatsApp y Correo dentro. */}
+      <details className="group mt-3 min-w-0 text-[13px]">
+        <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+          <MessageCircle size={13} aria-hidden /> Enviar al cuerpo técnico
+          <ChevronDown size={13} className="transition group-open:rotate-180" aria-hidden />
+        </summary>
+        <div className="mt-2 flex min-w-0 flex-wrap items-center gap-2">
+          <a
+            href={`https://wa.me/?text=${encodeURIComponent(mensaje)}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-[#C8A96B]"
+          >
+            <MessageCircle size={13} aria-hidden /> WhatsApp
+          </a>
+          <a
+            href={`mailto:?subject=${encodeURIComponent(cabecera)}&body=${encodeURIComponent(mensaje)}`}
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-[#C8A96B]"
+          >
+            <Mail size={13} aria-hidden /> Correo
+          </a>
+          <span className="text-[12px] text-white/50">Se abre con el mensaje escrito; lo descargado se adjunta a mano.</span>
+        </div>
+      </details>
     </section>
   );
 }

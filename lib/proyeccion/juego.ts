@@ -120,6 +120,8 @@ export type EntradaJuego = {
   presion?: PresionTemporada | null;
 };
 
+/** Lo que tienen sus rivales contra él, vuelto a su posesión (en tanto por uno o por cien). */
+const suPosesion = (v: number | null) => (v == null ? null : (v <= 1 ? 1 : 100) - v);
 const fmt = (m: MetricaJuego, v: number | null | undefined) => (m.cuota ? pct(v ?? null) : coma(v ?? null, m.dec));
 
 /*
@@ -414,8 +416,9 @@ export function proyeccionJuego(e: EntradaJuego): ProyeccionJuego | null {
       cifra: m.cuota ? m.nombre : `${m.nombre} ${a_favor ? "a favor" : "en contra"}`,
       sentido: m.bueno === null ? "estilo" : a_favor ? "más, mejor" : "menos, mejor",
       nosotros: fmt(m, a_favor ? l.favor.ataque.temporada : l.contra.defensa.temporada),
-      rivalEs: m.cuota ? "sus rivales tienen" : a_favor ? "concede" : "hace",
-      rival: fmt(m, a_favor ? l.favor.defensa.temporada : l.contra.ataque.temporada),
+      /* 17/11/2026 (ronda 20, fútbol): «46 % sus rivales tienen» se leía al revés; ahora su posesión (54 %) y «tiene». */
+      rivalEs: m.cuota ? "su posesión" : a_favor ? "concede" : "hace",
+      rival: fmt(m, m.cuota ? suPosesion(l.favor.defensa.temporada) : a_favor ? l.favor.defensa.temporada : l.contra.ataque.temporada),
       media: fmt(m, l.liga),
       esperado: fmt(m, p.valor),
       consecuencia: frenteA(p.valor, l.liga),
