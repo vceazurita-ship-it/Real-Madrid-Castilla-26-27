@@ -75,6 +75,7 @@ import { fechaEtiquetada } from "@/lib/opta-respaldo/etiquetado";
 import { enlaceOptaDe, esDeOpta, type PartidoTransicionesOpta } from "@/lib/opta-respaldo/tipos";
 import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import { nombreEquipo } from "@/lib/equipos";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { ComoActualizar } from "@/components/transiciones/ComoActualizar";
 import {
   ComparativaPartido,
@@ -298,7 +299,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
         /* 30/10/2026: dos frases, una cifra cada una (marketing: mezclaba tres). */
         `Donde más perdemos es en ${zona === "campo rival" ? "campo rival, atacando en su mitad" : zona}: ${n} de ${total}. De esas ${n}, el rival juega ${juegan} con pase o conducción y sale hacia delante en ${adelante}.`,
       acaba: (llegan, pierden, de) =>
-        `De ${de} con desenlace, ${pct(llegan, de)} % nos llegan al área o al remate (${llegan} de ${de}) y ${pct(pierden, de)} % las recuperamos antes de que acabe su posesión (${pierden} de ${de}).`,
+        `De ${de} con desenlace, ${pct(llegan, de)} % nos llegan al área o al remate (${llegan} de ${de}) y ${pct(pierden, de)} % las recuperamos al momento, en esa misma transición (${pierden} de ${de}).`,
       dura: (s, media) =>
         media
           ? `Su transición dura ${s} s de media; en los otros ${media.n} partidos etiquetados, ${media.s} s (cuanto más corta, antes la cortamos).`
@@ -337,6 +338,14 @@ const idDe = (r: { partido: string; seg: number }) => `${r.partido}-${r.seg}`;
 /* ------------------------------------------------------------------ */
 /*  Utilidades                                                         */
 /* ------------------------------------------------------------------ */
+
+/** «, 10 del vídeo y 1 de Opta» (o «, del vídeo etiquetado»): con qué partidos se compara. */
+function baseDeAnteriores(n: number, opta: number): string {
+  if (!n) return "";
+  if (!opta) return ", del vídeo etiquetado";
+  if (opta === n) return ", de Opta";
+  return `, ${n - opta} del vídeo y ${opta} de Opta`;
+}
 
 function reloj(segundos: number) {
   const m = Math.floor(segundos / 60);
@@ -668,7 +677,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   );
   const respaldo = useRespaldoOpta<PartidoTransicionesOpta>("transiciones", fechasEtiquetadas);
   const PARTIDOS = useMemo(() => {
-    const opta = respaldo.filas.filter((o) => !fechaEtiquetada(o.fecha, fechasEtiquetadas));
+    /* 17/11/2026 (ronda 20): la J4 salía dos veces («Sant Andreu» de Opta y
+       «UE Sant Andreu» etiquetado, con la fecha de Hudl dos días después):
+       además de la fecha, un partido de Opta con la misma jornada y el mismo
+       club que uno ya etiquetado no entra. */
+    const conFilas = PARTIDOS_ETIQUETADOS.filter((p) => (modo === "robos" ? p.robos : p.perdidas ?? []).length > 0);
+    const opta = respaldo.filas.filter(
+      (o) => !fechaEtiquetada(o.fecha, fechasEtiquetadas) && !conFilas.some((p) => p.jornada === o.jornada && mismoClub(p.rival, o.rival)),
+    );
     const usados = new Set<string>();
     /* J2 y J3 (mirados a ojo) no tienen pérdidas: en ese modo se rellenan con las de Opta sin tocar el resto del partido. */
     const propios = PARTIDOS_ETIQUETADOS.map((p) => {
@@ -784,6 +800,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
   /** La barra de «Filtrando»: partido, dudosos y todo lo pinchado. */
   const partidoElegido = partidos.find((p) => p.id === quien);
+  /* 17/11/2026 (ronda 20): de dónde sale lo que se ve, dicho en cada rótulo. */
+  const algunoOpta = partidos.some((p) => p.robos.some(esDeOpta));
+  const elegidoDeOpta = Boolean(partidoElegido?.robos.some(esDeOpta));
+  const fuenteVista = elegidoDeOpta ? "Opta" : unPartido || !elegidos.some((p) => p.robos.some(esDeOpta)) ? "Vídeo etiquetado" : "Vídeo etiquetado y Opta";
   const chips: ChipFiltro[] = [
     ...(partidoElegido
       ? [
@@ -1008,7 +1028,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         .filter((r) => pasaFiltros(r, filtros, LECTORES));
 
     const actuales = filasDe(comparado);
-    const anteriores = anterioresPorFecha(partidos, comparado).map(filasDe);
+    const partidosAnteriores = anterioresPorFecha(partidos, comparado);
+    const anteriores = partidosAnteriores.map(filasDe);
+    /* 17/11/2026 (ronda 20): cuántos de los anteriores salen de Opta, para decir con qué se compara. */
+    const anterioresOpta = partidosAnteriores.filter((p) => p.robos.some(esDeOpta)).length;
 
     const jugadas = (f: RoboVisto[]) => f.filter((r) => r.accion === "ADELANTE" || r.accion === "HORIZONTAL_ATRAS");
     const adelante = (f: RoboVisto[]) => f.filter((r) => r.accion === "ADELANTE").length;
@@ -1119,7 +1142,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       rival: nombreEquipo(comparado.rival),
       /* 10/11/2026: las bases de cada porcentaje, dichas una vez. */
       bases: { total: actuales.length, juegan: jugadas(actuales).length, conDesenlace: seguidas(actuales).length },
-      anteriores: { n: anteriores.length },
+      anteriores: { n: anteriores.length, opta: anterioresOpta },
+      deOpta: comparado.robos.some(esDeOpta),
       /* 11/11/2026 (expertos, ronda 2): la base de la media ya no se repite
          en cada fila; la dice una vez el aviso de muestra de la tabla. */
       baseMedia,
@@ -1333,9 +1357,10 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     /* La base de la cifra («11 de 66») y, con pocos partidos detrás, que es tendencia. */
     const base = m.pie?.match(/^\d+ de \d+/)?.[0];
     const nRef = comparativa.anteriores.n;
-    const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${modo === "robos" ? "" : ", los etiquetados en vídeo"}${nRef < UMBRAL_TENDENCIA_PARTIDOS ? ", tendencia" : ""})`;
+    const deDonde = baseDeAnteriores(nRef, comparativa.anteriores.opta);
+    const aviso = ` (media de ${nRef === 1 ? "un solo partido" : `${nRef} partidos`}${deDonde}${nRef < UMBRAL_TENDENCIA_PARTIDOS || comparativa.deOpta ? ", tendencia" : ""})`;
 
-    const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en los ${nRef} partidos anteriores etiquetados en vídeo, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
+    const rango = m.rango && m.rango[0] !== m.rango[1] ? ` (en los ${nRef} partidos anteriores${deDonde}, de ${formato(m.rango[0])} a ${formato(m.rango[1])})` : "";
 
     const criterio = `criterio de éxito, ${m.nombre.toLowerCase()} ${m.mejorAlto ? "por encima de" : "por debajo de"} ${formato(m.media!)} en el próximo partido${rango}`;
 
@@ -1360,8 +1385,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     */
     const dentroDelRango = m.rango && m.rango[0] !== m.rango[1] ? m.actual! >= Math.min(m.rango[0], m.rango[1]) && m.actual! <= Math.max(m.rango[0], m.rango[1]) : false;
     const alarma = !mantener && !dentroDelRango;
-    const tendencia = nRef < UMBRAL_TENDENCIA_PARTIDOS;
-    const baseTitular = ` · media de ${nRef === 1 ? "un partido" : `${nRef} partidos`}${modo === "robos" ? "" : " etiquetados"}${tendencia ? ", tendencia" : ""}`;
+    /* Un partido de Opta frente a medias del vídeo: fuentes distintas, se lee como tendencia. */
+    const tendencia = nRef < UMBRAL_TENDENCIA_PARTIDOS || comparativa.deOpta;
+    const baseTitular = ` · media de ${nRef === 1 ? "un partido" : `${nRef} partidos`}${tendencia ? ", tendencia" : ""}`;
 
     if (!alarma) {
       const rangoCorto = m.rango && m.rango[0] !== m.rango[1] ? `, dentro de lo normal (de ${formato(Math.min(m.rango[0], m.rango[1]))} a ${formato(Math.max(m.rango[0], m.rango[1]))})` : "";
@@ -1505,6 +1531,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       const nOtros = partidos.filter((p) => !vistos.has(p.id) && !esPretemporada(p.jornada) && p.robos.length > 0).length;
       if (otros.length && nOtros >= 2) enOtros = ` (en los otros ${nOtros} partidos, ${pct(otros.filter((r) => zonaDe(r) === top.z).length, otros.length)} %)`;
     }
+    /* 17/11/2026 (ronda 20, análisis): 35,4 % frente a 32,3 % no es «sobre todo»: a menos de 5 puntos del segundo, reparto parejo. */
+    const segundo = [...zonas].sort((a, b) => b.n - a.n)[1];
+    if (segundo && ((top.n - segundo.n) / robos.length) * 100 < 5) {
+      return `Reparto parejo: ${zonas.map((x) => `${pct(x.n, robos.length)} % en ${dicho(x.z)}`).join(", ")} (${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad})`;
+    }
     return `${modo === "robos" ? "Robamos" : "Perdemos el balón"} sobre todo en ${dicho(top.z)}: ${pct(top.n, robos.length)} % (${top.n} de ${robos.length})${enOtros}${resto ? `, por ${resto}` : ""}`;
   })();
 
@@ -1526,7 +1557,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     { href: partidoElegido ? enlaceConPartido("/laboratorio/faltas", partidoElegido) : "/laboratorio/faltas", texto: partidoElegido ? "Sus faltas" : "Faltas", icono: Timer },
     partidoElegido ? { href: urlPostDelPartido(partidoElegido.fecha, partidoElegido.rival), texto: `Post del partido · ${partidoElegido.jornada}`, icono: BarChart3 } : { texto: "" },
     masDeTodos
-      ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}`, texto: `${masDeTodos[0]}, el que más ${modo === "robos" ? "roba" : "pierde"} (${masDeTodos[1]})`, icono: Users }
+      ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}`, texto: `${masDeTodos[0]}, el que más ${modo === "robos" ? "roba" : "pierde"} (${masDeTodos[1]} de ${robos.length})`, icono: Users }
       : { texto: "" },
     /* 17/11/2026 (ronda 19, análisis y marketing): y su seguimiento y sus percentiles, con él ya elegido. */
     masDeTodos ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
@@ -1543,15 +1574,21 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const bloqueCampo = (
     <div className="mt-5">
       {enVisual && tituloCampo ? (
-        <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`Vídeo etiquetado · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
+        <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`${fuenteVista} · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
           {tituloCampo}
         </TituloConclusion>
       ) : null}
-      {/* 17/11/2026 (ronda 19, fútbol): por qué aquí son menos que en Opta. */}
-      {enVisual && modo === "perdidas" ? (
-        <p className="-mt-1 mb-2 text-[12px] leading-snug text-white/60">
-          Aquí sólo cuentan las pérdidas que cambian la posesión en juego, vistas en el vídeo; Opta (en Análisis de datos) cuenta todo pase fallado, por eso da más.
-        </p>
+      {/* 17/11/2026 (ronda 20, fútbol y marketing): por qué no coincide con
+          Análisis de datos, como pie del campo y con las dos cifras; si el
+          partido sale de Opta, dice qué filtra esta pantalla sobre su dato. */}
+      {enVisual && partidoElegido ? (
+        <ContrasteOpta
+          modo={modo}
+          partido={{ rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada }}
+          aqui={base.length}
+          deOpta={elegidoDeOpta}
+          className="-mt-1 mb-2"
+        />
       ) : null}
       <Panel
         title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
@@ -1659,10 +1696,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               area="RMCF Castilla · Análisis del partido"
               title={T.titulo}
               /* 11/11/2026 (marketing): la misma cabecera en robos y en pérdidas. */
+              /* 17/11/2026 (ronda 20, fútbol): con partidos de Opta, no se dice «visto en el vídeo» de todos. */
               lead={
-                modo === "perdidas"
-                  ? "Cada pérdida, vista y etiquetada en el vídeo."
-                  : "Cada robo, visto y etiquetado en el vídeo."
+                algunoOpta
+                  ? `Cada ${T.unidadUna}, del vídeo etiquetado; los partidos aún sin etiquetar, del evento a evento de Opta.`
+                  : modo === "perdidas"
+                    ? "Cada pérdida, vista y etiquetada en el vídeo."
+                    : "Cada robo, visto y etiquetado en el vídeo."
               }
             />
 
@@ -1671,7 +1711,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {/* 16/11/2026 (expertos, ronda 17): un solo sello, con el mismo
                 recuento que la línea de debajo y sin la franja «incompleta». */}
-            <SelloDeFechas fuente="Vídeo etiquetado" fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto />
+            <SelloDeFechas fuente={algunoOpta ? "Vídeo etiquetado y Opta" : "Vídeo etiquetado"} fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto />
 
             {/* 17/11/2026: los partidos de lo que se ve que salen de Opta (aún sin etiquetar en Hudl). */}
             <SelloOpta className="mt-2" partidos={elegidos.filter((p) => p.robos.some(esDeOpta)).map((p) => ({ jornada: p.jornada, rival: p.rival }))} />
@@ -1796,7 +1836,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               <BarrasFrenteAMedia
                 metricas={comparativa.metricas}
                 anteriores={comparativa.anteriores.n}
-                titulo={`${comparativa.jornada} (${comparativa.rival}) frente a los anteriores`}
+                titulo={`${comparativa.jornada} (${comparativa.rival}${comparativa.deOpta ? ", Opta" : ""}) frente a los anteriores`}
+                pie={`Los anteriores: ${comparativa.anteriores.n - comparativa.anteriores.opta} del vídeo etiquetado${comparativa.anteriores.opta ? ` y ${comparativa.anteriores.opta} de Opta` : ""}.${comparativa.deOpta ? " Este partido sale de Opta: fuentes distintas, se lee como tendencia." : ""}`}
+                tendencia={comparativa.deOpta}
               />
             ) : null}
             {/* ---------------- este partido frente a los anteriores ---------------- */}
@@ -1846,7 +1888,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   ...comparativa.anteriores,
                   rotulo:
                     comparativa.anteriores.n > 1
-                      ? `media de los ${comparativa.anteriores.n} anteriores con vídeo etiquetado (de ${partidos.length} etiquetados en la temporada)`
+                      ? `media de los ${comparativa.anteriores.n} anteriores${baseDeAnteriores(comparativa.anteriores.n, comparativa.anteriores.opta)} (de ${partidos.length} en la temporada)`
                       : undefined,
                 }}
                 metricas={comparativa.metricas}
@@ -1864,6 +1906,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   modo={modo}
                   partido={{ rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada }}
                   aqui={comparativa.bases.total}
+                  deOpta={elegidoDeOpta}
                 />
               )}
               </div>

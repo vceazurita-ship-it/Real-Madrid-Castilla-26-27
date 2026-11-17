@@ -20,6 +20,8 @@ const EQUIPOS: string[][] = [
   ["CD Teruel", "Teruel", "C.D. Teruel", "CD TERUEL"],
   ["Algeciras CF", "Algeciras"],
   ["Juventud de Torremolinos CF", "Juventud Torremolinos", "Torremolinos", "Juventud de Torremolinos"],
+  /* 17/11/2026 (ronda 20): Opta lo escribe «Sant Andreu» y el etiquetado «UE Sant Andreu». */
+  ["UE Sant Andreu", "Sant Andreu", "U.E. Sant Andreu"],
 ];
 
 const POR_CLAVE = new Map<string, string>(

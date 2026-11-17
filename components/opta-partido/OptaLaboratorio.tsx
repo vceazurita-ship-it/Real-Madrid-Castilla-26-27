@@ -219,7 +219,20 @@ export function OptaLaboratorio({
  * de por qué no coinciden. Antes se explicaba plegado arriba y la misma
  * cifra salía de dos formas sin decirlo.
  */
-export function ContrasteOpta({ modo, partido, aqui }: { modo: "robos" | "perdidas"; partido: PartidoLab; aqui: number }) {
+export function ContrasteOpta({
+  modo,
+  partido,
+  aqui,
+  deOpta = false,
+  className = "mt-2",
+}: {
+  modo: "robos" | "perdidas";
+  partido: PartidoLab;
+  aqui: number;
+  /** 17/11/2026 (ronda 20): el partido de la pantalla sale del respaldo de Opta, no del vídeo. */
+  deOpta?: boolean;
+  className?: string;
+}) {
   const { opta } = useOptaLigero();
   const delPartido = useMemo(
     () => (opta ? partidoOptaDe(opta.partidos, opta.equipos, partido.rival, partido.fecha) : null),
@@ -233,9 +246,13 @@ export function ContrasteOpta({ modo, partido, aqui }: { modo: "robos" | "perdid
     const int = cifra(f, "Int");
     if (rec == null) return null;
     return (
-      <p className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70">
-        <b className="text-white/85">Aquí, {aqui} robos</b> vistos en el vídeo (entrada, intercepción o balón ganado apretando). <b className="text-white/85">Opta, {rec} recuperaciones</b>
-        {int != null ? ` y ${int} intercepciones aparte` : ""}: su recuperación es quedarse un balón suelto o uno que da el rival. No es la misma cuenta.
+      <p className={`${className} rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70`}>
+        <b className="text-white/85">Aquí, {aqui} robos</b>{" "}
+        {deOpta
+          ? "del evento a evento de Opta de este partido: entradas ganadas, intercepciones y balones ganados con el balón en juego, sin balón parado."
+          : "vistos en el vídeo (entrada, intercepción o balón ganado apretando)."}{" "}
+        <b className="text-white/85">En Análisis de datos, {rec} recuperaciones</b>
+        {int != null ? ` y ${int} intercepciones aparte` : ""}: la recuperación de Opta es quedarse un balón suelto o uno que da el rival. No es la misma cuenta.
       </p>
     );
   }
@@ -244,9 +261,13 @@ export function ContrasteOpta({ modo, partido, aqui }: { modo: "robos" | "perdid
   const propio = cifra(f, "PsLostD3");
   if (total == null) return null;
   return (
-    <p className="mt-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70">
-      <b className="text-white/85">Aquí, {aqui} pérdidas</b>: todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego. <b className="text-white/85">Opta, {total}</b>
-      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera. Por eso las dos cifras no coinciden, aquí ni en Análisis de datos.
+    <p className={`${className} rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70`}>
+      <b className="text-white/85">Aquí, {aqui} pérdidas</b>:{" "}
+      {deOpta
+        ? "sobre el mismo dato de Opta, sólo las que cambian la posesión en juego (sin remates, despejes ni balón parado)."
+        : "todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego."}{" "}
+      <b className="text-white/85">En Análisis de datos, Opta {total}</b>
+      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera. Por eso las dos cifras no coinciden.
     </p>
   );
 }

@@ -25,9 +25,14 @@ function juicio(m: MetricaComparada): { palabra: string; color: string } {
   const a = m.actual!;
   const media = m.media!;
 
-  if (m.mejorAlto !== true && m.mejorAlto !== false) return { palabra: "", color: ORO };
-
   const rango = m.rango && m.rango[0] !== m.rango[1] ? [Math.min(m.rango[0], m.rango[1]), Math.max(m.rango[0], m.rango[1])] : null;
+
+  /* 17/11/2026 (ronda 20, fútbol): lo que no se juzga (las faltas a favor) dice igual dónde cae, como estilo. */
+  if (m.mejorAlto !== true && m.mejorAlto !== false) {
+    if (!rango) return { palabra: "", color: ORO };
+    return { palabra: a > rango[1] ? "por encima de lo habitual" : a < rango[0] ? "por debajo de lo habitual" : "lo normal", color: ORO };
+  }
+
   const dentro = rango ? a >= rango[0] && a <= rango[1] : Math.abs(a - media) < Math.max(0.5, Math.abs(media) * 0.1);
   const mejor = m.mejorAlto ? a > media : a < media;
 
@@ -36,15 +41,34 @@ function juicio(m: MetricaComparada): { palabra: string; color: string } {
   return mejor ? { palabra: "mejor", color: "var(--rmcf-dif-mejor, #1B9E77)" } : { palabra: "peor", color: "var(--rmcf-dif-peor, #D95F02)" };
 }
 
+/*
+| 17/11/2026 (ronda 20, análisis): «peor» con 7 de 27 se leía como sentencia.
+| Si la cifra del partido se apoya en menos de 15 acciones (lo dice su pie,
+| «7 de 27…»), o el partido sale de otra fuente que la media, la palabra
+| lleva «tendencia»; y «mejor»/«peor» dicen el rango con el que se miden.
+*/
+const UMBRAL_MUESTRA = 15;
+
+function baseDe(m: MetricaComparada): number | null {
+  const b = m.pie?.match(/^\d+ de (\d+)/)?.[1];
+  return b ? Number(b) : null;
+}
+
 export function BarrasFrenteAMedia({
   metricas,
   anteriores,
   titulo,
+  pie,
+  tendencia = false,
 }: {
   metricas: MetricaComparada[];
   /** Cuántos partidos hay detrás de la media. */
   anteriores: number;
   titulo?: string;
+  /** Una línea más al pie: con qué partidos (y de qué fuente) se compara. */
+  pie?: string;
+  /** Todo el bloque es tendencia (p. ej. el partido sale de Opta y la media, del vídeo). */
+  tendencia?: boolean;
 }) {
   const filas = metricas.filter((m) => m.actual !== null && m.media !== null);
 
@@ -60,7 +84,11 @@ export function BarrasFrenteAMedia({
           const tope = Math.max(m.actual!, m.media!, rango?.[1] ?? 0, 0.0001) * 1.1;
           const pos = (v: number) => `${Math.max(0, Math.min(100, (v / tope) * 100))}%`;
           const j = juicio(m);
-          const sentido = m.mejorAlto === true ? "▲ más es mejor" : m.mejorAlto === false ? "▼ menos es mejor" : "";
+          const b = baseDe(m);
+          const esTendencia = tendencia || (b != null && b < UMBRAL_MUESTRA);
+          const fuerte = j.palabra === "mejor" || j.palabra === "peor";
+          const palabra = j.palabra ? `${j.palabra}${esTendencia ? ", tendencia" : ""}` : "";
+          const sentido = m.mejorAlto === true ? "▲ más es mejor" : m.mejorAlto === false ? "▼ menos es mejor" : "estilo, sin veredicto";
 
           return (
             <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_8.5rem] sm:items-center sm:gap-3">
@@ -77,20 +105,28 @@ export function BarrasFrenteAMedia({
                 <span className="font-semibold tabular-nums text-white">{f(m.actual!)}</span>
                 <span className="text-white/60">
                   media {f(m.media!)}
-                  {j.palabra ? (
+                  {palabra ? (
                     <b className="ml-1 font-semibold" style={{ color: j.color === ORO ? "var(--rmcf-gold-ink)" : j.color }}>
-                      · {j.palabra}
+                      · {palabra}
                     </b>
                   ) : null}
                 </span>
               </span>
+              {fuerte && (rango || b != null) ? (
+                <span className="text-[11px] leading-snug text-white/55 sm:col-start-2 sm:col-end-4">
+                  {rango ? `Fuera de lo normal en los ${anteriores} anteriores (de ${f(rango[0])} a ${f(rango[1])})` : ""}
+                  {rango && b != null ? " · " : ""}
+                  {b != null ? `sobre ${b} acciones de este partido` : ""}
+                </span>
+              ) : null}
             </li>
           );
         })}
       </ul>
       <p className="mt-2.5 text-[11px] leading-snug text-white/60">
         Barra: este partido · raya blanca: media de los {anteriores === 1 ? "un partido anterior" : `${anteriores} anteriores`} · franja gris: del mínimo al máximo de esos partidos. Dentro de la franja es lo normal.
-        {anteriores < 10 ? " Con menos de 10 partidos, tendencia." : ""}
+        {anteriores < 10 ? " Con menos de 10 partidos, tendencia." : ""} Con menos de {UMBRAL_MUESTRA} acciones en el partido, también.
+        {pie ? ` ${pie}` : ""}
       </p>
     </div>
   );
