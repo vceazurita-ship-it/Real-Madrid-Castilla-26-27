@@ -1,15 +1,21 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import {
   CalendarDays,
+  ClipboardCheck,
   FileText,
+  History,
   ImageIcon,
   Loader2,
   Maximize2,
   Scan,
   UploadCloud,
+  Users,
 } from "lucide-react";
+import type { PartidoNuestro } from "@/lib/castilla/calendario";
+import { rotuloPartido } from "@/lib/season/partido-semana";
 import { toast } from "sonner";
 import { CambioSemana } from "@/lib/season/fusion";
 import { SeasonArea, WeekData } from "@/lib/season/types";
@@ -33,6 +39,8 @@ interface Props {
   isCurrentWeek: boolean;
   /** Semana anterior más reciente con archivos, para no dejar el hueco vacío. */
   ultimaConArchivos?: WeekData | null;
+  /** El partido del Castilla que cae en esa semana (calendario de BeSoccer), si lo hay. */
+  partido?: PartidoNuestro | null;
   onSelectWeek?: (weekId: number) => void;
   /** Sólo lo que cambia: el servidor lo aplica sobre lo último guardado. */
   onUpdateWeek: (cambio: CambioSemana) => Promise<void>;
@@ -43,6 +51,7 @@ export default function WeekPanel({
   week,
   isCurrentWeek,
   ultimaConArchivos,
+  partido = null,
   onSelectWeek,
   onUpdateWeek,
 }: Props) {
@@ -266,10 +275,52 @@ export default function WeekPanel({
             </div>
 
             {weekRangeLabel(week) && (
-              <p className="mt-2 text-sm text-white/55">
+              <p className="mt-2 text-sm text-white/60">
                 {weekRangeLabel(week)}
+                {partido ? <span className="text-white/80"> · {rotuloPartido(partido)}</span> : null}
               </p>
             )}
+
+            {/*
+              17/11/2026 (los tres jueces): desde la semana, a un toque, lo que
+              la completa —el microciclo y, si el partido aún no se ha jugado,
+              el plan y la plantilla del rival, con el rival ya elegido—.
+            */}
+            <div className="mt-3 flex flex-wrap gap-2">
+              <Link
+                href="/microcycles"
+                className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <CalendarDays size={15} className="text-[#C8A96B]" aria-hidden />
+                Contenidos del microciclo
+              </Link>
+              {partido && !partido.jugado ? (
+                <>
+                  <Link
+                    href="/match-preparation"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <ClipboardCheck size={15} className="text-[#C8A96B]" aria-hidden />
+                    Plan de partido
+                  </Link>
+                  <Link
+                    href={`/rivals?equipo=${encodeURIComponent(partido.rival)}`}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <Users size={15} className="text-[#C8A96B]" aria-hidden />
+                    {`Plantilla de ${partido.rival}`}
+                  </Link>
+                </>
+              ) : partido ? (
+                <Link
+                  href="/collective_history"
+                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                >
+                  <History size={15} className="text-[#C8A96B]" aria-hidden />
+                  Histórico de partidos
+                </Link>
+              ) : null}
+            </div>
           </div>
 
           {images.length + pdfs.length > 0 && (
@@ -454,12 +505,13 @@ export default function WeekPanel({
               })();
             }}
           />
-          {hayUltimo && ultimaConArchivos && onSelectWeek ? (
+          {/* 17/11/2026: en la semana en curso lo último subido ya lo dice el aviso de la cabecera. */}
+          {!isCurrentWeek && hayUltimo && ultimaConArchivos ? (
             <p className="px-1 text-[13px] text-white/60">
               Lo último subido:{" "}
               <button
                 type="button"
-                onClick={() => onSelectWeek(ultimaConArchivos.id)}
+                onClick={() => onSelectWeek?.(ultimaConArchivos.id)}
                 className="font-medium text-white/80 underline decoration-white/30 underline-offset-4 hover:decoration-[#C8A96B]"
               >
                 {ultimaConArchivos.week.toLowerCase()}

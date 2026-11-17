@@ -261,6 +261,9 @@ export function ProximoPartido() {
     Math.round((Date.parse(`${hasta.slice(0, 10)}T12:00:00Z`) - Date.parse(`${desde.slice(0, 10)}T12:00:00Z`)) / 86_400_000);
 
   const faltan = proximo && hoy ? diasEntre(hoy, proximo.cuando) : null;
+
+  /* De MD-4 a MD-1: la tarjeta oscura de la portada es la del rival (misma regla que `rivalSemana` en app/page.tsx). */
+  const semanaDelRival = faltan !== null && faltan >= 1 && faltan <= 4;
   const pasados = anterior && hoy ? diasEntre(anterior.cuando, hoy) : null;
 
   const hoyToca: { rotulo: string; atajos: { href: string; texto: string; title: string }[] } | null =
@@ -650,7 +653,8 @@ export function ProximoPartido() {
                 { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}, a favor y en contra` },
                 { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
                 { href: conEquipo("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
-                { href: conEquipo("/scout-rival-individual"), texto: "Individual", title: `Los vídeos de los jugadores de ${nombreRival}` },
+                /* 17/11/2026: «Sus jugadores», no «Individual» (se confundía con nuestras fichas de «Atajos»). */
+                { href: conEquipo("/scout-rival-individual"), texto: "Sus jugadores", title: `Los vídeos de los jugadores de ${nombreRival}` },
                 /* Antes, un botón suelto al pie de la portada sin contexto (30/10/2026). */
                 ...(admin ? [{ href: "/coding?ambito=rival", texto: "Coding", title: `Marcar y cortar los clips de ${nombreRival}` }] : []),
               ].filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
@@ -665,12 +669,12 @@ export function ProximoPartido() {
           */
           /* En el móvil, una fila que se desliza (02/11/2026): la rejilla de dos por fila alargaba la portada y se veía tosca. */
           /* 16/11/2026 (rediseño): cada grupo con su rótulo encima y sus accesos en rejilla (dos por fila en el móvil, tres o cuatro en ancho). */
-          const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string }[]) => (
+          const fila = (rotulo: ReactNode, atajos: { href: string; texto: string; title?: string; hoy?: boolean }[]) => (
             <div className="min-w-0">
               <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">{rotulo}</p>
               <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
                 {atajos.map((atajo) => (
-                  <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} />
+                  <Atajo key={atajo.texto} href={atajo.href} texto={atajo.texto} title={atajo.title} hoy={atajo.hoy} />
                 ))}
               </div>
             </div>
@@ -692,11 +696,24 @@ export function ProximoPartido() {
           return (
             <div className="mt-5 space-y-4">
               {/* 16/11/2026 (los tres jueces): el rival en vídeo, lo primero de la fila del rival y con su propio rótulo; lo que el cuerpo técnico busca el lunes. */}
-              {nombreRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null}
+              {/* 17/11/2026: de MD-4 a MD-1 el vídeo del rival va en su tarjeta oscura, junto a sus cifras (una sola vez). */}
+              {nombreRival && !semanaDelRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null}
 
-              {hoyToca && deHoy.length > 0 && fila(<>Hoy toca · <span style={{ color: "var(--rmcf-gold-ink)" }}>{hoyToca.rotulo}</span></>, deHoy)}
-
-              {delRival.length > 0 && fila(hoyToca && deHoy.length > 0 ? "Más del rival" : "Del rival", delRival)}
+              {/*
+                17/11/2026 (fútbol): «Hoy toca» y «Más del rival» eran dos
+                rejillas; ahora una sola, con lo de hoy primero y marcado en oro.
+              */}
+              {deHoy.length + delRival.length > 0 &&
+                fila(
+                  hoyToca && deHoy.length > 0 ? (
+                    <>
+                      Del rival · <span style={{ color: "var(--rmcf-gold-ink)" }}>lo de hoy ({hoyToca.rotulo}), primero</span>
+                    </>
+                  ) : (
+                    "Del rival"
+                  ),
+                  [...deHoy.map((a) => ({ ...a, hoy: true })), ...delRival],
+                )}
             </div>
           );
         })()}
@@ -790,14 +807,14 @@ const CLASE_ACCION =
  * una fila con su flecha en vez de una píldora suelta; en el móvil, dos por
  * fila, y se lee como una lista, no como una nube de chapas.
  */
-function Atajo({ href, texto, title }: { href: string; texto: string; title?: string }) {
+function Atajo({ href, texto, title, hoy = false }: { href: string; texto: string; title?: string; hoy?: boolean }) {
   return (
     <Link
       href={href}
       title={title}
       onClick={() => trackModuleVisit(modulo(href))}
-      className="portada-celda portada-viva group flex min-h-[44px] min-w-0 items-center justify-between gap-2 px-3 py-2 text-[13.5px] font-medium leading-tight text-white/85"
-      style={{ borderRadius: 12 }}
+      className={`portada-celda portada-viva group flex min-h-[44px] min-w-0 items-center justify-between gap-2 px-3 py-2 text-[13.5px] leading-tight text-white/85 ${hoy ? "font-semibold" : "font-medium"}`}
+      style={hoy ? { borderRadius: 12, boxShadow: "inset 3px 0 0 #D8B45A" } : { borderRadius: 12 }}
     >
       <span className="min-w-0 break-words">{texto}</span>
       <ChevronRight className="h-4 w-4 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" />
@@ -823,8 +840,8 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
     >
       <span className="flex items-center justify-between gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
-          Últimos {ultimos.length || 5}
-          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/55">· el más reciente, a la derecha</span>
+          Castilla · últimos {ultimos.length || 5}
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/60">· el más reciente, a la derecha</span>
         </span>
         <History className="h-4 w-4 shrink-0 text-white/40 transition-colors group-hover:text-[#D8B45A]" />
       </span>

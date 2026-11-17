@@ -29,10 +29,12 @@ type Props = {
   /** Qué mide, para el `title` (la definición de esa fuente). */
   detalle?: string;
   oscuro?: boolean;
+  /** Que el texto baje de renglón en vez de cortarse con «…» (tarjetas estrechas del móvil, 17/11/2026). */
+  envuelve?: boolean;
   className?: string;
 };
 
-export function SelloFuente({ fuente, poblacion, hasta, partidos, detalle, oscuro, className = "" }: Props) {
+export function SelloFuente({ fuente, poblacion, hasta, partidos, detalle, oscuro, envuelve, className = "" }: Props) {
   const texto = selloTexto({ fuente, poblacion, hasta, partidos });
   const color = COLOR_FUENTE[fuente];
 
@@ -45,7 +47,7 @@ export function SelloFuente({ fuente, poblacion, hasta, partidos, detalle, oscur
       title={detalle ? `${NOMBRE_FUENTE[fuente]}: ${detalle}` : texto}
     >
       <span aria-hidden className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: oscuro ? color : chipInk(color) }} />
-      <span className="min-w-0 truncate">{texto}</span>
+      <span className={`min-w-0 ${envuelve ? "break-words" : "truncate"}`}>{texto}</span>
     </span>
   );
 }

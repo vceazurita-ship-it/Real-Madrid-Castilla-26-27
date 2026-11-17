@@ -10,7 +10,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, BarChart3, Mountain } from "lucide-react";
+import { ArrowRight, BarChart3, FileText, Mountain } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
@@ -54,7 +54,8 @@ export function UltimoPartido3D() {
   /* Tres cifras que cuentan el partido sin abrirlo: ocasiones, puntería y balón. */
   const cifras: [string, string, string][] = [
     ["xG", coma(n(loc.ExpG)), coma(n(vis.ExpG))],
-    ["Remates a puerta", String(n(loc.SOG)), String(n(vis.SOG))],
+    /* 17/11/2026 (fútbol): «a puerta», con los remates totales en la base de la casilla. */
+    ["A puerta", String(n(loc.SOG)), String(n(vis.SOG))],
     ["Posesión", pos(loc), pos(vis)],
   ];
   const gx = n(x.Goal);
@@ -103,6 +104,11 @@ export function UltimoPartido3D() {
               Con los mapas
               <ArrowRight size={14} aria-hidden />
             </Link>
+            {/* 17/11/2026 (fútbol): el informe post de esa jornada, que se arma y se manda desde Microciclos. */}
+            <Link href="/microcycles" className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+              <FileText className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+              Informe post
+            </Link>
           </div>
         }
       />
@@ -113,13 +119,14 @@ export function UltimoPartido3D() {
         </p>
         <div className="grid grid-cols-3 gap-2 sm:contents">
           {cifras.map(([t, a, b]) => (
-            <div key={t} className="portada-celda min-w-0 px-3 py-2.5">
-              <p className="truncate text-[11.5px] font-semibold uppercase tracking-[0.12em] text-white/60">{t}</p>
-              <p className="fuente-club mt-1 whitespace-nowrap text-[26px] font-bold leading-none tabular-nums text-white">
+            <div key={t} className="portada-celda min-w-0 px-2.5 py-2.5 sm:px-3">
+              <p className="break-words text-[12px] font-semibold uppercase leading-tight tracking-[0.06em] text-white/65 sm:tracking-[0.12em]">{t}</p>
+              <p className="fuente-club mt-1 whitespace-nowrap text-[21px] font-bold leading-none tabular-nums text-white sm:text-[26px]">
                 {a} <span className="text-white/40">–</span> {b}
               </p>
-              <p className="mt-1 truncate text-[12px] text-white/55">
+              <p className="mt-1 break-words text-[12px] leading-snug text-white/60">
                 {corto(loc)} · {corto(vis)}
+                {t === "A puerta" && n(loc.ShtIncBl) + n(vis.ShtIncBl) > 0 ? ` · de ${n(loc.ShtIncBl)} y ${n(vis.ShtIncBl)} remates` : ""}
               </p>
             </div>
           ))}

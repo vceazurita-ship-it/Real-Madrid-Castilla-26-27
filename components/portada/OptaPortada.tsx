@@ -8,36 +8,32 @@
  *   cifras por partido con su puesto en el grupo: xG a favor, xG en contra,
  *   PPDA y xG a balón parado. Si el rival no casa con Opta o no es del
  *   grupo, sale sólo el Castilla.
- * - **El último partido**: resultado, xG de los dos y el momentum en
- *   miniatura (la curva de `curvaMomento`, la misma de «Análisis de datos»).
+ * - **Lo que dicen las cifras** (17/11/2026): las dos conclusiones que más
+ *   pesan del rival (tercio de arriba o de abajo de su grupo), con su cifra,
+ *   la nuestra y un toque a la pantalla donde se prepara.
  *
  * 10/11/2026 (expertos): la base en el título («11 partidos»), «puesto en el
  * grupo» como cabecera de la columna, «xG» y «PPDA» explicados la primera vez
- * y el balón parado marcado como tendencia (pocos remates por partido). El
- * último partido enseña de entrada remates y PPDA de los dos (vienen en
- * `opta:partidos`, ya cargado); el momentum se suma debajo cuando llega y,
- * mientras tanto o si no hay serie, no se dibuja caja ninguna.
+ * y el balón parado marcado como tendencia (pocos remates por partido).
+ * 17/11/2026: fuera «El último partido» (lo cuenta ya «El último partido en
+ * 3D» con las mismas cifras).
  *
  * Sólo documentos ligeros al abrir la portada (`opta:meta`, `opta:equipos`,
- * `opta:partidos`, ≈0,5 MB, compartidos con «Análisis de datos»). El momento (≈1 MB) se
- * pide cuando la tarjeta entra en pantalla, no antes; sin remates, ni ABP
- * evento a evento, ni acciones del Castilla. Mientras carga, la tarjeta ya
- * tiene su alto: no empuja la portada.
+ * `opta:partidos`, ≈0,5 MB, compartidos con «Análisis de datos»). Mientras
+ * carga, la tarjeta ya tiene su alto: no empuja la portada.
  */
 
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo } from "react";
 import { ChevronRight, Database } from "lucide-react";
 
 import { COMPARADO, ORO, colorPercentil, tinta } from "@/components/data/graficas";
 import { useProximoRival } from "@/hooks/useAbpLigas";
-import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { trackModuleVisit } from "@/lib/module-usage";
-import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
-import { NOMBRE_CASTILLA, fechaCorta, nombreEquipo, partidosDe, valorEquipo, valorPartido, type Fila, type PartidoEquipo } from "@/lib/opta-analisis";
-import { UMBRAL_DOMINIO } from "@/lib/opta-estilos";
-import { curvaMomento, momentoDe } from "@/lib/opta-eventos";
+import { CASTILLA_OPTA } from "@/lib/opta";
+import { nombreEquipo, partidosDe, valorEquipo, type Fila } from "@/lib/opta-analisis";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
 import { SelloFuente } from "@/components/ui/SelloFuente";
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
@@ -95,7 +91,6 @@ export function OptaPortada() {
     const f = opta?.equipos.find((e) => e.teamId === idRival);
     return f && suyo.length ? nombreEquipo(f) : "";
   }, [opta, idRival, suyo]);
-  const ultimo = useMemo(() => (opta ? partidosDe(opta.partidos, CASTILLA_OPTA).at(-1) ?? null : null), [opta]);
   const filaNuestra = opta?.equipos.find((e) => e.teamId === CASTILLA_OPTA);
   const filaSuya = rival ? opta?.equipos.find((e) => e.teamId === idRival) : undefined;
 
@@ -113,6 +108,7 @@ export function OptaPortada() {
   const hasta = hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = nuestro[0]?.pos.deCuantos ?? 0;
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
+  const conclusiones = rival ? lecturas(nuestro, suyo, rival) : [];
 
   return (
     <section className="portada-tarjeta min-w-0 p-4 sm:p-6" aria-label="Opta de un vistazo">
@@ -132,7 +128,36 @@ export function OptaPortada() {
         }
       />
 
-      <div className={`mt-5 grid min-w-0 gap-3 ${ultimo ? "lg:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]" : ""}`}>
+      {/*
+        17/11/2026 (los tres jueces): fuera «El último partido» (repetía las
+        cifras del 3D) y, en su sitio, la lectura: una conclusión por fila con
+        su cifra, su puesto y adónde ir a prepararlo, con el rival ya elegido.
+      */}
+      <div className={`mt-5 grid min-w-0 gap-3 ${conclusiones.length ? "lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]" : ""}`}>
+        {conclusiones.length ? (
+          <div className="flex min-w-0 flex-col gap-2">
+            <p className="portada-rotulo">Lo que dicen las cifras</p>
+            {conclusiones.map((c) => (
+              <Link
+                key={c.a}
+                href={c.href}
+                onClick={() => trackModuleVisit(c.href.split("?")[0])}
+                className="portada-celda portada-viva group flex min-w-0 items-start gap-3 p-3.5"
+                style={{ boxShadow: `inset 3px 0 0 ${c.color}` }}
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block text-[15px] font-semibold leading-snug text-white">{c.titular}</span>
+                  <span className="mt-1 block text-[13px] leading-snug text-white/70">{c.base}</span>
+                </span>
+                <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                  {c.accion}
+                  <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                </span>
+              </Link>
+            ))}
+          </div>
+        ) : null}
+
         {/* ---------- frente a frente ---------- */}
         <Link
           href="/data-analisis?area=estilos"
@@ -183,12 +208,83 @@ export function OptaPortada() {
             <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
           </p>
         </Link>
-
-        {/* ---------- el último partido ---------- */}
-        {ultimo ? <UltimoPartido ultimo={ultimo} /> : null}
       </div>
     </section>
   );
+}
+
+/* ------------------------------------------------------------------ */
+/*  La lectura: una conclusión por fila (17/11/2026)                   */
+/* ------------------------------------------------------------------ */
+
+type Lectura = { a: string; titular: string; base: string; accion: string; href: string; color: string; peso: number };
+
+/** Qué quiere decir cada métrica del rival cuando es de las mejores o de las peores del grupo. */
+const FRASES: Record<string, { fuerte: string; flojo: string; accion: string; href: (rival: string) => string }> = {
+  xGSetPly: {
+    fuerte: "Ojo a su balón parado",
+    flojo: "Su balón parado apenas genera",
+    accion: "ABP rival",
+    href: (r) => `/scout-rival-abp?equipo=${encodeURIComponent(r)}`,
+  },
+  PPDA: {
+    fuerte: "Presiona de los que más",
+    flojo: "Presiona poco: deja salir jugando",
+    accion: "Plantilla",
+    href: (r) => `/rivals?equipo=${encodeURIComponent(r)}`,
+  },
+  ExpG: {
+    fuerte: "Genera mucho peligro",
+    flojo: "Genera poco peligro",
+    accion: "Sus goles",
+    href: (r) => urlGolesDelEquipo(r),
+  },
+  ExpGAg: {
+    fuerte: "Concede poco: cuesta hacerle ocasiones",
+    flojo: "Concede mucho: por ahí se le hace daño",
+    accion: "Cómo le marcan",
+    href: (r) => urlGolesDelEquipo(r, "contra"),
+  },
+};
+
+/**
+ * Las dos conclusiones que más pesan para preparar al rival: las métricas en
+ * las que está en el tercio de arriba o en el de abajo de su grupo, primero
+ * las más extremas, con la nuestra al lado. Si ninguna se sale de la media,
+ * no se dice nada (la tabla ya lo cuenta).
+ */
+function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string): Lectura[] {
+  const salen: Lectura[] = [];
+
+  for (const r of suyo) {
+    const frase = FRASES[r.a];
+    const { puesto, deCuantos, valor } = r.pos;
+
+    if (!frase || !puesto || !deCuantos || valor == null) continue;
+
+    const fuerte = puesto <= Math.ceil(deCuantos / 3);
+    const flojo = puesto > Math.floor((2 * deCuantos) / 3);
+
+    if (!fuerte && !flojo) continue;
+
+    const n = nuestro.find((x) => x.a === r.a);
+    const decimales = r.a === "PPDA" ? 1 : 2;
+    const unidad = r.a === "PPDA" ? "pases por acción defensiva" : "xG por partido";
+    const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · el nuestro, ${coma(n.pos.valor, decimales)} (${n.pos.puesto}.º)` : "";
+
+    salen.push({
+      a: r.a,
+      titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º de ${deCuantos}`,
+      base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}`,
+      accion: frase.accion,
+      href: frase.href(rival),
+      /* Lo que es una amenaza del rival, en naranja; por donde se le puede hacer daño, en verde. */
+      color: fuerte ? "#F97316" : "#10B981",
+      peso: Math.min(puesto, deCuantos + 1 - puesto) + (r.a === "xGSetPly" ? -0.5 : 0),
+    });
+  }
+
+  return salen.sort((x, y) => x.peso - y.peso).slice(0, 2);
 }
 
 function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
@@ -204,172 +300,5 @@ function Celda({ x, base = "" }: { x: FilaLab; base?: string }) {
       ) : null}
       {base ? <span className="mt-0.5 block text-[12px] leading-tight text-white/60">{base}</span> : null}
     </td>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/*  El último partido, con su momentum en miniatura                    */
-/* ------------------------------------------------------------------ */
-
-function UltimoPartido({ ultimo }: { ultimo: PartidoEquipo }) {
-  /* ¿Jugamos fuera? Del doc del directo de ese partido (campo de Opta): el local va a la izquierda (expertos, 14/11/2026). */
-  const [fuera, setFuera] = useState(false);
-  useEffect(() => {
-    const id = String(ultimo.fila.partido ?? "");
-    if (!id) return;
-    let vivo = true;
-    void traeOpta<{ equipos?: TablaOpta }>(DOCS_OPTA.directo(id)).then((d) => {
-      const nos = aObjetos(d?.equipos ?? null).find((f) => f.teamId === CASTILLA_OPTA);
-      if (vivo) setFuera(String(nos?.campo ?? "").toUpperCase() === "AWAY");
-    });
-    return () => {
-      vivo = false;
-    };
-  }, [ultimo.fila.partido]);
-  const caja = useRef<HTMLAnchorElement>(null);
-  const [aLaVista, setALaVista] = useState(false);
-
-  /* El momento pesa ≈1 MB: se pide al asomar la tarjeta, no al abrir la portada. */
-  useEffect(() => {
-    const el = caja.current;
-    if (!el || typeof IntersectionObserver === "undefined") {
-      const id = setTimeout(() => setALaVista(true), 0);
-      return () => clearTimeout(id);
-    }
-    const io = new IntersectionObserver(
-      (vistos) => {
-        if (vistos.some((v) => v.isIntersecting)) {
-          setALaVista(true);
-          io.disconnect();
-        }
-      },
-      { rootMargin: "200px" },
-    );
-    io.observe(el);
-    return () => io.disconnect();
-  }, []);
-
-  const xgA = typeof ultimo.fila.ExpG === "number" ? ultimo.fila.ExpG : null;
-  const xgB = typeof ultimo.otra?.ExpG === "number" ? ultimo.otra.ExpG : null;
-  const marcador = ultimo.gf != null && ultimo.gc != null ? `${ultimo.gf}-${ultimo.gc}` : "";
-
-  /* Remates y PPDA de los dos, del mismo `opta:partidos` que ya está cargado. */
-  const filas = (
-    [
-      ["Remates", "ShtIncBl", 0, "bloqueados incluidos"],
-      /* 11/11/2026 (fútbol y marketing): el balón parado de ese partido, que llenaba media tarjeta vacía. */
-      ["xG a balón parado", "xGSetPly", 2, "sin penaltis"],
-      ["Córners", "Corners", 0, "a favor"],
-      ["PPDA", "PPDA", 1, "menos es más presión"],
-    ] as const
-  )
-    .map(([nombre, a, d, ayuda]) => {
-      const nos = valorPartido(ultimo.fila, a);
-      const ellos = ultimo.otra ? valorPartido(ultimo.otra, a) : null;
-      return nos != null && ellos != null ? { nombre, ayuda, nos: coma(nos, d), ellos: coma(ellos, d) } : null;
-    })
-    .filter((x): x is NonNullable<typeof x> => x !== null);
-
-  return (
-    <Link
-      ref={caja}
-      href="/data-analisis?area=post"
-      onClick={() => trackModuleVisit("/data-analisis")}
-      className="portada-celda portada-viva group flex min-w-0 flex-col p-4 sm:p-5"
-      title="El post del partido"
-    >
-      <p className="portada-rotulo">El último partido · {fechaCorta(ultimo.fecha)}</p>
-      <p className="mt-2 truncate text-[15px] font-semibold text-white">
-        {fuera ? (
-          <>
-            {ultimo.rival} {ultimo.gf != null && ultimo.gc != null ? <span className="tabular-nums">{`${ultimo.gc}-${ultimo.gf}`}</span> : "·"} {NOMBRE_CASTILLA}
-          </>
-        ) : (
-          <>
-            {NOMBRE_CASTILLA} {marcador ? <span className="tabular-nums">{marcador}</span> : "·"} {ultimo.rival}
-          </>
-        )}
-      </p>
-      {xgA != null && xgB != null ? (
-        <p className="mt-0.5 text-[13px] text-white/70 tabular-nums">
-          xG {fuera ? `${coma(xgB, 2)} – ${coma(xgA, 2)}` : `${coma(xgA, 2)} – ${coma(xgB, 2)}`}
-        </p>
-      ) : null}
-      {/* La base: es un solo partido, no la media de la temporada. */}
-      <p className="mt-1 text-[12px] text-white/60">Un solo partido, no la media</p>
-
-      {filas.length ? (
-        <dl className="mt-3 grid grid-cols-[minmax(0,1fr)_auto_auto] gap-x-3 gap-y-1.5 text-[13px] tabular-nums">
-          <span />
-          <span className="text-right text-[12px] font-semibold" style={{ color: ORO }}>Castilla</span>
-          <span className="max-w-[8rem] break-words text-right text-[12px] font-semibold leading-tight" style={{ color: COMPARADO }} title={ultimo.rival}>
-            {ultimo.rival}
-          </span>
-          {filas.map((x) => (
-            <div key={x.nombre} className="contents">
-              <dt className="min-w-0 text-white/75">
-                {x.nombre} <span className="text-[12px] text-white/55">· {x.ayuda}</span>
-              </dt>
-              <dd className="text-right font-semibold text-white">{x.nos}</dd>
-              <dd className="text-right font-semibold text-white">{x.ellos}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : null}
-
-      {aLaVista ? <Curva partido={String(ultimo.fila.partido ?? "")} rival={ultimo.rival} /> : null}
-
-      <p className="mt-auto flex items-center gap-1 pt-3 text-[13px] font-semibold text-white/70 transition-colors duration-300 group-hover:text-[#D8B45A]">
-        El Castilla, partido a partido
-        <ChevronRight className="h-3 w-3 transition-transform duration-300 group-hover:translate-x-0.5" />
-      </p>
-    </Link>
-  );
-}
-
-const W = 320;
-const H = 88;
-
-function Curva({ partido, rival }: { partido: string; rival: string }) {
-  const { docs, cargando } = useDocsOpta<[TablaOpta]>(DOCS_OPTA.momento);
-  const p = useMemo(() => momentoDe(docs[0]).get(partido), [docs, partido]);
-  const curva = useMemo(() => (p ? curvaMomento(p, CASTILLA_OPTA, "mezcla") : []), [p]);
-
-  /* Sin caja mientras llega ni si no hay serie: nada de hueco a la vista. */
-  if (cargando || curva.length < 4) return null;
-
-  const n = curva.length;
-  const cero = H / 2;
-  const tope = Math.max(0.35, ...curva.map((t) => Math.abs(t.valor)));
-  const xDe = (t: number) => (t / n) * W;
-  const yDe = (v: number) => cero - (v / tope) * (H / 2 - 4);
-  const puntos = curva.map((t) => [xDe(t.tramo + 0.5), yDe(t.valor)] as const);
-  const area = `M ${xDe(0.5)} ${cero} ${puntos.map(([x, y]) => `L ${x.toFixed(1)} ${y.toFixed(1)}`).join(" ")} L ${xDe(n - 0.5)} ${cero} Z`;
-  const nuestros = curva.filter((t) => t.valor > UMBRAL_DOMINIO).length;
-  const suyos = curva.filter((t) => t.valor < -UMBRAL_DOMINIO).length;
-  const id = `opta-portada-${partido}`;
-
-  return (
-    <div className="mt-3 min-w-0">
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-[88px] w-full" preserveAspectRatio="none" role="img" aria-label={`Momentum del partido contra ${rival}: arriba el Castilla, abajo el rival`}>
-        <defs>
-          <clipPath id={`${id}-a`}>
-            <rect x={0} y={0} width={W} height={cero} />
-          </clipPath>
-          <clipPath id={`${id}-b`}>
-            <rect x={0} y={cero} width={W} height={H - cero} />
-          </clipPath>
-        </defs>
-        {/* El descanso. */}
-        {9 <= n ? <line x1={xDe(9)} y1={2} x2={xDe(9)} y2={H - 2} style={{ stroke: tinta(0.3), strokeWidth: 1, strokeDasharray: "3 3" }} /> : null}
-        <path d={area} clipPath={`url(#${id}-a)`} style={{ fill: ORO, fillOpacity: 0.6 }} />
-        <path d={area} clipPath={`url(#${id}-b)`} style={{ fill: COMPARADO, fillOpacity: 0.55 }} />
-        <line x1={0} y1={cero} x2={W} y2={cero} style={{ stroke: tinta(0.4), strokeWidth: 1 }} />
-      </svg>
-      <p className="mt-1.5 text-[12.5px] leading-snug text-white/65">
-        Tramos de 5′ en que aprieta cada uno: <span style={{ color: ORO }}>Castilla {nuestros}</span> · <span style={{ color: COMPARADO }}>{rival} {suyos}</span>, de {n}. Arriba el
-        Castilla, abajo el rival; la raya, el descanso.
-      </p>
-    </div>
   );
 }
