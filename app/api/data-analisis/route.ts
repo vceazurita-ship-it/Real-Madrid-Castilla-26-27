@@ -199,7 +199,8 @@ async function leeEscudos() {
   const tablaDe = new Map(reciente.map((f) => [f.equipo, f]));
 
   const lista: EscudoConTabla[] = [...porNombre].map(([equipo, escudo]) => {
-    const f = tablaDe.get(equipo);
+    /* Con el nombre exacto o, si no, el mismo equipo escrito de otra forma («Real Murcia CF» = «Real Murcia»). */
+    const f = tablaDe.get(equipo) ?? reciente.find((r) => mismoEquipo(r.equipo, equipo));
 
     return f
       ? { equipo, escudo, puesto: f.puesto, puntos: f.puntos, balance: `${f.ganados}V ${f.empatados}E ${f.perdidos}D` }
@@ -609,7 +610,8 @@ function abpRivalDe(datos: Dataset, equipo: string, ambito: "abp" | "area" | "es
       valor: f.valor,
       mediana: f.mediana,
       unidad: f.metrica.unidad,
-      percentil: enContraFaltas ? 100 - f.percentil : f.percentil,
+      /* Sin percentil no se gira (17/11/2026): «100 - null» daba un 100, el mejor de la liga. */
+      percentil: enContraFaltas && f.percentil != null ? 100 - f.percentil : f.percentil,
       /* Los extremos de la liga, para la barra (11/11/2026, análisis). */
       minimo: f.minimo ?? null,
       maximo: f.maximo ?? null,
