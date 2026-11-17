@@ -28,12 +28,14 @@
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import {
   CalendarDays,
   Check,
   ChevronLeft,
   ChevronRight,
   Clock,
+  Film,
   ImagePlus,
   ListOrdered,
   Lock,
@@ -132,10 +134,13 @@ function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
 | 17/11/2026 (marketing): los escudos de BeSoccer —los mismos de /laboratorio/
 | escudos— junto a cada equipo de la jornada. Si no llegan, el nombre solo.
 */
-const EscudosLiga = createContext<Map<string, string>>(new Map());
+/* 17/11/2026 (marketing): con el escudo, su puesto y su balance en la liga (BeSoccer). */
+type EquipoLiga = { escudo?: string; puesto?: number; puntos?: number; balance?: string };
+
+const EscudosLiga = createContext<Map<string, EquipoLiga>>(new Map());
 
 function useEscudosLiga() {
-  const [mapa, setMapa] = useState<Map<string, string>>(() => new Map());
+  const [mapa, setMapa] = useState<Map<string, EquipoLiga>>(() => new Map());
 
   useEffect(() => {
     let cancelado = false;
@@ -147,7 +152,8 @@ function useEscudosLiga() {
         if (!respuesta.ok) return;
 
         const datos = await respuesta.json();
-        const lista: { equipo?: string; escudo?: string }[] = Array.isArray(datos?.escudos) ? datos.escudos : [];
+        const lista: { equipo?: string; escudo?: string; puesto?: number; puntos?: number; balance?: string }[] =
+          Array.isArray(datos?.escudos) ? datos.escudos : [];
 
         if (cancelado) return;
 
@@ -155,7 +161,20 @@ function useEscudosLiga() {
           new Map(
             lista
               .filter((uno) => uno.equipo && uno.escudo)
-              .map((uno) => [nombreOficial(uno.equipo as string), (uno.escudo as string).startsWith("/") ? (uno.escudo as string) : `/api/rivals/foto?url=${encodeURIComponent(uno.escudo as string)}`] as const),
+              .map(
+                (uno) =>
+                  [
+                    nombreOficial(uno.equipo as string),
+                    {
+                      escudo: (uno.escudo as string).startsWith("/")
+                        ? (uno.escudo as string)
+                        : `/api/rivals/foto?url=${encodeURIComponent(uno.escudo as string)}`,
+                      puesto: typeof uno.puesto === "number" ? uno.puesto : undefined,
+                      puntos: typeof uno.puntos === "number" ? uno.puntos : undefined,
+                      balance: uno.balance,
+                    },
+                  ] as const,
+              ),
           ),
         );
       } catch {
@@ -718,7 +737,7 @@ export default function QuinielaPage() {
         Acierto = acertados / jugados desde tu primera apuesta (el que no pones es fallo).
         «=» es puesto compartido.
       </p>
-      <details className="mt-1 text-white/60">
+      <details id="reglas-quiniela" className="mt-1 scroll-mt-24 text-white/60">
         <summary className="cursor-pointer select-none text-[#C8A96B]">
           Reglas completas
         </summary>
@@ -886,18 +905,36 @@ export default function QuinielaPage() {
                               {/* 17/11/2026 (marketing): la barra es lo primero que se lee, con la
                                   cifra encima, oro sobre la media y la distancia al líder. */}
                               <td className="py-1.5 pl-2 tabular-nums">
-                                <span className="flex items-baseline justify-between gap-2 text-[13px]">
-                                  <span className={lider ? "font-semibold text-[#C8A96B]" : "font-semibold text-white/85"}>
+                                {/* 17/11/2026 (guionista): sin partir «53 %» ni «−1 acierto»; en el
+                                    móvil la distancia va debajo y corta («−1»), con el texto largo para el lector. */}
+                                <span className="flex flex-col text-[13px] sm:flex-row sm:items-baseline sm:justify-between sm:gap-2">
+                                  <span className={`whitespace-nowrap ${lider ? "font-semibold text-[#C8A96B]" : "font-semibold text-white/85"}`}>
                                     {`${fila.total.porcentaje.toFixed(0)} %`}
                                   </span>
                                   {!pocasApuestas(fila) && liderTabla && fila.total.jugados > 0 ? (
-                                    <span className="text-[12px] text-white/60">
-                                      {lider
+                                    (() => {
+                                      const d = liderTabla.total.aciertos - fila.total.aciertos;
+                                      const largo = lider
                                         ? "líder"
-                                        : liderTabla.total.aciertos - fila.total.aciertos > 0
-                                          ? `−${liderTabla.total.aciertos - fila.total.aciertos} ${liderTabla.total.aciertos - fila.total.aciertos === 1 ? "acierto" : "aciertos"}`
-                                          : "mismos aciertos"}
-                                    </span>
+                                        : d > 0
+                                          ? `a ${d} ${d === 1 ? "acierto" : "aciertos"} del líder`
+                                          : "mismos aciertos que el líder";
+
+                                      return (
+                                        <span className="whitespace-nowrap text-[12px] text-white/60" title={largo} aria-label={largo}>
+                                          {lider ? (
+                                            "líder"
+                                          ) : d > 0 ? (
+                                            <>
+                                              <span className="sm:hidden">−{d}</span>
+                                              <span className="hidden sm:inline">−{d} {d === 1 ? "acierto" : "aciertos"}</span>
+                                            </>
+                                          ) : (
+                                            "="
+                                          )}
+                                        </span>
+                                      );
+                                    })()
                                   ) : null}
                                 </span>
                                 {mediaGrupo !== null && fila.total.jugados > 0 && (
@@ -1398,12 +1435,18 @@ export default function QuinielaPage() {
                           <span className="mr-1.5 text-[12px] tabular-nums text-white/50">
                             {indice + 1}
                           </span>
-                          <Equipo nombre={partido.local} /> <span className="text-white/40">–</span> <Equipo nombre={partido.visitante} />
+                          <Equipo nombre={partido.local} contexto /> <span className="text-white/40">–</span> <Equipo nombre={partido.visitante} contexto />
                           {partido.fecha && !mismaFecha ? (
                             <span className="whitespace-nowrap text-[12px] text-white/50">{` · ${fechaCorta(partido.fecha)}`}</span>
                           ) : null}
                         </p>
 
+                        {!yo && !plazo.cerrada && (
+                          <p className="mt-1 text-[12px] text-white/50">
+                            <Lock size={11} aria-hidden className="mr-1 inline" />
+                            El 1-X-2 de cada uno se verá al cerrar
+                          </p>
+                        )}
                         {/* Sin sesión no hay casillas: los 1-X-2 apagados no se leían y
                             no servían (experto de fútbol, 29/10/2026). */}
                         {(yo || resultado) && (
@@ -1474,6 +1517,8 @@ export default function QuinielaPage() {
                         ) : (
                           <>
                             {!mismaFecha && <th className="w-24 pb-2 pt-1.5 text-right font-medium">Fecha</th>}
+                            {/* 17/11/2026 (marketing): sin sesión, la tabla dice dónde irá el 1-X-2. */}
+                            {!plazo.cerrada && <th className="w-36 pb-2 pt-1.5 text-center font-medium">1-X-2 de cada uno</th>}
                             {laJornada.resultados.some(Boolean) && (
                               <th className="w-20 pb-2 pt-1.5 text-center font-medium">Resultado</th>
                             )}
@@ -1525,17 +1570,17 @@ export default function QuinielaPage() {
                             <td className="py-2 pl-2">
                               {yo ? (
                                 <>
-                              <span className="block truncate text-white/85">
-                                <Equipo nombre={partido.local} />
+                              <span className="block break-words text-white/85">
+                                <Equipo nombre={partido.local} contexto />
                               </span>
 
-                              <span className="block truncate text-[13px] text-white/55">
-                                <Equipo nombre={partido.visitante} />
+                              <span className="block break-words text-[13px] text-white/55">
+                                <Equipo nombre={partido.visitante} contexto />
                               </span>
                                 </>
                               ) : (
                                 <span className="text-white/85">
-                                  <Equipo nombre={partido.local} /> <span className="text-white/35">–</span> <Equipo nombre={partido.visitante} />
+                                  <Equipo nombre={partido.local} contexto /> <span className="text-white/35">–</span> <Equipo nombre={partido.visitante} contexto />
                                 </span>
                               )}
                             </td>
@@ -1545,6 +1590,12 @@ export default function QuinielaPage() {
                                 {!mismaFecha && (
                                   <td className="py-2 text-right text-[13px] tabular-nums text-white/60">
                                     {fechaCorta(partido.fecha)}
+                                  </td>
+                                )}
+                                {!plazo.cerrada && (
+                                  <td className="py-2 text-center text-[12px] text-white/50">
+                                    <Lock size={11} aria-hidden className="mr-1 inline" />
+                                    se verá al cerrar
                                   </td>
                                 )}
                                 {laJornada.resultados.some(Boolean) && (
@@ -1720,7 +1771,26 @@ export default function QuinielaPage() {
                 title="La comida · los dos primeros comen invitados"
                 subtitle={`Jornadas ${bloque.desde} a ${bloque.hasta}${base ? ` · sobre ${base} ${base === 1 ? "partido jugado" : "partidos jugados"}` : ""}${cerrado ? " · bloque cerrado" : ""}`}
                 icon={UtensilsCrossed}
+                action={
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const reglasQ = document.getElementById("reglas-quiniela");
+
+                      if (reglasQ instanceof HTMLDetailsElement) reglasQ.open = true;
+                      reglasQ?.scrollIntoView({ behavior: "smooth", block: "center" });
+                    }}
+                    className="text-[13px] font-semibold text-[#C8A96B] hover:underline"
+                  >
+                    Reglas completas
+                  </button>
+                }
               >
+                {/* 17/11/2026 (marketing): de dónde sale el bloque. */}
+                <p className="mb-2 text-[12px] leading-relaxed text-white/55">
+                  La temporada se juega en bloques de diez jornadas y cada bloque acaba en una comida; este cuenta sólo lo
+                  acertado de la jornada {bloque.desde} a la {bloque.hasta}.
+                </p>
                 {base > 0 && invitados.length > 0 ? (
                   <p className="mb-3 text-[15px] font-semibold leading-snug text-white">
                     {invitados.map((fila) => corto(fila.slug)).join(" y ")}{" "}
@@ -2154,10 +2224,12 @@ function Tripleta({
 | el equipo ya elegido): forma, plantilla y goles en vídeo para decidir el
 | 1-X-2.
 */
-function Equipo({ nombre }: { nombre: string }) {
-  const escudo = useContext(EscudosLiga).get(nombreOficial(nombre));
+function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boolean }) {
+  const liga = useContext(EscudosLiga).get(nombreOficial(nombre));
+  const escudo = liga?.escudo;
 
   return (
+    <>
     <Link
       href={`/rivals?equipo=${encodeURIComponent(nombre)}`}
       title={`Ficha de ${nombre}: forma, plantilla y goles en vídeo`}
@@ -2169,5 +2241,25 @@ function Equipo({ nombre }: { nombre: string }) {
       ) : null}
       {nombre}
     </Link>
+    {/* 17/11/2026 (marketing): su puesto y su balance, y a un toque sus goles en vídeo. */}
+    {contexto && liga?.puesto ? (
+      <span
+        className="ml-1 whitespace-nowrap align-middle text-[12px] tabular-nums text-white/55"
+        title={`${liga.puesto}.º de la liga con ${liga.puntos ?? 0} puntos · ${liga.balance ?? ""} (BeSoccer)`}
+      >
+        {liga.puesto}.º{liga.balance ? ` · ${liga.balance}` : ""}
+      </span>
+    ) : null}
+    {contexto && (
+      <Link
+        href={urlGolesDelEquipo(nombre)}
+        title={`Goles de ${nombre} en vídeo`}
+        aria-label={`Goles de ${nombre} en vídeo`}
+        className="ml-1 inline-flex align-middle text-white/45 hover:text-[#C8A96B]"
+      >
+        <Film size={13} aria-hidden />
+      </Link>
+    )}
+    </>
   );
 }

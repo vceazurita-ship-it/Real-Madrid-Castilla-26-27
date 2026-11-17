@@ -136,7 +136,14 @@ const NOSOTROS = "Real Madrid Castilla";
  * navegador: aquí se abre en el servidor y sólo salen los pares nombre-escudo,
  * que son cuatro kilobytes.
  */
-let escudosGuardados: { lista: { equipo: string; escudo: string }[]; en: number; alDia: string | null } | null =
+/*
+| 17/11/2026 (marketing, /quiniela): con el escudo, el puesto, los puntos y el
+| balance de la clasificación más reciente del grupo (la de más partidos
+| jugados entre los informes). Sólo los equipos de nuestro grupo lo llevan.
+*/
+type EscudoConTabla = { equipo: string; escudo: string; puesto?: number; puntos?: number; balance?: string };
+
+let escudosGuardados: { lista: EscudoConTabla[]; en: number; alDia: string | null } | null =
   null;
 
 /** Cuándo se bajó por última vez el documento de los escudos (30/10/2026: la pantalla de escudos lo dice). */
@@ -182,7 +189,22 @@ async function leeEscudos() {
     if (e.equipo && e.escudo && !porNombre.has(e.equipo)) porNombre.set(e.equipo, e.escudo);
   }
 
-  const lista = [...porNombre].map(([equipo, escudo]) => ({ equipo, escudo }));
+  const reciente = Object.values(doc?.porId ?? {})
+    .map((informe) => informe.clasificacion?.total ?? [])
+    .reduce<{ equipo: string; puesto: number; puntos: number; ganados: number; empatados: number; perdidos: number; jugados: number }[]>(
+      (mejor, tabla) =>
+        tabla.reduce((t, f) => t + (f.jugados ?? 0), 0) > mejor.reduce((t, f) => t + (f.jugados ?? 0), 0) ? tabla : mejor,
+      [],
+    );
+  const tablaDe = new Map(reciente.map((f) => [f.equipo, f]));
+
+  const lista: EscudoConTabla[] = [...porNombre].map(([equipo, escudo]) => {
+    const f = tablaDe.get(equipo);
+
+    return f
+      ? { equipo, escudo, puesto: f.puesto, puntos: f.puntos, balance: `${f.ganados}V ${f.empatados}E ${f.perdidos}D` }
+      : { equipo, escudo };
+  });
 
   escudosGuardados = { lista, en: ahora, alDia: leido.updatedAt ?? null };
 
