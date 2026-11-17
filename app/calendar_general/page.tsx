@@ -34,7 +34,8 @@ import { traeJson } from "@/lib/hojaCsv";
 import { esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
-import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { diasPlanificados, mdALaVista, mdDelCalendario, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { contenidoUnificado } from "@/lib/microciclo/contenidos";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
@@ -84,7 +85,15 @@ type EventoAuto = {
 };
 
 /** Una fila de la hoja de microciclos: lo poco que hace falta aquí (la misma fuente que /micro_calendar). */
-type FilaMicro = { Fecha?: string; MD?: string; Tiempo?: number | string; "Tipo Tarea"?: string; "Contenido Principal"?: string; Fase?: string };
+type FilaMicro = {
+  Fecha?: string;
+  MD?: string;
+  Tiempo?: number | string;
+  "Intensidad (1-10)"?: number | string;
+  "Tipo Tarea"?: string;
+  "Contenido Principal"?: string;
+  Fase?: string;
+};
 
 /** La sesión de un día: su MD, sus minutos y el contenido con más minutos (07/11/2026). */
 type SesionDia = {
@@ -96,6 +105,10 @@ type SesionDia = {
   porFase?: Record<string, number>;
   /** Sólo planificada: de la hoja publicada, aún sin minutos ni copia de lo hecho (16/11/2026). */
   planificado?: boolean;
+  /** 17/11/2026 (r20): la carga (UA = minutos × intensidad) de las tareas con las dos cosas, y cuántas son de cuántas. */
+  ua?: number;
+  conCarga?: number;
+  tareas?: number;
 };
 
 /*
@@ -325,7 +338,7 @@ export default function CalendarGeneralPage() {
       const porFase: Record<string, number> = {};
 
       for (const f of entreno) {
-        const contenido = (f.contenidoPrincipal || f.tipoTarea || "").trim();
+        const contenido = contenidoUnificado((f.contenidoPrincipal || f.tipoTarea || "").trim());
         if (contenido) porContenido[contenido] = (porContenido[contenido] ?? 0) + (f.tiempo || 1);
         const fase = faseDe(f.fase);
         if (fase && fase.clave !== "GLOBAL") porFase[fase.clave] = (porFase[fase.clave] ?? 0) + (f.tiempo || 1);
@@ -365,7 +378,7 @@ export default function CalendarGeneralPage() {
 
           const previa = mapa.get(key);
           const minutos = Number(fila.Tiempo) || 0;
-          const contenido = String(fila["Contenido Principal"] || fila["Tipo Tarea"] || "").trim();
+          const contenido = contenidoUnificado(String(fila["Contenido Principal"] || fila["Tipo Tarea"] || "").trim());
           const porContenido = { ...(previa?.porContenido ?? {}) };
 
           if (contenido) porContenido[contenido] = (porContenido[contenido] ?? 0) + minutos;
@@ -376,7 +389,19 @@ export default function CalendarGeneralPage() {
 
           if (fase && fase.clave !== "GLOBAL") porFase[fase.clave] = (porFase[fase.clave] ?? 0) + (minutos || 1);
 
-          mapa.set(key, { md: previa?.md || md, minutos: (previa?.minutos ?? 0) + minutos, principal, porContenido, porFase });
+          const intensidad = Number(String(fila["Intensidad (1-10)"] ?? "").replace(",", ".")) || 0;
+          const carga = minutos > 0 && intensidad > 0 ? minutos * intensidad : 0;
+
+          mapa.set(key, {
+            md: previa?.md || md,
+            minutos: (previa?.minutos ?? 0) + minutos,
+            principal,
+            porContenido,
+            porFase,
+            ua: (previa?.ua ?? 0) + carga,
+            conCarga: (previa?.conCarga ?? 0) + (carga > 0 ? 1 : 0),
+            tareas: (previa?.tareas ?? 0) + 1,
+          });
         }
 
         setSesionesDia(mapa);
@@ -644,14 +669,28 @@ export default function CalendarGeneralPage() {
           | (las de después). Cada una con su nombre y su hora.
           */
           if (delPartido && fecha === delPartido) {
-            const antes = deViaje.filter((c) => minutoPartido === null || c.minuto < minutoPartido)[0];
-            const despues = minutoPartido === null ? undefined : deViaje.filter((c) => c.minuto > minutoPartido)[0];
+            /* 17/11/2026 (r20, jueces): BeSoccer deja el partido jugado a las 00:00 y la
+               vuelta del 13/11 desaparecía; la hora sale entonces de la cita «partido». */
+            const corte = minutoPartido ?? citas.find((c) => c.tipo === "partido" && Number.isFinite(c.minuto))?.minuto ?? null;
+            const antes = deViaje.filter((c) => corte === null || c.minuto < corte)[0];
+            const tras = corte === null ? [] : deViaje.filter((c) => c.minuto > corte);
+            const despues = tras[0];
+            const llegada = tras.length > 1 ? tras[tras.length - 1] : undefined;
 
             if (antes) {
               lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-estadio`, fecha, clase: "VIAJE", titulo: "Traslado al estadio", detalle, hora: horaDeCita(antes), enlace });
             }
             if (despues) {
-              lista.push({ id: `viaje-${viaje.partidoId}-${fecha}-vuelta`, fecha, clase: "VIAJE", titulo: `Vuelta de ${deDonde}`, detalle, hora: horaDeCita(despues), enlace });
+              lista.push({
+                id: `viaje-${viaje.partidoId}-${fecha}-vuelta`,
+                fecha,
+                clase: "VIAJE",
+                titulo: `Vuelta de ${deDonde}`,
+                detalle,
+                /* Todas las citas de la vuelta en la casilla: la salida y la llegada. */
+                hora: [horaDeCita(despues), llegada ? horaDeCita(llegada) : ""].filter(Boolean).join(" · "),
+                enlace,
+              });
             }
             continue;
           }
@@ -982,6 +1021,15 @@ export default function CalendarGeneralPage() {
     .filter(([n]) => n > 0)
     .map(([n, uno, varios, base, clave]) => ({ texto: `${n} ${n === 1 ? uno : varios}${base}`, clave }));
   const resumenMes = resumenPiezas.map((p) => p.texto).join(" · ");
+  /* 17/11/2026 (r20, jueces): «4 partidos (2 jugados)» dice cuáles y lleva a su informe. */
+  const jugadosDelMes = [...autoByDay.entries()]
+    .filter(([key]) => {
+      const d = parseDateKey(key);
+
+      return d.getMonth() === active.month && d.getFullYear() === active.year;
+    })
+    .flatMap(([, l]) => l.filter((a) => a.clase === "PARTIDO" && a.marcador && a.rival))
+    .sort((a, b) => a.fecha.localeCompare(b.fecha));
 
   return (
     <CalendarShell
@@ -1050,6 +1098,22 @@ export default function CalendarGeneralPage() {
               ),
             )}
             <span>en {MONTHS[active.month].toLowerCase()}</span>
+            {jugadosDelMes.length > 0 ? (
+              <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                <span className="text-white/55">Jugados:</span>
+                {jugadosDelMes.map((p) => (
+                  <Link
+                    key={p.id}
+                    href={microDeFecha.get(p.fecha) ? `/microcycles?micro=${microDeFecha.get(p.fecha)}` : "/microcycles"}
+                    title={`El informe de ${p.titulo}`}
+                    className="font-semibold text-sky-300 underline-offset-2 hover:underline"
+                  >
+                    {p.jornada ? `J${String(p.jornada).padStart(2, "0")} ` : ""}
+                    {p.enCasa ? "vs" : "en"} {nombreCorto(p.rival ?? "")} {p.marcador ? resultadoConSentido(p.marcador) : ""} →
+                  </Link>
+                ))}
+              </span>
+            ) : null}
             {filtro ? (
               <button type="button" onClick={() => setFiltro(null)} className="text-xs font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
                 Ver todo
@@ -1133,21 +1197,19 @@ export default function CalendarGeneralPage() {
 
         const sesionDia = sesionesDia.get(key);
         const hayPartido = dayAuto.some((a) => a.clase === "PARTIDO");
-        /* Más allá de la última sesión apuntada: lo que toca por el calendario. */
-        const porVenir = !sesionDia && !hayPartido && tramoSesiones !== null && key > tramoSesiones.hasta;
-        /* 11/11/2026: el día después del partido es libre, como propone
-           /laboratorio/microciclo («Libre sólo el día después del partido»);
-           antes salía MD-6 del partido siguiente y había dos criterios. */
-        const vispera = parseDateKey(key);
-        vispera.setDate(vispera.getDate() - 1);
-        const trasPartido = porVenir && diasDePartido.includes(dateKey(vispera));
+        /*
+        | 17/11/2026 (r20, jueces): el MD de un día sin sesión sale de la regla
+        | común de los dos calendarios (mdDelCalendario): el día después del
+        | partido es «MD+1», no «Libre», y el segundo, «MD+2».
+        */
+        const mdSinSesion = !sesionDia && !hayPartido ? mdALaVista(key, fechasDelMd, hoyKey) : "";
         const libre =
-          (!sesionDia &&
-            !hayPartido &&
-            tramoSesiones !== null &&
-            key > tramoSesiones.desde &&
-            key < tramoSesiones.hasta) ||
-          trasPartido;
+          !mdSinSesion &&
+          !sesionDia &&
+          !hayPartido &&
+          tramoSesiones !== null &&
+          key > tramoSesiones.desde &&
+          key < tramoSesiones.hasta;
 
         return {
           hasContent:
@@ -1159,7 +1221,7 @@ export default function CalendarGeneralPage() {
                   (16/11/2026: la misma regla, lib/microciclo/semana-de-hoy.ts; el de la hoja,
                   si no hay partido a la vista). Sin ninguno, «fuera de micro». */}
               {sesionDia && (() => {
-                const deducido = mdDelDia(key, fechasDelMd) || sesionDia.md;
+                const deducido = mdDelCalendario(key, fechasDelMd) || sesionDia.md;
 
                 return deducido ? (
                   <span className="siempre-oscuro whitespace-nowrap rounded-full px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "#1F2937", color: "#FFFFFF" }} title="MD calculado por la fecha del próximo partido (la hoja no lo trae)">
@@ -1185,30 +1247,16 @@ export default function CalendarGeneralPage() {
                   viaje se queda con el viaje (11/11/2026): un MD-1 sin sesión
                   al lado del autobús no decía nada. */}
               {/* 16/11/2026: también con viaje (el 28/11 salía sin su MD-1). */}
-              {porVenir && !trasPartido && (() => {
-                /*
-                | 17/11/2026 (jueces): todos los días del micro en curso llevan su
-                | MD (el 23/11, MD-6), y el segundo día tras un partido, «MD+2».
-                | Más allá del próximo partido, sólo la semana del partido (MD-5 a
-                | MD-1): MD-7 y MD-6 de semanas lejanas eran ruido.
-                */
-                const dosAntes = parseDateKey(key);
-
-                dosAntes.setDate(dosAntes.getDate() - 2);
-
-                const previsto = diasDePartido.includes(dateKey(dosAntes)) ? "MD+2" : mdDelDia(key, fechasDelMd);
-                const proximoPartido = hoyKey ? [...fechasDelMd].map((f) => String(f).slice(0, 10)).filter((f) => f >= hoyKey).sort()[0] : undefined;
-                const enCurso = Boolean(proximoPartido && key <= proximoPartido);
-
-                return previsto === "MD+2" || /^MD-[1-5]$/.test(previsto) || (enCurso && /^MD-\d+$/.test(previsto)) ? (
-                  <span
-                    className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
-                    title="MD previsto por la fecha del próximo partido: la hoja aún no tiene la sesión"
-                  >
-                    {previsto}
-                  </span>
-                ) : null;
-              })()}
+              {/* 17/11/2026 (r20): la regla común (mdALaVista): MD+1, MD+2, MD-1 a MD-5 y,
+                  en la semana en curso, también MD-6 en adelante. Trazo discontinuo: sin sesión. */}
+              {mdSinSesion ? (
+                <span
+                  className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
+                  title={mdSinSesion === "MD+1" ? "El día después del partido: recuperación" : "MD por la fecha de los partidos: la hoja no tiene sesión ese día"}
+                >
+                  {mdSinSesion === "MD+1" ? "MD+1 · recup." : mdSinSesion}
+                </span>
+              ) : null}
               {imageCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
                   <ImageIcon className="h-3 w-3 text-sky-300" />
@@ -1249,6 +1297,18 @@ export default function CalendarGeneralPage() {
                     <p className="text-[10px] text-white/60 md:text-[10px]">
                       {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
                     </p>
+                    {/* 17/11/2026 (r20, jueces): la carga del entreno hecho, con su base al pasar por encima. */}
+                    {!sesionDia.planificado && sesionDia.ua ? (
+                      <p
+                        className="text-[10px] font-semibold tabular-nums text-white/75 md:text-[11px]"
+                        title={`UA = minutos × intensidad (1-10) · ${sesionDia.conCarga} de ${sesionDia.tareas} tareas con tiempo e intensidad`}
+                      >
+                        {Math.round(sesionDia.ua)} UA
+                        {sesionDia.conCarga && sesionDia.tareas && sesionDia.conCarga < sesionDia.tareas ? (
+                          <span className="font-normal text-white/50"> · {sesionDia.conCarga}/{sesionDia.tareas} tareas</span>
+                        ) : null}
+                      </p>
+                    ) : null}
                     {/* 16/11/2026 (jueces): la sesión abre su día en Microciclos desde la casilla. */}
                     {microDeFecha.get(key) ? (
                       <Link
@@ -1303,6 +1363,22 @@ export default function CalendarGeneralPage() {
                       >
                         {auto.marcador ? "Informe →" : "Plan de partido →"}
                       </Link>
+                      {/* 17/11/2026 (r20, jueces): sus goles en vídeo y su ABP, con el rival ya elegido. */}
+                      <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                        {enlacesDelRival(jornadasRivales, auto.rival, auto.fecha)
+                          .filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo")
+                          .map((e) => (
+                            <Link
+                              key={e.texto}
+                              href={e.href}
+                              title={e.title}
+                              onClick={(ev) => ev.stopPropagation()}
+                              className="text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                            >
+                              {e.texto === "Su ABP" ? "Su ABP" : "Sus goles"}
+                            </Link>
+                          ))}
+                      </span>
                     </div>
                   ) : (
                   /* 16/11/2026: el viaje es un renglón ligero (punto morado, sin caja) para
@@ -1322,6 +1398,7 @@ export default function CalendarGeneralPage() {
                       {/* El rival con el mismo nombre corto que el partido de la casilla. */}
                       {auto.titulo.replace(/^(Viaje a|Regreso de|Vuelta de) (.+)$/, (_, que: string, quien: string) => `${que} ${nombreCorto(quien)}`)}
                       {auto.hora ? <span className="text-white/55"> · {auto.hora}</span> : null}
+                      <span aria-hidden className="text-[#C8A96B]"> →</span>
                     </Link>
                   </p>
                   )

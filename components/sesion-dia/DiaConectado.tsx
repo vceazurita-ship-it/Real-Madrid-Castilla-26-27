@@ -11,7 +11,7 @@
  */
 
 import Link from "next/link";
-import { Check, CheckCheck, ClipboardCheck, Target, Users } from "lucide-react";
+import { Check, CheckCheck, ClipboardCheck, Presentation, Target, Users } from "lucide-react";
 
 import { Button } from "@/components/abp/ui";
 import type { EntrenoDelDia } from "@/hooks/useDiasConectados";
@@ -161,7 +161,20 @@ export function DiaConectado({
             </Link>
           ) : null
         ) : (
-          <EnlacesDia fecha={fecha} micro={micro} actual="microciclo" textos={{ sesion: sesion ? "Ver los equipos" : "Hacer los equipos", analisis: analizado ? "Ver el análisis" : "Analizar el entreno" }} />
+          <>
+            <EnlacesDia fecha={fecha} micro={micro} actual="microciclo" textos={{ sesion: sesion ? "Ver los equipos" : "Hacer los equipos", analisis: analizado ? "Ver el análisis" : "Analizar el entreno" }} />
+            {/* 17/11/2026 (r20, jueces): las diapositivas del día, a un toque. */}
+            {sesion && conEquipos && /^\d{4}-\d{2}-\d{2}$/.test(fecha) ? (
+              <Link
+                href={`${enlaceSesion(fecha)}&vista=diapositivas`}
+                className="inline-flex min-w-0 items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-[11px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+                title="Las diapositivas de los equipos de este día"
+              >
+                <Presentation size={12} className="shrink-0" aria-hidden />
+                Diapositivas del día
+              </Link>
+            ) : null}
+          </>
         )}
       </div>
 

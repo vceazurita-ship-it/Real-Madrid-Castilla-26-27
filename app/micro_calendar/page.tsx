@@ -28,7 +28,7 @@ import { cn } from "@/lib/utils";
 import { EstadoError } from "@/components/ui/estados";
 import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisis/escudos";
 import { cuentaDias, esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
-import { diasPlanificados, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { diasPlanificados, mdALaVista, mdDelCalendario } from "@/lib/microciclo/semana-de-hoy";
 import { contenidoUnificado } from "@/lib/microciclo/contenidos";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useCalendario } from "@/hooks/useCalendario";
@@ -299,6 +299,26 @@ export default function MicroCalendar() {
   const [error, setError] = useState<string | null>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
 
+  /*
+  | «?fecha=AAAA-MM-DD» (17/11/2026, r20, jueces): el análisis de entrenamiento
+  | abre aquí la sesión de su tarea con el día ya elegido. Se lee tras montar.
+  */
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const f = new URLSearchParams(window.location.search).get("fecha");
+
+      if (!f || !/^\d{4}-\d{2}-\d{2}$/.test(f)) return;
+
+      const [a, mes] = f.split("-").map(Number);
+      const idx = months.findIndex((x) => x.month === mes - 1 && x.year === a);
+
+      if (idx !== -1) setCurrentMonth(idx);
+      setSelectedKey(f);
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [months]);
+
   /* Los escudos, los mismos que usan los gráficos de Data Análisis. */
   const [listaEscudos, setListaEscudos] = useState<Escudos>([]);
 
@@ -425,7 +445,7 @@ export default function MicroCalendar() {
   | común de las cuatro pantallas (hooks/useSemanaDeHoy.ts), y se dibujan con
   | borde discontinuo y «planificado».
   */
-  const { registro, fechasDePartido: fechasPartido, semana } = useSemanaDeHoy();
+  const { registro, fechasDePartido: fechasPartido, semana, hoy: hoyComun } = useSemanaDeHoy();
 
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
@@ -788,8 +808,13 @@ export default function MicroCalendar() {
     | física +19 %, cognitiva −25 %») y la base en la línea de debajo
     | (`subtitulo`). En el móvil el H1 ocupaba seis líneas.
     */
+    /* 17/11/2026 (r20, jueces): la base en el propio titular y, con menos de 25
+       entrenos por lado, marcado «tendencia». */
     if (pctCarga !== null) {
-      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`}`;
+      const n = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
+      const nBase = monthStats.hechos === mesPrevio.stats.hechos ? `${n} entrenos` : `${monthStats.hechos} entrenos frente a ${mesPrevio.stats.hechos}`;
+
+      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`} · ${nBase}${n < 25 ? " · tendencia" : ""}`;
     }
     return [
       `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}`,
@@ -971,7 +996,7 @@ export default function MicroCalendar() {
                     <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                     <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                     <Escudo url={escudoDe(suyo.rival)} nombre={nombreBonito(suyo.rival)} className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
+                    <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
                   </div>
                   {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
                   {(() => {
@@ -983,22 +1008,22 @@ export default function MicroCalendar() {
                       </Link>
                     );
                   })()}
+                  <EnlacesRivalCasilla jornadas={jornadasRivales} rival={suyo.rival} fecha={key} onClick={sinAbrirElDia} />
                 </>
               ),
               crece: true,
             };
           }
 
-          const mdVacio = mdDelDia(key, fechasPartido);
-          const enSemana = /^MD-[1-5]$/.test(mdVacio);
-          const libre = sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
-          /* 17/11/2026 (jueces): el día después del partido es «MD+1 · recuperación», como en el creador de micros. */
-          const ayer = parseDateKey(key);
-
-          ayer.setDate(ayer.getDate() - 1);
-
-          const ayerKey = `${ayer.getFullYear()}-${String(ayer.getMonth() + 1).padStart(2, "0")}-${String(ayer.getDate()).padStart(2, "0")}`;
-          const trasPartido = partidoDelDia.has(ayerKey) || [...fechasPartido].some((f) => String(f).slice(0, 10) === ayerKey);
+          /*
+          | 17/11/2026 (r20, jueces): la regla común de los dos calendarios
+          | (lib/microciclo/semana-de-hoy.ts, mdALaVista): MD+1 · recuperación,
+          | MD+2 y MD-n; el 22/11 y el 23/11 ya no se quedan sin etiqueta.
+          */
+          const mdVacio = mdALaVista(key, fechasPartido, hoyComun);
+          const trasPartido = mdVacio === "MD+1";
+          const enSemana = Boolean(mdVacio) && !trasPartido;
+          const libre = !mdVacio && sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
 
           return libre || enSemana || trasPartido
             ? {
@@ -1041,7 +1066,7 @@ export default function MicroCalendar() {
         const mdHoja = dayTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "";
         /* 16/11/2026: el MD sale de la regla común (lib/microciclo/semana-de-hoy.ts), la misma
            del creador de micros y de /calendar_general; el de la hoja, si no hay partido a la vista. */
-        const md = esDiaDePartido(dayTasks) ? "MD" : mdDelDia(key, fechasPartido) || mdHoja;
+        const md = esDiaDePartido(dayTasks) ? "MD" : mdDelCalendario(key, fechasPartido) || mdHoja;
         /* Todo el día sólo planificado (sin minutos ni copia de lo hecho): borde discontinuo. */
         const soloPlan = dayTasks.every((t) => t._plan) || (totalMinutes === 0 && !esDiaDePartido(dayTasks));
 
@@ -1103,7 +1128,7 @@ export default function MicroCalendar() {
                   <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="min-w-0 truncate text-[10px] font-semibold text-white/85 md:text-[11px]">
+                  <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">
                     {nombreCorto(nombreBonito(partido))}
                   </span>
                 </div>
@@ -1118,9 +1143,12 @@ export default function MicroCalendar() {
                 const e = enlaceDelPartido(key, partido, String(dayTasks[0]?.Micro ?? ""));
 
                 return (
-                  <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
-                    {e.texto} →
-                  </Link>
+                  <>
+                    <Link href={e.href} onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+                      {e.texto} →
+                    </Link>
+                    <EnlacesRivalCasilla jornadas={jornadasRivales} rival={nombreBonito(partido)} fecha={key} onClick={sinAbrirElDia} />
+                  </>
                 );
               })() : null}
 
@@ -1549,5 +1577,35 @@ function Metric({
 
       <MetricBar value={value} max={max} />
     </div>
+  );
+}
+
+/**
+ * Sus goles en vídeo y su ABP dentro de la casilla del partido, con el rival
+ * ya elegido (17/11/2026, r20, jueces). Pulsarlos no abre el día.
+ */
+function EnlacesRivalCasilla({
+  jornadas,
+  rival,
+  fecha,
+  onClick,
+}: {
+  jornadas: ReturnType<typeof useJornadasRivales>;
+  rival: string;
+  fecha: string;
+  onClick: (e: { stopPropagation: () => void }) => void;
+}) {
+  const enlaces = enlacesDelRival(jornadas, rival, fecha).filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo");
+
+  if (!enlaces.length) return null;
+
+  return (
+    <span className="flex flex-wrap gap-x-2 gap-y-0.5">
+      {enlaces.map((e) => (
+        <Link key={e.texto} href={e.href} title={e.title} onClick={onClick} className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+          {e.texto === "Su ABP" ? "Su ABP" : "Sus goles"}
+        </Link>
+      ))}
+    </span>
   );
 }

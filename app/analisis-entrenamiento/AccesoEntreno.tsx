@@ -19,7 +19,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
 import { MINIMO_PORCENTAJE } from "@/lib/entreno/modelo";
-import type { UltimaSesionPublica } from "@/lib/entreno/ultima-publica";
+import type { ResumenSesionPublica, UltimaSesionPublica } from "@/lib/entreno/ultima-publica";
 
 /* Los mismos colores que la pantalla de dentro (`COLOR_BIEN` y `COLOR_MEJORABLE` de VisorClips). */
 const BIEN = "#1B9E77";
@@ -163,7 +163,7 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
       <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Última sesión analizada · {fechaLegible(ultima.fecha)}</p>
       <p className="mt-1.5 flex flex-wrap items-baseline gap-x-3 gap-y-1">
         <span className="text-2xl font-semibold tabular-nums text-white sm:text-3xl">
-          {ultima.pct !== null ? `${ultima.pct} % de acierto` : `${ultima.correctas} de ${ultima.total} correctas`}
+          {ultima.pct !== null && !(ultima.provisional && ultima.total < ACCIONES_FIRMES) ? `${ultima.pct} % de acierto` : `${ultima.correctas} de ${ultima.total} correctas`}
         </span>
         <span className="text-[14px] text-white/65">
           {ultima.pct !== null
@@ -209,6 +209,13 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
                   {t.meta ? <span className="absolute -top-1 h-[18px] w-0.5 rounded-full" style={{ left: `${Math.min(100, t.meta)}%`, background: TINTA }} title={`Meta ${t.meta} %`} /> : null}
                 </div>
               )}
+              {/* 17/11/2026 (r20, jueces): la tarea abre su sesión en Contenidos Microciclo, con el día elegido. */}
+              <Link
+                href={`/micro_calendar?fecha=${ultima.fecha}`}
+                className="mt-0.5 inline-block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline"
+              >
+                {t.codigo}: ver la sesión del {fechaLegible(ultima.fecha).split(" ")[1]} →
+              </Link>
               {t.pct !== null && t.meta ? (
                 <p className={`mt-0.5 text-[11px] font-semibold ${t.pct >= t.meta ? "text-emerald-300" : "text-amber-300"}`}>
                   {t.pct >= t.meta ? `cumple (meta ${t.meta} %)` : `no llega (meta ${t.meta} %)`}
@@ -218,42 +225,81 @@ function UltimaSesion({ ultima }: { ultima: UltimaSesionPublica }) {
           ))}
         </ul>
       ) : null}
-      {/* 17/11/2026 (jueces): las sesiones anteriores, con su cifra y si sube o baja. */}
-      {ultima.anteriores?.length ? (
-        <div className="mt-4 border-t border-white/10 pt-3">
-          <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Sesiones anteriores</p>
-          <ul className="mt-1.5 space-y-1 text-[13px]">
-            {ultima.anteriores.map((a, i) => {
-              const siguiente = i === 0 ? ultima : ultima.anteriores[i - 1];
-              const cambio = a.pct !== null && siguiente.pct !== null ? siguiente.pct - a.pct : null;
-
-              return (
-                <li key={a.fecha} className="flex min-w-0 flex-wrap items-baseline gap-x-2">
-                  <span className="capitalize text-white/75">{fechaLegible(a.fecha)}</span>
-                  <span className="tabular-nums font-semibold text-white">{a.pct !== null ? `${a.pct} %` : `${a.correctas} de ${a.total}`}</span>
-                  <span className="text-white/50">{a.total} acciones{a.provisional ? " · provisional" : ""}</span>
-                  {cambio !== null && Math.abs(cambio) >= 5 ? (
-                    <span className={`text-[12px] font-semibold ${cambio > 0 ? "text-emerald-300" : "text-amber-300"}`}>
-                      {cambio > 0 ? `la siguiente subió ${cambio} puntos` : `la siguiente bajó ${Math.abs(cambio)} puntos`}
-                    </span>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      ) : null}
+      {/*
+      | 17/11/2026 (r20, jueces): las sesiones, en barras de la más antigua a la
+      | última, cada una con su base. Una provisional o con menos de
+      | ${ACCIONES_FIRMES} acciones va rayada y dice «tendencia»: el 100 % de 29
+      | acciones sin revisar no pesa lo mismo que el 42 % de 125. Sin
+      | comparaciones en puntos entre sesiones sin revisar.
+      */}
+      {ultima.anteriores?.length ? <BarrasSesiones sesiones={[...ultima.anteriores].reverse().concat(ultima)} /> : null}
       <p className="mt-3 text-[12px] text-white/55">El detalle por jugador, con sus clips, al entrar con la cuenta del staff.</p>
     </section>
+  );
+}
+
+/** Por debajo de esto, una sesión se lee como tendencia (17/11/2026, r20). */
+const ACCIONES_FIRMES = 30;
+
+/** «29 de 29 · provisional» o «42 % · 52 de 125». */
+function cifraSesion(s: ResumenSesionPublica) {
+  if (s.provisional || s.pct === null) return `${s.correctas} de ${s.total}`;
+
+  return `${s.pct} %`;
+}
+
+function BarrasSesiones({ sesiones }: { sesiones: ResumenSesionPublica[] }) {
+  const firmes = sesiones.filter((s) => !s.provisional && s.total >= ACCIONES_FIRMES);
+  const total = sesiones.reduce((n, s) => n + s.total, 0);
+  const ultima = sesiones[sesiones.length - 1];
+  const titular = firmes.length
+    ? `Acierto por sesión: ${firmes.length} de ${sesiones.length} con base firme`
+    : `Acierto por sesión: las ${sesiones.length} son tendencia (sin revisar o con menos de ${ACCIONES_FIRMES} acciones)`;
+
+  return (
+    <div className="mt-4 border-t border-white/10 pt-3">
+      <p className="text-[13px] font-semibold text-white">{titular}</p>
+      <p className="text-[11px] text-white/55">
+        {total} acciones en {sesiones.length} sesiones · la última, {fechaLegible(ultima.fecha)}, con {ultima.total}
+      </p>
+      <ul className="mt-3 flex items-end gap-3" aria-label="Acierto por sesión">
+        {sesiones.map((s) => {
+          const tendencia = s.provisional || s.total < ACCIONES_FIRMES;
+          const alto = s.total ? Math.max(4, Math.round((100 * s.correctas) / s.total)) : 4;
+
+          return (
+            <li key={s.fecha} className="flex min-w-0 flex-1 flex-col items-center gap-1 text-center">
+              <span className={`text-[13px] font-semibold tabular-nums ${tendencia ? "text-white/65" : "text-white"}`}>{cifraSesion(s)}</span>
+              <span className="relative flex h-20 w-full max-w-[56px] items-end rounded-md bg-white/[0.05]" aria-hidden>
+                <span
+                  className={`block w-full rounded-md ${tendencia ? "opacity-50" : ""}`}
+                  style={{
+                    height: `${alto}%`,
+                    background: tendencia ? `repeating-linear-gradient(135deg, ${BIEN} 0 4px, transparent 4px 7px)` : BIEN,
+                  }}
+                />
+              </span>
+              <span className="text-[11px] capitalize text-white/70">{fechaLegible(s.fecha)}</span>
+              <span className="text-[11px] text-white/50">
+                {tendencia ? (s.provisional ? "provisional · tendencia" : "tendencia") : `${s.correctas} de ${s.total}`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+      <p className="mt-2 text-[11px] text-white/50">Rayada: sin revisar o con menos de {ACCIONES_FIRMES} acciones; se lee como tendencia.</p>
+    </div>
   );
 }
 
 /** Lo que completa esta pantalla, a un toque y sin cuenta (16/11/2026, jueces). */
 function Accesos({ fecha }: { fecha?: string }) {
   const q = fecha ? `?fecha=${fecha}` : "";
+  /* 17/11/2026 (r20, jueces): con el día ya elegido en las tres. */
   const enlaces = [
     { href: `/jugadores-sesion${q}`, texto: "Equipos de la sesión", Icono: Users },
-    { href: "/microcycles", texto: "Microciclo de la semana", Icono: CalendarDays },
+    { href: `/micro_calendar${q}`, texto: "La sesión en el microciclo", Icono: CalendarDays },
+    ...(fecha ? [{ href: `/analisis-entrenamiento${q}`, texto: "Ver clips (staff)", Icono: Play }] : []),
   ];
 
   return (
@@ -345,6 +391,8 @@ export function AccesoEntreno({ ultima = null }: { ultima?: UltimaSesionPublica 
             | debajo de otro y a todo el ancho (el correo se cortaba), y una frase
             | con quién puede registrarse y qué pasa después.
             */}
+            {/* 17/11/2026 (r20, jueces): con la cuenta del staff ya en el aparato no se pide nada. */}
+            {delCuerpoTecnico ? null : (
             <Acceso
               sinPista
               apilado
@@ -356,6 +404,7 @@ export function AccesoEntreno({ ultima = null }: { ultima?: UltimaSesionPublica 
               subtitulo="La misma cuenta que la quiniela y las apuestas del staff"
               pie={<>Sólo el cuerpo técnico. Se abre el entrenamiento de hoy y no se vuelve a pedir la cuenta en un mes. ¿Sin contraseña? Pídela al administrador.</>}
             />
+            )}
 
             {yo && !delCuerpoTecnico ? (
               <Notice tone="warn" title="Esta cuenta no es del cuerpo técnico">
