@@ -3,6 +3,7 @@
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { nombrePuesto } from "@/lib/posiciones";
+import { esPortero } from "@/lib/seguimiento";
 import { nombreVisible } from "@/lib/nombreJugador";
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
@@ -111,39 +112,6 @@ function ChapaBase({ texto, tendencia = false }: { texto: string; tendencia?: bo
   );
 }
 
-/** Minigráfica de sus notas: las 3 últimas en color, las 3 anteriores en gris. */
-function Minigrafica({ notas }: { notas: number[] }) {
-  const serie = notas.slice(-6);
-  if (serie.length < 2) return null;
-
-  const w = 120;
-  const h = 26;
-  const lo = Math.min(...serie, 4);
-  const hi = Math.max(...serie, 9);
-  const x = (i: number) => (i / (serie.length - 1)) * (w - 6) + 3;
-  const y = (v: number) => h - 3 - ((v - lo) / (hi - lo || 1)) * (h - 6);
-  const corte = serie.length - Math.min(3, serie.length);
-
-  return (
-    <svg viewBox={`0 0 ${w} ${h}`} width={w} height={h} className="mt-1.5 block" role="img" aria-label={`Sus ${serie.length} últimas notas: ${serie.map((n) => formatRating(n)).join(", ")}`}>
-      <polyline
-        points={serie.map((v, i) => `${x(i)},${y(v)}`).join(" ")}
-        fill="none"
-        style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.3)" }}
-        strokeWidth={1.5}
-      />
-      {serie.map((v, i) => (
-        <circle
-          key={i}
-          cx={x(i)}
-          cy={y(v)}
-          r={i >= corte ? 3 : 2.2}
-          style={{ fill: i >= corte ? ratingColor(v) : "rgb(var(--rmcf-ink-rgb) / 0.35)" }}
-        />
-      ))}
-    </svg>
-  );
-}
 import { lineaDe, type LineaKey } from "@/lib/ratings/pitch";
 import { Player } from "@/types/player";
 
@@ -248,7 +216,9 @@ export function TeamPanel({
   const [sortKey, setSortKey] = useState<SortKey>("avg");
   const [minMatches, setMinMatches] = useState(1);
   const [todasCols, setTodasCols] = useState(false);
-  const colSec = todasCols ? "" : "max-sm:hidden";
+  /* 17/11/2026 (ronda 19): por defecto, Media, Forma y Tend. en todos los
+     anchos; Tit., Min, Pond., Máx y Mín, en «Ver más columnas». */
+  const colSec = todasCols ? "" : "hidden";
 
   const eligible = useMemo(
     () => ranked.filter((entry) => entry.summary.played >= minMatches),
@@ -298,7 +268,10 @@ export function TeamPanel({
     [fiables]
   );
 
-  const best = bestSorted[0] ?? null;
+  /* 17/11/2026 (ronda 19): «Mejor media» compara a los de campo; el portero
+     va en su línea («Media por línea»). */
+  const bestCampo = bestSorted.filter((entry) => !esPortero(entry.player.posicion));
+  const best = bestCampo[0] ?? bestSorted[0] ?? null;
 
   /* 30/10/2026: la lectura del top se hace sobre TODOS los que tienen 4+
      partidos, no sólo sobre los diez del gráfico: si no, «abajo» era el
@@ -403,6 +376,18 @@ export function TeamPanel({
     return [lo, hi];
   }, [topChart]);
 
+  /* 17/11/2026 (ronda 19): marcas del eje de minutos calculadas aquí, sin
+     duplicados (en el móvil salía 750′ dos veces) y con techo redondo, para
+     que el rótulo del de más minutos no se corte por la derecha. */
+  const ejeMinutos = useMemo(() => {
+    const max = Math.max(1, ...topChart.map((p) => p.minutes));
+    const paso = max > 1500 ? 500 : max > 600 ? 250 : 100;
+    const techo = Math.ceil((max * 1.06) / paso) * paso;
+    const ticks: number[] = [];
+    for (let v = 0; v <= techo; v += paso) ticks.push(v);
+    return { techo, ticks };
+  }, [topChart]);
+
   const ticksNota = useMemo(() => {
     const out: number[] = [];
 
@@ -463,9 +448,7 @@ export function TeamPanel({
       {/* INDICADORES */}
 
       <div
-        className={`grid min-w-0 gap-3 sm:grid-cols-2 ${
-          decisivoClaro ? "xl:grid-cols-4" : "xl:grid-cols-3"
-        }`}
+        className="grid min-w-0 gap-3 sm:grid-cols-2"
       >
         <StatCard
           label="Media del equipo"
@@ -475,48 +458,46 @@ export function TeamPanel({
         />
 
         <StatCard
-          label="Mejor media"
+          label="Mejor media · de campo"
           value={best ? <NombreJugador jugador={{ id: best.player.id, nombre: best.player.nombre }}>{nombreVisible(best.player.nombre)}</NombreJugador> : ""}
           etiqueta={best ? <ChapaBase texto={`${best.summary.played} PJ`} tendencia={best.summary.played < MIN_FIABLE} /> : undefined}
           hint={
             best
-              ? `${formatRating(best.summary.avg)} de media · nota del cuerpo técnico, no el índice Wyscout (está en Comparativa categoría)`
+              ? `${formatRating(best.summary.avg)} de media · el mejor de los ${bestCampo.length} de campo con ${MIN_FIABLE}+ PJ · nota del cuerpo técnico`
               : undefined
           }
           accent="var(--rmcf-gold-ink)"
         />
 
-        {/* 16/11/2026 (jueces): la progresión son 3 notas contra 3: va
-            marcada como tendencia en la chapa, con sus PJ a la vista, el
-            nombre atenuado y la minigráfica de esas seis notas. */}
-        <StatCard
-          label="Mayor progresión"
-          value={
-            mostImproved
-              ? <span className="opacity-80"><NombreJugador jugador={{ id: mostImproved.player.id, nombre: mostImproved.player.nombre }}>{nombreVisible(mostImproved.player.nombre)}</NombreJugador></span>
-              : ""
-          }
-          etiqueta={mostImproved ? <ChapaBase texto={`${mostImproved.summary.played} PJ · tendencia`} tendencia /> : undefined}
-          hint={
-            mostImproved
-              ? /* 10/11/2026: dos datos y la base, como tendencia: son 3 notas contra 3. */
-                `${formatSigned(mostImproved.summary.trend)} · ${desdeHasta(mostImproved)}3 últimas frente a 3 anteriores`
-              : undefined
-          }
-          pie={mostImproved ? <Minigrafica notas={mostImproved.summary.entries.map((e) => e.entry.rating).filter((n) => n > 0)} /> : undefined}
-          accent="var(--rmcf-rate-good)"
-        />
-
-        {decisivoClaro && topScorer && (
-          <StatCard
-            label="Más decisivo"
-            value={<NombreJugador jugador={{ id: topScorer.player.id, nombre: topScorer.player.nombre }}>{nombreVisible(topScorer.player.nombre)}</NombreJugador>}
-            etiqueta={<ChapaBase texto={`${topScorer.summary.played} PJ${topScorer.summary.played < 10 ? " · muestra pequeña" : ""}`} tendencia={topScorer.summary.played < 10} />}
-            hint={`${plural(topScorer.summary.goals, "gol", "goles")} · ${plural(topScorer.summary.assists, "asistencia", "asistencias")}`}
-            accent="var(--rmcf-rate-top)"
-          />
-        )}
       </div>
+
+      {/* 17/11/2026 (ronda 19): «Mayor progresión» (3 notas contra 3) y «Más
+          decisivo» (muestra pequeña) no van en titular grande: una línea
+          secundaria con su base. */}
+      {(mostImproved || (decisivoClaro && topScorer)) && (
+        <p className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-white/65">
+          {mostImproved && (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <span className="font-semibold uppercase tracking-[0.12em] text-white/50">Progresión (tendencia)</span>
+              <NombreJugador jugador={{ id: mostImproved.player.id, nombre: mostImproved.player.nombre }} className="font-semibold text-white">
+                {nombreVisible(mostImproved.player.nombre)}
+              </NombreJugador>
+              <span className="tabular-nums">{formatSigned(mostImproved.summary.trend)} · {desdeHasta(mostImproved)}3 últimas frente a 3 anteriores · {mostImproved.summary.played} PJ</span>
+            </span>
+          )}
+          {decisivoClaro && topScorer && (
+            <span className="inline-flex flex-wrap items-center gap-1.5">
+              <span className="font-semibold uppercase tracking-[0.12em] text-white/50">Goles + asist.</span>
+              <NombreJugador jugador={{ id: topScorer.player.id, nombre: topScorer.player.nombre }} className="font-semibold text-white">
+                {nombreVisible(topScorer.player.nombre)}
+              </NombreJugador>
+              <span className="tabular-nums">
+                {plural(topScorer.summary.goals, "gol", "goles")} · {plural(topScorer.summary.assists, "asistencia", "asistencias")} · {topScorer.summary.played} PJ
+              </span>
+            </span>
+          )}
+        </p>
+      )}
 
       {/* EVOLUCIÓN */}
 
@@ -663,7 +644,7 @@ export function TeamPanel({
       <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title="Nota y minutos"
-          subtitle={`Los ${topChart.length} jugadores con ${MIN_FIABLE}+ partidos · cada punto, un jugador · arriba, mejor nota; a la derecha, más minutos`}
+          subtitle={`${topChart.length} de ${ranked.filter((e) => e.summary.played > 0).length} jugadores valorados (los de ${MIN_FIABLE}+ partidos) · cada punto, un jugador · arriba, mejor nota; a la derecha, más minutos`}
           lectura={<LecturaGrafico nota={lecturaTop(elegiblesTop)} />}
           icon={Trophy}
           bodyClassName="p-3 sm:p-4"
@@ -681,14 +662,16 @@ export function TeamPanel({
                 {/* 07/11/2026: antes era un ranking en barras que repetía
                     la tabla de abajo; ahora cruza la nota con los minutos,
                     que la tabla no deja ver de un vistazo. */}
-                <ScatterChart margin={{ top: 18, right: 18, bottom: 4, left: -14 }}>
+                <ScatterChart margin={{ top: 18, right: 30, bottom: 4, left: -14 }}>
                   <CartesianGrid stroke={GRID_STROKE} />
 
                   <XAxis
                     type="number"
                     dataKey="minutes"
                     name="Minutos"
-                    domain={[0, "dataMax"]}
+                    domain={[0, ejeMinutos.techo]}
+                    ticks={ejeMinutos.ticks}
+                    interval="preserveStartEnd"
                     stroke={AXIS.stroke}
                     tick={AXIS.tick}
                     tickLine={false}
@@ -1057,7 +1040,7 @@ export function TeamPanel({
             <button
               type="button"
               onClick={() => setTodasCols((v) => !v)}
-              className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/65 transition hover:bg-white/[0.05] sm:hidden"
+              className="rounded-lg border border-white/10 px-2.5 py-1 text-[11px] text-white/65 transition hover:bg-white/[0.05]"
             >
               {todasCols ? "Menos columnas" : "Ver más columnas"}
             </button>
@@ -1065,7 +1048,7 @@ export function TeamPanel({
         }
       >
         <div className="min-w-0 overflow-x-auto">
-          <table className={`w-full border-collapse text-sm ${todasCols ? "min-w-[840px]" : "sm:min-w-[840px]"}`}>
+          <table className={`w-full border-collapse text-sm ${todasCols ? "min-w-[960px]" : ""}`}>
             <thead>
               <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
                 <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">#</th>
@@ -1075,11 +1058,12 @@ export function TeamPanel({
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Minutos de Valoraciones: 90′ por partido completo">Min</th>
                 <th className="px-2 py-3 text-left font-medium">Media</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media ponderada por minutos">Pond.</th>
-                <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media de los últimos 5 partidos">Forma</th>
+                <th className="px-2 py-3 text-center font-medium" title="Media de los últimos 5 partidos">Forma</th>
                 <th className="px-2 py-3 text-center font-medium" title="Sus 3 últimas notas frente a las 3 anteriores">Tend.</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su mejor nota en sus PJ">Máx</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su peor nota en sus PJ">Mín</th>
                 <th className="px-4 py-3 text-center font-medium" title="Goles + asistencias">G+A</th>
+                <th className="px-2 py-3 text-left font-medium"><span className="sr-only">Accesos</span></th>
               </tr>
             </thead>
 
@@ -1158,7 +1142,7 @@ export function TeamPanel({
                     {formatRating(entry.summary.weighted)}
                   </td>
 
-                  <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-white/60`}>
+                  <td className={`px-2 py-2.5 text-center tabular-nums text-white/60`}>
                     {formatRating(entry.summary.form)}
                   </td>
 
@@ -1176,6 +1160,17 @@ export function TeamPanel({
 
                   <td className="px-4 py-2.5 text-center tabular-nums text-white/60">
                     {entry.summary.goals}+{entry.summary.assists}
+                  </td>
+
+                  {/* 17/11/2026 (ronda 19): de cada fila, a un toque, su
+                      seguimiento, su fila de Comparativa y sus vídeos. */}
+                  <td className="px-2 py-2.5">
+                    <EnlacesJugador
+                      compacto
+                      className="flex-nowrap"
+                      jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
+                      destinos={["seguimiento", "comparativa", "videos"]}
+                    />
                   </td>
                 </tr>
               ))}
@@ -1232,6 +1227,12 @@ export function TeamPanel({
                           Análisis post →
                         </Link>
                       )}
+                      {/* 17/11/2026 (ronda 19): cada partido lleva a su rival ya
+                          elegido (goles, ABP y su once); el análisis post sólo
+                          se puede abrir por dirección para el último. */}
+                      <Link href={`/rivals?equipo=${encodeURIComponent(item.match.opponent)}`} className="font-semibold text-[#C8A96B] hover:underline">
+                        Rival →
+                      </Link>
                     </p>
                   </div>
 
@@ -1274,7 +1275,7 @@ function lecturaTop(elegibles: RankedPlayer[]): ReactNode {
     <>
       {`Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
         `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
-        `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(arriba.summary.avg - abajo.summary.avg)} menos). ` +
+        `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(Math.round(arriba.summary.avg * 10) / 10 - Math.round(abajo.summary.avg * 10) / 10)} menos). ` +
         /* 08/11/2026 (jueces): que la lectura acabe en una acción. 16/11:
            y la acción, a un toque con el jugador ya elegido. */
         `Qué hacemos: ver en vídeo sus 3 últimos partidos y fijar con él una acción para la semana.`}

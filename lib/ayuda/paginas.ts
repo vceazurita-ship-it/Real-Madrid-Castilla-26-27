@@ -1023,7 +1023,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Valoraciones de partido",
     resumen: "La nota que el cuerpo técnico pone a cada jugador en cada partido y lo que sale de ella: ranking, campograma, comparativa e histórico.",
     origen: "Supabase (tabla match_ratings, temporada 2026-2027); los partidos, de la hoja del calendario (la misma que Planes de partido). Minutos, titularidad, goles, asistencias y tarjetas los rellena cada noche BeSoccer (scripts/valoraciones-besoccer.mjs); la nota, las áreas y el comentario, sólo el cuerpo técnico.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Registrar",
@@ -1039,14 +1039,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Equipo",
         filas: [
           { que: "Media del equipo", es: "Media de la nota media de cada partido valorado" },
-          { que: "Mejor media", es: "La nota media más alta entre los de 4 partidos o más" },
-          { que: "Mayor progresión", es: "Quien más sube, con sus PJ y «tendencia» en la chapa y la minigráfica de sus 6 últimas notas (las 3 últimas en color)", cuenta: "Media de sus 3 últimas notas − media de las 3 anteriores; es tendencia" },
-          { que: "Más decisivo", es: "Más goles + asistencias; sale con 3 o más; sus PJ en la chapa y «muestra pequeña» por debajo de 10" },
-          { que: "Nombres", es: "Cada nombre (tarjetas, podio, ranking, mejores actuaciones) abre su ficha en Plantilla; el resto de la fila, sus notas" },
+          { que: "Mejor media · de campo", es: "La nota media más alta entre los jugadores de campo con 4 partidos o más (el portero va en «Media por línea»); el pie dice de cuántos" },
+          { que: "Progresión y goles + asistencias", es: "Bajo las tarjetas, en una línea secundaria (no en titular): quien más sube (3 últimas notas frente a 3 anteriores, tendencia) y quien más goles + asistencias suma (con 3 o más), cada uno con sus PJ" },
+                    { que: "Nombres", es: "Cada nombre (tarjetas, podio, ranking, mejores actuaciones) abre su ficha en Plantilla; el resto de la fila, sus notas" },
           { que: "Evolución del equipo", es: "La media de cada partido: lleno en casa, hueco fuera; la línea de puntos, la media de la temporada; el resultado, con el Castilla primero" },
-          { que: "Ranking de la plantilla", es: "PJ, Tit., Min, media, Pond., Forma, Tend., Máx, Mín y G+A; filtro Todos, 3+ PJ o 5+ PJ; en el móvil sólo PJ, media, Tend. y G+A («Ver más columnas»)", cuenta: "Pond. = media pesada por minutos; Forma = media de los 5 últimos; Min = minutos de Valoraciones (90′ por partido completo, BeSoccer), por eso no cuadra al minuto con el Dashboard de plantilla (Wyscout); con menos de 4 partidos, fila atenuada" },
-          { que: "Nota y minutos · Media por línea · Podio", es: "Los de 4 partidos o más en dos ejes, la media de porteros, defensas, medios y ataque, y el podio de la temporada; la lectura acaba en el último de la lista con «Vídeos», «Registrar seguimiento» y «Ficha»" },
-          { que: "Partido a partido · Mejores actuaciones", es: "Marcador con el Castilla primero y V/E/D; el último partido lleva «Análisis post» (Data análisis)" },
+          { que: "Ranking de la plantilla", es: "Por defecto PJ, Media, Forma, Tend. y G+A en todos los anchos; Tit., Min, Pond., Máx y Mín en «Ver más columnas». Cada fila lleva sus accesos a Seguimiento, Comparativa y Vídeos; filtro Todos, 3+ PJ o 5+ PJ", cuenta: "Pond. = media pesada por minutos; Forma = media de los 5 últimos; Min = minutos de Valoraciones (90′ por partido completo, BeSoccer), por eso no cuadra al minuto con el Dashboard de plantilla (Wyscout); con menos de 4 partidos, fila atenuada" },
+          { que: "Nota y minutos · Media por línea · Podio", es: "El título dice cuántos de los valorados entran; las marcas de minutos van sin repetirse y con techo redondo. Los de 4 partidos o más en dos ejes, la media de porteros, defensas, medios y ataque, y el podio de la temporada; la lectura acaba en el último de la lista con «Vídeos», «Registrar seguimiento» y «Ficha»" },
+          { que: "Partido a partido · Mejores actuaciones", es: "Marcador con el Castilla primero y V/E/D; el último partido lleva «Análisis post» (Data análisis) y cada uno, «Rival →» con el rival ya elegido" },
         ],
       },
       {
