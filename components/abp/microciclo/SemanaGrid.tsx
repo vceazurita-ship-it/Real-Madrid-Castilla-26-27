@@ -283,8 +283,9 @@ function TrabajoCuerpo({
       )}
 
       {detalle && desgaste.length > 0 && (
-        <p className="mt-1 text-[10.5px] leading-snug tabular-nums text-white/45">
-          {enLista(desgaste).replace(/^./, (letra) => letra.toUpperCase())}
+        /* 17/11/2026 (jueces, ronda 20): se dice que es lo planificado, no lo medido. */
+        <p className="mt-1 text-[11px] leading-snug tabular-nums text-white/55">
+          Plan: {enLista(desgaste)}
         </p>
       )}
     </>
@@ -444,6 +445,18 @@ function DiaColumna({
     0,
   );
 
+  /* 17/11/2026 (jueces, ronda 20): atacando / defendiendo de cada día, en barra (las de los dos lados, mitad y mitad). */
+  const ladoDia = plan.trabajos.reduce(
+    (acc, trabajo) => {
+      const lados = ladosDe(trabajo);
+      lados.forEach((lado) => {
+        acc[lado] += (trabajo.minutos || 0) / lados.length;
+      });
+      return acc;
+    },
+    { ofensivo: 0, defensivo: 0 } as Record<AbpLado, number>,
+  );
+
   /* Tareas con minutos pero sin carga calculable (falta la intensidad). */
   const trabajosSinCarga = plan.trabajos.filter(
     (trabajo) => (trabajo.minutos || 0) > 0 && cargaCondicional(trabajo) <= 0,
@@ -565,6 +578,18 @@ function DiaColumna({
       </div>
 
       {/* ----------------------- TOTALES ---------------------- */}
+
+      {minutos > 0 && ladoDia.ofensivo + ladoDia.defensivo > 0 && (
+        <div
+          className="mx-2.5 mt-1 flex h-1.5 overflow-hidden rounded-full"
+          role="img"
+          aria-label={`Atacando ${Math.round(ladoDia.ofensivo)}′, defendiendo ${Math.round(ladoDia.defensivo)}′`}
+          title={`Atacando ${Math.round(ladoDia.ofensivo)}′ · defendiendo ${Math.round(ladoDia.defensivo)}′`}
+        >
+          <span style={{ width: `${(ladoDia.ofensivo / (ladoDia.ofensivo + ladoDia.defensivo)) * 100}%`, background: "var(--rmcf-gold-ink)" }} />
+          <span style={{ width: `${(ladoDia.defensivo / (ladoDia.ofensivo + ladoDia.defensivo)) * 100}%`, background: "#4F8FE8" }} />
+        </div>
+      )}
 
       {minutos > 0 && (
         /* 30/10/2026 (expertos): el pie salta de línea en vez de cortarse

@@ -227,6 +227,11 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         </p>
       </div>
 
+      {/* 17/11/2026 (jueces, ronda 20): la dirección del ataque, en grande y encima del campo. */}
+      <p className="mx-auto mb-2 flex w-full max-w-[1200px] items-center justify-between text-[12px] font-semibold uppercase tracking-[0.14em] text-white/70">
+        <span>{isOffensive ? "Nuestra portería" : "← El rival ataca hacia aquí"}</span>
+        <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Su portería"}</span>
+      </p>
       <div className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
         <BoardViewport className="absolute inset-0" label="Mapa de saques de banda">
         {/*
@@ -359,21 +364,21 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 >
                   {node.count}
                 </text>
-                {/* 17/11/2026 (jueces, ronda 19): cada zona dice «n saques · % conservados» (o recuperados), hacia dentro del campo. */}
-                <text
-                  x={x}
-                  y={y < 50 ? y + radius + 3.6 : y - radius - 1.6}
-                  textAnchor="middle"
-                  fontSize="3.4"
-                  fontWeight="700"
-                  fill="#FFFFFF"
-                  stroke="#07111F"
-                  strokeWidth="0.6"
-                  paintOrder="stroke"
-                  pointerEvents="none"
-                >
-                  {`${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`}
-                </text>
+                {/* 17/11/2026 (jueces, ronda 19): cada zona dice «n saques · % conservados» (o recuperados), hacia dentro del campo.
+                    Ronda 20: sobre una píldora oscura, que sobre el césped claro del modo día no se leía. */}
+                {(() => {
+                  const rotulo = `${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`;
+                  const ancho = rotulo.length * 2.05 + 2.4;
+                  const yTexto = y < 50 ? y + radius + 4.4 : y - radius - 2.2;
+                  return (
+                    <g pointerEvents="none">
+                      <rect x={x - ancho / 2} y={yTexto - 3.4} width={ancho} height={4.6} rx={2.3} style={{ fill: "#07111F", fillOpacity: 0.82 }} />
+                      <text x={x} y={yTexto} textAnchor="middle" fontSize="3.4" fontWeight="700" style={{ fill: "#FFFFFF" }}>
+                        {rotulo}
+                      </text>
+                    </g>
+                  );
+                })()}
               </g>
             );
           })}
@@ -477,6 +482,46 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
           </div>
         ) : null}
       </div>
+
+      {/*
+      | 17/11/2026 (jueces, ronda 20): a 390 px los números de los discos no se
+      | leen: en el móvil, debajo del campo, la lista de las zonas con saques,
+      | y cada una filtra como su disco.
+      */}
+      {nodes.length ? (
+        <>
+        <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55 sm:hidden">
+          Por zona · saques · % {isOffensive ? "conservados" : "recuperados"}
+        </p>
+        <ul className="mt-1.5 grid gap-1.5 sm:hidden">
+          {[...nodes]
+            .sort((a, b) => b.count - a.count)
+            .map((node) => {
+              const resaltado = hayFiltro && cumple(node.banda, node.zona);
+              return (
+                <li key={node.key}>
+                  <button
+                    type="button"
+                    aria-pressed={resaltado}
+                    onClick={() => onFiltrar(paresDe(node.banda, node.zona))}
+                    className={`flex min-h-10 w-full items-center gap-2 rounded-xl border px-3 py-2 text-left text-[13px] ${
+                      resaltado ? "border-[#C8A96B] bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03]"
+                    }`}
+                  >
+                    <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: heatColor(node.produccion / node.count, tono) }} aria-hidden />
+                    <span className="min-w-0 flex-1 text-white/85">
+                      {BANDA_LABEL[node.banda]} · {zonaLabel(node.zona, mode)}
+                    </span>
+                    <span className="shrink-0 tabular-nums text-white/90">
+                      {node.count} · <b>{Math.round((node.favorables / node.count) * 100)} %</b>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+        </ul>
+        </>
+      ) : null}
 
       {/*
       | 17/11/2026 (jueces, ronda 19): las leyendas iban encima del césped y en

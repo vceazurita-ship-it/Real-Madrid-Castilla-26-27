@@ -216,6 +216,18 @@ export const ZONA_AREA_LABEL: Record<string, string> = {
 };
 
 /**
+ * 17/11/2026 (jueces, ronda 20): la zona del área donde cae, con la MISMA regla
+ * que cuenta el mapa (y su barra «Fuera de las cuatro zonas»), para que el
+ * titular de «¿Dónde cae?» y el pie del campo den la misma base. Vacío si cae
+ * en corto, a barrera o sin zona apuntada.
+ */
+export function zonaDelArea(zonaCaida: string | undefined, mode: ABPZoneMode = "offensive"): string {
+  const z = zoneFromCaida(zonaCaida, mode === "defensive");
+  if (!z || z === "corto" || z === "barrera") return "";
+  return ZONA_AREA_LABEL[z].toLowerCase();
+}
+
+/**
  * Zonas del mapa por las que pasa una acción: donde cae el envío y desde
  * donde se remata. Es lo que usa la página para filtrar al pulsar una zona,
  * con las mismas reglas con las que el mapa cuenta.

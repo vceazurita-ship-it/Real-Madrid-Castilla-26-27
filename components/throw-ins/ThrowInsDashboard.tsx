@@ -661,10 +661,21 @@ function conclusionesDe(
           ? `${nombre(debil.key, debil.valor)}: perfil del receptor y protección del balón`
           : `saques hacia ${nombre(debil.key, debil.valor)}: apoyo cercano y segunda jugada`;
 
+    /*
+    | 17/11/2026 (jueces, ronda 20): el objetivo, con la MISMA población que el
+    | dato: la media de lo conservado en ese mismo sitio en las jornadas
+    | anteriores, y no la de todo el campo.
+    */
+    const mismoAntes = anteriores ? gruposDe(anteriores, debil.key, mode).find((g) => g.valor === debil!.valor) : undefined;
+    const objetivoMismo =
+      mismoAntes && mismoAntes.n
+        ? ` · objetivo: ${pctUno((mismoAntes.favorables / mismoAntes.n) * 100)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes.favorables} de ${mismoAntes.n})`
+        : mediaRetencion !== null
+          ? ` · objetivo de referencia: ${pctUno(mediaRetencion)} conservados en todo el campo (${fuenteMedia})`
+          : "";
+
     frases.push(
-      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}; conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)}; se cuenta el balón conservado${
-        mediaRetencion !== null ? ` · objetivo: ${pctUno(mediaRetencion)} conservados (${fuenteMedia})` : ""
-      }.`,
+      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}. Hoy conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)} (${pctTexto(debil.favorables, debil.n)}); se cuenta el balón conservado${objetivoMismo}.`,
     );
   }
 
@@ -700,9 +711,26 @@ function conclusionesDe(
         }.`,
       );
     }
+
+    /*
+    | 17/11/2026 (jueces, ronda 20): la conclusión defensiva no tenía «Qué
+    | entrenamos». Con lo que le llega al rival a último tercio: la tarea, qué
+    | se cuenta y el objetivo, la media de las jornadas anteriores.
+    */
+    const mediaLlegan = anteriores && anteriores.length ? (resumenDe(anteriores, mode).produccion / anteriores.length) * 100 : null;
+    if (resumen.produccion > 0) {
+      frases.push(
+        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. Hoy le llegan ${resumen.produccion} de ${total} a último tercio (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio${
+          mediaLlegan !== null ? ` · objetivo: como mucho ${pctUno(mediaLlegan)} (${fuenteMedia})` : ""
+        }.`,
+      );
+    }
   }
 
-  return { titular, items: frases.slice(0, 6) };
+  /* «Qué entrenamos» nunca se queda fuera del recorte. */
+  const ordenQue = frases.find((f) => f.startsWith("Qué entrenamos"));
+  const restoFrases = frases.filter((f) => f !== ordenQue);
+  return { titular, items: ordenQue ? [...restoFrases.slice(0, 5), ordenQue] : frases.slice(0, 6) };
 }
 
 /*
@@ -838,7 +866,7 @@ function metricasComparadas(actual: RecordRow[], anteriores: RecordRow[][], mode
       /* 09/11/2026 (jueces): la base es la de su propia definición, las
          llegadas a último tercio, no todos los saques: «2 de 7», no «2 de 16». */
       ...(cuentaDe(produce)(actual) > 0
-        ? { n: cuentaDe(ocasion)(actual), de: cuentaDe(produce)(actual), unidad: "llegadas" }
+        ? { n: cuentaDe(ocasion)(actual), de: cuentaDe(produce)(actual), unidad: "llegadas a último tercio" }
         : {}),
     },
     cuenta("goles", ofensivo ? "Goles" : "Goles en contra", gol, ofensivo),
@@ -1178,6 +1206,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     () => todasLasFilas.some((row) => valorDe(row, "__competicion") === PRETEMPORADA),
     [todasLasFilas, PRETEMPORADA],
   );
+
+  /* 17/11/2026 (jueces, ronda 20): los saques de liga de la hoja, para cuadrarlos con los de Opta. */
+  const saquesHoja = useMemo(() => {
+    const liga = todasLasFilas.filter((row) => parseJornada(read(row, "JORNADA")).competicion === "liga");
+    return liga.length ? { goles: 0, acciones: liga.length, jornadas: new Set(liga.map((row) => read(row, "JORNADA"))).size } : null;
+  }, [todasLasFilas]);
 
   /* Elegir «Pretemporada» en el desplegable ya es pedirla: no hace falta
      además el interruptor. */
@@ -2173,10 +2207,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                 comparativa.anteriores.length === 1 ? "la jornada anterior" : `la media de las ${comparativa.anteriores.length} jornadas anteriores`,
                               metricas: comparativa.metricas,
                               muestraMinima: MUESTRA_BANDA,
+                              /* 17/11/2026 (jueces, ronda 20): la cifra clave, primero y destacada; el resto, a un toque. */
+                              destacada: "produccion",
                             }
                           : null
                       }
-                      liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                      liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} hoja={saquesHoja} />}
                     />
                   </>
                 )}
@@ -2579,7 +2615,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 )}
 
                 {/* Opta (10/11/2026): los saques de banda de toda la categoría. Fuera del PDF; sólo se monta (y se pide) en su pestaña. */}
-                {!exporting && !enVisual && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                {!exporting && !enVisual && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} hoja={saquesHoja} />}
               </div>
             )}
           </div>

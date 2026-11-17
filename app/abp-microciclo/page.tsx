@@ -1870,69 +1870,6 @@ export default function AbpMicrocicloPage() {
                 </div>
               )}
 
-              {/* ======================= REVISIÓN ======================= */}
-
-              <div className="mt-6">
-                <RevisionSemana
-                  puntos={puntosRevision}
-                  onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
-                  onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
-                />
-              </div>
-
-              {totales.minutos > 0 && (
-              <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4">
-                {/* 29/10/2026: titular con el dato, no un rótulo diminuto en mayúsculas. */}
-                <summary className="cursor-pointer select-none text-sm font-semibold text-white/80">
-                  {/* «días con balón parado», que no son los «Días entrenados» de arriba: el
-                      jueves de descanso con tareas contaba aquí y no allí (07/11/2026). */}
-                  Carga: {fmtMin(totales.minutos)} en {totales.diasConAbp} {totales.diasConAbp === 1 ? "día con balón parado" : "días con balón parado"}
-                  <span className="ml-2 text-[11px] font-normal text-white/40">· carga y minutos de la semana</span>
-                </summary>
-                <div className="mt-3">
-                {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
-                    pantalla entera antes de llegar a la semana. */}
-                <div className="grid min-w-0 grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
-                  <StatCard
-                    label="Minutos de ABP"
-                    value={fmtMin(totales.minutos)}
-                    hint={`${totales.trabajos} trabajo${totales.trabajos === 1 ? "" : "s"} · ${totales.diasConAbp} día${totales.diasConAbp === 1 ? "" : "s"}`}
-                    accent="var(--rmcf-gold-ink)"
-                  />
-
-                  {/* El reparto ofensivo/defensivo ya va en la tarjeta del
-                      partido, justo encima: aquí se repetía. */}
-                  {totales.carga > 0 && (
-                    <StatCard
-                      label="Carga condicional"
-                      value={Math.round(totales.carga)}
-                      hint={`tiempo × intensidad (más carga = más trabajo, no mejor)${mediaCargas.carga ? ` · media de ${mediaCargas.carga.n} micros: ${mediaCargas.carga.valor}` : ""}`}
-                      accent={chipInk("#FBBF24")}
-                    />
-                  )}
-
-                  {totales.cargaCog > 0 && (
-                    <StatCard
-                      label="Carga cognitiva"
-                      value={Math.round(totales.cargaCog)}
-                      hint={`tiempo × exigencia${mediaCargas.cargaCog ? ` · media de ${mediaCargas.cargaCog.n} micros: ${mediaCargas.cargaCog.valor}` : ""}`}
-                      accent={chipInk("#8B5CF6")}
-                    />
-                  )}
-
-                  <StatCard
-                    label="Campo / Vídeo"
-                    value={`${fmtMin(totales.minutosCampo)} / ${fmtMin(totales.minutosVideo)}`}
-                    hint={
-                      totales.minutosVideo
-                        ? `${Math.round((totales.minutosVideo / totales.minutos) * 100)} % en sala`
-                        : "todo en campo"
-                    }
-                  />
-                </div>
-                </div>
-              </details>
-              )}
 
               {/* ====================== SEMANA ===================== */}
 
@@ -1983,7 +1920,7 @@ export default function AbpMicrocicloPage() {
                     {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
                     <br />
                     <span className="font-semibold text-white/75">Al pie de cada día · </span>
-                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor.
+                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo. Intensidad y exigencia de cada ficha son lo planificado.
                   </p>
 
                   <SemanaGrid
@@ -2005,6 +1942,71 @@ export default function AbpMicrocicloPage() {
                   />
                 </Panel>
               </div>
+
+              {/* 17/11/2026 (jueces, ronda 20): la semana y su carga primero; la revisión y la carga, debajo. */}
+              {/* ======================= REVISIÓN ======================= */}
+
+              <div className="mt-6">
+                <RevisionSemana
+                  puntos={puntosRevision}
+                  onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
+                  onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
+                />
+              </div>
+
+              {totales.minutos > 0 && (
+              <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4">
+                {/* 29/10/2026: titular con el dato, no un rótulo diminuto en mayúsculas. */}
+                <summary className="cursor-pointer select-none text-sm font-semibold text-white/80">
+                  {/* «días con balón parado», que no son los «Días entrenados» de arriba: el
+                      jueves de descanso con tareas contaba aquí y no allí (07/11/2026). */}
+                  Carga: {Math.round(totales.minutos)}′ en {totales.diasConAbp} {totales.diasConAbp === 1 ? "día con balón parado" : "días con balón parado"}
+                  <span className="ml-2 text-[11px] font-normal text-white/40">· carga y minutos de la semana</span>
+                </summary>
+                <div className="mt-3">
+                {/* Dos por fila en el móvil: cinco tarjetas apiladas eran una
+                    pantalla entera antes de llegar a la semana. */}
+                <div className="grid min-w-0 grid-cols-2 gap-3 lg:auto-cols-fr lg:grid-flow-col">
+                  <StatCard
+                    label="Minutos de ABP"
+                    value={fmtMin(totales.minutos)}
+                    hint={`${totales.trabajos} trabajo${totales.trabajos === 1 ? "" : "s"} · ${totales.diasConAbp} día${totales.diasConAbp === 1 ? "" : "s"}`}
+                    accent="var(--rmcf-gold-ink)"
+                  />
+
+                  {/* El reparto ofensivo/defensivo ya va en la tarjeta del
+                      partido, justo encima: aquí se repetía. */}
+                  {totales.carga > 0 && (
+                    <StatCard
+                      label="Carga condicional"
+                      value={Math.round(totales.carga)}
+                      hint={`tiempo × intensidad (más carga = más trabajo, no mejor)${mediaCargas.carga ? ` · media de ${mediaCargas.carga.n} micros: ${mediaCargas.carga.valor}` : ""}`}
+                      accent={chipInk("#FBBF24")}
+                    />
+                  )}
+
+                  {totales.cargaCog > 0 && (
+                    <StatCard
+                      label="Carga cognitiva"
+                      value={Math.round(totales.cargaCog)}
+                      hint={`tiempo × exigencia${mediaCargas.cargaCog ? ` · media de ${mediaCargas.cargaCog.n} micros: ${mediaCargas.cargaCog.valor}` : ""}`}
+                      accent={chipInk("#8B5CF6")}
+                    />
+                  )}
+
+                  <StatCard
+                    label="Campo / Vídeo"
+                    value={`${fmtMin(totales.minutosCampo)} / ${fmtMin(totales.minutosVideo)}`}
+                    hint={
+                      totales.minutosVideo
+                        ? `${Math.round((totales.minutosVideo / totales.minutos) * 100)} % en sala`
+                        : "todo en campo"
+                    }
+                  />
+                </div>
+                </div>
+              </details>
+              )}
 
                 </>
               )}

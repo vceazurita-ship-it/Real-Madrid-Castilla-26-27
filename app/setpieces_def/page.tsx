@@ -57,8 +57,10 @@ import ABPObjectiveFlow, {
 } from "@/components/abp/ABPObjectiveFlow";
 import ABPZoneMap, {
   ZONA_AREA_LABEL,
+  zonaDelArea,
   zonasDeAccion,
 } from "@/components/abp/ABPZoneMap";
+import { nombreEquipo } from "@/lib/equipos";
 import {
   AvisoPretemporada,
   BarraFiltros,
@@ -1125,9 +1127,14 @@ const elegirCompeticion = (v: string) => {
   if (!cabe) setJornada("ALL");
 };
 
+/* 17/11/2026 (jueces, ronda 20): por calendario, como en /setpieces. */
 const equiposVisualizados = [...new Set(filasRival.map((r) => r.rival))]
   .filter(Boolean)
-  .sort();
+  .sort((a, b) => {
+    const ia = rivales.indexOf(a);
+    const ib = rivales.indexOf(b);
+    return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, "es");
+  });
 
   const metrics = {
   total: filtered.length,
@@ -2654,7 +2661,11 @@ const conclusiones = (() => {
           : /c[oó]rner/i.test(golEncajado.tipoAccion)
             ? "marcas y primer contacto en el córner defensivo"
             : `defensa de la ${hablado(golEncajado.tipoAccion.trim().toLowerCase())}`
-      } (gol encajado${golEncajado.contexto.minuto.minuto != null ? `, ${golEncajado.contexto.minuto.minuto}′` : ""}); se cuentan las acciones del rival con remate${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
+      } (gol encajado: ${[golEncajado.contexto.jornada.corto, golEncajado.rival ? nombreEquipo(golEncajado.rival) : "", golEncajado.contexto.minuto.minuto != null ? `${golEncajado.contexto.minuto.minuto}′` : ""].filter(Boolean).join(" · ")}${(() => {
+        /* 17/11/2026 (jueces, ronda 20): con el dato que la sostiene, «3 goles de 92 (3,3 %)». */
+        const g = filtered.filter(LECTOR.gol).length;
+        return g > 1 ? `; ${g} goles en ${filtered.length} acciones, ${cifra((g / filtered.length) * 100, 1)} %` : "";
+      })()}); se cuentan las acciones del rival con remate${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
     : null;
 
   /* 16/11/2026 (jueces): menos párrafos; dos hallazgos, el vídeo y la tarea. */
@@ -2702,15 +2713,19 @@ const lectura = useMemo(
 const conclusionesVista = (() => {
   if (conclusiones.some((c) => typeof c === "string" && c.startsWith("Qué entrenamos")) || !lectura?.entrenar) return conclusiones;
 
+  /* 17/11/2026 (jueces, ronda 20): en %, con su base y el objetivo con la misma unidad que el dato. */
   const h = lectura.entrenar.hallazgo;
+  const pcH = (k: number, n: number) => (n ? Math.round((k / n) * 100) : 0);
+  const mediaAntes =
+    anterioresConclusion && anterioresConclusion.length ? pcH(anterioresConclusion.filter(LECTOR.peligro).length, anterioresConclusion.length) : null;
   const objetivo =
-    anterioresConclusion && anterioresConclusion.length
-      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length) * 100)} % en gol u ocasión (media de las ${nAnterioresConclusion} jornadas anteriores)`
-      : `objetivo: no pasar de lo que concede el resto (${h.aciertosResto} de ${h.resto})`;
+    mediaAntes !== null
+      ? `→ objetivo: como mucho ${mediaAntes} % (media de las ${nAnterioresConclusion} jornadas anteriores, la misma cuenta)`
+      : `; el resto, ${h.aciertosResto} de ${h.resto} (${pcH(h.aciertosResto, h.resto)} %) → objetivo: como mucho ${pcH(h.aciertosResto, h.resto)} %`;
 
   return [
     ...conclusiones,
-    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo} (${h.aciertos} de ${h.n} en gol u ocasión del rival); se cuentan las acciones que acaban en gol u ocasión · ${objetivo}.`,
+    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo}. Hoy ${h.aciertos} de ${h.n} ${h.aciertos === 1 ? "acaba" : "acaban"} en gol u ocasión del rival (${pcH(h.aciertos, h.n)} %)${objetivo}.`,
   ];
 })();
 
@@ -2797,7 +2812,8 @@ const filasVisual: FilaVisualAbp[] = filtered.map((r) => {
               ? "nuestra"
               : "sin",
     exito: LECTOR.peligro(r),
-    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+    /* 17/11/2026 (ronda 20): la misma regla que el mapa, para que titular y pie den la misma base. */
+    zona: zonaDelArea(r.zonaCaida, "defensive"),
     tipo: r.tipoAccion ? hablado(r.tipoAccion.trim()) : "",
   };
 });
@@ -3005,7 +3021,7 @@ const categoriasVisual: CategoriaVisual[] = [
           }
         `}
       >
-        {equipo}
+        {nombreEquipo(equipo)}
       </button>
     );
   })}
@@ -3151,6 +3167,7 @@ const categoriasVisual: CategoriaVisual[] = [
                 fuente="Hoja de ABP defensivo · con los filtros de arriba"
                 mapa={{
                   pregunta: "¿Dónde nos cae?",
+                  ambito: { dentro: "caen en el área", fuera: "fuera de las cuatro zonas" },
                   nodo: (
                     <ABPZoneMap
                       mode="defensive"

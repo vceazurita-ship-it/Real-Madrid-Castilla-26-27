@@ -62,8 +62,9 @@ function caidaDe(f: FilaAbpCorte) {
   const zona = zonaLegible(crudo);
 
   if (zona) return /^\d+v\d+$/.test(zona) ? `en corto ${zona}` : zona;
-
-  return /^corto$/i.test(f.envio ?? "") ? "en corto" : "";
+  if (/^corto$/i.test(f.envio ?? "")) return "en corto";
+  /* 17/11/2026 (jueces, ronda 20): la falta directa no «cae»: va a puerta. */
+  return nombreDeAccion(f) === "Falta directa" || f.clase === "penalti" ? "directa a puerta" : "";
 }
 
 /** Acaba en gol o en remate: lo que se busca primero en la lista. */
@@ -93,6 +94,13 @@ export function AccionesDelPartido({
   const ordenadas = plegable ? [...acciones.filter((a) => pesa(desenlace(a.fila))), ...acciones.filter((a) => !pesa(desenlace(a.fila)))] : acciones;
   const vistas = todas || !plegable ? ordenadas : ordenadas.slice(0, Math.max(A_LA_VISTA, ordenadas.filter((a) => pesa(desenlace(a.fila))).length));
   const conVideo = acciones.filter((a) => a.clave && enlaces.has(a.clave)).length;
+  /* 17/11/2026 (jueces, ronda 20): de qué fuente es el vídeo; el de Opta no se llama «de Hudl». */
+  const conHudl = acciones.filter((a) => a.clave && enlaces.get(a.clave)?.hudl).length;
+  const conOpta = acciones.filter((a) => a.clave && !enlaces.get(a.clave)?.hudl && enlaces.get(a.clave)?.opta).length;
+  const fuenteVideo = conHudl && conOpta ? "de Hudl (o de Opta, en las que aún no están etiquetadas)" : conOpta ? "de Opta" : "de Hudl";
+  /* Sin una sola zona de caída, la columna «Cae en» no sale. */
+  const hayCaida = acciones.some((a) => caidaDe(a.fila));
+  const columnas = hayCaida ? "md:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,9rem)_minmax(0,11rem)]" : "md:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,11rem)]";
   const variosPartidos = new Set(acciones.map((a) => a.jornada)).size > 1;
   const finales = acciones.map((a) => desenlace(a.fila));
   /* El glosario, sólo de lo que sale en la lista (16/11/2026, jueces). */
@@ -109,8 +117,8 @@ export function AccionesDelPartido({
     <div className="space-y-3">
       {conVideo > 0 && (
         <p className="text-xs leading-relaxed text-white/50">
-          {conVideo === acciones.length ? "Cada acción" : `${conVideo} de ${acciones.length} acciones`} con su corte del vídeo de Hudl y el minuto del
-          vídeo para abrir el partido en Hudl.
+          {conVideo === acciones.length ? "Cada acción" : `${conVideo} de ${acciones.length} acciones`} con su corte del vídeo {fuenteVideo}
+          {conHudl ? " y el minuto para abrir el partido en Hudl" : ""}.
         </p>
       )}
 
@@ -120,10 +128,10 @@ export function AccionesDelPartido({
       | móvil cada acción se apila con su rótulo.
       */}
       <div className="rounded-xl border border-white/10">
-        <div className="hidden grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,9rem)_minmax(0,11rem)] gap-4 border-b border-white/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 md:grid">
+        <div className={`hidden ${columnas} gap-4 border-b border-white/10 px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 md:grid`}>
           <span>Minuto</span>
           <span>Acción</span>
-          <span>Cae en</span>
+          {hayCaida ? <span>Cae en</span> : null}
           <span>Desenlace</span>
         </div>
         <ol className="divide-y divide-white/[0.06]">
@@ -147,7 +155,7 @@ export function AccionesDelPartido({
             return (
               <li
                 key={a.clave ?? `${a.jornada}-${i}`}
-                className={`grid min-w-0 grid-cols-1 gap-1.5 px-3 py-3 md:grid-cols-[4.5rem_minmax(0,1fr)_minmax(0,9rem)_minmax(0,11rem)] md:items-start md:gap-4 ${destacada ? "border-l-4 border-rose-500 bg-rose-500/10" : ""}`}
+                className={`grid min-w-0 grid-cols-1 gap-1.5 px-3 py-3 ${columnas} md:items-start md:gap-4 ${destacada ? "border-l-4 border-rose-500 bg-rose-500/10" : ""}`}
               >
                 <div className="flex items-baseline gap-2">
                   {variosPartidos && <span className="rounded-md bg-white/[0.06] px-1.5 py-0.5 text-[11px] font-medium text-white/60">{a.jornada}</span>}
@@ -168,9 +176,9 @@ export function AccionesDelPartido({
                     <span className="text-white/45 md:hidden">Cae en </span>
                     {caida}
                   </p>
-                ) : (
+                ) : hayCaida ? (
                   <span className="hidden md:block" aria-hidden />
-                )}
+                ) : null}
 
                 <p className={`text-[13px] font-medium ${tono}`}>
                   <span className="font-normal text-white/45 md:hidden">Desenlace: </span>

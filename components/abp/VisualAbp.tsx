@@ -23,7 +23,7 @@
 | Lo que no tiene dato no sale.
 */
 
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 import { Lamina, TituloConclusion } from "@/components/ui/VistaVisual";
 import { tinta } from "@/components/data/graficas";
@@ -58,7 +58,7 @@ const pc = (n: number, de: number) => (de ? Math.round((n / de) * 100) : 0);
 const mayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 
 /** La conclusión del campo: dónde se concentra y si ahí nace lo que importa. */
-export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: ExitoVisual): string {
+export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: ExitoVisual, ambito?: AmbitoMapa): string {
   const conZona = filas.filter((f) => f.zona);
   if (conZona.length < 2) return "";
   const porZona = new Map<string, FilaVisualAbp[]>();
@@ -77,11 +77,23 @@ export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: Ex
         : `; ahí nacen ${aqui} de ${f ? "las" : "los"} ${total} que ${exito.varios}`;
   /* 16/11/2026 (jueces): «6 de 7» sin decir por qué falta una; se dice cuántas no tienen sitio. */
   const sinSitio = filas.length - conZona.length;
-  const deCuantas = sinSitio > 0 ? `${conZona.length} con sitio (${sinSitio} sin zona de caída)` : `${conZona.length} ${unidad.varios}`;
+  /* 17/11/2026 (ronda 20): con la regla del mapa, «de las 53 que caen en el área (43 fuera de las cuatro zonas)». */
+  const deCuantas =
+    sinSitio > 0
+      ? ambito
+        ? `${f ? "las" : "los"} ${conZona.length} que ${ambito.dentro} (${sinSitio} ${ambito.fuera})`
+        : `${conZona.length} con sitio (${sinSitio} sin zona de caída)`
+      : `${conZona.length} ${unidad.varios}`;
   return `${mayuscula(zona)} concentra ${suyas.length} de ${deCuantas}, el ${pc(suyas.length, conZona.length)} %${nace}`;
 }
 
 export type Unidad = { uno: string; varios: string; genero: "f" | "m" };
+
+/** Cómo se dice la base del campo: «caen en el área» / «fuera de las cuatro zonas». */
+export type AmbitoMapa = { dentro: string; fuera: string };
+
+/** Por debajo, una cifra es tendencia y no hallazgo (la misma regla que las tarjetas). */
+export const MUESTRA_HALLAZGO = 15;
 
 /** Barra apilada al 100 %, con la leyenda y las cifras debajo. */
 export function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
@@ -97,7 +109,7 @@ export function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; ca
             style={{ width: `${(t.n / total) * 100}%`, background: t.color, color: t.color.startsWith("#") ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb))" }}
             title={`${t.rotulo}: ${t.n} de ${total}`}
           >
-            {t.n / total >= 0.08 ? t.n : ""}
+            {t.n / total >= 0.035 ? t.n : ""}
           </div>
         ))}
       </div>
@@ -121,9 +133,18 @@ type Partido = { jornada: JornadaAbp; filas: FilaVisualAbp[] };
 /** Una columna apilada por partido, en orden de calendario. */
 function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Partido[]; categorias: CategoriaVisual[]; exito: ExitoVisual; marca?: string | null }) {
   const tope = Math.max(...partidos.map((p) => p.filas.length), 1);
+  /* 17/11/2026 (jueces, ronda 20): la media por partido, como raya de referencia. */
+  const mediaN = partidos.length >= 3 ? partidos.reduce((a, p) => a + p.filas.length, 0) / partidos.length : null;
   return (
     <div className="min-w-0 overflow-x-auto">
-      <div className="flex h-44 items-end gap-1.5" style={{ minWidth: partidos.length * 26 }}>
+      <div className="relative flex h-44 items-end gap-1.5" style={{ minWidth: partidos.length * 26 }}>
+        {mediaN !== null ? (
+          <span
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed"
+            style={{ bottom: `${(mediaN / tope) * 100 * 0.88}%`, borderColor: "rgb(var(--rmcf-ink-rgb) / .45)" }}
+            aria-hidden
+          />
+        ) : null}
         {partidos.map((p) => {
           const n = p.filas.length;
           const exitos = p.filas.filter((f) => f.exito).length;
@@ -131,7 +152,7 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
           return (
             <div key={p.jornada.clave} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={`${p.jornada.etiqueta}: ${n} · ${exitos} de ${n}`}>
               <span className={`mb-1 text-[11px] tabular-nums ${marcada ? "font-bold" : "text-white/60"}`} style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}>
-                {exitos ? `${exitos}/${n}` : n}
+                {`${exitos}/${n}`}
               </span>
               <div
                 className="flex w-full max-w-[34px] flex-col-reverse overflow-hidden rounded-t-[4px]"
@@ -158,7 +179,8 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
         ))}
       </div>
       <p className="mt-2 text-[11px] text-white/50">
-        Encima de cada columna, las que {exito.varios} sobre el total del partido. Orden de calendario.
+        Encima de cada columna, «a/b»: las que {exito.varios} (a) de las del partido (b). Orden de calendario.
+        {mediaN !== null ? ` Raya discontinua: la media, ${mediaN.toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido.` : ""}
         {marca && partidos.some((p) => p.jornada.clave === marca) ? " En oro, el último partido." : ""}
       </p>
     </div>
@@ -180,7 +202,21 @@ function tituloTendencia(partidos: Partido[], unidad: Unidad, exito: ExitoVisual
     const pu = pc(u.k, u.n);
     const pa = pc(a.k, a.n);
     const dif = pu - pa;
-    const juicio = Math.abs(dif) < 5 ? "se mantiene" : (dif > 0) === exito.mejorAlto ? "va a mejor" : "va a peor";
+    /*
+    | 17/11/2026 (jueces, ronda 20): ¿supera la variación habitual? Se compara
+    | con la desviación de partido a partido de antes; si no la pasa, se dice
+    | «tendencia, dentro de lo habitual».
+    */
+    const tasas = antes.filter((p) => p.filas.length).map((p) => pc(p.filas.filter((f) => f.exito).length, p.filas.length));
+    const media = tasas.reduce((a2, b2) => a2 + b2, 0) / Math.max(1, tasas.length);
+    const desviacion = tasas.length >= 2 ? Math.sqrt(tasas.reduce((a2, t) => a2 + (t - media) ** 2, 0) / (tasas.length - 1)) : 0;
+    const sentido = (dif > 0) === exito.mejorAlto ? "a mejor" : "a peor";
+    const juicio =
+      Math.abs(dif) < 5
+        ? "se mantiene"
+        : desviacion && Math.abs(dif) < desviacion
+          ? `tendencia ${sentido}, dentro de lo que varía de un partido a otro (±${Math.round(desviacion)} puntos)`
+          : `va ${sentido}`;
     return `En los 3 últimos partidos, ${pu} % ${exito.varios} (${u.k} de ${u.n}); antes, ${pa} %: ${juicio}`;
   }
   const mejor = [...partidos]
@@ -191,11 +227,22 @@ function tituloTendencia(partidos: Partido[], unidad: Unidad, exito: ExitoVisual
   return `${partidos.length} partidos; el mejor, ${mejor.jornada.etiqueta}: ${k} de ${mejor.filas.length} ${unidad.varios} ${k === 1 ? exito.uno : exito.varios}`;
 }
 
-/** Una barra apilada por tipo, del que más tiene al que menos, y cuál rinde (o duele) más. */
-function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
+/**
+ * Los tipos con su lista, del que más tiene al que menos. 17/11/2026 (jueces,
+ * ronda 20): los que sólo tienen 1 o 2 acciones van juntos en «otras», al final.
+ */
+function gruposPorTipo(filas: FilaVisualAbp[]): [string, FilaVisualAbp[]][] {
   const grupos = new Map<string, FilaVisualAbp[]>();
   for (const f of filas) if (f.tipo) grupos.set(f.tipo, [...(grupos.get(f.tipo) ?? []), f]);
   const orden = [...grupos.entries()].sort((a, b) => b[1].length - a[1].length);
+  const sueltos = orden.filter(([, fs]) => fs.length <= 2);
+  if (sueltos.length < 2) return orden;
+  return [...orden.filter(([, fs]) => fs.length > 2), [`otras (${sueltos.length} tipos)`, sueltos.flatMap(([, fs]) => fs)]];
+}
+
+/** Una barra apilada por tipo, del que más tiene al que menos, y cuál rinde (o duele) más. */
+function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
+  const orden = gruposPorTipo(filas);
   const tope = Math.max(...orden.map(([, fs]) => fs.length), 1);
   return (
     <ul className="min-w-0 space-y-2">
@@ -222,20 +269,31 @@ function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: Ca
   );
 }
 
+/*
+| 17/11/2026 (jueces, ronda 20): el titular no puede elegir un tipo con menos
+| de 15 acciones («falta indirecta en zona 4, 3 de 3»): sólo se elige entre los
+| que tienen muestra; si ninguno la tiene, se dice «tendencia».
+*/
 function tituloTipo(filas: FilaVisualAbp[], exito: ExitoVisual): string {
-  const grupos = new Map<string, FilaVisualAbp[]>();
-  for (const f of filas) if (f.tipo) grupos.set(f.tipo, [...(grupos.get(f.tipo) ?? []), f]);
-  if (grupos.size < 2) return "";
-  const conMuestra = [...grupos.entries()].filter(([, fs]) => fs.length >= 3);
+  const grupos = gruposPorTipo(filas).filter(([t]) => !t.startsWith("otras ("));
+  if (grupos.length < 2) return "";
   const tasa = (fs: FilaVisualAbp[]) => fs.filter((f) => f.exito).length / fs.length;
+  const conMuestra = grupos.filter(([, fs]) => fs.length >= MUESTRA_HALLAZGO);
   const elegido = [...conMuestra].sort((a, b) => tasa(b[1]) - tasa(a[1]))[0];
-  if (!elegido || tasa(elegido[1]) === 0) {
-    const [tipo, fs] = [...grupos.entries()].sort((a, b) => b[1].length - a[1].length)[0];
-    return `Lo más repetido: ${tipo.toLowerCase()} (${fs.length} de ${filas.filter((f) => f.tipo).length})`;
+  const que = exito.mejorAlto ? "Lo que más rinde" : "Lo que más peligro da";
+  if (elegido && tasa(elegido[1]) > 0) {
+    const [tipo, fs] = elegido;
+    const k = fs.filter((f) => f.exito).length;
+    return `${que}: ${tipo.toLowerCase()}, ${k} de ${fs.length} ${k === 1 ? exito.uno : exito.varios} (${pc(k, fs.length)} %)`;
   }
-  const [tipo, fs] = elegido;
-  const k = fs.filter((f) => f.exito).length;
-  return `${exito.mejorAlto ? "Lo que más rinde" : "Lo que más peligro da"}: ${tipo.toLowerCase()}, ${k} de ${fs.length} ${k === 1 ? exito.uno : exito.varios} (${pc(k, fs.length)} %)`;
+  const mayor = grupos[0];
+  const kM = mayor[1].filter((f) => f.exito).length;
+  const conTres = grupos.filter(([, fs]) => fs.length >= 3).sort((a, b) => tasa(b[1]) - tasa(a[1]))[0];
+  if (!elegido && conTres && tasa(conTres[1]) > 0) {
+    const k = conTres[1].filter((f) => f.exito).length;
+    return `Tendencia, pocas acciones por tipo: ${conTres[0].toLowerCase()}, ${k} de ${conTres[1].length} ${k === 1 ? exito.uno : exito.varios}`;
+  }
+  return `Lo más repetido: ${mayor[0].toLowerCase()}, ${mayor[1].length} de ${filas.filter((f) => f.tipo).length} (${kM} ${kM === 1 ? exito.uno : exito.varios})`;
 }
 
 
@@ -251,6 +309,8 @@ export type ComparativaVisualDatos = {
   metricas: MetricaComparada[];
   /** Desde cuántas acciones una fila se juzga (la misma regla que la tabla de «Detalle»). */
   muestraMinima: number;
+  /** 17/11/2026 (ronda 20): la fila clave, que va la primera y destacada; con ella, el resto se pliega. */
+  destacada?: string;
 };
 
 type FilaComparada = { m: MetricaComparada; d: number; juicio: "mejor" | "peor" | "igual" | "tendencia" | null };
@@ -293,10 +353,23 @@ function tituloComparativa(filas: FilaComparada[], datos: ComparativaVisualDatos
 const COLOR_JUICIO: Record<string, string> = { mejor: "var(--rmcf-dif-mejor)", peor: "var(--rmcf-dif-peor)" };
 const ORO_PUNTO = "#C8A96B";
 
-function ComparativaBarras({ filas }: { filas: FilaComparada[] }) {
+/*
+| 17/11/2026 (jueces, ronda 20): «seis filas con el mismo peso». Con una fila
+| clave, va la primera y en grande; a la vista, además, las que se juzgan
+| mejor o peor; el resto, a un toque.
+*/
+function ComparativaBarras({ filas, destacada }: { filas: FilaComparada[]; destacada?: string }) {
+  const [todas, setTodas] = useState(false);
+  const clave = destacada ? filas.find((f) => f.m.clave === destacada) : undefined;
+  const ordenadas = clave ? [clave, ...filas.filter((f) => f !== clave)] : filas;
+  const aLaVista = clave ? ordenadas.filter((f, i) => i === 0 || f.juicio === "mejor" || f.juicio === "peor") : ordenadas;
+  const vistas = todas || aLaVista.length >= ordenadas.length - 1 ? ordenadas : aLaVista;
+  const ocultas = ordenadas.length - vistas.length;
   return (
+    <>
     <ul className="min-w-0 space-y-3.5">
-      {filas.map(({ m, juicio }) => {
+      {vistas.map(({ m, juicio }) => {
+        const esClave = clave?.m.clave === m.clave;
         const fmt = m.formato ?? numeroCorto;
         const pct = fmt === formatoPorcentaje;
         const actual = m.actual ?? 0;
@@ -305,10 +378,11 @@ function ComparativaBarras({ filas }: { filas: FilaComparada[] }) {
         const x = (v: number) => Math.max(0, Math.min(100, (v / tope) * 100));
         const color = juicio && COLOR_JUICIO[juicio] ? COLOR_JUICIO[juicio] : ORO_PUNTO;
         const rango = m.rango && m.rango[0] !== m.rango[1] && !(pct && m.rango[0] <= 0 && m.rango[1] >= 100) ? m.rango : null;
-        const base = m.de !== undefined ? (m.n !== undefined ? `${m.n} de ${m.de}` : `de ${m.de} ${m.unidad ?? "acciones"}`) : "";
+        /* 17/11/2026 (ronda 20): con su unidad, que cambia de fila a fila («0 de 3 llegadas a último tercio»). */
+        const base = m.de !== undefined ? (m.n !== undefined ? `${m.n} de ${m.de}${m.unidad ? ` ${m.unidad}` : ""}` : `de ${m.de} ${m.unidad ?? "acciones"}`) : "";
         return (
-          <li key={m.clave} className="min-w-0">
-            <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[12px]">
+          <li key={m.clave} className={`min-w-0 ${esClave ? "rounded-xl px-3 py-2.5" : ""}`} style={esClave ? { background: "rgb(var(--rmcf-ink-rgb) / .045)" } : undefined}>
+            <div className={`flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 ${esClave ? "text-[14px] font-semibold" : "text-[12px]"}`}>
               <span className="min-w-0 text-white/85">
                 {m.nombre}
                 {m.mejorAlto === true ? <span className="text-white/50"> · ▲ más es mejor</span> : m.mejorAlto === false ? <span className="text-white/50"> · ▼ menos es mejor</span> : null}
@@ -355,6 +429,17 @@ function ComparativaBarras({ filas }: { filas: FilaComparada[] }) {
         );
       })}
     </ul>
+    {ocultas > 0 || todas ? (
+      <button
+        type="button"
+        onClick={() => setTodas((t) => !t)}
+        aria-expanded={todas}
+        className="mt-3 inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 py-1 text-[12px] font-semibold text-white/75 hover:bg-white/[0.05]"
+      >
+        {todas ? "Menos" : `${ocultas === 1 ? "Una cifra más" : `${ocultas} cifras más`}`}
+      </button>
+    ) : null}
+    </>
   );
 }
 
@@ -395,7 +480,7 @@ export function VisualAbp({
   exito: ExitoVisual;
   fuente: string;
   /** El campograma de la pantalla (si lo hay) con su pregunta. */
-  mapa?: { pregunta: string; nodo: ReactNode } | null;
+  mapa?: { pregunta: string; nodo: ReactNode; ambito?: AmbitoMapa } | null;
   /** El bloque de la categoría (Opta). */
   liga?: ReactNode;
   ligaPregunta?: string;
@@ -422,7 +507,7 @@ export function VisualAbp({
   }
   const partidos = [...porJornada.values()].filter((p) => p.jornada.clave).sort((a, b) => comparaCronologico(a.jornada, b.jornada));
   const tituloJornadas = tituloTendencia(partidos, unidad, exito);
-  const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito) : "";
+  const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito, mapa.ambito) : "";
   const tituloTipos = tituloTipo(filas, exito);
 
   const filasComparadas = comparativa
@@ -456,7 +541,7 @@ export function VisualAbp({
           <TituloConclusion pregunta="¿Es lo de siempre?" fuente={`${comparativa.partido} · frente a ${comparativa.rotuloMedia}`}>
             {tituloComparada}
           </TituloConclusion>
-          <ComparativaBarras filas={filasComparadas} />
+          <ComparativaBarras filas={filasComparadas} destacada={comparativa.destacada} />
           <LeyendaComparativa />
         </Lamina>
       ) : null}

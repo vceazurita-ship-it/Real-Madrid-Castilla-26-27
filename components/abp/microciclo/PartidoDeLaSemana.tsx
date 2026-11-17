@@ -15,7 +15,6 @@ import Link from "next/link";
 import { ArrowRight, CalendarClock, ClipboardList, Film, Flag, LayoutTemplate, Play, Sparkles, Swords } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
-import { fmtMin } from "@/lib/abp/microciclo";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import type { PartidoNuestro } from "@/lib/castilla/calendario";
 import { esSinPartido } from "@/lib/abp/ventana";
@@ -191,6 +190,10 @@ export function PartidoDeLaSemana({
             <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-white/40">
               <Flag size={10} aria-hidden />
               Viene de {anterior.rival} · {anterior.cuando}
+              {/* 17/11/2026 (jueces, ronda 20): el análisis de aquel partido, a un toque (las pantallas abren en el último partido). */}
+              <Link href="/setpieces" className="ml-1 font-semibold underline underline-offset-2" style={{ color: "var(--rmcf-gold-ink)" }}>
+                Ver su ABP
+              </Link>
             </p>
           )}
         </div>
@@ -226,7 +229,8 @@ export function PartidoDeLaSemana({
             de dónde sale el objetivo, para que no parezca un número suelto. */}
         <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-sm text-white/80">
           {/* La misma unidad que «Carga» (07/11/2026): «1 h 50′», no «110′» en un sitio y «1 h 50′» en otro. */}
-          <span className="text-xl font-semibold tabular-nums text-white">{fmtMin(minutos)}</span>
+          {/* 17/11/2026 (jueces, ronda 20): la misma unidad que el objetivo: «61′ · objetivo 60-67′», no «1 h». */}
+          <span className="text-xl font-semibold tabular-nums text-white">{Math.round(minutos)}′</span>
           <span className="text-white/45">· objetivo {objetivo.minimo}-{objetivo.maximo}′</span>
           {estadoMinutos && (
             <span className={`text-[12px] font-medium ${estadoMinutos.clase}`}>· {estadoMinutos.texto}</span>
@@ -237,11 +241,9 @@ export function PartidoDeLaSemana({
           /* La cuenta a la vista, para que se pueda comprobar (30/10/2026, expertos). */
           <p className="mt-0.5 text-[11px] text-white/50">
             {/* De dónde sale, en la propia línea (07/11/2026, jueces): la fija el cuerpo técnico y se prorratea con «Días entrenados». */}
-            Objetivo fijado por el cuerpo técnico: 90-100′ de balón parado por cada 6 días de sesión
-            {objetivo.diasEntreno < 6
-              ? `; esta semana, ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"} de sesión (casilla «Días entrenados») → ${objetivo.minimo}-${objetivo.maximo}′`
-              : ""}
-            .
+            {/* 17/11/2026 (jueces, ronda 20): en una nota corta. */}
+            Objetivo del cuerpo técnico: 90-100′ por 6 días de sesión
+            {objetivo.diasEntreno < 6 ? ` · ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"} → ${objetivo.minimo}-${objetivo.maximo}′` : ""}
           </p>
         ) : null}
 
@@ -279,10 +281,10 @@ export function PartidoDeLaSemana({
         {ladoTotal > 0 && (
           <p className="mt-2 text-[11px] tabular-nums text-white/60">
             <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: "var(--rmcf-gold-ink)" }} aria-hidden />
-            Atacando {fmtMin(Math.round(porLado.ofensivo))} ({pctOf} %) ·{" "}
+            Atacando {Math.round(porLado.ofensivo)}′ ({pctOf} %) ·{" "}
             <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: "#4F8FE8" }} aria-hidden />
             defendiendo{" "}
-            {fmtMin(Math.round(porLado.defensivo))} ({100 - pctOf} %)
+            {Math.round(porLado.defensivo)}′ ({100 - pctOf} %)
             {/* Cómo cuenta una tarea de los dos lados, para que el reparto cuadre con el total (30/10/2026). */}
             <span className="block text-white/40">Las tareas que atacan y defienden a la vez cuentan mitad y mitad.</span>
           </p>

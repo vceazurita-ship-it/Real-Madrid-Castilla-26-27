@@ -37,13 +37,14 @@ import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
-import { patronEnvio, zonaLegible } from "@/lib/abp/accionFrase";
+import { patronEnvio } from "@/lib/abp/accionFrase";
 import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
 import ABPObjectiveFlow, {
   type ABPFlowCol,
 } from "@/components/abp/ABPObjectiveFlow";
 import ABPZoneMap, {
   ZONA_AREA_LABEL,
+  zonaDelArea,
   zonasDeAccion,
 } from "@/components/abp/ABPZoneMap";
 import {
@@ -99,6 +100,7 @@ import { traeRespaldoOpta } from "@/lib/opta-respaldo/cliente";
 import { enlacesConOpta, hojaConOpta } from "@/lib/opta-respaldo/abp-pantalla";
 import { esDeOpta, type FilaHojaOpta } from "@/lib/opta-respaldo/tipos";
 import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
+import { nombreEquipo } from "@/lib/equipos";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import {
   BarChart,
@@ -2796,15 +2798,23 @@ const conclusionesVista = (() => {
   if (conclusiones.some((c) => typeof c === "string" && c.startsWith("Qué entrenamos"))) return conclusiones;
   if (!lectura?.entrenar) return conclusiones;
 
+  /*
+  | 17/11/2026 (jueces, ronda 20): «15 de 58» frente a «15 de 38» no decía cuál
+  | era el objetivo. Ahora en %, con su base y una flecha al objetivo:
+  | «Córner: 15 de 58 acaban en gol u ocasión (26 %); el resto, 15 de 38 (39 %) → objetivo 39 %».
+  */
   const h = lectura.entrenar.hallazgo;
+  const pcH = (k: number, n: number) => (n ? Math.round((k / n) * 100) : 0);
+  const mediaAntes =
+    anterioresConclusion && anterioresConclusion.length ? pcH(anterioresConclusion.filter(LECTOR.peligro).length, anterioresConclusion.length) : null;
   const objetivo =
-    anterioresConclusion && anterioresConclusion.length
-      ? `objetivo: ${Math.round((anterioresConclusion.filter(LECTOR.peligro).length / anterioresConclusion.length) * 100)} % en gol u ocasión (media de las ${nAnterioresConclusion} jornadas anteriores)`
-      : `objetivo: lo que rinde el resto (${h.aciertosResto} de ${h.resto})`;
+    mediaAntes !== null
+      ? `→ objetivo ${mediaAntes} % (media de las ${nAnterioresConclusion} jornadas anteriores, la misma cuenta)`
+      : `; el resto, ${h.aciertosResto} de ${h.resto} (${pcH(h.aciertosResto, h.resto)} %) → objetivo ${pcH(h.aciertosResto, h.resto)} %`;
 
   return [
     ...conclusiones,
-    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo} (${h.aciertos} de ${h.n} en gol u ocasión); se cuentan las acciones que acaban en gol u ocasión · ${objetivo}.`,
+    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo}. Hoy ${h.aciertos} de ${h.n} ${h.aciertos === 1 ? "acaba" : "acaban"} en gol u ocasión (${pcH(h.aciertos, h.n)} %)${objetivo}.`,
   ];
 })();
 
@@ -2872,7 +2882,8 @@ const filasVisual: FilaVisualAbp[] = filtered.map((r) => {
     jornada: r.contexto.jornada,
     cat: res === "Gol" ? "gol" : res === "Ocasión" ? "ocasion" : LECTOR.remate(r) ? "remate" : "sin",
     exito: LECTOR.peligro(r),
-    zona: esSuperioridad(r.zonaCaida) ? "" : zonaLegible(r.zonaCaida),
+    /* 17/11/2026 (ronda 20): la misma regla que el mapa, para que titular y pie den la misma base. */
+    zona: zonaDelArea(r.zonaCaida, "offensive"),
     tipo: r.tipoAccion ? hablado(r.tipoAccion.trim()) : "",
   };
 });
@@ -3057,8 +3068,13 @@ const categoriasVisual: CategoriaVisual[] = [
   </p>
 
   <div className="flex flex-wrap gap-2">
+    {/* 17/11/2026 (jueces, ronda 20): por calendario (la jornada en que se le jugó) y con el nombre bien escrito. */}
     {[...new Set(filasRival.map((r) => r.rival))]
-      .sort()
+      .sort((a, b) => {
+        const ia = rivales.indexOf(a);
+        const ib = rivales.indexOf(b);
+        return (ia < 0 ? 999 : ia) - (ib < 0 ? 999 : ib) || a.localeCompare(b, "es");
+      })
       .map((equipo) => (
         <button
   key={equipo}
@@ -3081,7 +3097,7 @@ const categoriasVisual: CategoriaVisual[] = [
     }
   `}
 >
-  {equipo}
+  {nombreEquipo(equipo)}
 </button>
       ))}
   </div>
@@ -3103,6 +3119,11 @@ const categoriasVisual: CategoriaVisual[] = [
                 ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"}
               </p>
               <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
+              {/* 17/11/2026 (jueces, ronda 20): la barra separa gol y ocasión; aquí, la suma que daba la tarjeta (que en Visual ya no sale). */}
+              <p className="mt-2 text-[12px] leading-snug text-white/75">
+                <b className="font-semibold text-white/90">Gol u ocasión: {accionesPeligrosas} de {metrics.total}</b> ({cifra(tasaPeligro, 1)} %)
+                {metrics.shots > 0 ? <> · con remate, {metrics.shots} ({cifra((metrics.shots / Math.max(1, metrics.total)) * 100, 1)} %)</> : null}
+              </p>
             </>
           ) : null
         }
@@ -3153,6 +3174,8 @@ const categoriasVisual: CategoriaVisual[] = [
         referencia={temporada ? `Temporada, ${temporada.n} acciones: ${cifra(temporada.xgAccion, 2)} por acción` : undefined}
       />
 
+      {/* 17/11/2026 (jueces, ronda 20): en Visual, remates y gol u ocasión van con la barra de la conclusión: no se repiten. */}
+      {!enVisual && (
       <Card
         title="Remates"
         value={metrics.shots}
@@ -3160,22 +3183,29 @@ const categoriasVisual: CategoriaVisual[] = [
         muestra={{ n: metrics.shots, de: metrics.total, unidad: "acciones" }}
         referencia={temporada ? `Temporada, ${temporada.n} acciones: ${temporada.remates} con remate (${Math.round((temporada.remates / Math.max(1, temporada.n)) * 100)} %)` : undefined}
       />
+      )}
         </>
       )}
 
       <Card
         title="Goles"
         value={metrics.goals}
-        hint="Marcados a balón parado"
-        /* 16/11/2026 (jueces): la misma base que las demás tarjetas. */
+        hint={
+          enVisual && metrics.shots >= 5
+            ? `Marcados a balón parado · ${metrics.goals} de ${metrics.shots} remates (${cifra(metrics.conversion, 1)} %)`
+            : "Marcados a balón parado"
+        }
+        /* 16/11/2026 (jueces): la misma base que las demás tarjetas. 17/11 (ronda 20): con menos de 5 goles, tendencia. */
         muestra={{ n: metrics.goals, de: metrics.total, unidad: "acciones" }}
+        pocosCasos
         activo={resultadoFilter === "Gol"}
         onClick={() => pulsa("resultado", "Gol")}
         referencia={temporada ? `Temporada: ${temporada.goles} en ${temporada.n} acciones` : undefined}
       />
       {/* Con menos de 5 remates, «0,0 % · 0 de 2» no dice nada: la tarjeta no sale (30/10/2026). */}
-      {metrics.shots >= 5 && (
+      {metrics.shots >= 5 && !enVisual && (
       <Card
+  pocosCasos
   title="Conversión"
   value={`${metrics.conversion.toFixed(1).replace(".", ",")} %`}
   hint="Goles sobre remates"
@@ -3183,7 +3213,7 @@ const categoriasVisual: CategoriaVisual[] = [
 />
       )}
 {/* Con pocas acciones repetía la de goles esperados (06/11/2026). */}
-{metrics.total >= 15 && (
+{metrics.total >= 15 && !enVisual && (
 <Card
   title="Goles esperados por ABP"
   value={dosDecimales(metrics.xgAccion)}
@@ -3194,7 +3224,7 @@ const categoriasVisual: CategoriaVisual[] = [
 {/* 16/11/2026 (jueces): la población en el rótulo; la media de las 10
     jornadas anteriores (29,8 %) es la de la tabla de abajo, y ésta es la de
     la temporada entera. */}
-{!(metrics.total > 0 && metrics.shots === 0 && accionesPeligrosas === 0) && (
+{!(metrics.total > 0 && metrics.shots === 0 && accionesPeligrosas === 0) && !enVisual && (
 <Card
   title="Gol u ocasión"
   value={`${tasaPeligro === 0 ? "0" : tasaPeligro.toFixed(1).replace(".", ",")} %`}
@@ -3296,6 +3326,7 @@ const categoriasVisual: CategoriaVisual[] = [
                 fuente="Hoja de ABP ofensivo · con los filtros de arriba"
                 mapa={{
                   pregunta: "¿Dónde cae?",
+                  ambito: { dentro: "caen en el área", fuera: "fuera de las cuatro zonas" },
                   nodo: (
                     <ABPZoneMap
                       mode="offensive"
@@ -5145,7 +5176,10 @@ function Card({
   onClick,
   activo = false,
   referencia,
+  pocosCasos = false,
 }: {
+  /** 17/11/2026 (jueces, ronda 20): un suceso raro (goles) con menos de 5 casos es tendencia aunque la base sea larga. */
+  pocosCasos?: boolean;
   title: string;
   value: React.ReactNode;
   hint?: string;
@@ -5159,7 +5193,7 @@ function Card({
 }) {
   const Caja = onClick ? "button" : "div";
   /* Un solo umbral y una sola palabra en toda la pantalla (10/11/2026): «tendencia» por debajo de MUESTRA_FIRME. */
-  const corta = Boolean(muestra && muestra.de < MUESTRA_FIRME);
+  const corta = Boolean(muestra && (muestra.de < MUESTRA_FIRME || (pocosCasos && muestra.n < 5)));
 
   return (
     <Caja

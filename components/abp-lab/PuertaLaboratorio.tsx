@@ -54,6 +54,11 @@ import { BANCO, DEFENSAS, PAPELES } from "@/lib/abp-lab/modelo";
 import { REFERENTES } from "@/lib/abp-lab/referentes";
 import { encajeSistemas } from "@/lib/abp-lab/ventaja";
 import { comaXg } from "@/lib/abp-lab/xg";
+import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { aObjetos, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
+import { contextoDia, hastaTexto } from "@/lib/opta-abp-dia";
+import { textoAbp } from "@/lib/opta-abp";
+import { casaEquipo } from "@/lib/opta-eventos";
 
 const MUESTRA_ID = "arsenal-spurs";
 
@@ -109,6 +114,8 @@ function MuestraEncaje() {
 
   return (
     <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.02] p-3">
+      {/* 17/11/2026 (jueces, ronda 20): qué es estimado y qué no, en la propia lámina. */}
+      <p className="inline-block rounded-full bg-white/[0.07] px-2 py-0.5 text-[11px] font-semibold text-white/70">Estimación del modelo · 1 remate de ejemplo</p>
       {alto && bajo && alto !== bajo && veces >= 1.15 ? (
         <p className="text-[13px] font-semibold leading-snug text-white">
           Contra {etiquetaDefensa(alto.defensa).toLowerCase()} vale {veces >= 1.8 ? "casi el doble" : `${veces.toFixed(1).replace(".", ",")} veces`} que contra{" "}
@@ -129,6 +136,67 @@ function MuestraEncaje() {
         </div>
       ))}
       <p className="text-[11px] leading-snug text-white/55">Ejemplo: la rutina del Arsenal de al lado. Base: un remate de la rutina, estimado con el modelo del laboratorio (sitio del remate, marca y duelo aéreo); no es una media de partidos ni una medición: sirve para comparar sistemas.</p>
+    </div>
+  );
+}
+
+/*
+| 17/11/2026 (jueces, ronda 20): en el encaje, en vez de un enlace suelto, lo
+| que el próximo rival concede a balón parado según Opta en la categoría, con
+| su puesto en el grupo y su base; y a un toque, la pizarra (abre en el
+| próximo partido), nuestro ABP defensivo y su ABP. Sin dato, sólo los enlaces.
+*/
+function ConcedeRival({ proximo }: { proximo: string }) {
+  const { docs } = useDocsOpta<[TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.partidos);
+  const [equiposT, partidosT] = docs;
+  const lineas = useMemo(() => {
+    const equipos = aObjetos(equiposT).map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") })).filter((e) => e.teamId);
+    const id = casaEquipo(proximo, equipos);
+    if (!id) return null;
+    const ctx = contextoDia(equiposT, partidosT, "abp", "contra", id);
+    if (!ctx) return null;
+    const quiere = ["GoalSetPly|OPP", "ChncSetPl|OPP"];
+    const elegidas = quiere.map((k) => ctx.lineas.find((l) => l.m.clave === k)).filter((l): l is NonNullable<typeof l> => Boolean(l && !l.pocos));
+    return elegidas.length ? { ctx, elegidas } : null;
+  }, [equiposT, partidosT, proximo]);
+
+  const enlace = "inline-flex min-h-9 items-center gap-1.5 rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300 transition hover:bg-sky-400/20";
+
+  return (
+    <div className="mt-2 min-w-0 space-y-2">
+      {lineas ? (
+        <div className="rounded-lg border border-sky-400/25 bg-sky-400/[0.06] px-3 py-2 text-[12px] leading-snug text-white/80">
+          <p className="font-semibold text-white">Próximo rival · {proximo}, lo que concede a balón parado</p>
+          <ul className="mt-1 space-y-0.5">
+            {lineas.elegidas.map((l) => {
+              const pos = l.grupo ?? l.categoria;
+              const tendencia = l.m.modo === "total" && l.valor <= 3;
+              return (
+                <li key={l.m.clave}>
+                  {l.m.nombre}: <b className="tabular-nums text-white">{textoAbp(l.m, l.valor)}</b>
+                  {l.m.modo === "pp" ? " por partido" : ""} · {pos.puesto}º de {pos.de} en su {l.grupo ? "grupo" : "categoría"} (1º = el que menos concede)
+                  {tendencia ? " · tendencia, pocos casos" : ""}
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-1 text-[11px] text-white/55">
+            Opta · {lineas.ctx.partidos} partidos{hastaTexto(lineas.ctx.hasta) ? ` · ${hastaTexto(lineas.ctx.hasta)}` : ""}. Medido, no del modelo.
+          </p>
+        </div>
+      ) : null}
+      <div className="flex flex-wrap gap-1.5">
+        <Link href="/abp-pizarra" className={enlace} title={`La pizarra de balón parado abre en el partido contra ${proximo}`}>
+          Prepararlo en la pizarra
+        </Link>
+        <Link href="/setpieces_def" className={enlace}>
+          Nuestro ABP defensivo
+        </Link>
+        <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(proximo)}`} className={enlace}>
+          <Shield size={13} aria-hidden />
+          Su ABP
+        </Link>
+      </div>
     </div>
   );
 }
@@ -220,6 +288,13 @@ export function PuertaLaboratorio() {
               lead="Una muestra con un ejemplo público (Arsenal–Tottenham, Premier League): monta la jugada, mira cuánto vale contra cada defensa y llévala a la plantilla."
             />
 
+            {/* 17/11/2026 (jueces, ronda 20): cerrada la ventana, una banda fija dice qué se ve (la ventana y el correo siguen: petición expresa). */}
+            {!aviso ? (
+              <p className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.08] px-3 py-2 text-[12px] font-semibold text-white/85">
+                <Lock size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
+                Muestra pública con un ejemplo de la Premier · el laboratorio completo, sólo para v.ceazurita@gmail.com
+              </p>
+            ) : null}
             {soloMuestra ? (
               <div className="mt-4 flex flex-wrap gap-2">
                 <button
@@ -261,15 +336,7 @@ export function PuertaLaboratorio() {
                       <p className="mt-1 text-[13px] leading-relaxed text-white/70">{texto}</p>
                       {pie && <p className="mt-2 text-[11px] leading-snug text-white/55">{pie}</p>}
                       {/* El próximo rival, con nombre y su ABP a un toque: lo que promete la tarjeta. */}
-                      {titulo === "Encaje con el rival" && proximo && (
-                        <Link
-                          href={`/scout-rival-abp?equipo=${encodeURIComponent(proximo)}`}
-                          className="mt-2 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300 transition hover:bg-sky-400/20"
-                        >
-                          <Shield size={13} aria-hidden />
-                          Próximo rival: {proximo} · su ABP
-                        </Link>
-                      )}
+                      {titulo === "Encaje con el rival" && proximo && <ConcedeRival proximo={proximo} />}
                     </div>
                   </li>
                 ))}
