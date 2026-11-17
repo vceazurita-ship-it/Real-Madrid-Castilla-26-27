@@ -90,7 +90,7 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
       | el móvil. Uno solo no tapa nada, y esconderlo dejaría sin exportar
       | justo el pop-up que se quería exportar.
       */
-      className="fixed bottom-4 right-3 z-[60] sm:bottom-20 sm:right-5 flex flex-col items-end gap-2 print:hidden"
+      className="fixed bottom-3 right-2 z-[60] sm:bottom-20 sm:right-5 flex flex-col items-end gap-2 print:hidden"
     >
       {abierto && (
         <div className="w-[268px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">
@@ -110,12 +110,15 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
         aria-expanded={abierto}
         title="Ayuda, alertas, tema y exportar"
         onClick={() => setAbierto((valor) => !valor)}
-        className="
-          flex h-11 w-11 items-center justify-center
+        /* 17/11/2026 (jueces: «el ⋮ tapa bordes en el móvil»): en el móvil más pequeño y
+           medio transparente mientras está cerrado; al tocarlo o enfocarlo, entero. */
+        className={`
+          flex h-9 w-9 items-center justify-center sm:h-11 sm:w-11
           rounded-full border border-white/10 bg-white/[0.06]
           text-[#C8A96B] shadow-xl backdrop-blur
-          transition hover:bg-white/10
-        "
+          transition hover:bg-white/10 hover:opacity-100 focus-visible:opacity-100
+          ${abierto ? "" : "opacity-60 sm:opacity-100"}
+        `}
       >
         {abierto ? (
           <X className="h-5 w-5" aria-hidden />
