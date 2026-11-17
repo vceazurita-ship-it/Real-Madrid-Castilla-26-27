@@ -450,8 +450,14 @@ export default function Calendar() {
             <p className="font-semibold text-[#C8A96B]">
               A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
             </p>
+            {/* 17/11/2026 (ronda 20, jueces): el mismo aviso que Plantilla y el
+                Dashboard Seguimiento; aquí, sin repetir la explicación: a un
+                toque, la lista completa del Dashboard. */}
             <p className="mt-0.5 text-[11px] text-white/55">
-              Jugadores de campo del Castilla; los porteros llevan su seguimiento aparte. El nombre abre su ficha; «Registrar seguimiento», el formulario con el jugador ya elegido.
+              Sin porteros (llevan su registro aparte).{" "}
+              <Link href="/individual_proc" className="font-semibold text-[#C8A96B] hover:underline">
+                Ver a todos en el Dashboard Seguimiento →
+              </Link>
             </p>
             {/* 16/11/2026 (jueces): cada aviso, una acción. */}
             <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
@@ -500,7 +506,7 @@ export default function Calendar() {
                       monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""
                     } · temporada 26/27: ${temporadaCastilla} registros${
                       temporadaFuera > 0 || monthStats.deFueraEnMes > 0
-                        ? ` (de otros equipos, aparte: ${monthStats.deFueraEnMes} este mes, ${temporadaFuera} en la temporada)`
+                        ? ` (otros equipos —RMC, juvenil y demás licencias que entrenan con nosotros—, aparte: ${monthStats.deFueraEnMes} este mes, ${temporadaFuera} en la temporada)`
                         : ""
                     }`;
                   })()
@@ -511,7 +517,7 @@ export default function Calendar() {
             value={playerFilter ? monthStats.jugadores : `${monthStats.castillaConSeguimiento} de ${castillaTotal}`}
             hint={
               !playerFilter && castillaTotal > 0
-                ? `jugadores de campo del Castilla con algún registro este mes${
+                ? `de los ${castillaTotal} jugadores de campo del Castilla (sin porteros), con algún registro este mes${
                     monthStats.jugadores > monthStats.castillaConSeguimiento ? `; además, ${monthStats.jugadores - monthStats.castillaConSeguimiento} de otros equipos` : ""
                   }`
                 : undefined
@@ -527,8 +533,15 @@ export default function Calendar() {
                       <span
                         key={s.desde}
                         title={`Semana del ${s.etiqueta}: ${s.n}${s.enCurso ? " (en curso)" : ""}`}
-                        className="relative flex-1 rounded-t bg-[#C8A96B]"
-                        style={{ height: `${Math.max(4, (s.n / semanas.max) * 100)}%`, opacity: s.enCurso ? 0.45 : 1 }}
+                        className={`relative flex-1 rounded-t ${s.enCurso ? "" : "bg-[#C8A96B]"}`}
+                        /* 17/11/2026 (ronda 20, jueces): la semana en curso, con trama
+                           (rayas) y no como una completa más. */
+                        style={{
+                          height: `${Math.max(4, (s.n / semanas.max) * 100)}%`,
+                          background: s.enCurso
+                            ? "repeating-linear-gradient(135deg, #C8A96B 0 3px, rgb(200 169 107 / .28) 3px 6px)"
+                            : undefined,
+                        }}
                       />
                     ))}
                   </span>
@@ -546,7 +559,7 @@ export default function Calendar() {
                   </span>
                 </span>
               }
-              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última va en curso · de los ${castillaTotal} de campo del Castilla`}
+              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última, rayada, va en curso (día ${((hoy.getDay() + 6) % 7) + 1} de 7) · de los ${castillaTotal} de campo del Castilla`}
             />
           )}
           <CalendarStat
