@@ -18,13 +18,14 @@
  * comprobaciones— se cambia aquí sin tocar la quiniela.
  */
 
-import { useMemo, useState, useSyncExternalStore } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import {
   CalendarCheck,
   Check,
   ChevronDown,
   Dices,
+  Info,
   ListOrdered,
   Megaphone,
   ThumbsDown,
@@ -67,6 +68,11 @@ import { JORNADAS, partidosDe } from "@/lib/quiniela/modelo";
 import { confirmar } from "@/lib/avisos";
 import { usePlayers } from "@/hooks/usePlayers";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
+import { filaDelEquipo } from "@/components/rivals/AccesosDelRival";
+import { aJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
+import { traeJson } from "@/lib/hojaCsv";
+import { esDeSeguimiento } from "@/lib/seguimiento";
 import type { Player } from "@/types/player";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
@@ -117,23 +123,46 @@ const equiposDe = (texto: string) => {
 | 17/11/2026 (marketing): el jugador del Castilla que nombra la apuesta
 | («Rachi marca gol al Teruel»), por su apodo o su nombre, para enlazar su
 | ficha y su seguimiento. Palabras de 4 letras o más y enteras.
+|
+| 17/11/2026 (ronda 21): también por el apellido suelto («Fortuny» es Pol
+| Fortuny), por los apodos del vestuario que la hoja no escribe («Rachi» es
+| Rachad) y sin mirar la licencia: Cherif es del Juvenil A y está en la
+| plantilla. Se resuelve por nombre, nunca por el JUG-XX (los ID se mueven).
+| El seguimiento, sólo para quien lo lleva (sin porteros ni otras licencias).
 */
+const APODOS_DEL_VESTUARIO: Record<string, string> = {
+  rachi: "Rachad",
+};
+
+/* Apellidos que no distinguen a nadie: se quedan fuera del cruce suelto. */
+const APELLIDOS_COMUNES = new Set(["martinez", "gonzalez", "garcia", "lopez", "fernandez", "rodriguez", "sanchez", "perez", "gomez", "diaz", "angel", "beto"]);
+
+const plano = (x: string) => sinTildes(x).replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
+
 const jugadoresDe = (texto: string, plantilla: Player[]) => {
-  const t = ` ${sinTildes(texto).replace(/[^a-z0-9\s]/g, " ")} `;
+  const t = ` ${plano(texto)} `;
   const vistos = new Set<string>();
+  const porApodoExtra = new Set(
+    Object.entries(APODOS_DEL_VESTUARIO)
+      .filter(([apodo]) => t.includes(` ${apodo} `))
+      .map(([, nombre]) => plano(nombre)),
+  );
 
-  return plantilla.filter((j) => {
-    if (!j.esCastilla || vistos.has(j.nombre)) return false;
+  return plantilla.flatMap((j) => {
+    if (vistos.has(j.nombre)) return [];
 
-    const claves = [j.apodo, j.nombre]
-      .filter((x): x is string => Boolean(x))
-      .map((x) => sinTildes(x).replace(/[^a-z0-9\s]/g, " ").trim())
-      .filter((x) => x.length >= 4);
-    const sale = claves.some((c) => t.includes(` ${c} `));
+    const nombre = plano(j.nombre);
+    const apodo = plano(j.apodo ?? "");
+    const apellido = nombre.split(" ").length > 1 ? (nombre.split(" ").at(-1) ?? "") : "";
+    const dice = (c: string) => c.length >= 4 && t.includes(` ${c} `);
+    const porApodo = dice(apodo) || porApodoExtra.has(nombre);
+    const porNombre = dice(nombre) || (apellido.length >= 5 && !APELLIDOS_COMUNES.has(apellido) && dice(apellido));
 
-    if (sale) vistos.add(j.nombre);
+    if (!porApodo && !porNombre) return [];
 
-    return sale;
+    vistos.add(j.nombre);
+
+    return [{ jugador: j, rotulo: porApodo ? j.apodo || j.nombre : j.nombre }];
   });
 };
 
@@ -150,17 +179,67 @@ const esMia = (a: Apuesta, yo: string | null) => Boolean(yo) && (a.autor === yo 
 
 const MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre"];
 
-/** El grupo de una apuesta viva según cuándo se decide; la clave ordena. */
-function grupoDe(a: Apuesta, hoy: string): { clave: string; titulo: string } {
-  if (a.comprobar <= hoy) return { clave: "0", titulo: "Toca dar el veredicto" };
-  if (diasHasta(a.comprobar, hoy) <= 30) return { clave: "1", titulo: "En los próximos 30 días" };
+type Grupo = {
+  /** Ordena los bloques. */
+  clave: string;
+  /** El rótulo del bloque («Fin de liga · mayo 2027»). */
+  titulo: string;
+  /** La parada de la línea de tiempo («Mayo») y lo que lleva debajo («fin de liga»). */
+  corto: string;
+  pie: string;
+  /** Para la frase del titular: «se deciden …». */
+  frase: string;
+};
+
+const mayuscula = (t: string) => `${t.charAt(0).toUpperCase()}${t.slice(1)}`;
+
+/**
+ * El grupo de una apuesta viva según cuándo se decide; la clave ordena.
+ * 17/11/2026 (guionista, ronda 21): mayo es el fin de liga y junio, el final
+ * de temporada (allí hay finales europeas y debuts, no liga).
+ */
+function grupoDe(a: Apuesta, hoy: string): Grupo {
+  if (a.comprobar <= hoy) {
+    return { clave: "0", titulo: "Toca dar el veredicto", corto: "Ya", pie: "veredicto", frase: "ya, toca dar el veredicto" };
+  }
+  if (diasHasta(a.comprobar, hoy) <= 30) {
+    return { clave: "1", titulo: "En los próximos 30 días", corto: "30 días", pie: "próximos", frase: "en los próximos 30 días" };
+  }
 
   const [anio, mes] = a.comprobar.split("-").map(Number);
   const nombre = MESES_LARGOS[(mes ?? 1) - 1] ?? "";
-  const etiqueta = mes === 12 ? `Navidad · ${nombre} ${anio}` : mes === 5 || mes === 6 ? `Fin de liga · ${nombre} ${anio}` : `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${anio}`;
+  const clave = `2-${a.comprobar.slice(0, 7)}`;
 
-  return { clave: `2-${a.comprobar.slice(0, 7)}`, titulo: etiqueta };
+  if (mes === 12) return { clave, titulo: `Navidad · ${nombre} ${anio}`, corto: "Navidad", pie: String(anio), frase: "en Navidad" };
+  if (mes === 5) return { clave, titulo: `Fin de liga · ${nombre} ${anio}`, corto: "Mayo", pie: "fin de liga", frase: `a fin de liga (mayo de ${anio})` };
+  if (mes === 6) {
+    return { clave, titulo: `Final de temporada · ${nombre} ${anio}`, corto: "Junio", pie: "fin de temporada", frase: `al final de temporada (junio de ${anio})` };
+  }
+
+  return { clave, titulo: `${mayuscula(nombre)} ${anio}`, corto: mayuscula(nombre), pie: String(anio), frase: `en ${nombre} de ${anio}` };
 }
+
+/** Las vivas agrupadas por cuándo se deciden, en orden. */
+function agrupa(apuestas: Apuesta[], hoy: string) {
+  const mapa = new Map<string, Grupo & { apuestas: Apuesta[] }>();
+
+  for (const a of apuestas) {
+    const g = grupoDe(a, hoy);
+    const hay = mapa.get(g.clave);
+
+    if (hay) hay.apuestas.push(a);
+    else mapa.set(g.clave, { ...g, apuestas: [a] });
+  }
+
+  return [...mapa.values()].sort((a, b) => a.clave.localeCompare(b.clave));
+}
+
+/** «3 a 1»: el autor cuenta a favor. */
+const reparto = (a: Apuesta) => {
+  const b = bandos(a);
+
+  return { favor: b.favor.length + 1, contra: b.contra.length };
+};
 
 /*
 | 17/11/2026 (marketing y guionista): un «qué se juega» de relleno no se
@@ -235,25 +314,54 @@ export default function ApuestasPage() {
       }
     }
 
-    return { esteMes, sinContrario, disputada };
+    /* La siguiente que se decide (vivas va por fecha). */
+    const proxima = vivas.find((a) => a.comprobar > hoy) ?? null;
+
+    return { esteMes, sinContrario, disputada, proxima };
   }, [vivas, hoy]);
 
-  const grupos = useMemo(() => {
-    const filtradas = vivas.filter((a) =>
-      filtro === "mias" ? esMia(a, yo) : filtro === "sin-contrario" ? bandos(a).contra.length === 0 : true,
-    );
-    const mapa = new Map<string, { clave: string; titulo: string; apuestas: Apuesta[] }>();
+  const grupos = useMemo(
+    () =>
+      agrupa(
+        vivas.filter((a) =>
+          filtro === "mias" ? esMia(a, yo) : filtro === "sin-contrario" ? bandos(a).contra.length === 0 : true,
+        ),
+        hoy,
+      ),
+    [vivas, filtro, yo, hoy],
+  );
 
-    for (const a of filtradas) {
-      const g = grupoDe(a, hoy);
-      const hay = mapa.get(g.clave);
+  /* 17/11/2026 (marketing, ronda 21): la línea de tiempo va con TODAS las vivas, sin el filtro. */
+  const paradas = useMemo(() => agrupa(vivas, hoy), [vivas, hoy]);
 
-      if (hay) hay.apuestas.push(a);
-      else mapa.set(g.clave, { ...g, apuestas: [a] });
-    }
+  /* Saltar a un bloque desde la línea de tiempo: si el filtro lo esconde, se quita antes. */
+  const irABloque = (clave: string) => {
+    setFiltro("todas");
+    window.setTimeout(() => document.getElementById(`bloque-${clave}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 60);
+  };
 
-    return [...mapa.values()].sort((a, b) => a.clave.localeCompare(b.clave));
-  }, [vivas, filtro, yo, hoy]);
+  /*
+  | 17/11/2026 (marketing, ronda 21): el ID de la fila RIVALES de cada equipo,
+  | para que «Plan» abra el plan de ese partido (la pantalla del plan sólo
+  | entiende `?rival=`). La misma lectura cacheada que la tira del rival.
+  */
+  const [rivales, setRivales] = useState<JornadaRival[]>([]);
+
+  useEffect(() => {
+    let vivo = true;
+
+    traeJson<unknown>("/api/rivals?action=rivales")
+      .then((data) => {
+        if (vivo && Array.isArray(data)) setRivales((data as FilaRival[]).filter((f) => f && typeof f === "object").map(aJornada));
+      })
+      .catch(() => {
+        /* Sin la hoja, «Plan» no sale; Ficha, Sus goles y ABP van por el nombre. */
+      });
+
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /*
   | 30/10/2026: una sola base, la de la quiniela («11 jugando»): antes salía
@@ -348,6 +456,19 @@ export default function ApuestasPage() {
               title="Apuestas del staff"
               lead={titular}
             />
+
+            {/* 17/11/2026 (marketing, ronda 21): lo primero, cuándo se decide
+                todo, con la conclusión en el título; las tarjetas, debajo. */}
+            {estado === "listo" && vivas.length > 0 && (
+              <LineaDeTiempo
+                paradas={paradas}
+                total={vivas.length}
+                proxima={resumen.proxima}
+                disputada={resumen.disputada}
+                hoy={hoy}
+                onIr={irABloque}
+              />
+            )}
 
             {/* La cifra de contexto arriba, con los chips de la quiniela (30/10/2026). */}
             {estado === "listo" && vivas.length === 0 && doc.apuestas.length > 0 && (
@@ -467,7 +588,8 @@ export default function ApuestasPage() {
                     <ul className="grid grid-cols-3 gap-2">
                       {[
                         { cifra: vivas.length, rotulo: vivas.length === 1 ? "abierta" : "abiertas" },
-                        { cifra: resumen.esteMes, rotulo: "se deciden en 30 días" },
+                        /* 17/11/2026 (guionista, ronda 21): concuerda con la cifra. */
+                        { cifra: resumen.esteMes, rotulo: resumen.esteMes === 1 ? "se decide en 30 días" : "se deciden en 30 días" },
                         { cifra: resumen.sinContrario, rotulo: "sin nadie en contra" },
                       ].map((d) => (
                         <li key={d.rotulo} className="rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
@@ -477,30 +599,7 @@ export default function ApuestasPage() {
                       ))}
                     </ul>
 
-                    {resumen.disputada && (
-                      <p className="text-[13px] leading-snug text-white/75">
-                        <span className="font-semibold text-white">La más disputada</span>{" "}
-                        <span className="text-white/55">(la de bandos más igualados y más gente mojada)</span>: «{resumen.disputada.prediccion}» ·{" "}
-                        <span className="tabular-nums text-emerald-300">{resumen.disputada.favor} a favor</span>,{" "}
-                        <span className="tabular-nums text-rose-300">{resumen.disputada.contra} en contra</span>
-                      </p>
-                    )}
-
-                    {/* 17/11/2026 (marketing): un chip por bloque que salta a él. */}
-                    {grupos.length > 1 && (
-                      <nav aria-label="Ir a un bloque" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
-                        {grupos.map((g) => (
-                          <a
-                            key={g.clave}
-                            href={`#bloque-${g.clave}`}
-                            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#C8A96B]/40 px-3 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
-                          >
-                            {g.titulo}
-                            <span className="tabular-nums text-white/60">{g.apuestas.length}</span>
-                          </a>
-                        ))}
-                      </nav>
-                    )}
+                    {/* «La más disputada» y los chips de bloque pasan a la línea de tiempo de arriba (17/11/2026, ronda 21). */}
 
                     <div role="group" aria-label="Filtrar apuestas" className="flex flex-wrap gap-2">
                       {(
@@ -581,26 +680,46 @@ export default function ApuestasPage() {
                             ocupado={estado === "guardando"}
                             pide={pide}
                             plantilla={plantilla}
+                            rivales={rivales}
                           />
                         );
 
                         return (
                           <div className="space-y-3">
+                            {/* 17/11/2026 (marketing, ronda 21): plegado, una mini-barra
+                                a favor/en contra por apuesta; antes, un volcado de texto. */}
                             {juntas.map(([equipo, xs]) => (
                               <details key={equipo} className="group rounded-2xl border border-white/10 bg-white/[0.02]">
                                 <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-3.5 py-3 [&::-webkit-details-marker]:hidden">
-                                  <span className="min-w-0">
-                                    <span className="block text-[14px] font-semibold text-white">
-                                      {equipo} · {xs.length} apuestas
+                                  <span className="min-w-0 flex-1">
+                                    <span className="flex flex-wrap items-baseline justify-between gap-x-3">
+                                      <span className="text-[14px] font-semibold text-white">{equipo}</span>
+                                      <span className="text-[12px] font-medium text-[#C8A96B]">
+                                        <span className="group-open:hidden">{xs.length} apuestas · ver las tarjetas</span>
+                                        <span className="hidden group-open:inline">{xs.length} apuestas · plegar</span>
+                                      </span>
                                     </span>
-                                    <span className="mt-0.5 block text-[12px] leading-snug text-white/65">
-                                      {xs
-                                        .map((x) => {
-                                          const b = bandos(x);
+                                    <span className="mt-2 block space-y-2">
+                                      {xs.map((x) => {
+                                        const r = reparto(x);
+                                        const total = r.favor + r.contra;
 
-                                          return `«${x.prediccion}» ${b.favor.length + 1} a ${b.contra.length}`;
-                                        })
-                                        .join(" · ")}
+                                        return (
+                                          <span key={x.id} className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1">
+                                            <span className="line-clamp-2 text-[13px] leading-snug text-white/80">«{x.prediccion}»</span>
+                                            <span className="whitespace-nowrap text-[12px] font-semibold tabular-nums text-white/80">
+                                              <span className="text-emerald-300">{r.favor}</span> a <span className="text-rose-300">{r.contra}</span>
+                                            </span>
+                                            <span
+                                              aria-label={`${r.favor} a favor y ${r.contra} en contra`}
+                                              className="col-span-2 flex h-1.5 overflow-hidden rounded-full bg-white/[0.08]"
+                                            >
+                                              <span className="h-full bg-emerald-400" style={{ width: `${(r.favor / total) * 100}%` }} />
+                                              <span className="h-full bg-rose-400" style={{ width: `${(r.contra / total) * 100}%` }} />
+                                            </span>
+                                          </span>
+                                        );
+                                      })}
                                     </span>
                                   </span>
                                   <ChevronDown size={16} aria-hidden className="mt-0.5 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180" />
@@ -646,6 +765,7 @@ export default function ApuestasPage() {
                         ocupado={estado === "guardando"}
                         pide={pide}
                         plantilla={plantilla}
+                        rivales={rivales}
                       />
                     ))}
                   </div>
@@ -876,9 +996,12 @@ function Tarjeta({
   ocupado,
   pide,
   plantilla = [],
+  rivales = [],
 }: {
   apuesta: Apuesta;
   plantilla?: Player[];
+  /** Las filas de la hoja RIVALES: dan el ID con el que abre el plan. */
+  rivales?: JornadaRival[];
   /** Quiénes pueden apostar (los de la quiniela): la base del «faltan 9 de 11». Vacío si no se sabe. */
   juegan?: string[];
   yo: string | null;
@@ -979,42 +1102,79 @@ function Tarjeta({
       {/* 16/11/2026: el equipo de la apuesta, a un toque de su ficha. */}
       {/* 17/11/2026 (marketing): también sus goles en vídeo y, si nombra a un
           jugador nuestro, su ficha y su seguimiento. */}
-      {(equiposDe(apuesta.prediccion).length > 0 || jugadoresDe(apuesta.prediccion, plantilla).length > 0) && (
-        <div className="flex flex-wrap gap-2">
-          {jugadoresDe(apuesta.prediccion, plantilla).map((j) => (
-            <span key={j.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-[#C8A96B]/40 text-[12px] font-medium">
-              <Link
-                href={`/individual?nombre=${encodeURIComponent(j.nombre)}`}
-                className="px-2.5 py-0.5 text-white/85 transition hover:bg-[#C8A96B]/10 hover:text-white"
-              >
-                Ficha de {j.apodo || j.nombre} →
-              </Link>
-              <Link
-                href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=seguimiento`}
-                className="border-l border-[#C8A96B]/30 px-2.5 py-0.5 text-white/70 transition hover:bg-[#C8A96B]/10 hover:text-white"
-              >
-                Seguimiento
-              </Link>
-            </span>
-          ))}
-          {equiposDe(apuesta.prediccion).map((e) => (
-            <span key={e.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-white/15 text-[12px] font-medium">
-              <Link
-                href={`/rivals?equipo=${encodeURIComponent(e.nombre)}`}
-                className="px-2.5 py-0.5 text-white/85 transition hover:bg-white/[0.06] hover:text-white"
-              >
-                Ficha de {e.nombre} →
-              </Link>
-              <Link
-                href={urlGolesDelEquipo(e.nombre)}
-                className="border-l border-white/15 px-2.5 py-0.5 text-white/70 transition hover:bg-white/[0.06] hover:text-white"
-              >
-                Sus goles
-              </Link>
-            </span>
-          ))}
-        </div>
-      )}
+      {/* 17/11/2026 (marketing, ronda 21): el jugador, por apodo o apellido
+          («Rachi», «Fortuny»), y el rival con Ficha, Sus goles, ABP y Plan,
+          todos con el rival ya elegido. Cada uno en su fila, que en el móvil
+          parte sin desbordar. */}
+      {(() => {
+        const jugadores = jugadoresDe(apuesta.prediccion, plantilla);
+        const equipos = equiposDe(apuesta.prediccion);
+
+        if (jugadores.length === 0 && equipos.length === 0) return null;
+
+        const chip =
+          "inline-flex min-h-8 items-center rounded-full border px-2.5 text-[12px] font-medium transition hover:text-white";
+
+        return (
+          <div className="space-y-1.5">
+            {jugadores.map(({ jugador, rotulo }) => (
+              <div key={jugador.nombre} className="flex flex-wrap items-center gap-1.5">
+                <Link
+                  href={`/individual?nombre=${encodeURIComponent(jugador.nombre)}`}
+                  title={`La ficha de ${jugador.nombre} en Individual`}
+                  className={`${chip} border-[#C8A96B]/40 text-white/85 hover:bg-[#C8A96B]/10`}
+                >
+                  Ficha de {rotulo} →
+                </Link>
+                {esDeSeguimiento(jugador) && (
+                  <Link
+                    href={`/individual?nombre=${encodeURIComponent(jugador.nombre)}&pestana=seguimiento`}
+                    title={`El seguimiento de ${jugador.nombre}`}
+                    className={`${chip} border-[#C8A96B]/30 text-white/75 hover:bg-[#C8A96B]/10`}
+                  >
+                    Su seguimiento
+                  </Link>
+                )}
+              </div>
+            ))}
+            {equipos.map((e) => {
+              const fila = filaDelEquipo(rivales, e.nombre, hoy);
+              const llaves = { equipo: e.nombre, id: fila?.id ?? "" };
+
+              return (
+                <div key={e.nombre} className="flex flex-wrap items-center gap-1.5">
+                  <Link
+                    href={`/rivals?equipo=${encodeURIComponent(e.nombre)}`}
+                    title={`La plantilla de ${e.nombre}`}
+                    className={`${chip} border-white/15 text-white/85 hover:bg-white/[0.06]`}
+                  >
+                    Ficha de {e.nombre} →
+                  </Link>
+                  <Link href={urlGolesDelEquipo(e.nombre)} title={`Los goles de ${e.nombre} en vídeo`} className={`${chip} border-white/15 text-white/75 hover:bg-white/[0.06]`}>
+                    Sus goles
+                  </Link>
+                  <Link
+                    href={conRivalEnUrl("/scout-rival-abp", llaves)}
+                    title={`El balón parado de ${e.nombre}`}
+                    className={`${chip} border-white/15 text-white/75 hover:bg-white/[0.06]`}
+                  >
+                    ABP
+                  </Link>
+                  {fila?.id && (
+                    <Link
+                      href={conRivalEnUrl("/match-preparation", llaves)}
+                      title={`El plan de partido contra ${e.nombre}`}
+                      className={`${chip} border-white/15 text-white/75 hover:bg-white/[0.06]`}
+                    >
+                      Plan{fila.jornada ? ` J${fila.jornada}` : ""}
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ---------------------- los bandos ---------------------- */}
 
@@ -1079,54 +1239,63 @@ function Tarjeta({
         </div>
       )}
 
-      {/* Sin sesión, un solo «Mojarme» que lleva al acceso de arriba. */}
-      {!yo && estado === "abierta" && (
-        <a
-          href="#acceso-apuestas"
-          className="inline-flex min-h-10 w-fit items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[13px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/15"
-        >
-          <ThumbsUp size={14} aria-hidden /> Mojarme
-        </a>
-      )}
-
-      {/* Quién falta por mojarse: la base con su cifra y los nombres al pulsar. */}
-      {juegan.length > 0 && (() => {
+      {/*
+        17/11/2026 (marketing, ronda 21): un solo bloque. Antes eran tres
+        piezas seguidas («Mojarme», «3 de 11 se han mojado», «Ver quién falta
+        (8)»); ahora el botón (sin sesión) y la cuenta en la misma fila, y la
+        cuenta despliega quién falta.
+      */}
+      {(() => {
         const mojados = new Set([apuesta.autor, ...favor, ...contra]);
         const faltan = juegan.filter((slug) => !mojados.has(slug));
         const yoFalto = Boolean(yo) && faltan.includes(yo as string);
         const fueron = juegan.length - faltan.length;
+        const mojarme = !yo && estado === "abierta" && (
+          <a
+            href="#acceso-apuestas"
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[13px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/15"
+          >
+            <ThumbsUp size={14} aria-hidden /> Mojarme
+          </a>
+        );
+
+        if (juegan.length === 0) return mojarme || null;
 
         if (estado !== "abierta" || faltan.length === 0) {
           return (
-            <p className="text-[12px] tabular-nums text-white/65">
-              {faltan.length === 0 ? `Se han mojado los ${juegan.length}` : `${fueron} de ${juegan.length} se mojaron`}
-            </p>
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+              {mojarme}
+              <p className="text-[12px] tabular-nums text-white/65">
+                {faltan.length === 0 ? `Se han mojado los ${juegan.length}` : `${fueron} de ${juegan.length} se mojaron`}
+              </p>
+            </div>
           );
         }
 
         return (
-          <details className="group text-[12px]">
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 tabular-nums text-white/70 [&::-webkit-details-marker]:hidden">
-              <span>
+          <div className="flex items-start gap-3">
+            {mojarme}
+            <details className="group min-w-0 flex-1 text-[12px]">
+              <summary
+                title="Ver quién falta"
+                className="inline-flex min-h-10 cursor-pointer list-none flex-wrap items-center gap-x-1 tabular-nums text-white/70 [&::-webkit-details-marker]:hidden"
+              >
                 <span className="font-semibold text-white/90">
                   {fueron} de {juegan.length}
-                </span>{" "}
-                se han mojado{yoFalto ? " · faltas tú" : ""}
-              </span>
-              <span className="shrink-0 font-semibold text-[#C8A96B]">
-                <span className="group-open:hidden">Ver quién falta ({faltan.length})</span>
-                <span className="hidden group-open:inline">Ocultar</span>
-              </span>
-            </summary>
-            <ul className="mt-2 flex flex-wrap gap-x-3 gap-y-1.5">
-              {faltan.map((slug) => (
-                <li key={slug} className="inline-flex items-center gap-1.5 text-[13px] text-white/80">
-                  <Avatar slug={slug} lado={20} />
-                  {cortoDe(slug)}
-                </li>
-              ))}
-            </ul>
-          </details>
+                </span>
+                <span>mojados · faltan {faltan.length}{yoFalto ? ", tú entre ellos" : ""}</span>
+                <ChevronDown size={14} aria-hidden className="text-[#C8A96B] transition-transform group-open:rotate-180" />
+              </summary>
+              <ul aria-label="Quién falta por mojarse" className="mb-1 flex flex-wrap gap-x-3 gap-y-1.5">
+                {faltan.map((slug) => (
+                  <li key={slug} className="inline-flex items-center gap-1.5 text-[13px] text-white/80">
+                    <Avatar slug={slug} lado={20} />
+                    {cortoDe(slug)}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          </div>
         );
       })()}
 
@@ -1207,5 +1376,148 @@ function Lado({ gente, tono, yo }: { gente: string[]; tono: "favor" | "contra"; 
         </span>
       )}
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LA LÍNEA DE TIEMPO                                                */
+/* ------------------------------------------------------------------ */
+
+/**
+ * 17/11/2026 (marketing, ronda 21): lo primero de la pantalla. Una parada por
+ * bloque (30 días, Navidad, marzo, mayo, junio…) a la misma distancia, con una
+ * barra de altura según cuántas se deciden ahí y la cifra encima; el bloque
+ * más cargado, en oro lleno. El título es la conclusión («13 de las 19 se
+ * deciden a fin de liga…») y debajo, la próxima y la más disputada. Cada
+ * parada salta a su bloque. Va con todas las vivas, sin el filtro de abajo.
+ */
+function LineaDeTiempo({
+  paradas,
+  total,
+  proxima,
+  disputada,
+  hoy,
+  onIr,
+}: {
+  paradas: (Grupo & { apuestas: Apuesta[] })[];
+  total: number;
+  proxima: Apuesta | null;
+  disputada: { prediccion: string; favor: number; contra: number } | null;
+  hoy: string;
+  onIr: (clave: string) => void;
+}) {
+  const [criterio, setCriterio] = useState(false);
+
+  if (paradas.length === 0) return null;
+
+  const maximo = Math.max(...paradas.map((p) => p.apuestas.length));
+  /* La parada más cargada; a igualdad, la primera (la que antes llega). */
+  const mayor = paradas.find((p) => p.apuestas.length === maximo) ?? paradas[0];
+  const n = mayor.apuestas.length;
+  const pendientes = paradas.find((p) => p.clave === "0")?.apuestas.length ?? 0;
+
+  const conclusion =
+    total === 1
+      ? mayor.clave === "0"
+        ? "La apuesta abierta espera veredicto"
+        : `La apuesta abierta se decide ${mayor.frase}`
+      : mayor.clave === "0"
+        ? `${n} de las ${total} esperan veredicto`
+        : n === total
+          ? `Las ${total} se deciden ${mayor.frase}`
+          : `${n} de las ${total} se ${n === 1 ? "decide" : "deciden"} ${mayor.frase}`;
+
+  const dias = proxima ? diasHasta(proxima.comprobar, hoy) : 0;
+
+  return (
+    <section aria-labelledby="linea-tiempo-titulo" className="mt-5 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Cuándo se decide cada una</p>
+      <h2 id="linea-tiempo-titulo" className="fuente-club mt-1 text-[20px] font-bold leading-tight text-white sm:text-[24px]">
+        {conclusion}
+      </h2>
+
+      <ol
+        aria-label="Apuestas abiertas por cuándo se deciden"
+        className="mt-4 grid"
+        style={{ gridTemplateColumns: `repeat(${paradas.length}, minmax(0, 1fr))` }}
+      >
+        {paradas.map((p, i) => {
+          const cuantas = p.apuestas.length;
+          const alto = 10 + Math.round((cuantas / maximo) * 46);
+          const esMayor = p.clave === mayor.clave;
+          const esYa = p.clave === "0";
+          const tramo = paradas.length === 1 ? "hidden" : i === 0 ? "left-1/2 right-0" : i === paradas.length - 1 ? "left-0 right-1/2" : "inset-x-0";
+
+          return (
+            <li key={p.clave} className="min-w-0">
+              <button
+                type="button"
+                onClick={() => onIr(p.clave)}
+                aria-label={`${p.titulo}: ${cuantas === 1 ? "1 apuesta" : `${cuantas} apuestas`}. Ir al bloque`}
+                className="group flex w-full flex-col items-center rounded-xl px-0.5 pb-1 pt-0.5 transition hover:bg-white/[0.04]"
+              >
+                <span className="flex h-[76px] flex-col items-center justify-end">
+                  <span className={`text-[15px] font-bold leading-none tabular-nums ${esMayor ? "text-white" : "text-white/80"}`}>{cuantas}</span>
+                  <span
+                    aria-hidden
+                    className={`mt-1 w-4 rounded-t sm:w-6 ${esYa ? "bg-sky-300" : esMayor ? "bg-[#C8A96B]" : "bg-[#C8A96B]/40"}`}
+                    style={{ height: alto }}
+                  />
+                </span>
+                <span aria-hidden className="relative flex h-4 w-full items-center justify-center">
+                  <span className={`absolute top-1/2 h-px -translate-y-1/2 bg-white/20 ${tramo}`} />
+                  <span className={`relative h-2.5 w-2.5 rounded-full border-2 ${esMayor ? "border-[#C8A96B] bg-[#C8A96B]" : "border-[#C8A96B]/70 bg-[#0B0F14]"}`} />
+                </span>
+                <span className={`mt-1 block max-w-full text-center text-[12px] font-semibold leading-tight sm:text-[13px] ${esMayor ? "text-white" : "text-white/80"} group-hover:text-white`}>
+                  {p.corto}
+                </span>
+                <span className="block max-w-full text-center text-[11px] leading-tight text-white/55 sm:text-[12px]">{p.pie}</span>
+              </button>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="mt-3 space-y-1.5 border-t border-white/[0.06] pt-3 text-[13px] leading-snug text-white/75">
+        {pendientes > 0 && (
+          <p>
+            <span className="font-semibold text-sky-200">{pendientes === 1 ? "1 espera veredicto" : `${pendientes} esperan veredicto`}</span>: cualquiera que haya entrado puede darlo.
+          </p>
+        )}
+        {proxima && (
+          <p>
+            <span className="font-semibold text-white">La próxima</span>, {dias === 1 ? "mañana" : `en ${dias} días`}: «{proxima.prediccion}»
+          </p>
+        )}
+        {disputada && (
+          <div>
+            <p className="flex flex-wrap items-center gap-x-1.5">
+              <span>
+                <span className="font-semibold text-white">La más disputada:</span> «{disputada.prediccion}» ·{" "}
+                <span className="whitespace-nowrap font-semibold tabular-nums">
+                  <span className="text-emerald-300">{disputada.favor}</span> a <span className="text-rose-300">{disputada.contra}</span>
+                </span>
+              </span>
+              {/* 17/11/2026 (guionista, ronda 21): el criterio, en una ayuda emergente; el gancho, primero. */}
+              <button
+                type="button"
+                aria-expanded={criterio}
+                aria-label="Cómo se elige la más disputada"
+                title="La de bandos más igualados; a igualdad, la de más gente mojada y luego la que se decide antes"
+                onClick={() => setCriterio((v) => !v)}
+                className="inline-flex h-7 w-7 items-center justify-center rounded-full text-white/55 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                <Info size={14} aria-hidden />
+              </button>
+            </p>
+            {criterio && (
+              <p className="mt-1 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[12px] text-white/65">
+                La de bandos más igualados (a favor frente a en contra; el autor cuenta a favor); a igualdad, la de más gente mojada y luego la que se decide antes. Sólo entran las que tienen a alguien en contra.
+              </p>
+            )}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
