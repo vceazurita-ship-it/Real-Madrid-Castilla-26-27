@@ -76,7 +76,8 @@ function LecturaRemates({
         ? r.goles === 0
           ? `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo y nuestro portero ${r.aPuerta === 1 ? "lo paró" : "los paró"} todos.`
           : `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo (${dec(xgPuerta, 1)} antes); ${dif >= 0 ? "remataron mejor colocado de lo que valía la ocasión" : "remataron peor colocado de lo que valía la ocasión"}.`
-        : `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo (${dec(xgPuerta, 1)} antes); ${dif >= 0.05 ? "rematamos mejor colocado de lo que valía la ocasión" : dif <= -0.05 ? "rematamos peor colocado de lo que valía la ocasión" : "rematamos como valía la ocasión"}.`;
+        : /* 17/11/2026 (ronda 20, fútbol): cada una de las tres cifras dice de qué sale. */
+          `De nuestros ${dec(r.xG, 1)} de goles esperados, los ${tiros} valían ${dec(xgPuerta, 1)}; tras el golpeo, ${dec(xgot, 1)} (${conSigno(dif, 1)}: ${dif >= 0.05 ? "rematamos mejor colocado de lo que valía la ocasión" : dif <= -0.05 ? "rematamos peor colocado de lo que valía la ocasión" : "rematamos como valía la ocasión"}).`;
   const barras: { rotulo: string; valor: number; texto: string; opacidad: number }[] = [
     { rotulo: "Valían las ocasiones (xG)", valor: r.xG, texto: dec(r.xG, 1), opacidad: 0.45 },
     { rotulo: "Valían a puerta, tras el golpeo", valor: xgot, texto: dec(xgot, 1), opacidad: 0.75 },

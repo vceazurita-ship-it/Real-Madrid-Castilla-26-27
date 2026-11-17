@@ -93,8 +93,16 @@ function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): 
   const centrosNos = num(nos, "Crosses");
   const centrosEllos = num(ellos, "Crosses");
   if (centrosNos != null && centrosEllos != null && centrosEllos >= 15 && centrosEllos >= centrosNos * 1.5) {
+    /* 17/11/2026 (ronda 20, fútbol): el criterio de éxito sale de un dato: los centros que nos hacen de media en los otros partidos (Opta). */
+    const recibidos = datos.partidos
+      .filter((f) => f.teamId !== CASTILLA_OPTA && String(f.partido ?? "") !== partido && datos.partidos.some((g) => g.teamId === CASTILLA_OPTA && g.partido === f.partido))
+      .map((f) => num(f, "Crosses"))
+      .filter((v): v is number => v != null);
+    const mediaRecibidos = recibidos.length >= 3 ? recibidos.reduce((a, b) => a + b, 0) / recibidos.length : null;
     ordenes.push(
-      `Centros: ${rival} centró ${centrosEllos} veces y nosotros ${centrosNos}. Tarea de defensa del centro lateral (cerrar al centrador y las marcas en el área), contando los centros que nos llegan al área.`,
+      `Centros: ${rival} centró ${centrosEllos} veces y nosotros ${centrosNos}. Tarea de defensa del centro lateral (cerrar al centrador y las marcas en el área), contando los centros que nos llegan al área${
+        mediaRecibidos != null ? `; objetivo, que el rival no pase de nuestra media de centros recibidos, ${coma(mediaRecibidos)} (Opta, ${recibidos.length} partidos)` : ""
+      }.`,
     );
   }
   const xgNos = num(nos, "ExpG");
@@ -531,13 +539,24 @@ function titular3D(datos: DatosOpta | null, partido: string, rival: string) {
   const xg = (f: (typeof filas)[number] | undefined) => (typeof f?.ExpG === "number" && Number.isFinite(f.ExpG) ? f.ExpG : null);
   const nos = xg(filas.find((f) => f.teamId === CASTILLA_OPTA));
   const ellos = xg(filas.find((f) => f.teamId !== CASTILLA_OPTA));
-  if (nos == null || ellos == null) return "";
-  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
-  const quien = Math.abs(nos - ellos) < 0.15 ? "parejo en ocasiones" : nos > ellos ? "creó más el Castilla" : `creó más el ${cortoRival(rival)}`;
-  return `Goles esperados, Castilla ${d1(nos)} – ${d1(ellos)} ${cortoRival(rival)}: ${quien}`;
+  if (nos == null || ellos == null) return null;
+  return { nos, ellos, rival: cortoRival(rival) };
 }
 
-function RelieveDelPartido({ partido, titular }: { partido: string; titular: string }) {
+/*
+| 17/11/2026 (ronda 20, fútbol): el titular del 3D en el mismo orden que el
+| marcador del propio 3D (el local primero, como el campo) y diciendo quién es
+| local; el 3D (RelievePartido) no se toca.
+*/
+function textoTitular3D(t: { nos: number; ellos: number; rival: string }, castillaLocal: boolean | null) {
+  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
+  const quien = Math.abs(t.nos - t.ellos) < 0.15 ? "parejo en ocasiones" : t.nos > t.ellos ? "creó más el Castilla" : `creó más el ${t.rival}`;
+  const marcador =
+    castillaLocal === false ? `${t.rival} ${d1(t.ellos)} – ${d1(t.nos)} Castilla` : `Castilla ${d1(t.nos)} – ${d1(t.ellos)} ${t.rival}`;
+  return `Goles esperados, ${marcador}: ${quien}`;
+}
+
+function RelieveDelPartido({ partido, titular: datosTitular }: { partido: string; titular: { nos: number; ellos: number; rival: string } | null }) {
   const esMovil = useEsMovil();
   const [doc, setDoc] = useState<{ eventos?: TablaOpta; equipos?: TablaOpta } | null | undefined>(undefined);
   const [vuelta, setVuelta] = useState(0);
@@ -562,6 +581,8 @@ function RelieveDelPartido({ partido, titular }: { partido: string; titular: str
   const [x, y] = [...filas].sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME"));
   /* 17/11/2026 (ronda 19, fútbol): «manda el Castilla / manda el Gimnàstic» en vez de «manda Real / manda Tarragona»: el 3D toma una palabra del nombre. */
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : cortoRival(String(f.equipo ?? "")));
+  const castillaLocal = x ? x.teamId === CASTILLA_OPTA : null;
+  const titular = datosTitular ? textoTitular3D(datosTitular, castillaLocal) : "";
   if (doc === undefined) return null;
   return (
     <details key={String(esMovil)} open={!esMovil} className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
@@ -569,7 +590,8 @@ function RelieveDelPartido({ partido, titular }: { partido: string; titular: str
         <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">El partido en 3D</h3>
         {titular && <p className="mt-1 text-base font-semibold text-white">{titular}</p>}
         <p className="mb-2 mt-0.5 text-[12px] text-white/60">
-          Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG); el local, a la izquierda.
+          Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG).
+          {x && y ? ` ${nom(x)}, el local, a la izquierda y primero en el marcador del 3D; ${nom(y)}, a la derecha. «Territorio» es el campo rival que pisa cada uno: en el tramo final y en todo el partido.` : ""}
           <span className="ml-1 font-medium text-[#C8A96B] group-open:hidden">Ver el 3D</span>
         </p>
       </summary>
