@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 /**
  * En obras · Escudos de la liga.
@@ -517,7 +518,8 @@ export default function EscudosPage() {
                 {estado === "cargando" ? (
                   <div role="status" aria-label="Pidiendo los escudos">
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-                      {Array.from({ length: 10 }, (_, i) => (
+                      {/* 17/11/2026 (marketing): el esqueleto de una diapositiva entera (20). */}
+                      {Array.from({ length: 20 }, (_, i) => (
                         <div
                           key={i}
                           style={{ background: "#04121F" }}
@@ -532,11 +534,21 @@ export default function EscudosPage() {
                 ) : null}
 
                 {estado === "error" ? (
-                  <p className="text-sm text-[#F6AFB6]">
-                    No se ha podido leer la lista de escudos. Es el documento del
-                    informe del rival: si no se ha bajado esta jornada, no hay de
-                    dónde sacarlos.
-                  </p>
+                  <div role="alert" className="flex flex-col items-start gap-3 rounded-xl border border-[#F6AFB6]/30 bg-[#F6AFB6]/[0.06] p-4">
+                    <p className="text-sm text-[#F6AFB6]">
+                      No se ha podido leer la lista de escudos de BeSoccer. Suele ser la red o que el servidor tarda en
+                      despertar: prueba otra vez.
+                    </p>
+                    {/* 17/11/2026 (marketing): un fallo no deja un hueco mudo. */}
+                    <button
+                      type="button"
+                      onClick={pideLista}
+                      className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/20 px-3.5 text-sm font-semibold text-white transition hover:bg-white/10"
+                    >
+                      <RefreshCw size={14} aria-hidden />
+                      Reintentar
+                    </button>
+                  </div>
                 ) : null}
 
                 {estado === "vacio" ? (
@@ -677,6 +689,17 @@ export default function EscudosPage() {
                                     className="-mt-1 rounded-full border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
                                   >
                                     J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {jornada.partidos.get(uno.equipo)?.rival}
+                                  </Link>
+                                ) : null}
+                                {/* 17/11/2026 (marketing): de su partido a su análisis, a un toque. */}
+                                {jornada.partidos.get(uno.equipo) && !esNuestro(uno.equipo) ? (
+                                  <Link
+                                    href={urlGolesDelEquipo(uno.equipo)}
+                                    title={`Goles de ${uno.equipo} en vídeo`}
+                                    style={{ color: "#E4CE9B" }}
+                                    className="text-center text-[11px] font-semibold underline-offset-2 hover:underline"
+                                  >
+                                    Sus goles en vídeo →
                                   </Link>
                                 ) : null}
                                 {/* El marco oro, explicado (10/11/2026). */}

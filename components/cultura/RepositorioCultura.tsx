@@ -87,7 +87,10 @@ const leeAncla = () => {
 export function RepositorioCultura({
   enlazaUrl = false,
   antesDeLaVista,
+  barra,
 }: {
+  /** 17/11/2026: la fila de acciones junto a las descargas (en /identidad-cultura). */
+  barra?: ReactNode;
   /** La diapositiva activa va en `#diapo-N` (sólo en /identidad-cultura). */
   enlazaUrl?: boolean;
   /** Lo que va entre las descargas y la vista previa (el índice de valores). */
@@ -571,6 +574,7 @@ export function RepositorioCultura({
             ) : (
               <ExportaCultura
                 documento={aLaVista}
+                barra={barra}
                 titulo={`${documento?.numero} · ${documento?.titulo}`}
                 subtitulo={[
                   documento?.temporada && `Temporada ${documento.temporada}`,
@@ -643,14 +647,15 @@ export function RepositorioCultura({
                 /* 16/11/2026: en escritorio las pestañas bajan de línea (se
                    cortaban en «9 Compañerismo · Conductas»); en el móvil, en su
                    lugar, puntos bajo la diapositiva. */
-                <div className="mb-3 hidden flex-wrap gap-1.5 sm:flex">
+                /* 17/11/2026 (marketing): en el móvil, la misma tira en horizontal compacta. */
+                <div className="-mx-1 mb-3 flex gap-1.5 overflow-x-auto px-1 pb-1 sm:mx-0 sm:flex-wrap sm:overflow-visible sm:px-0 sm:pb-0" aria-label="Diapositivas">
                   {aLaVista.diapositivas.map((hojaTab, indice) => (
                     <button
                       key={indice}
                       type="button"
                       onClick={() => setActiva(indice)}
                       aria-current={indice === hojaActiva ? "true" : undefined}
-                      className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-xs transition ${
+                      className={`shrink-0 whitespace-nowrap rounded-lg border px-2.5 py-1.5 text-left text-xs transition ${
                         indice === hojaActiva
                           ? "border-[#C8A96B] bg-[#C8A96B]/15 font-semibold text-white"
                           : "border-white/10 text-white/60 hover:bg-white/10 hover:text-white"
@@ -708,26 +713,6 @@ export function RepositorioCultura({
                 ))}
               </div>
 
-              {totalHojas > 1 && (
-                <div className="mt-3 flex flex-wrap justify-center gap-1.5 sm:hidden" aria-label="Diapositivas">
-                  {aLaVista.diapositivas.map((_, indice) => (
-                    <button
-                      key={indice}
-                      type="button"
-                      onClick={() => setActiva(indice)}
-                      aria-label={`Diapositiva ${indice + 1}`}
-                      aria-current={indice === hojaActiva ? "true" : undefined}
-                      className="flex h-6 w-6 items-center justify-center"
-                    >
-                      <span
-                        className={`block rounded-full transition-all ${
-                          indice === hojaActiva ? "h-2.5 w-5 bg-[#C8A96B]" : "h-2 w-2 bg-white/20"
-                        }`}
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
             </Panel>
             </div>
 

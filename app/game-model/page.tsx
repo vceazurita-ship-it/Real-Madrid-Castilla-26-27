@@ -983,12 +983,13 @@ export default function GameModelPage() {
                   ))}
                 </ul>
                 {otros.length > 0 && (
-                  <section aria-label="Otros principios del bloque" className="mt-5">
-                    <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">
-                      Otros principios del bloque
-                    </p>
-                    <ul className="grid gap-2 sm:grid-cols-2">
-                      {otros.map((p) => (
+                  /* 17/11/2026 (marketing y guionista): sin dato no compiten con las
+                     cifras. Los innegociables sin cifra siguen a la vista; el resto se
+                     pliega en una línea que dice cuántos son. */
+                  <section aria-label="Otros principios del bloque" className="mt-5 space-y-2">
+                    {otros.some((p) => esClave(p.PRINCIPIO)) && (
+                      <ul className="grid gap-2 sm:grid-cols-2">
+                        {otros.filter((p) => esClave(p.PRINCIPIO)).map((p) => (
                         <li
                           key={p.ID}
                           id={`principio-${p.ID}`}
@@ -1009,8 +1010,45 @@ export default function GameModelPage() {
                             )}
                           </span>
                         </li>
-                      ))}
-                    </ul>
+                        ))}
+                      </ul>
+                    )}
+                    {otros.some((p) => !esClave(p.PRINCIPIO)) && (
+                      <details className="group rounded-xl border border-white/10 bg-white/[0.02]">
+                        <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-200 [&::-webkit-details-marker]:hidden">
+                          <span>
+                            {otros.filter((p) => !esClave(p.PRINCIPIO)).length === 1
+                              ? "Otro principio del bloque"
+                              : `Otros ${otros.filter((p) => !esClave(p.PRINCIPIO)).length} principios del bloque`}
+                          </span>
+                          <ChevronDown className="h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180" aria-hidden />
+                        </summary>
+                        <ul className="grid gap-2 border-t border-white/10 p-3 sm:grid-cols-2">
+                          {otros.filter((p) => !esClave(p.PRINCIPIO)).map((p) => (
+                        <li
+                          key={p.ID}
+                          id={`principio-${p.ID}`}
+                          className="flex min-w-0 scroll-mt-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
+                        >
+                          {/* 17/11/2026 (marketing): sin el número de la hoja, que saltaba (1, 3, 4). */}
+                          {esClave(p.PRINCIPIO) ? (
+                            <Lock className="h-4 w-4 shrink-0 text-[color:var(--rmcf-gold-ink,#C8A96B)]" aria-label="Innegociable" />
+                          ) : (
+                            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#C8A96B]/60" />
+                          )}
+                          <span className="min-w-0 break-words text-sm text-gray-200">
+                            {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
+                            {esClave(p.PRINCIPIO) && (
+                              <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                                innegociable
+                              </span>
+                            )}
+                          </span>
+                        </li>
+                          ))}
+                        </ul>
+                      </details>
+                    )}
                   </section>
                 )}
                 </>
@@ -1179,6 +1217,40 @@ const cualPartido = (u: CifraDelPrincipio["ultimo"]) => {
 */
 const ladoBueno = (c: CifraDelPrincipio, v: number) => (c.mejorAlto ? v >= c.mediana : v <= c.mediana);
 
+/*
+| 17/11/2026 (fútbol y guionista): la distancia a la mediana se resta con las
+| cifras ya redondeadas que se leen (15,4 y 16,1 dan 0,7), y en una métrica
+| que ya es un % son puntos, no un porcentaje.
+*/
+const redondea = (v: number, c: CifraDelPrincipio) =>
+  c.unidad === "entero" ? Math.round(v) : Number(v.toFixed(Math.abs(v) >= 1 || c.unidad !== "decimal" ? 1 : 2));
+const distancia = (v: number, c: CifraDelPrincipio) => {
+  const d = Math.abs(redondea(v, c) - redondea(c.mediana, c));
+
+  if (c.unidad === "porcentaje") {
+    const t = d.toFixed(1).replace(".", ",");
+
+    return `${t} ${t === "1,0" ? "punto" : "puntos"}`;
+  }
+
+  return formatea(d, c.unidad);
+};
+
+/*
+| 17/11/2026 (marketing): a qué puesto de Identidad posicional lleva cada
+| métrica de equipo cuando toca entrenarla («¿Quién lo ejecuta mejor?»).
+*/
+const PUESTO_DE_LA_METRICA: [RegExp, string][] = [
+  [/a[eé]re/i, "central"],
+  [/intercep|recuper|defensiv/i, "central"],
+  [/centro/i, "lateral"],
+  [/regate|duelos? (de )?ataque|ofensiv|atacante/i, "extremo"],
+  [/remate|tiro|xg|[aá]rea|profundidad/i, "delantero"],
+  [/pase|progres|conducc|carrera/i, "medio"],
+];
+const puestoDeLaMetrica = (c: CifraDelPrincipio) =>
+  PUESTO_DE_LA_METRICA.find(([re]) => re.test(enEspanol(c.nombre)))?.[1] ?? null;
+
 const nombreCorto = (c: CifraDelPrincipio) => enEspanol(c.nombre).replace(/\s*\(.*\)$/, "");
 
 /*
@@ -1211,8 +1283,10 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
         </span>
       </figcaption>
       <p className="mt-0.5 text-xs text-gray-400">
-        {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de los {c.equipos} equipos del grupo (
-        {formatea(c.mediana, c.unidad)}) · toca una barra para ver su partido
+        {/* 17/11/2026 (marketing): las dos poblaciones con su base, en una línea. */}
+        {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de la temporada de los {c.equipos} equipos del
+        grupo ({formatea(c.mediana, c.unidad)}) · Castilla en sus {c.partidos} partidos: {formatea(c.temporada, c.unidad)} · toca
+        una barra para ver su partido
       </p>
 
       <div className="relative mt-3 h-24 border-b border-white/15">
@@ -1274,8 +1348,7 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
         ante {x.rival} ({x.jornada ? `J${x.jornada}` : `${elegida + 1}.º partido`}
         {x.fecha ? `, ${x.fecha.slice(8, 10)}/${x.fecha.slice(5, 7)}` : ""})
         {" · "}
-        {igual ? "en la mediana" : `${bien ? "" : "le faltó "}${formatea(Math.abs(x.valor - c.mediana), c.unidad)} ${bien ? "por encima de" : "para"} la mediana`}
-        {" · "}temporada {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
+        {igual ? "en la mediana" : bien ? `${distancia(x.valor, c)} ${c.mejorAlto ? "por encima de" : "por debajo de"} la mediana` : `a ${distancia(x.valor, c)} de la mediana`}
       </p>
 
       <div className="mt-2 flex flex-wrap gap-2">
@@ -1316,6 +1389,12 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
           {c.mejorAlto ? "llegar a" : "bajar de"} <b className="text-white">{formatea(c.mediana, c.unidad)}</b>, la mediana de los {c.equipos} equipos del grupo.{" "}
           <Link href="/microcycles" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
             Al microciclo de la semana →
+          </Link>{" "}
+          <Link
+            href={`/identidad-posicional?vista=quien${puestoDeLaMetrica(c) ? `&puesto=${puestoDeLaMetrica(c)}` : ""}`}
+            className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+          >
+            Jugadores que lo ejecutan mejor →
           </Link>
         </div>
       )}
@@ -1384,7 +1463,9 @@ function ChipsInnegociables({ claves }: { claves: Principio[] }) {
   const bien = medidos.filter((f) => cumple(f.c));
   const mal = medidos.filter((f) => !cumple(f.c));
   const cifra = (c: CifraDelPrincipio) =>
-    `${formatea(c.ultimo.valor, c.unidad)} frente a ${formatea(c.mediana, c.unidad)}`;
+    `${formatea(c.ultimo.valor, c.unidad)} frente a ${formatea(c.mediana, c.unidad)}${
+      formatea(c.ultimo.valor, c.unidad) === formatea(c.mediana, c.unidad) ? "" : `, a ${distancia(c.ultimo.valor, c)}`
+    }`;
   const ultimo = medidos[0]?.c.ultimo;
 
   const lista = (xs: typeof medidos) =>
@@ -1398,7 +1479,9 @@ function ChipsInnegociables({ claves }: { claves: Principio[] }) {
   return (
     <>
       <ul className="mt-3 flex flex-wrap gap-2">
-        {filas.map(({ p, nombre, c }) => {
+        {/* 17/11/2026 (guionista): con cifras ya leídas, sólo los innegociables
+            medidos; los demás quedan en «Otros principios del bloque». */}
+        {(medidos.length > 0 ? filas.filter((f) => f.c) : filas).map(({ p, nombre, c }) => {
           const ok = c ? cumple(c) : null;
 
           return (

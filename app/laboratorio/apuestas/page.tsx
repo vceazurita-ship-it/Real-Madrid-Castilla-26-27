@@ -23,6 +23,7 @@ import Link from "next/link";
 import {
   CalendarCheck,
   Check,
+  ChevronDown,
   Dices,
   ListOrdered,
   Megaphone,
@@ -64,6 +65,9 @@ import {
 import { JUEGAN_POR_DEFECTO, PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniela/staff";
 import { JORNADAS, partidosDe } from "@/lib/quiniela/modelo";
 import { confirmar } from "@/lib/avisos";
+import { usePlayers } from "@/hooks/usePlayers";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import type { Player } from "@/types/player";
 
 type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
 
@@ -107,6 +111,30 @@ const equiposDe = (texto: string) => {
   const t = ` ${sinTildes(texto).replace(/[^a-z0-9\s]/g, " ")} `;
 
   return EQUIPOS_LIGA.filter((e) => t.includes(` ${e.clave} `));
+};
+
+/*
+| 17/11/2026 (marketing): el jugador del Castilla que nombra la apuesta
+| («Rachi marca gol al Teruel»), por su apodo o su nombre, para enlazar su
+| ficha y su seguimiento. Palabras de 4 letras o más y enteras.
+*/
+const jugadoresDe = (texto: string, plantilla: Player[]) => {
+  const t = ` ${sinTildes(texto).replace(/[^a-z0-9\s]/g, " ")} `;
+  const vistos = new Set<string>();
+
+  return plantilla.filter((j) => {
+    if (!j.esCastilla || vistos.has(j.nombre)) return false;
+
+    const claves = [j.apodo, j.nombre]
+      .filter((x): x is string => Boolean(x))
+      .map((x) => sinTildes(x).replace(/[^a-z0-9\s]/g, " ").trim())
+      .filter((x) => x.length >= 4);
+    const sale = claves.some((c) => t.includes(` ${c} `));
+
+    if (sale) vistos.add(j.nombre);
+
+    return sale;
+  });
 };
 
 /* ?quien=slug (desde el ranking de la quiniela): las apuestas de esa persona. */
@@ -178,22 +206,31 @@ export default function ApuestasPage() {
 
   const tabla = useMemo(() => marcador(doc.apuestas), [doc]);
 
+  const { players: plantilla } = usePlayers();
+
   /* 17/11/2026 (marketing y guionista): resumen, filtro y grupos por día de decisión. */
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
   const resumen = useMemo(() => {
     const esteMes = vivas.filter((a) => diasHasta(a.comprobar, hoy) <= 30).length;
     const sinContrario = vivas.filter((a) => bandos(a).contra.length === 0).length;
+    /* 17/11/2026 (guionista): la de diferencia más corta entre los dos bandos y,
+       a igualdad, la de más gente mojada; vivas ya va por fecha, así que a
+       igualdad de todo gana la que se decide antes. */
     let disputada: { prediccion: string; favor: number; contra: number } | null = null;
-    let mejor = 0;
+    let mejor: [number, number] = [Infinity, 0];
 
     for (const a of vivas) {
       const { favor, contra } = bandos(a);
       const nFavor = favor.length + 1;
-      const parejo = Math.min(nFavor, contra.length);
 
-      if (parejo > mejor) {
-        mejor = parejo;
+      if (contra.length === 0) continue;
+
+      const diferencia = Math.abs(nFavor - contra.length);
+      const gente = nFavor + contra.length;
+
+      if (diferencia < mejor[0] || (diferencia === mejor[0] && gente > mejor[1])) {
+        mejor = [diferencia, gente];
         disputada = { prediccion: a.prediccion, favor: nFavor, contra: contra.length };
       }
     }
@@ -442,10 +479,27 @@ export default function ApuestasPage() {
 
                     {resumen.disputada && (
                       <p className="text-[13px] leading-snug text-white/75">
-                        <span className="font-semibold text-white">La más disputada:</span> «{resumen.disputada.prediccion}» ·{" "}
+                        <span className="font-semibold text-white">La más disputada</span>{" "}
+                        <span className="text-white/55">(la de bandos más igualados y más gente mojada)</span>: «{resumen.disputada.prediccion}» ·{" "}
                         <span className="tabular-nums text-emerald-300">{resumen.disputada.favor} a favor</span>,{" "}
                         <span className="tabular-nums text-rose-300">{resumen.disputada.contra} en contra</span>
                       </p>
+                    )}
+
+                    {/* 17/11/2026 (marketing): un chip por bloque que salta a él. */}
+                    {grupos.length > 1 && (
+                      <nav aria-label="Ir a un bloque" className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pb-1">
+                        {grupos.map((g) => (
+                          <a
+                            key={g.clave}
+                            href={`#bloque-${g.clave}`}
+                            className="inline-flex min-h-9 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-[#C8A96B]/40 px-3 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                          >
+                            {g.titulo}
+                            <span className="tabular-nums text-white/60">{g.apuestas.length}</span>
+                          </a>
+                        ))}
+                      </nav>
                     )}
 
                     <div role="group" aria-label="Filtrar apuestas" className="flex flex-wrap gap-2">
@@ -495,7 +549,7 @@ export default function ApuestasPage() {
                 {/* Agrupadas por cuándo se deciden; dentro, la que antes se comprueba, primero. */}
                 <div className="space-y-5">
                   {grupos.map((g) => (
-                    <section key={g.clave} aria-label={g.titulo}>
+                    <section key={g.clave} id={`bloque-${g.clave}`} aria-label={g.titulo} className="scroll-mt-24">
                       <h3 className="mb-2 flex items-baseline gap-2 text-[13px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">
                         {g.titulo}
                         <span className="text-[12px] font-medium normal-case tracking-normal text-white/60">
@@ -503,8 +557,21 @@ export default function ApuestasPage() {
                         </span>
                       </h3>
                       {/* Dos columnas sólo con dos o más (10/11/2026): una sola apuesta dejaba media pantalla vacía. */}
-                      <div className={`grid gap-3 ${g.apuestas.length > 1 ? "lg:grid-cols-2" : ""}`}>
-                        {g.apuestas.map((apuesta) => (
+                      {/* 17/11/2026 (marketing): las del mismo equipo, juntas en un bloque
+                          plegable que dice cuántas son y cuáles. */}
+                      {(() => {
+                        const porEquipo = new Map<string, Apuesta[]>();
+
+                        for (const a of g.apuestas) {
+                          const e = equiposDe(a.prediccion)[0]?.nombre;
+
+                          if (e) porEquipo.set(e, [...(porEquipo.get(e) ?? []), a]);
+                        }
+
+                        const juntas = [...porEquipo].filter(([, xs]) => xs.length >= 2);
+                        const enJuntas = new Set(juntas.flatMap(([, xs]) => xs.map((x) => x.id)));
+                        const sueltas = g.apuestas.filter((a) => !enJuntas.has(a.id));
+                        const tarjeta = (apuesta: Apuesta) => (
                           <Tarjeta
                             key={apuesta.id}
                             apuesta={apuesta}
@@ -513,9 +580,40 @@ export default function ApuestasPage() {
                             hoy={hoy}
                             ocupado={estado === "guardando"}
                             pide={pide}
+                            plantilla={plantilla}
                           />
-                        ))}
-                      </div>
+                        );
+
+                        return (
+                          <div className="space-y-3">
+                            {juntas.map(([equipo, xs]) => (
+                              <details key={equipo} className="group rounded-2xl border border-white/10 bg-white/[0.02]">
+                                <summary className="flex cursor-pointer list-none items-start justify-between gap-3 px-3.5 py-3 [&::-webkit-details-marker]:hidden">
+                                  <span className="min-w-0">
+                                    <span className="block text-[14px] font-semibold text-white">
+                                      {equipo} · {xs.length} apuestas
+                                    </span>
+                                    <span className="mt-0.5 block text-[12px] leading-snug text-white/65">
+                                      {xs
+                                        .map((x) => {
+                                          const b = bandos(x);
+
+                                          return `«${x.prediccion}» ${b.favor.length + 1} a ${b.contra.length}`;
+                                        })
+                                        .join(" · ")}
+                                    </span>
+                                  </span>
+                                  <ChevronDown size={16} aria-hidden className="mt-0.5 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180" />
+                                </summary>
+                                <div className="grid gap-3 border-t border-white/10 p-3 lg:grid-cols-2">{xs.map(tarjeta)}</div>
+                              </details>
+                            ))}
+                            {sueltas.length > 0 && (
+                              <div className={`grid gap-3 ${sueltas.length > 1 ? "lg:grid-cols-2" : ""}`}>{sueltas.map(tarjeta)}</div>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </section>
                   ))}
                 </div>
@@ -547,6 +645,7 @@ export default function ApuestasPage() {
                         hoy={hoy}
                         ocupado={estado === "guardando"}
                         pide={pide}
+                        plantilla={plantilla}
                       />
                     ))}
                   </div>
@@ -776,8 +875,10 @@ function Tarjeta({
   hoy,
   ocupado,
   pide,
+  plantilla = [],
 }: {
   apuesta: Apuesta;
+  plantilla?: Player[];
   /** Quiénes pueden apostar (los de la quiniela): la base del «faltan 9 de 11». Vacío si no se sabe. */
   juegan?: string[];
   yo: string | null;
@@ -876,16 +977,41 @@ function Tarjeta({
       )}
 
       {/* 16/11/2026: el equipo de la apuesta, a un toque de su ficha. */}
-      {equiposDe(apuesta.prediccion).length > 0 && (
+      {/* 17/11/2026 (marketing): también sus goles en vídeo y, si nombra a un
+          jugador nuestro, su ficha y su seguimiento. */}
+      {(equiposDe(apuesta.prediccion).length > 0 || jugadoresDe(apuesta.prediccion, plantilla).length > 0) && (
         <div className="flex flex-wrap gap-2">
+          {jugadoresDe(apuesta.prediccion, plantilla).map((j) => (
+            <span key={j.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-[#C8A96B]/40 text-[12px] font-medium">
+              <Link
+                href={`/individual?nombre=${encodeURIComponent(j.nombre)}`}
+                className="px-2.5 py-0.5 text-white/85 transition hover:bg-[#C8A96B]/10 hover:text-white"
+              >
+                Ficha de {j.apodo || j.nombre} →
+              </Link>
+              <Link
+                href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=seguimiento`}
+                className="border-l border-[#C8A96B]/30 px-2.5 py-0.5 text-white/70 transition hover:bg-[#C8A96B]/10 hover:text-white"
+              >
+                Seguimiento
+              </Link>
+            </span>
+          ))}
           {equiposDe(apuesta.prediccion).map((e) => (
-            <Link
-              key={e.nombre}
-              href={`/rivals?equipo=${encodeURIComponent(e.nombre)}`}
-              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-0.5 text-[12px] font-medium text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white"
-            >
-              Ficha de {e.nombre} →
-            </Link>
+            <span key={e.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-white/15 text-[12px] font-medium">
+              <Link
+                href={`/rivals?equipo=${encodeURIComponent(e.nombre)}`}
+                className="px-2.5 py-0.5 text-white/85 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                Ficha de {e.nombre} →
+              </Link>
+              <Link
+                href={urlGolesDelEquipo(e.nombre)}
+                className="border-l border-white/15 px-2.5 py-0.5 text-white/70 transition hover:bg-white/[0.06] hover:text-white"
+              >
+                Sus goles
+              </Link>
+            </span>
           ))}
         </div>
       )}
@@ -905,9 +1031,15 @@ function Tarjeta({
               <Lado gente={contra} tono="contra" yo={yo} />
             </div>
             {total >= 2 && contra.length > 0 && (
-              <div className="flex h-2 overflow-hidden rounded-full bg-white/[0.08]">
-                <span className="h-full bg-emerald-400" style={{ width: `${(ladoFavor.length / total) * 100}%` }} />
-                <span className="h-full bg-rose-400" style={{ width: `${(contra.length / total) * 100}%` }} />
+              /* 17/11/2026 (marketing): la barra con su reparto escrito («2 a 1»). */
+              <div className="flex items-center gap-2">
+                <div className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
+                  <span className="h-full bg-emerald-400" style={{ width: `${(ladoFavor.length / total) * 100}%` }} />
+                  <span className="h-full bg-rose-400" style={{ width: `${(contra.length / total) * 100}%` }} />
+                </div>
+                <span className="shrink-0 whitespace-nowrap text-[12px] font-semibold tabular-nums text-white/80">
+                  {ladoFavor.length} a {contra.length}
+                </span>
               </div>
             )}
           </div>
