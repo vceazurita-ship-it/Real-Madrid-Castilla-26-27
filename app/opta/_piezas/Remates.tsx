@@ -44,6 +44,75 @@ export function Leyenda() {
   );
 }
 
+/*
+| 17/11/2026 (ronda 19, post del partido): la lectura corta de los remates de
+| un equipo. Tres cifras y, debajo, tres barras en la misma escala con una
+| frase que dice qué significa el signo. En el móvil, sólo la frase.
+*/
+function LecturaRemates({
+  visibles,
+  r,
+  enContra,
+  rotuloGoles,
+  referencia,
+}: {
+  visibles: Remate[];
+  r: ReturnType<typeof resumenRemates>;
+  enContra: boolean;
+  rotuloGoles?: string;
+  referencia: { valor: number; partidos: number } | null;
+}) {
+  const aPuerta = visibles.filter((x) => x.aPuerta);
+  const xgPuerta = aPuerta.reduce((s, x) => s + x.xG, 0);
+  const xgot = aPuerta.reduce((s, x) => s + x.xGOT, 0);
+  const dif = r.xGOTmenosXG;
+  const tope = Math.max(r.xG, xgot, r.goles, 0.5);
+  const quien = enContra ? "sus" : "nuestros";
+  const tiros = `${r.aPuerta} ${r.aPuerta === 1 ? "tiro" : "tiros"} a puerta`;
+  const frase =
+    dif == null || !r.aPuerta
+      ? ""
+      : enContra
+        ? r.goles === 0
+          ? `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo y nuestro portero ${r.aPuerta === 1 ? "lo paró" : "los paró"} todos.`
+          : `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo (${dec(xgPuerta, 1)} antes); ${dif >= 0 ? "remataron mejor colocado de lo que valía la ocasión" : "remataron peor colocado de lo que valía la ocasión"}.`
+        : `${conSigno(dif, 1)}: ${quien} ${tiros} valían ${dec(xgot, 1)} tras el golpeo (${dec(xgPuerta, 1)} antes); ${dif >= 0.05 ? "rematamos mejor colocado de lo que valía la ocasión" : dif <= -0.05 ? "rematamos peor colocado de lo que valía la ocasión" : "rematamos como valía la ocasión"}.`;
+  const barras: { rotulo: string; valor: number; texto: string; opacidad: number }[] = [
+    { rotulo: "Valían las ocasiones (xG)", valor: r.xG, texto: dec(r.xG, 1), opacidad: 0.45 },
+    { rotulo: "Valían a puerta, tras el golpeo", valor: xgot, texto: dec(xgot, 1), opacidad: 0.75 },
+    { rotulo: enContra ? "Nos marcaron" : "Goles", valor: r.goles, texto: String(r.goles), opacidad: 1 },
+  ];
+  const color = enContra ? "#5B8DEF" : "#C8A96B";
+
+  return (
+    <div className="min-w-0">
+      <div className="grid grid-cols-3 gap-2">
+        <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.pctPuerta != null ? `${r.aPuerta} a puerta` : undefined} />
+        <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} detalle={`de ${dec(r.xG, 1)} de xG`} />
+        <Cifra rotulo="xG por remate" valor={dec(r.xGPorRemate)} detalle={referencia ? `su media, ${dec(referencia.valor)}` : undefined} />
+      </div>
+      {frase && (
+        <div className="mt-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+          <p className="text-xs font-semibold uppercase tracking-[0.14em] text-white/55">Remates mejor o peor colocados de lo que valían</p>
+          <p className="mt-1 text-[13px] font-medium leading-snug text-white/85">{frase}</p>
+          <div className="mt-2 hidden space-y-1.5 sm:block" role="img" aria-label={barras.map((b) => `${b.rotulo}: ${b.texto}`).join("; ")}>
+            {barras.map((b) => (
+              <div key={b.rotulo} className="grid grid-cols-[minmax(0,13rem)_1fr_2.5rem] items-center gap-2 text-[12px]">
+                <span className="truncate text-white/65">{b.rotulo}</span>
+                <span className="relative h-2.5 rounded-full bg-white/[0.06]">
+                  <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(b.valor / tope) * 100}%`, background: color, opacity: b.opacidad }} />
+                </span>
+                <span className="text-right font-semibold tabular-nums text-white/85">{b.texto}</span>
+              </div>
+            ))}
+          </div>
+          {r.partidos === 1 && <p className="mt-1.5 text-[11px] text-white/55">Un solo partido: tendencia.</p>}
+        </div>
+      )}
+    </div>
+  );
+}
+
 function textoRemate(r: Remate, conTirador = true) {
   return [
     `${r.minuto}′`,
@@ -71,8 +140,16 @@ export function MapaRemates({
   soloGolesInicial = false,
   rotuloGoles,
   referenciaXgRemate,
+  lectura = false,
 }: {
   remates: Remate[];
+  /**
+   * 17/11/2026 (ronda 19, post del partido): tres cifras grandes y, en vez de
+   * la tarjeta «Calidad del golpeo» con su párrafo, unas barras en la misma
+   * escala (lo que valían las ocasiones, lo que valían a puerta tras el golpeo
+   * y los goles) con una frase. Sólo donde se pasa; el resto, como estaba.
+   */
+  lectura?: boolean;
   /** 16/11/2026 (ronda 18): con qué comparar «xG por remate» de un partido (la media del equipo en el resto de la temporada). */
   referenciaXgRemate?: { valor: number; partidos: number } | null;
   ariaLabel: string;
@@ -144,6 +221,9 @@ export function MapaRemates({
           )}
         </div>
       )}
+      {lectura ? (
+        <LecturaRemates visibles={visibles} r={r} enContra={enContra} rotuloGoles={rotuloGoles} referencia={delPartido ? null : referenciaXgRemate ?? null} />
+      ) : (
       <div className="grid gap-2 sm:grid-cols-4">
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
@@ -185,6 +265,7 @@ export function MapaRemates({
           />
         )}
       </div>
+      )}
 
       <div className="mt-3">
         <CampoOpta vertical mitad ariaLabel={ariaLabel} maxAlto={maxAlto}>
