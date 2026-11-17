@@ -15,6 +15,8 @@
 import { useEffect, useMemo, useState } from "react";
 
 import { partidoEnlazado } from "@/lib/partido-enlazado";
+import { traeRespaldoOpta } from "@/lib/opta-respaldo/cliente";
+import type { PartidoFaltasOpta, PartidoTransicionesOpta } from "@/lib/opta-respaldo/tipos";
 
 type ConFecha = { id: string; fecha: string; rival: string };
 type Lado = "robos" | "perdidas" | "faltas";
@@ -29,10 +31,27 @@ export function useEtiquetadoEnVideo(): Etiquetado | null {
       .then(([t, f]) => {
         if (cancelado) return;
         const corta = (p: ConFecha) => ({ id: p.id, fecha: p.fecha, rival: p.rival });
-        setListas({
+        const propias = {
           robos: t.PARTIDOS.filter((p) => p.robos.length > 0).map(corta),
           perdidas: t.PARTIDOS.filter((p) => (p.perdidas ?? []).length > 0).map(corta),
           faltas: f.PARTIDOS.filter((p) => p.faltas.length > 0).map(corta),
+        };
+        setListas(propias);
+        /*
+        | 17/11/2026 (ronda 20, fútbol): el partido que aún no está etiquetado
+        | pero ya tiene el respaldo de Opta (lib/opta-respaldo) también lleva
+        | sus botones: esas pantallas ya lo enseñan. Llega después y sólo suma.
+        */
+        Promise.all([
+          traeRespaldoOpta<PartidoTransicionesOpta>("transiciones", propias.robos.map((p) => p.fecha)),
+          traeRespaldoOpta<PartidoFaltasOpta>("faltas", propias.faltas.map((p) => p.fecha)),
+        ]).then(([tr, fa]) => {
+          if (cancelado) return;
+          setListas({
+            robos: [...propias.robos, ...tr.filas.filter((p) => p.robos.length > 0).map(corta)],
+            perdidas: [...propias.perdidas, ...tr.filas.filter((p) => p.perdidas.length > 0).map(corta)],
+            faltas: [...propias.faltas, ...fa.filas.filter((p) => p.faltas.length > 0).map(corta)],
+          });
         });
       })
       .catch(() => {
