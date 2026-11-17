@@ -95,6 +95,10 @@ import {
   useState,
 } from "react";
 import Papa from "papaparse";
+import { traeRespaldoOpta } from "@/lib/opta-respaldo/cliente";
+import { enlacesConOpta, hojaConOpta } from "@/lib/opta-respaldo/abp-pantalla";
+import { esDeOpta, type FilaHojaOpta } from "@/lib/opta-respaldo/tipos";
+import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import {
   BarChart,
@@ -260,6 +264,9 @@ type Row = {
   oc2P: number;
   ocFrontal: number;
   remate: string;
+  /** 17/11/2026: la fila viene de Opta (la jornada aún no está en la hoja); `fila` lleva su instante y su vídeo. */
+  fuente?: "opta";
+  fila?: Record<string, string>;
 };
 
 /**
@@ -271,17 +278,19 @@ type Row = {
  * lado. Con la cabecera por delante, añadir columnas no rompe nada y quitar
  * una sólo vacía lo suyo.
  */
-function parseCSV(text: string): Row[] {
+/* 17/11/2026: con `opta`, detrás de la hoja van las filas de Opta de las jornadas que aún no tiene (lib/opta-respaldo). */
+function parseCSV(text: string, opta: FilaHojaOpta[] = []): Row[] {
   const parsed = Papa.parse<Record<string, string>>(text, {
     header: true,
     skipEmptyLines: true,
     transformHeader: (header) => header.trim(),
   });
 
-  return parsed.data
-    .filter((fila) =>
-      Object.values(fila).some((valor) => String(valor ?? "").trim()),
-    )
+  const hoja = parsed.data.filter((fila) =>
+    Object.values(fila).some((valor) => String(valor ?? "").trim()),
+  );
+
+  return hojaConOpta(hoja, opta)
     .map((fila) => {
       const contexto = contextoDeFila(fila);
 
@@ -324,6 +333,7 @@ function parseCSV(text: string): Row[] {
         oc2P: numero(lee(fila, "Oc_2P")) ?? 0,
         ocFrontal: numero(lee(fila, "Oc_Frontal")) ?? 0,
         remate: lee(fila, "Remate"),
+        ...(esDeOpta(fila) ? { fuente: "opta" as const, fila } : {}),
       };
     })
     .filter(
@@ -442,6 +452,8 @@ useEffect(() => {
   const [rows, setRows] =
     useState<Row[]>([]);
   const [enlaces, setEnlaces] = useState<Map<string, EnlaceAccionAbp>>(() => new Map());
+  /* Las filas de Opta de todos nuestros partidos: para el vídeo de cada acción (17/11/2026). */
+  const [optaFilas, setOptaFilas] = useState<FilaHojaOpta[]>([]);
 
   const [jornada, setJornada] =
     useState("ALL");
@@ -507,13 +519,17 @@ const [rutinaFilter, setRutinaFilter] = useState("ALL");
       .then((d) => d?.data ?? null)
       .catch(() => null);
 
-    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles, cortes])
-      .then(([t, partidos, doc]) => {
+    /* 17/11/2026: el respaldo de Opta (las jornadas que la hoja aún no tiene y el vídeo de cada acción). Sin él, la página carga igual. */
+    const opta = traeRespaldoOpta<FilaHojaOpta>("abp-favor");
+
+    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles, cortes, opta])
+      .then(([t, partidos, doc, respaldo]) => {
         if (!vivo) return;
 
-        const filas = completaMarcador(parseCSV(t), partidos, { manda: true });
+        const filas = completaMarcador(parseCSV(t, respaldo.filas), partidos, { manda: true });
 
         setRows(filas);
+        setOptaFilas(respaldo.filas);
         setEnlaces(enlacesDeCortes(doc));
         setError(null);
 
@@ -553,6 +569,25 @@ const [rutinaFilter, setRutinaFilter] = useState("ALL");
 
     return new Map(rows.map((r, i) => [r, claves[i]]));
   }, [rows]);
+
+  /* El vídeo de cada acción: el corte de Hudl y, si no lo tiene, el de Opta (su fila de Opta o el saque que casa por minuto). */
+  const enlacesVistos = useMemo(
+    () =>
+      enlacesConOpta(
+        enlaces,
+        rows,
+        (r) => claveDe.get(r),
+        (r) => ({
+          jornada: r.contexto.jornada.competicion === "liga" ? r.contexto.jornada.numero : null,
+          parte: r.contexto.minuto.parte ?? null,
+          minuto: r.contexto.minuto.minuto ?? null,
+          accion: r.tipoAccion,
+          fila: r.fila,
+        }),
+        optaFilas,
+      ),
+    [enlaces, rows, claveDe, optaFilas],
+  );
 
   const competiciones = useMemo(
     () => competicionesPresentes(jornadas),
@@ -2870,6 +2905,14 @@ const categoriasVisual: CategoriaVisual[] = [
     }
   />
 
+  {/* 17/11/2026: las jornadas que salen de Opta (aún sin etiquetar en la hoja). */}
+  <SelloOpta
+    className="mt-3"
+    partidos={rows
+      .filter((r) => r.fuente === "opta" && (jornada === "ALL" || r.contexto.jornada.clave === jornada))
+      .map((r) => ({ jornada: r.contexto.jornada.corto, rival: r.rival }))}
+  />
+
   {cargando ? (
     <div className="mt-6">
       <EsqueletoPantalla titulo="ABP Ofensivo" />
@@ -3278,7 +3321,7 @@ const categoriasVisual: CategoriaVisual[] = [
                         titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${rivalAnalizado}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
                         nodo: (
                           <>
-                            <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />
+                            <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} />
                             {listaDeLaMarca && jornadaMarca ? (
                               <button
                                 type="button"
@@ -3385,7 +3428,7 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {accionesLista.length > 0 && (
               <Panel title="Acción a acción" className="mt-6">
-                <AccionesDelPartido acciones={accionesLista} enlaces={enlaces} fichaDe={fichaNuestra} />
+                <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} />
               </Panel>
             )}
             </div>

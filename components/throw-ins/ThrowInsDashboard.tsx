@@ -5,6 +5,11 @@ import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVista
 import { BarraFiltros, ESTILO_ELEGIDO, PastillaPretemporada } from "@/components/filtros/BarraFiltros";
 import type { CSSProperties, ReactNode, SetStateAction } from "react";
 import Papa from "papaparse";
+import { traeRespaldoOpta } from "@/lib/opta-respaldo/cliente";
+import { filasSinEtiquetar } from "@/lib/opta-respaldo/etiquetado";
+import { casaPorMinuto, videoDeFilaOpta } from "@/lib/opta-respaldo/casar";
+import { esDeOpta, type FilaHojaOpta } from "@/lib/opta-respaldo/tipos";
+import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
 import {
   Bar,
   BarChart,
@@ -1095,6 +1100,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
   /* Todo lo codificado de la hoja, pretemporada incluida. */
   const [todasLasFilas, setRows] = useState<RecordRow[]>([]);
+  /* 17/11/2026: los saques de Opta de todos nuestros partidos (para las jornadas sin etiquetar y el vídeo de cada saque). */
+  const [optaFilas, setOptaFilas] = useState<FilaHojaOpta[]>([]);
 
   /*
   | La pretemporada, fuera salvo que se pida.
@@ -1265,9 +1272,14 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     | córner ya lo hacían así; ésta se había quedado atrás.
     */
     /* `intento` > 0 es un «Reintentar»: se salta la copia del aparato. */
-    traeCsv(csvUrl, { forzar: intento > 0 })
-      .then((csv) => {
-        const parsed = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
+    /* 17/11/2026: el respaldo de Opta; sin él, la página carga igual. */
+    const opta = traeRespaldoOpta<FilaHojaOpta>(mode === "offensive" ? "banda-favor" : "banda-contra");
+
+    Promise.all([traeCsv(csvUrl, { forzar: intento > 0 }), opta])
+      .then(([csv, respaldo]) => {
+        const leida = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
+        /* Detrás de la hoja, los saques de Opta de las jornadas que aún no tiene (lo etiquetado manda). */
+        const parsed = { data: [...leida.data, ...filasSinEtiquetar(respaldo.filas, leida.data)] };
 
         /* Antes de quitar nada: el sitio de cada fila entre las de su jornada. */
         const vistos = new Map<string, number>();
@@ -1294,6 +1306,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
 
         if (active) {
           setRows(conZona);
+          setOptaFilas(respaldo.filas);
           setPendientes(aMedias);
           setError(null);
         }
@@ -1308,7 +1321,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     return () => {
       active = false;
     };
-  }, [csvUrl, intento]);
+  }, [csvUrl, intento, mode]);
 
   const reintenta = () => {
     setLoading(true);
@@ -1909,6 +1922,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   </>
                 ) : undefined
               }
+            />
+
+            {/* 17/11/2026: las jornadas de lo que se ve que salen de Opta (aún sin etiquetar en la hoja). */}
+            <SelloOpta
+              className="mt-3"
+              partidos={filtered.filter(esDeOpta).map((row) => ({ jornada: parseJornada(read(row, "JORNADA")).corto, rival: read(row, "Rival") }))}
             />
 
             {/* 16/11/2026 (jueces): la descarga, en el mismo sitio que en ABP
@@ -2522,7 +2541,25 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                                     minuto: read(row, "Minuto"),
                                   });
 
-                                  return accion ? <VerAccion video={accion.video} hudl={accion.hudl} que="el saque" /> : null;
+                                  /* 17/11/2026: el vídeo de Opta, si el saque viene de Opta o casa por minuto con uno suyo. */
+                                  const jornadaFila = parseJornada(read(row, "JORNADA"));
+                                  const opta = esDeOpta(row)
+                                    ? videoDeFilaOpta(row)
+                                    : accion?.video
+                                      ? null
+                                      : videoDeFilaOpta(
+                                          casaPorMinuto(
+                                            {
+                                              jornada: jornadaFila.competicion === "liga" ? jornadaFila.numero : null,
+                                              parte: Number(read(row, "Tiempo").match(/[12]/)?.[0] ?? 0) || null,
+                                              minuto: Number(read(row, "Minuto")) || null,
+                                              accion: "banda",
+                                            },
+                                            optaFilas,
+                                          ),
+                                        );
+
+                                  return accion || opta ? <VerAccion video={accion?.video ?? opta?.video} hudl={accion?.hudl} opta={opta?.opta} que="el saque" /> : null;
                                 })()}
                               </td>
                             </tr>
