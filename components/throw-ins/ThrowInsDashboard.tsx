@@ -1207,6 +1207,12 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     [todasLasFilas, PRETEMPORADA],
   );
 
+  /* 17/11/2026 (jueces, ronda 20): los saques de liga de la hoja, para cuadrarlos con los de Opta. */
+  const saquesHoja = useMemo(() => {
+    const liga = todasLasFilas.filter((row) => parseJornada(read(row, "JORNADA")).competicion === "liga");
+    return liga.length ? { goles: 0, acciones: liga.length, jornadas: new Set(liga.map((row) => read(row, "JORNADA"))).size } : null;
+  }, [todasLasFilas]);
+
   /* Elegir «Pretemporada» en el desplegable ya es pedirla: no hace falta
      además el interruptor. */
   /* De lo elegido a mano: la competición nunca se pone sola, y `filters`
@@ -2206,7 +2212,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                             }
                           : null
                       }
-                      liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                      liga={<OptaBandaDia lado={isOffensive ? "favor" : "contra"} hoja={saquesHoja} />}
                     />
                   </>
                 )}
@@ -2609,7 +2615,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                 )}
 
                 {/* Opta (10/11/2026): los saques de banda de toda la categoría. Fuera del PDF; sólo se monta (y se pide) en su pestaña. */}
-                {!exporting && !enVisual && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} />}
+                {!exporting && !enVisual && vista === "opta" && <OptaBandaDia lado={isOffensive ? "favor" : "contra"} hoja={saquesHoja} />}
               </div>
             )}
           </div>

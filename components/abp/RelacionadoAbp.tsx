@@ -162,6 +162,8 @@ export function RelacionadoAbp({
           icono: "video",
         },
         { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado contra ${proximo.rival}` },
+        /* 17/11/2026 (jueces, ronda 20): también desde el próximo rival, la otra mitad (ataque ↔ defensa). */
+        { href: HERMANA[pantalla].href, texto: HERMANA[pantalla].rotulo, title: `La otra mitad del balón parado, para preparar a ${proximo.rival}` },
         { href: "/abp-microciclo", texto: banda ? "Microciclo · saque de banda" : "Microciclo ABP", title: "Qué se trabaja cada día de la semana a balón parado" },
         { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${proximo.rival}`, icono: "plan" },
       ]
@@ -192,7 +194,7 @@ export function RelacionadoAbp({
               {proximoEsElMismo ? "Rival de la semana · el partido que se mira" : `${marcado ? "El último partido, marcado en oro" : "El partido que se mira"}${etiqueta ? ` · ${etiqueta}` : ""}`}
             </p>
             <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{rival}</p>
-            <Atajos atajos={proximoEsElMismo ? [...delPartido, ...delProximo.slice(2)] : delPartido} color="var(--rmcf-gold-ink)" />
+            <Atajos atajos={proximoEsElMismo ? [...delPartido, ...delProximo.slice(2).filter((a) => a.href !== HERMANA[pantalla].href)] : delPartido} color="var(--rmcf-gold-ink)" />
           </section>
         ) : null}
 

@@ -197,6 +197,13 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
     hoja && golesOpta != null && golesOpta !== hoja.goles
       ? `${lado === "favor" ? "Goles a balón parado" : "Goles encajados a balón parado"}: la hoja de ABP cuenta ${nG(hoja.goles)} en ${hoja.acciones} acciones de ${hoja.jornadas} jornadas etiquetadas; Opta, ${nG(golesOpta)} en ${ctx.partidos} partidos. No miden lo mismo: la hoja es el etiquetado del cuerpo técnico (cada córner y falta con su desenlace, también la segunda jugada) y Opta aplica su propia regla de jugada a balón parado (y no cuenta los penaltis). Para la charla, la de la hoja: es la que se ve en el vídeo.`
       : "";
+  /* 17/11/2026 (jueces, ronda 20): en banda, por qué Opta cuenta 223 saques y la hoja 219. */
+  const lineaSaques = area === "banda" ? ctx.lineas.find((l) => l.m.modo === "pct" && l.casos != null) : undefined;
+  const saquesOpta = lineaSaques?.casos != null ? Math.round(lineaSaques.casos) : null;
+  const cuadreSaques =
+    area === "banda" && hoja && saquesOpta != null && saquesOpta !== hoja.acciones
+      ? `Saques: la hoja cuenta ${hoja.acciones} en ${hoja.jornadas} jornadas etiquetadas; Opta, ${saquesOpta} en ${ctx.partidos} partidos. Opta registra cada saque de banda del partido y la hoja, los que el cuerpo técnico etiqueta en el vídeo: la diferencia es de etiquetado, no de juego.`
+      : "";
   const mejor = orden[0];
   const peor = orden.at(-1);
   const pobl = ctx.nGrupo ? "grupo" : "categoría";
@@ -223,6 +230,7 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
         </div>
       )}
 
+      {cuadreSaques && <p className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3 text-[12px] leading-relaxed text-white/80">{cuadreSaques}</p>}
       {cuadreGoles && <p className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3 text-[12px] leading-relaxed text-white/80">{cuadreGoles}</p>}
 
       <ul className="divide-y divide-white/[0.06]">
@@ -674,10 +682,10 @@ export function OptaAbpDia({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | n
 }
 
 /** La pestaña «Categoría · Opta» de saque de banda ofensivo (favor) y defensivo (contra). */
-export function OptaBandaDia({ lado }: { lado: LadoDia }) {
+export function OptaBandaDia({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | null }) {
   return (
     <div className="space-y-5">
-      <ContextoOpta area="banda" lado={lado} />
+      <ContextoOpta area="banda" lado={lado} hoja={hoja} />
       <Plegado
         titulo={lado === "favor" ? "Cada saque de banda de la temporada" : "Cada saque de banda del rival"}
         detalle="Por altura del campo, si llega y si acaba en remate, frente a la categoría. Se carga al abrirlo (≈6 MB)."
