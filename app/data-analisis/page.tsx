@@ -74,6 +74,7 @@ import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { nombreEquipo } from "@/lib/equipos";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Topbar } from "@/components/ui/topbar";
+import { EnlacesSeccion } from "@/components/ui/NavSeccion";
 import { IndiceBloques } from "@/components/data/IndiceBloques";
 import { recargaOpta } from "@/app/opta/_piezas/useOpta";
 import { BuscadorAreas, PanelResumen, SelectorArea, type ConclusionResumen } from "@/components/data/NavegacionData";
@@ -1573,7 +1574,11 @@ export default function DataAnalisisPage() {
                     />
                   </div>
 
-                  <BuscadorAreas areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
+                  {/* 18/11/2026 (ronda 22, análisis): una sola fila de navegación; las otras pantallas de Análisis (Coding, Robos…) van aquí y no en una tira aparte encima. */}
+                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
+                    <EnlacesSeccion />
+                    <BuscadorAreas areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
+                  </div>
                 </div>
 
                 {/*

@@ -20,7 +20,8 @@ import { ArrowRight } from "lucide-react";
 import { COMPARADO, MEJOR, ORO, PEOR } from "@/components/data/graficas";
 import { esPretemporada } from "@/components/faltas/FiltrosCruzados";
 import { anterioresPorFecha } from "@/lib/abp/ultimo-partido";
-import { CASTILLA_OPTA } from "@/lib/opta";
+import { mismoJugador } from "@/lib/fichajes";
+import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { partidoEnlazado } from "@/lib/partido-enlazado";
 import { enlaceConPartido, type PartidoPost } from "@/lib/post-partido";
 import type { Robo } from "@/lib/transiciones/datos";
@@ -28,7 +29,8 @@ import { usePartidosLaboratorio, zonaDeRobo } from "@/lib/transiciones/partidos-
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
 
 const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
-const pc = (n: number, de: number) => (de ? `${coma((n / de) * 100)} %` : "");
+/** 18/11/2026 (ronda 22): el MISMO porcentaje, con un decimal, en las tres claves y en «Acción a acción». */
+export const pc = (n: number, de: number) => (de ? `${coma((n / de) * 100)} %` : "");
 export const fichaJugador = (nombre: string) => `/individual?nombre=${encodeURIComponent(nombre)}`;
 
 type ZonasCuenta = { propio: number; medio: number; rival: number; total: number };
@@ -177,6 +179,12 @@ export function ClavesDelPartido({
   onIr?: (area: string) => void;
 }) {
   const claves: Clave[] = [];
+  /* 18/11/2026 (ronda 22, guionista): «7 de 40, en 90′»: la cifra del jugador con sus minutos (Opta, ese partido). */
+  const enMinutos = (nombre: string) => {
+    const f = datos?.castillaPartidos.find((x) => String(x.partido ?? "") === visto.clave && mismoJugador(String(x.jugador ?? ""), nombre));
+    const m = f ? num(f.Min) : null;
+    return m != null && m > 0 ? `, en ${Math.round(m)}′` : "";
+  };
   const nos = filaOpta(datos, visto.clave, true);
   const ellos = filaOpta(datos, visto.clave, false);
 
@@ -195,7 +203,8 @@ export function ClavesDelPartido({
       id: "ocasiones",
       rotulo: "Ocasiones",
       titular,
-      detalle: `Goles esperados ${coma(x1)} – ${coma(x2)}: ${visto.gf} ${visto.gf === 1 ? "gol" : "goles"} nuestros y ${visto.gc} suyos.`,
+      /* 18/11/2026 (ronda 22): concordancia («1 gol nuestro», no «1 gol nuestros»). */
+      detalle: `Goles esperados ${coma(x1)} – ${coma(x2)}: ${visto.gf} ${visto.gf === 1 ? "gol nuestro" : "goles nuestros"} y ${visto.gc} ${visto.gc === 1 ? "suyo" : "suyos"}.`,
       tono: visto.gf > visto.gc ? "bien" : visto.gf < visto.gc ? "mal" : "neutro",
       dibujo: <DosBarras a={x1} b={x2} rotA="Castilla" rotB={rival} texto={(v) => coma(v)} />,
       ir: { texto: "Ver nuestros remates", area: "remates" },
@@ -212,12 +221,12 @@ export function ClavesDelPartido({
       titular: `${r.clave} de ${r.total} robos en campo rival (${pc(r.clave, r.total)})`,
       detalle:
         r.media != null
-          ? `Robos en campo rival: ${r.clave}; media de los ${r.anteriores} anteriores, ${coma(r.media)}${r.anteriores < 15 ? " (tendencia)" : ""}.`
+          ? `Robos en campo rival: ${r.clave}; ${r.anteriores === 1 ? "en el anterior" : `media de los ${r.anteriores} anteriores`}, ${coma(r.media)}${r.anteriores < 15 ? " (tendencia)" : ""}.`
           : undefined,
       tono: r.media == null ? "neutro" : mejor ? "bien" : r.clave < r.media ? "mal" : "neutro",
       dibujo: <BarraZonas z={r.zonas} destaca="rival" />,
       ir: { texto: "Robos y transiciones", href: enlaceConPartido("/laboratorio/transiciones", visto) },
-      jugador: r.lider ? { nombre: r.lider.nombre, texto: `el que más roba (${r.lider.n} de ${r.total})` } : undefined,
+      jugador: r.lider ? { nombre: r.lider.nombre, texto: `el que más roba (${r.lider.n} de ${r.total}${enMinutos(r.lider.nombre)})` } : undefined,
     });
   }
 
@@ -231,12 +240,12 @@ export function ClavesDelPartido({
       titular: `${p.clave} de ${p.total} pérdidas en campo propio (${pc(p.clave, p.total)})`,
       detalle:
         p.media != null
-          ? `Pérdidas en campo propio: ${p.clave}; media de los ${p.anteriores} anteriores, ${coma(p.media)}${p.anteriores < 15 ? " (tendencia)" : ""}.`
+          ? `Pérdidas en campo propio: ${p.clave}; ${p.anteriores === 1 ? "en el anterior" : `media de los ${p.anteriores} anteriores`}, ${coma(p.media)}${p.anteriores < 15 ? " (tendencia)" : ""}.`
           : undefined,
       tono: p.media == null ? "neutro" : peor ? "mal" : p.clave < p.media ? "bien" : "neutro",
       dibujo: <BarraZonas z={p.zonas} destaca="propio" />,
       ir: { texto: "Pérdidas y transiciones", href: enlaceConPartido("/laboratorio/perdidas", visto) },
-      jugador: p.lider ? { nombre: p.lider.nombre, texto: `el que más pierde (${p.lider.n} de ${p.total})` } : undefined,
+      jugador: p.lider ? { nombre: p.lider.nombre, texto: `el que más pierde (${p.lider.n} de ${p.total}${enMinutos(p.lider.nombre)})` } : undefined,
     });
   }
 
@@ -249,7 +258,7 @@ export function ClavesDelPartido({
       rotulo: "Duelo aéreo",
       titular: `Ganamos el ${coma(v)} % de los duelos aéreos`,
       tono: v >= 55 ? "bien" : v <= 45 ? "mal" : "neutro",
-      dibujo: <DosBarras a={v} b={100 - v} rotA="Castilla" rotB={rival} texto={(x) => `${Math.round(x)} %`} />,
+      dibujo: <DosBarras a={v} b={100 - v} rotA="Castilla" rotB={rival} texto={(x) => `${coma(x)} %`} />,
       ir: { texto: "Contra el grupo, por fases", area: "colectivo" },
     });
   }

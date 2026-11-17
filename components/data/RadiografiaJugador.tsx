@@ -205,7 +205,7 @@ function Cabecera({ f, r, color, escudo, foto }: { f: Fila; r: Radiografia; colo
           {corrigeNombre(String(f.jugador ?? ""))}
         </p>
         <p className="text-sm text-white/65">
-          {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} partidos` : ""].filter(Boolean).join(" · ")}
+          {[nombreDe(f), puesto, edad ? `${Math.round(edad)} años` : "", `${Math.round(minutosDe(f))} min`, num(f.GM) ? `${num(f.GM)} ${num(f.GM) === 1 ? "partido" : "partidos"}` : ""].filter(Boolean).join(" · ")}
         </p>
         {lectura(r) && <p className="mt-1 text-sm font-semibold text-white/85">{lectura(r)}</p>}
         {tarea(r) && (() => {

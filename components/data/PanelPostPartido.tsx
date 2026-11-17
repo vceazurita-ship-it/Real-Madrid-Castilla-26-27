@@ -28,17 +28,19 @@ import Link from "next/link";
 import { ArrowRight, CalendarDays, ClipboardList, Film, Footprints, LayoutGrid, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
-import { ClavesDelPartido, useLaboratorioDelPartido, type CifrasLaboratorio } from "@/components/data/ClavesDelPartido";
+import { ClavesDelPartido, fichaJugador, pc, useLaboratorioDelPartido, type CifrasLaboratorio } from "@/components/data/ClavesDelPartido";
+import { ORO, PEOR } from "@/components/data/graficas";
+import { VideoOpta } from "@/components/opta/VideoOpta";
 import { GolesDeSeguido } from "@/app/opta/_piezas/GolesDeSeguido";
 import { useAsoma } from "@/hooks/useAsoma";
 
 import { CaraACara } from "@/app/opta/_piezas/FichaPartido";
 import { Fases } from "@/app/opta/_piezas/Fases";
 import { Momentum } from "@/app/opta/_piezas/Momentum";
-import { MapaRemates } from "@/app/opta/_piezas/Remates";
-import { Elegir } from "@/app/opta/_piezas/comun";
-import { nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
-import { esProgresivo, type Remate } from "@/lib/opta-eventos";
+import { MapaRemates, type RefRemates } from "@/app/opta/_piezas/Remates";
+import { Botonera, Elegir } from "@/app/opta/_piezas/comun";
+import { dec, nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
+import { enArea, esProgresivo, type Remate } from "@/lib/opta-eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
@@ -62,7 +64,14 @@ import { useEtiquetadoEnVideo } from "@/hooks/useEtiquetadoEnVideo";
  * órdenes atadas a una cifra del cara a cara, sólo cuando la diferencia es
  * clara. Sin ninguna clara, no se escribe nada y quedan los enlaces.
  */
-function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): string[] {
+type OrdenMicro = {
+  id: "aereo" | "centros" | "ocasiones";
+  texto: string;
+  /** 18/11/2026 (ronda 22): la cifra del partido contra su referencia, dibujada en la propia tarea. */
+  grafico: { rotulo: string; valor: number; media: number | null; partidos: number; porcentaje: boolean; menosEsMejor: boolean } | null;
+};
+
+function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): OrdenMicro[] {
   if (!datos) return [];
   const filas = datos.partidos.filter((f) => String(f.partido ?? "") === partido);
   const nos = filas.find((f) => f.teamId === CASTILLA_OPTA);
@@ -74,50 +83,65 @@ function ordenesMicro(datos: DatosOpta | null, partido: string, rival: string): 
   };
   const pct = (v: number | null) => (v == null ? null : v <= 1 ? v * 100 : v);
   const coma = (v: number) => v.toFixed(1).replace(".", ",");
-  const ordenes: string[] = [];
+  const ordenes: OrdenMicro[] = [];
+  /* La misma media para el texto y para el dibujo: la de los otros partidos del Castilla en Opta. */
+  const mediaDe = (vs: (number | null)[]) => {
+    const ok = vs.filter((v): v is number => v != null);
+    return { media: ok.length >= 3 ? ok.reduce((a, b) => a + b, 0) / ok.length : null, n: ok.length };
+  };
+  const delRival = (k: string) =>
+    datos.partidos
+      .filter((f) => f.teamId !== CASTILLA_OPTA && String(f.partido ?? "") !== partido && datos.partidos.some((g) => g.teamId === CASTILLA_OPTA && g.partido === f.partido))
+      .map((f) => num(f, k));
 
   const aereoNos = pct(num(nos, "Aerial%"));
   if (aereoNos != null && aereoNos < 45) {
     /* 16/11/2026 (expertos, ronda 18): el objetivo sale de un dato, nuestra
        media de la temporada en Opta sin este partido, no de un 50 % suelto. */
-    const otros = datos.partidos
-      .filter((f) => f.teamId === CASTILLA_OPTA && String(f.partido ?? "") !== partido)
-      .map((f) => pct(num(f, "Aerial%")))
-      .filter((v): v is number => v != null);
-    const media = otros.length >= 3 ? otros.reduce((a, b) => a + b, 0) / otros.length : null;
+    const { media, n } = mediaDe(datos.partidos.filter((f) => f.teamId === CASTILLA_OPTA && String(f.partido ?? "") !== partido).map((f) => pct(num(f, "Aerial%"))));
     const objetivo =
       media != null && media > aereoNos
-        ? `objetivo, volver a nuestra media de la temporada, el ${coma(media)} % (Opta, ${otros.length} partidos)`
+        ? `objetivo, volver a nuestra media de la temporada, el ${coma(media)} % (Opta, ${n} partidos)`
         : "objetivo, ganar más de la mitad";
-    ordenes.push(
-      `Duelo aéreo: ganamos el ${coma(aereoNos)} % (${rival}, el ${coma(100 - aereoNos)} %). Tarea de duelo aéreo y segunda jugada, contando los ganados en cada serie; ${objetivo}.`,
-    );
+    ordenes.push({
+      id: "aereo",
+      texto: `Duelo aéreo: ganamos el ${coma(aereoNos)} % (${rival}, el ${coma(100 - aereoNos)} %). Tarea de duelo aéreo y segunda jugada, contando los ganados en cada serie; ${objetivo}.`,
+      grafico: { rotulo: "Duelos aéreos ganados", valor: aereoNos, media, partidos: n, porcentaje: true, menosEsMejor: false },
+    });
   }
   const centrosNos = num(nos, "Crosses");
   const centrosEllos = num(ellos, "Crosses");
   if (centrosNos != null && centrosEllos != null && centrosEllos >= 15 && centrosEllos >= centrosNos * 1.5) {
     /* 17/11/2026 (ronda 20, fútbol): el criterio de éxito sale de un dato: los centros que nos hacen de media en los otros partidos (Opta). */
-    const recibidos = datos.partidos
-      .filter((f) => f.teamId !== CASTILLA_OPTA && String(f.partido ?? "") !== partido && datos.partidos.some((g) => g.teamId === CASTILLA_OPTA && g.partido === f.partido))
-      .map((f) => num(f, "Crosses"))
-      .filter((v): v is number => v != null);
-    const mediaRecibidos = recibidos.length >= 3 ? recibidos.reduce((a, b) => a + b, 0) / recibidos.length : null;
-    ordenes.push(
-      `Centros: ${rival} centró ${centrosEllos} veces y nosotros ${centrosNos}. Tarea de defensa del centro lateral (cerrar al centrador y las marcas en el área), contando los centros que nos llegan al área${
-        mediaRecibidos != null ? `; objetivo, que el rival no pase de nuestra media de centros recibidos, ${coma(mediaRecibidos)} (Opta, ${recibidos.length} partidos)` : ""
+    const { media, n } = mediaDe(delRival("Crosses"));
+    ordenes.push({
+      id: "centros",
+      texto: `Centros: ${rival} ${centrosEllos === 1 ? "centró una vez" : `centró ${centrosEllos} veces`} y nosotros ${centrosNos}. Tarea de defensa del centro lateral (cerrar al centrador y las marcas en el área), contando los centros que nos llegan al área${
+        media != null ? `; objetivo, que el rival no pase de nuestra media de centros recibidos, ${coma(media)} (Opta, ${n} partidos)` : ""
       }.`,
-    );
+      grafico: { rotulo: "Centros del rival", valor: centrosEllos, media, partidos: n, porcentaje: false, menosEsMejor: true },
+    });
   }
   const xgNos = num(nos, "ExpG");
   const xgEllos = num(ellos, "ExpG");
   if (ordenes.length < 2 && xgNos != null && xgEllos != null && xgEllos - xgNos >= 0.5) {
-    ordenes.push(`Ocasiones: concedimos ${coma(xgEllos)} de xG y creamos ${coma(xgNos)}. Tarea de defensa del área y de vigilancias, contando los remates que concedemos por serie.`);
+    const { media, n } = mediaDe(delRival("ExpG"));
+    ordenes.push({
+      id: "ocasiones",
+      texto: `Ocasiones: concedimos ${coma(xgEllos)} de xG y creamos ${coma(xgNos)}. Tarea de defensa del área y de vigilancias, contando los remates que concedemos por serie.`,
+      grafico: { rotulo: "xG concedido", valor: xgEllos, media, partidos: n, porcentaje: false, menosEsMejor: true },
+    });
   }
   return ordenes.slice(0, 2);
 }
 
-/** Las filas del cara a cara que se ven de entrada (16/11/2026): resultado, ocasiones, llegada, centros, presión y duelo aéreo. */
-const PRINCIPALES_CARA = ["Goal", "ExpG", "ShtIncBl", "SOG", "TouchOpBox", "Crosses", "PPDA", "Aerial%"];
+/**
+ * Las filas del cara a cara que se ven de entrada. 18/11/2026 (ronda 22,
+ * análisis): cinco, las que deciden la lectura (xG, remates, a puerta,
+ * toques en el área y PPDA), con la media de la temporada marcada en la
+ * barra; el resultado ya lo dice la frase de arriba y el resto va plegado.
+ */
+const PRINCIPALES_CARA = ["ExpG", "ShtIncBl", "SOG", "TouchOpBox", "PPDA"];
 
 /**
  * Un bloque de la puerta: `section > header h2`, que es lo que lee el índice
@@ -340,13 +364,7 @@ export function PanelPostPartido({
             <CalendarDays size={16} className="shrink-0 text-[#C8A96B]" />
             ¿Qué toca en el microciclo?
           </p>
-          {ordenes.length > 0 && (
-            <ul className="mt-1.5 space-y-1 text-[13px] leading-snug text-white/80">
-              {ordenes.map((o) => (
-                <li key={o}>· {o}</li>
-              ))}
-            </ul>
-          )}
+          {ordenes.length > 0 && datos && <TareasMicro ordenes={ordenes} datos={datos} partido={visto.clave} />}
         </div>
         <div className="flex flex-wrap gap-2">
           <Link href="/microcycles" className="inline-flex items-center gap-1 rounded-xl border border-white/10 px-3 py-2 text-sm text-white/85 hover:border-[#C8A96B]/50">
@@ -358,6 +376,108 @@ export function PanelPostPartido({
         </div>
       </div>
     </>
+  );
+}
+
+/** La cifra del partido y, con una raya, su media de la temporada (18/11/2026, ronda 22: la referencia, en el dibujo). */
+function BarraReferencia({ g }: { g: NonNullable<OrdenMicro["grafico"]> }) {
+  const coma = (v: number) => v.toFixed(1).replace(".", ",");
+  const texto = (v: number) => (g.porcentaje ? `${coma(v)} %` : Number.isInteger(v) ? String(v) : coma(v));
+  const tope = g.porcentaje ? 100 : Math.max(g.valor, g.media ?? 0) * 1.15 || 1;
+  const peor = g.media != null && (g.menosEsMejor ? g.valor > g.media : g.valor < g.media);
+  return (
+    <div className="mt-1.5 max-w-md" role="img" aria-label={`${g.rotulo}: ${texto(g.valor)} en este partido${g.media != null ? `; media de la temporada, ${texto(g.media)}` : ""}`}>
+      <div className="flex items-baseline justify-between gap-2 text-[12px]">
+        <span className="text-white/65">{g.rotulo}</span>
+        <span className="tabular-nums text-white/85">
+          <b className="font-semibold">{texto(g.valor)}</b>
+          {g.media != null && (
+            <span className="text-white/55">
+              {" "}
+              · media {texto(g.media)} ({g.partidos} partidos{g.partidos < 15 ? ", tendencia" : ""})
+            </span>
+          )}
+        </span>
+      </div>
+      <div className="relative mt-1 h-2.5">
+        <div className="h-full overflow-hidden rounded-full bg-white/[0.07]">
+          <div className="h-full rounded-full" style={{ width: `${Math.min(100, (g.valor / tope) * 100)}%`, background: peor ? PEOR : ORO }} />
+        </div>
+        {g.media != null && (
+          <span aria-hidden className="absolute -inset-y-1 w-0.5 rounded-full" style={{ left: `calc(${Math.min(100, (g.media / tope) * 100)}% - 1px)`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} />
+        )}
+      </div>
+    </div>
+  );
+}
+
+/*
+| LAS TAREAS DEL MICROCICLO (18/11/2026, ronda 22, fútbol): cada una con su
+| cifra contra la media dibujada, el botón que copia la tarea y abre el editor
+| del microciclo (precargarla exigiría tocar el editor: se pega en la sesión)
+| y, si Opta los tiene, los vídeos de esas acciones del partido.
+*/
+function TareasMicro({ ordenes, datos, partido }: { ordenes: OrdenMicro[]; datos: DatosOpta; partido: string }) {
+  const { acciones } = useAcciones(datos);
+  const [copiada, setCopiada] = useState("");
+  const clips = useMemo(() => {
+    const del = acciones.filter((a) => a.partido === partido);
+    return {
+      /* Centros del rival: pase desde la banda, en nuestro último tercio, que cae en el área. */
+      centros: del.filter((a) => !a.nuestra && a.tipo === "Pass" && a.x >= 66.7 && (a.y < 21.1 || a.y > 78.9) && a.finX != null && a.finY != null && enArea(a.finX, a.finY)),
+      aereo: del.filter((a) => a.nuestra && a.tipo === "Aerial"),
+      ocasiones: [] as typeof del,
+    };
+  }, [acciones, partido]);
+
+  return (
+    <ul className="mt-1.5 space-y-3 text-[13px] leading-snug text-white/80">
+      {ordenes.map((o) => {
+        const suyos = clips[o.id];
+        return (
+          <li key={o.id} className="min-w-0">
+            <p>{o.texto}</p>
+            {o.grafico && <BarraReferencia g={o.grafico} />}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <Link
+                href="/laboratorio/microciclo"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(o.texto).then(
+                    () => setCopiada(o.id),
+                    () => setCopiada(""),
+                  );
+                }}
+                title="Copia la tarea (qué, cómo se cuenta y el objetivo) y abre el editor del microciclo para pegarla en la sesión"
+                className="inline-flex min-h-[36px] items-center gap-1 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/20"
+              >
+                Llevar al microciclo <ArrowRight size={13} />
+              </Link>
+              {copiada === o.id && <span className="text-[12px] text-white/60">Tarea copiada: pégala en la sesión.</span>}
+            </div>
+            {suyos.length > 0 && (
+              <details className="group mt-2">
+                <summary className="inline-flex min-h-[36px] cursor-pointer list-none items-center rounded-lg text-[12px] font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+                  {o.id === "centros"
+                    ? `▶ ${suyos.length === 1 ? "El centro" : `Los ${suyos.length} centros`} del rival en vídeo (Opta)`
+                    : `▶ ${suyos.length === 1 ? "El duelo aéreo" : `Los ${suyos.length} duelos aéreos`} en vídeo (Opta)`}
+                </summary>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {suyos.map((a, i) => (
+                    <VideoOpta
+                      key={`${a.parte}-${a.segundo}-${i}`}
+                      evento={a}
+                      tipo={o.id === "centros" ? "passes" : "touches"}
+                      etiqueta={`▶ ${a.minuto}′`}
+                      descripcion={`${o.id === "centros" ? "Centro" : "Duelo aéreo"} de ${a.jugador || "un jugador"}, ${a.minuto}′`}
+                    />
+                  ))}
+                </div>
+              </details>
+            )}
+          </li>
+        );
+      })}
+    </ul>
   );
 }
 
@@ -389,9 +509,15 @@ function BloqueFases({
   const ideas = useMemo(() => {
     const pases = delPartido.filter((a) => a.tipo === "Pass").length;
     const prog = delPartido.filter(esProgresivo).length;
-    const pc = (n: number, de: number) => (de ? `${Math.round((n / de) * 100)} %` : "");
-    const robos = lab.robos ? `${lab.robos.clave} de ${lab.robos.total} robos en campo rival (${pc(lab.robos.clave, lab.robos.total)})` : "";
-    const perdidas = lab.perdidas ? `${lab.perdidas.clave} de ${lab.perdidas.total} pérdidas en campo propio (${pc(lab.perdidas.clave, lab.perdidas.total)})` : "";
+    /*
+    | 18/11/2026 (ronda 22): el mismo porcentaje, con un decimal, que las tres
+    | claves; y los robos en campo rival y las pérdidas en campo propio ya no se
+    | repiten aquí (17,5 % arriba y 18 % abajo): están en las tres claves.
+    | Sólo si las claves no los tienen, salen aquí.
+    */
+    const enClaves = !!lab.robos?.total && !!lab.perdidas?.total;
+    const robos = lab.robos && !enClaves ? `${lab.robos.clave} de ${lab.robos.total} robos en campo rival (${pc(lab.robos.clave, lab.robos.total)})` : "";
+    const perdidas = lab.perdidas && !enClaves ? `${lab.perdidas.clave} de ${lab.perdidas.total} pérdidas en campo propio (${pc(lab.perdidas.clave, lab.perdidas.total)})` : "";
     return [pases ? `${prog} pases progresivos de ${pases} (${pc(prog, pases)})` : "", robos, perdidas].filter(Boolean);
   }, [delPartido, lab]);
   if (!cargando && !hay) return null;
@@ -491,33 +617,116 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       <LecturaCara datos={datos} partido={id} rival={lados[1].n} />
       {/* 16/11/2026 (expertos, ronda 17): 24 filas sin jerarquía; las 8 clave
           a la vista y el resto bajo «Ver todas las cifras». */}
-      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} />
-      <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} />
+      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} conMedia />
+      {/* Los goleadores ya van en la lista de remates de abajo (con su ficha y su vídeo): aquí, sólo en el dibujo. */}
+      <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} conGoleadores={false} />
 
       {!cargando && <GolesDelPartidoEnVideo goles={delPartido.filter((r) => r.gol)} />}
 
       {cargando ? (
         <div className="mt-5 h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los remates" />
       ) : (
-        delPartido.length > 0 && (
-          <div className="mt-5 grid gap-5 border-t border-white/10 pt-4 lg:grid-cols-2">
-            {lados.map((lado) => {
-              const rs = delPartido.filter((r) => r.teamId === lado.id);
-              /* 16/11/2026 (ronda 18): «xG por remate» de un partido, con la media del equipo en el resto de la temporada. */
-              const resto = remates.filter((r) => r.teamId === lado.id && r.partido !== id);
-              const nResto = new Set(resto.map((r) => r.partido)).size;
-              const referencia = resto.length && nResto >= 3 ? { valor: resto.reduce((a, r) => a + r.xG, 0) / resto.length, partidos: nResto } : null;
-              return (
-                <div key={lado.id} className="min-w-0">
-                  <h3 className="mb-2 text-sm font-semibold text-white">Remates de {lado.n}</h3>
-                  {rs.length ? <MapaRemates remates={rs} ariaLabel={`Remates de ${lado.n} en el partido`} enContra={lado.id !== CASTILLA_OPTA} referenciaXgRemate={referencia} rotuloGoles={lado.id !== CASTILLA_OPTA ? "Nos marcaron" : undefined} maxAlto={360} lectura /> : <p className="text-sm text-white/55">No remató.</p>}
-                </div>
-              );
-            })}
-          </div>
-        )
+        delPartido.length > 0 && <RematesDelPartido delPartido={delPartido} remates={remates} lados={lados} partido={id} rivalApp={partido.rival} />
       )}
     </Bloque>
+  );
+}
+
+/*
+| LOS REMATES DE LOS DOS, EN UNA TARJETA (18/11/2026, ronda 22, marketing):
+| antes, dos columnas que doblaban la altura. Ahora una pestaña Castilla /
+| rival con el mapa, sus cifras contra la temporada y, debajo, cada remate con
+| su tirador (a su ficha: la nuestra en Individual, la del rival en Scout
+| individual) y su vídeo en Opta. Los goles, siempre a la vista; el resto,
+| plegado.
+*/
+type Lado = { id: string; n: string };
+
+function RematesDelPartido({ delPartido, remates, lados, partido, rivalApp }: { delPartido: Remate[]; remates: Remate[]; lados: Lado[]; partido: string; rivalApp: string }) {
+  const [elegido, setElegido] = useState(lados[0].id);
+  const lado = lados.find((l) => l.id === elegido) ?? lados[0];
+  const nuestro = lado.id === CASTILLA_OPTA;
+  const rs = useMemo(() => delPartido.filter((r) => r.teamId === lado.id).sort((a, b) => a.parte - b.parte || a.segundo - b.segundo), [delPartido, lado.id]);
+  /* La temporada del equipo sin este partido: xG por remate y, por partido, xG y remates. */
+  const referencia = useMemo<RefRemates | null>(() => {
+    const resto = remates.filter((r) => r.teamId === lado.id && r.partido !== partido);
+    const n = new Set(resto.map((r) => r.partido)).size;
+    if (!resto.length || n < 3) return null;
+    const xg = resto.reduce((a, r) => a + r.xG, 0);
+    return { valor: xg / resto.length, partidos: n, xgPartido: xg / n, rematesPartido: resto.length / n };
+  }, [remates, lado.id, partido]);
+  const fichaDe = (tirador: string) =>
+    nuestro ? fichaJugador(tirador) : `/scout-rival-individual?equipo=${encodeURIComponent(rivalApp)}&jugador=${encodeURIComponent(tirador)}`;
+  const goles = rs.filter((r) => r.gol);
+  const otros = rs.filter((r) => !r.gol);
+  const fila = (r: Remate, i: number) => (
+    <li key={`${r.parte}-${r.segundo}-${i}`} className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 py-1 text-[12.5px]">
+      <span className="w-9 shrink-0 font-semibold tabular-nums text-white/75">{r.minuto}′</span>
+      {r.tirador ? (
+        <Link href={fichaDe(r.tirador)} className="min-w-0 font-semibold text-[#C8A96B] underline-offset-2 hover:underline" title={nuestro ? "Su ficha en Individual" : "Su ficha en Scout rival individual"}>
+          {r.tirador}
+        </Link>
+      ) : null}
+      <span className={r.gol ? "font-semibold text-white" : "text-white/60"}>
+        {r.gol ? (nuestro ? "Gol" : "Gol en contra") : r.tipo === "Post" ? "Al palo" : r.aPuerta ? "A puerta" : "Fuera o bloqueado"}
+      </span>
+      <span className="tabular-nums text-white/55">xG {dec(r.xG)}</span>
+      <VideoOpta evento={r} tipo="shots" etiqueta="▶ Vídeo en Opta" descripcion={`Remate de ${r.tirador}, ${r.minuto}′`} />
+    </li>
+  );
+
+  return (
+    <div className="mt-5 min-w-0 border-t border-white/10 pt-4">
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-white">Remates del partido</h3>
+        <Botonera etiqueta="De qué equipo" valor={lado.id} alCambiar={setElegido} opciones={lados.map((l) => ({ clave: l.id, nombre: l.n }))} />
+      </div>
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]">
+        <div className="min-w-0">
+          {rs.length ? (
+            <MapaRemates
+              key={lado.id}
+              remates={rs}
+              ariaLabel={`Remates de ${lado.n} en el partido`}
+              enContra={!nuestro}
+              referenciaXgRemate={referencia}
+              rotuloGoles={!nuestro ? "Nos marcaron" : undefined}
+              maxAlto={360}
+              lectura
+            />
+          ) : (
+            <p className="text-sm text-white/55">No remató.</p>
+          )}
+        </div>
+        {rs.length > 0 && (
+          <div className="min-w-0">
+            {goles.length > 0 && (
+              <>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">{goles.length === 1 ? "El gol" : `Los ${goles.length} goles`}</p>
+                <ol className="mt-1 divide-y divide-white/[0.06]">{goles.map(fila)}</ol>
+              </>
+            )}
+            {otros.length > 0 && (
+              <details className="group mt-2">
+                <summary className="inline-flex min-h-[36px] cursor-pointer list-none items-center rounded-lg text-[12px] font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+                  <span className="group-open:hidden">
+                    {goles.length
+                      ? otros.length === 1
+                        ? "Ver el otro remate, con su vídeo"
+                        : `Ver los otros ${otros.length} remates, con su vídeo`
+                      : otros.length === 1
+                        ? "Ver el remate, con su vídeo"
+                        : `Ver los ${otros.length} remates, uno a uno, con su vídeo`}
+                  </span>
+                  <span className="hidden group-open:inline">Ocultar los remates</span>
+                </summary>
+                <ol className="mt-1 divide-y divide-white/[0.06]">{otros.map(fila)}</ol>
+              </details>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
@@ -589,12 +798,15 @@ function xgDelPartido(datos: DatosOpta | null, partido: string): Record<string, 
 | marcador del propio 3D (el local primero, como el campo) y diciendo quién es
 | local; el 3D (RelievePartido) no se toca.
 */
-function textoTitular3D(t: { nos: number; ellos: number; rival: string }, castillaLocal: boolean | null) {
+/*
+| 18/11/2026 (ronda 22, guionista): en el titular, el Castilla primero, como
+| en las tres claves y el cara a cara de la misma pestaña, y cada cifra con
+| su equipo al lado; dentro del 3D el local sigue a la izquierda.
+*/
+function textoTitular3D(t: { nos: number; ellos: number; rival: string }) {
   const d1 = (v: number) => v.toFixed(1).replace(".", ",");
   const quien = Math.abs(t.nos - t.ellos) < 0.15 ? "parejo en ocasiones" : t.nos > t.ellos ? "creó más el Castilla" : `creó más el ${t.rival}`;
-  const marcador =
-    castillaLocal === false ? `${t.rival} ${d1(t.ellos)} – ${d1(t.nos)} Castilla` : `Castilla ${d1(t.nos)} – ${d1(t.ellos)} ${t.rival}`;
-  return `Goles esperados, ${marcador}: ${quien}`;
+  return `Goles esperados, Castilla ${d1(t.nos)} – ${d1(t.ellos)} ${t.rival}: ${quien}`;
 }
 
 function RelieveDelPartido({
@@ -630,8 +842,7 @@ function RelieveDelPartido({
   const [x, y] = [...filas].sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME"));
   /* 17/11/2026 (ronda 19, fútbol): «manda el Castilla / manda el Gimnàstic» en vez de «manda Real / manda Tarragona»: el 3D toma una palabra del nombre. */
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : cortoRival(String(f.equipo ?? "")));
-  const castillaLocal = x ? x.teamId === CASTILLA_OPTA : null;
-  const titular = datosTitular ? textoTitular3D(datosTitular, castillaLocal) : "";
+  const titular = datosTitular ? textoTitular3D(datosTitular) : "";
   if (doc === undefined) return null;
   return (
     <details key={String(esMovil)} open={!esMovil} className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">

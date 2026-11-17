@@ -718,7 +718,7 @@ function PanelEvolucion({
       <div className="mt-5">
         <Panel
           title="Cómo ha evolucionado"
-          subtitle={`Jugó ${antes.partidos} partidos y ${antes.minutos}′ la temporada pasada en ${antes.equipo}`}
+          subtitle={`Jugó ${antes.partidos} ${antes.partidos === 1 ? "partido" : "partidos"} y ${antes.minutos}′ la temporada pasada en ${antes.equipo}`}
           icon={TrendingUp}
         >
           <p className="py-6 text-center text-[12px] leading-relaxed text-white/40">
@@ -739,7 +739,7 @@ function PanelEvolucion({
     <div className="mt-5">
       <Panel
         title="Cómo ha evolucionado"
-        subtitle={`Contra la categoría de cada año · la pasada, ${antes.partidos} partidos y ${antes.minutos}′ en ${antes.equipo}`}
+        subtitle={`Contra la categoría de cada año · la pasada, ${antes.partidos} ${antes.partidos === 1 ? "partido" : "partidos"} y ${antes.minutos}′ en ${antes.equipo}`}
         icon={TrendingUp}
       >
         <div className="grid gap-4 lg:grid-cols-2">

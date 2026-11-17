@@ -878,7 +878,7 @@ export function PanelAbpCategoria() {
 
       {/* La lista */}
       {nGoles > 0 && (
-        <Panel title="Los goles, uno a uno" subtitle={`${nGoles} goles · ${dec(xgGoles, 1)} xG · del más reciente al más antiguo`} icon={ListOrdered} bodyClassName="p-0">
+        <Panel title="Los goles, uno a uno" subtitle={`${nGoles} ${nGoles === 1 ? "gol" : "goles"} · ${dec(xgGoles, 1)} xG · del más reciente al más antiguo`} icon={ListOrdered} bodyClassName="p-0">
           <ul className="divide-y divide-white/[0.05]">
             {golesVisibles.map((a, i) => (
               <li key={`${a.id}-${a.seg}-${i}`} data-fila-accion={claveDe(a)} className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5 px-4 py-2.5 text-[12px] outline-none sm:px-5">

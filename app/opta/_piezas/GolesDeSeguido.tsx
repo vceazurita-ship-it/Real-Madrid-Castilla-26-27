@@ -282,11 +282,19 @@ export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Rem
       {!abierto ? (
         <div className="flex flex-wrap items-center gap-3">
           <button type="button" className={boton} disabled={!tomas.length} onClick={() => (setI(0), setAbierto(true))}>
-            ▶ Ver de seguido los {tomas.length} goles
+            {/* 18/11/2026 (ronda 22): con uno solo, «Ver el gol», no «los 1 goles». */}
+            {tomas.length === 1 ? "▶ Ver el gol" : `▶ Ver de seguido los ${tomas.length} goles`}
           </button>
           <span className="text-[12px] text-white/55">
-            {titulo}: {deOpta === tomas.length ? "cada gol con el vídeo del partido de Opta" : deOpta > 0 ? `${deOpta} con el vídeo del partido de Opta y ${tomas.length - deOpta} con el resumen de la RFEF` : `cada gol de ${ANTES} s antes a ${DESPUES} s después, sobre el resumen oficial de la RFEF`}
-            {sinMarca > 0 ? ` · ${sinMarca} aún sin vídeo (se bajan cada noche)` : ""}
+            {titulo}:{" "}
+            {deOpta === tomas.length
+              ? tomas.length === 1
+                ? "con el vídeo del partido de Opta"
+                : "cada gol con el vídeo del partido de Opta"
+              : deOpta > 0
+                ? `${deOpta} con el vídeo del partido de Opta y ${tomas.length - deOpta} con el resumen de la RFEF`
+                : `${tomas.length === 1 ? "el gol" : "cada gol"} de ${ANTES} s antes a ${DESPUES} s después, sobre el resumen oficial de la RFEF`}
+            {sinMarca > 0 ? ` · ${sinMarca} aún sin vídeo (${sinMarca === 1 ? "se baja" : "se bajan"} cada noche)` : ""}
           </span>
         </div>
       ) : (
