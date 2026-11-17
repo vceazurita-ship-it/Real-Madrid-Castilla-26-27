@@ -446,6 +446,7 @@ async function main() {
       partidomenu: ["experto-futbol", "experto-analisis", "experto-marketing"],
       balonparado: ["experto-futbol", "experto-analisis", "experto-marketing"],
       analisis: ["experto-futbol", "experto-analisis", "experto-marketing"],
+      cinco: ["experto-futbol", "experto-analisis", "experto-marketing", "guionista"],
     };
     const solo = valor("grupo")?.split(",");
     const trabajos = [];

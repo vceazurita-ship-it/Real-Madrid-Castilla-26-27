@@ -46,6 +46,8 @@ const GRUPOS = {
   partidomenu: ["/match-preparation", "/duelos", "/pizarra-tactica"],
   balonparado: ["/setpieces", "/setpieces_def", "/throw-ins", "/throw-ins-def", "/abp-microciclo", "/abp-pizarra", "/laboratorio/abp"],
   analisis: ["/coding", "/match-plans", "/laboratorio/transiciones", "/laboratorio/perdidas", "/laboratorio/faltas", "/analisis-goles", "/collective_history", "/data-analisis"],
+  /* Ronda 21 (17/11/2026): las cinco pantallas a +1 (portada, plantillas, scout individual, data y apuestas). */
+  cinco: ["/", "/rivals", "/scout-rival-individual", "/data-analisis", "/laboratorio/apuestas"],
   mejora: ["/individual (ficha → pestaña Área de mejora)", "/data-analisis?area=equipo (mapa «Progresar y pisar área»)"],
 };
 module.exports = { GRUPOS };
