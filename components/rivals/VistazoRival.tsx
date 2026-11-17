@@ -371,10 +371,14 @@ export function VistazoRival({
         */
         const { conDato } = fuerteYFlojoDelRival(equipo, aspectos, equipos);
 
-        return titular || conDato ? (
+        /*
+        | 18/11/2026 (jueces de marketing): la conclusión ya va en la cabecera de
+        | /rivals (la misma cuenta: «con dato» si lo hay; si no, esta frase). Aquí
+        | no se repite: sólo la descripción, cuando la cabecera dijo la otra.
+        */
+        return titular && conDato ? (
           <div className="mb-3 min-w-0">
-            {conDato && <p className="text-base font-semibold text-white sm:text-lg">{conDato}.</p>}
-            {titular && <p className="mt-0.5 text-sm font-medium text-white/80 sm:text-[15px]">{titular}</p>}
+            <p className="text-sm font-medium text-white/80 sm:text-[15px]">{titular}</p>
           </div>
         ) : null;
       })()}
@@ -560,7 +564,7 @@ export function VistazoRival({
           */}
           {equipos > 0 && (
             <p className="mb-2 text-[13px] text-white/60">
-              Junto a cada cifra, su puesto entre los {equipos}: el 1.º es el mejor de la categoría; el {equipos}.º, el peor.
+              En cada barra, el punto es el rival y la raya, la mediana de los {equipos}: a la derecha, mejor. Junto a cada cifra, su puesto entre los {equipos}: el 1.º es el mejor de la categoría; el {equipos}.º, el peor.
               {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
               {(() => {
                 /* Una sola cifra de presión y su porqué, en una línea (16/11/2026, jueces). */
@@ -610,14 +614,30 @@ export function VistazoRival({
                       >
                         <span className="min-w-0 break-words font-medium">{a.aspecto}</span>
                         {/* Su puesto en una barra (17/11/2026, jueces de marketing): lleno, el 1.º; vacío, el último. */}
-                        {equipos > 0 && a.filas[0] && (
-                          <span className="relative block h-1.5 w-full max-w-[14rem] overflow-hidden rounded-full bg-white/10" aria-hidden title={`${puestoDeFila(a.filas[0], equipos)}.º de ${a.filas[0].de ?? equipos}`}>
-                            <span
-                              className="absolute inset-y-0 left-0 rounded-full"
-                              style={{ width: `${Math.max(4, (100 * ((a.filas[0].de ?? equipos) - puestoDeFila(a.filas[0], equipos) + 1)) / (a.filas[0].de ?? equipos))}%`, background: grupo.color }}
-                            />
-                          </span>
-                        )}
+                        {/*
+                          18/11/2026 (jueces de análisis): barra de percentil con la marca del
+                          rival frente a la mediana de los 20 (la raya del centro); el tramo
+                          coloreado es lo que se separa de ella. A la derecha, mejor.
+                        */}
+                        {equipos > 0 && a.filas[0] && (() => {
+                          const de = a.filas[0].de ?? equipos;
+                          const puesto = puestoDeFila(a.filas[0], equipos);
+                          const pos = de > 1 ? Math.max(3, Math.min(97, (100 * (de - puesto)) / (de - 1))) : 50;
+
+                          return (
+                            <span className="relative my-1 block h-2 w-full max-w-[18rem] rounded-full bg-white/10" aria-hidden title={`${puesto}.º de ${de} · la raya es la mediana`}>
+                              <span
+                                className="absolute inset-y-0 rounded-full opacity-60"
+                                style={{ left: `${Math.min(50, pos)}%`, width: `${Math.abs(pos - 50)}%`, background: grupo.color }}
+                              />
+                              <span className="absolute -bottom-1 -top-1 left-1/2 w-px bg-white/60" />
+                              <span
+                                className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full border-2 border-white/80"
+                                style={{ left: `${pos}%`, background: grupo.color }}
+                              />
+                            </span>
+                          );
+                        })()}
                         {/*
                           Todas las cifras del aspecto, cada una con SU puesto (11/11/2026, jueces de fútbol):
                           el puesto del aspecto es la media de dos o tres cifras y, junto a la primera sola,

@@ -36,6 +36,7 @@ import type { AutoSaveStatus as AutoSaveStatusValue } from "@/hooks/useAutoSave"
 import { AutoSaveStatus } from "@/components/save-guard/AutoSaveStatus";
 import { ColumnasPerdidas } from "@/components/save-guard/ColumnasPerdidas";
 import { useRivalOnce } from "@/hooks/useRivalOnce";
+import { useAdmin } from "@/hooks/useAdmin";
 import type { AlineacionJugador } from "@/lib/rivals/alineacion-ppt";
 import { findStats, findTeam, highlightSeason, type RivalSeasonStats } from "@/lib/rivals/stats";
 import EscudoEquipo from "@/components/rivals/EscudoEquipo";
@@ -121,13 +122,13 @@ import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import VistazoRival, { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
 import { bajaDe } from "@/lib/rivals/bajas";
 import { LINE_DEFINITIONS, type LineKey } from "@/lib/rivals/lineas-puesto";
-import { ResumenDelOnce, type LineaResumen } from "@/components/rivals/ResumenDelOnce";
+import { ResumenDelOnce, type FichaResumen, type LineaResumen } from "@/components/rivals/ResumenDelOnce";
 import ResumenesRival from "@/components/rivals/ResumenesRival";
 import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import { pieDominante } from "@/lib/rivals/pie";
-import { puestoDelRival } from "@/lib/rivals/colocacion-once";
+import { lineasDelDibujo, puestoDelBloque, puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
 import type { HojaInforme } from "@/lib/rivals/informe-elementos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -146,6 +147,7 @@ import {
   dibujoDeCampo,
   DIBUJOS,
   DIBUJO_POR_DEFECTO,
+  fueraDeSuHueco,
   reparteCampograma,
   reparteEnOnce,
   type BloqueEntrada,
@@ -758,7 +760,6 @@ export default function RivalPlayersPage() {
   const [ordenRivales, setOrdenRivales] = useState<OrdenRivales>(SIN_ORDEN);
 
   const [search, setSearch] = useState("");
-  const [positionSearch, setPositionSearch] = useState("");
 
   /*
   | Las etiquetas, plegadas.
@@ -996,30 +997,33 @@ export default function RivalPlayersPage() {
   | tecla, y hasta ahora el cursor se quedaba atrás al escribir deprisa.
   */
   const searchDiferido = useDeferredValue(search);
-  const posicionDiferida = useDeferredValue(positionSearch);
 
+  /*
+  | UN SOLO BUSCADOR (18/11/2026, jueces de marketing): antes había dos cajas
+  | («Buscar jugador…» y «Buscar posición…») con el texto cortado. Ahora una:
+  | un código de puesto a secas («LD», «DFC», «MP») filtra a los de ese puesto
+  | en el equipo elegido; cualquier otra cosa busca en todos los equipos por
+  | nombre, equipo, dorsal, posición, rol o etiqueta.
+  */
   const filteredPlayers = useMemo(() => {
     const searchValue = normalize(searchDiferido);
-    const positionSearchValue = normalize(posicionDiferida);
+    const esCodigo =
+      searchValue.length > 0 &&
+      searchValue.length <= 3 &&
+      LINE_DEFINITIONS.some((line) => line.slots.some((slot) => normalize(slot.code) === searchValue));
 
     return players.filter((player) => {
-      const matchesPosition =
-        !positionSearchValue ||
-        normalize(player["POSICIÓN"]).includes(positionSearchValue) ||
-        normalize(player["2º POSICIÓN"]).includes(positionSearchValue) ||
-        /* También se puede buscar por el código corto: LD, DFC, MP… */
-        normalize(getSlot(player["POSICIÓN"])?.slot.code).startsWith(
-          positionSearchValue,
-        ) ||
-        normalize(getSlot(player["2º POSICIÓN"])?.slot.code).startsWith(
-          positionSearchValue,
-        );
-
-      if (!matchesPosition) return false;
-
       /* Sin búsqueda general se muestra solo el equipo seleccionado. */
       if (!searchValue) {
         return player.NOMBRE_EQUIPO === selectedTeam;
+      }
+
+      if (esCodigo) {
+        return (
+          player.NOMBRE_EQUIPO === selectedTeam &&
+          (normalize(getSlot(player["POSICIÓN"])?.slot.code) === searchValue ||
+            normalize(getSlot(player["2º POSICIÓN"])?.slot.code) === searchValue)
+        );
       }
 
       /* Con búsqueda general se busca en todos los equipos. */
@@ -1034,7 +1038,7 @@ export default function RivalPlayersPage() {
         normalize(player.IMPACTO).includes(searchValue)
       );
     });
-  }, [players, selectedTeam, searchDiferido, posicionDiferida]);
+  }, [players, selectedTeam, searchDiferido]);
 
   /*
   | El filtro por etiquetas sólo recorta el listado: en el campograma se sigue
@@ -1154,6 +1158,8 @@ export default function RivalPlayersPage() {
   */
 
   const once = useRivalOnce(pitchTeam || selectedTeam);
+  /* El aviso técnico del once («sin titular en…», «Rehacer el once») sólo lo ve el administrador (18/11/2026, jueces). */
+  const { admin } = useAdmin();
 
   /*
   | El once vive por equipo, así que sólo se marca a la gente del equipo que
@@ -1764,15 +1770,32 @@ export default function RivalPlayersPage() {
     const titulares = new Set(once.doc.titulares);
     const suyos = plantillaCampo.filter((player) => titulares.has(playerKey(player)));
 
-    if (suyos.length === 0) return { asignados: {} as Record<string, string>, vacios: [] as string[], sobran: [] as string[] };
+    if (suyos.length === 0) return { asignados: {} as Record<string, string>, vacios: [] as string[], sobran: [] as string[], fuera: [] as { clave: string; nombre: string; hueco: string }[] };
 
-    const reparto = asignaTitulares(suyos, (player) => sitioDelJugador(player, lecturaTemporada.porJugador), bloques, {
+    /*
+    | 18/11/2026 (jueces): el once guardado se respeta entero. Quien no tiene
+    | hueco natural en el dibujo va al hueco libre más cercano (`rellena`) y se
+    | rotula «fuera de su sitio»: 11 titulares en 11 huecos, nunca «sin
+    | titular en EI». Es la misma cuenta de `colocacionDelOnce` (Scout
+    | individual, Duelos, Plan, pizarra).
+    */
+    const sitio = (player: RivalPlayer) => sitioDelJugador(player, lecturaTemporada.porJugador);
+    const reparto = asignaTitulares(suyos, sitio, bloques, {
       fijado: (player) => once.doc.puestos?.[playerKey(player)],
+      rellena: true,
     });
 
     const asignados: Record<string, string> = {};
-    reparto.forEach((bloque, player) => {
-      asignados[playerKey(player)] = bloque;
+    const fuera: { clave: string; nombre: string; hueco: string }[] = [];
+    reparto.forEach((clave, player) => {
+      asignados[playerKey(player)] = clave;
+
+      const bloque = bloques.find((b) => b.key === clave);
+      const { slot, lado } = sitio(player);
+
+      if (bloque && once.doc.puestos?.[playerKey(player)] !== clave && fueraDeSuHueco(bloque, slot, lado)) {
+        fuera.push({ clave: playerKey(player), nombre: conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim())), hueco: bloque.code });
+      }
     });
 
     const ocupados = new Set(Object.values(asignados));
@@ -1782,7 +1805,7 @@ export default function RivalPlayersPage() {
       .filter((player) => !asignados[playerKey(player)])
       .map((player) => conTildes(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim()));
 
-    return { asignados, vacios, sobran };
+    return { asignados, vacios, sobran, fuera };
   }, [dibujoDelEquipo, once.doc.titulares, once.doc.puestos, plantillaCampo, lecturaTemporada.porJugador]);
 
 
@@ -3113,6 +3136,7 @@ export default function RivalPlayersPage() {
   const danoDelRival = useMemo(() => {
     if (!perfilesRival || analistaLeidoDe !== selectedTeam || !duelosListos) return [];
 
+    const bloquesDelDibujo = dibujoDeCampo(dibujoDelEquipo);
     const todos = players
       .filter((p) => p.NOMBRE_EQUIPO === selectedTeam)
       .map((p) => {
@@ -3139,9 +3163,13 @@ export default function RivalPlayersPage() {
               ? { minutos: Math.round(perfil.minutos), partidos: perfil.partidos, fuente: " en Wyscout" }
               : null;
 
+        /* 18/11/2026 (jueces): el titular, con el puesto de su once (Palmberg, pivote), el mismo de «El once de un vistazo» y Scout individual. */
+        const bloqueDelOnce = bloquesDelDibujo.find((b) => b.key === titularesEnSuHueco.asignados[playerKey(p)]);
+        const enSuOnce = bloqueDelOnce ? puestoDelRival(String(p["POSICIÓN"] ?? ""), bloqueDelOnce).enElOnce : null;
+
         return {
           nombre: conTildes(nombrePropio(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())),
-          puesto: (puestoHoja || perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim()).toLowerCase(),
+          puesto: enSuOnce ?? (puestoHoja || perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim()).toLowerCase(),
           /* Sólo lo que tiene cifra detrás (17/11/2026, jueces): «pierde duelos» de la etiqueta, sin número, no se dice. */
           rasgos: frase?.conDato ?? [],
           accion: frase?.accion ?? "",
@@ -3209,7 +3237,7 @@ export default function RivalPlayersPage() {
       */
       return delDuelo ? { ...uno, rasgos: delDuelo.enContra ? [] : uno.rasgos, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
     });
-  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos]);
+  }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos, dibujoDelEquipo, titularesEnSuHueco]);
 
   /* La temporada en curso de cada uno, para el listado. */
   const temporadaDe = (player: RivalPlayer) =>
@@ -3223,107 +3251,87 @@ export default function RivalPlayersPage() {
   const resumenDelOnce = useMemo((): LineaResumen[] => {
     if (pitchTeam !== selectedTeam || once.doc.titulares.length === 0) return [];
 
+    /*
+    | 18/11/2026 (jueces): las líneas son las del dibujo (`lineasDelDibujo`), las
+    | mismas filas del campograma, y cada titular va en el hueco que le da
+    | `asignaTitulares` (`titularesEnSuHueco`): 4-2-3-1 = 4 + 2 + 3 + 1.
+    */
     const bloques = dibujoDeCampo(dibujoDelEquipo);
+    const lineas = lineasDelDibujo(dibujoDelEquipo);
     const titulares = new Set(once.doc.titulares);
     const suyos = plantillaCampo.filter((player) => titulares.has(playerKey(player)));
+    const fuera = new Set(titularesEnSuHueco.fuera.map((uno) => uno.clave));
 
     const temporadaDeUno = (player: RivalPlayer) =>
       statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
 
     const deCada = (n: number) => Math.min(9, Math.max(1, Math.round(n / 10)));
 
-    const lineaDe = (player: RivalPlayer): "portero" | "defensa" | "medio" | "ataque" | null => {
-      const bloque = bloques.find((b) => b.key === titularesEnSuHueco.asignados[playerKey(player)]);
-
-      if (bloque) {
-        if (bloque.key === "por") return "portero";
-        if (bloque.anchorY >= 0.65) return "defensa";
-        if (bloque.anchorY >= 0.36) return "medio";
-        return "ataque";
-      }
-
-      return (getLine(player["POSICIÓN"])?.key as "portero" | "defensa" | "medio" | "ataque" | undefined) ?? null;
-    };
-
     const nombreDe = (player: RivalPlayer) => conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim()));
 
-    const lecturas = suyos.map((player) => {
+    const fichas = suyos.flatMap((player) => {
+      const bloque = bloques.find((b) => b.key === titularesEnSuHueco.asignados[playerKey(player)]);
+      const linea = bloque ? lineas.find((l) => l.bloques.includes(bloque.key)) : null;
+
+      if (!bloque || !linea) return [];
+
       const perfil = perfilesPorFicha.get(idDeJugador(player));
       const vale = perfil && !perfil.muestraCorta;
       const temporada = temporadaDeUno(player);
       const { tags } = parseTags(player.IMPACTO);
-      const fortalezas = tags.filter((tag) => tag.tone === "fortaleza");
-      const debilidades = tags.filter((tag) => tag.tone === "debilidad");
-      const linea = lineaDe(player);
-      const goles = linea === "ataque" || linea === "medio" ? (temporada?.goles ?? 0) : 0;
-      const fuertes = vale ? perfil.fuertes : [];
-      const flojos = vale ? perfil.flojos : [];
+      const fortaleza = tags.find((tag) => tag.tone === "fortaleza");
+      const debilidad = tags.find((tag) => tag.tone === "debilidad");
+      const goles = linea.color === "ataque" || linea.color === "medio" ? (temporada?.goles ?? 0) : 0;
+      const fuerte = vale ? perfil.fuertes[0] : undefined;
+      const flojo = vale ? perfil.flojos[0] : undefined;
       const baseWyscout = vale ? `${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · Wyscout` : "";
       const baseEtiqueta = [baseDeEtiquetas(temporada), "etiqueta del analista"].filter(Boolean).join(" · ");
 
+      /* UN veredicto por jugador: gana la lectura más extrema (sus goles, o el percentil más lejos de la mediana). */
       const peligro =
         goles >= 3
-          ? { porque: `${goles} goles esta temporada`, base: `${temporada?.partidos ?? 0} PJ · BeSoccer` }
-          : fuertes[0]
-            ? { porque: `${fuertes[0].nombre.replace(/\s*%$/, "")}: mejor que ${deCada(fuertes[0].percentil)} de cada 10 de su puesto`, base: baseWyscout }
-            : fortalezas[0]
-              ? { porque: fortalezas[0].label.toLowerCase(), base: baseEtiqueta }
+          ? { fuerza: 100, porque: `${goles} goles esta temporada`, base: `${temporada?.partidos ?? 0} PJ · BeSoccer` }
+          : fuerte
+            ? { fuerza: fuerte.percentil, porque: `${fuerte.nombre.replace(/\s*%$/, "")}: mejor que ${deCada(fuerte.percentil)} de cada 10 de su puesto`, base: baseWyscout }
+            : fortaleza
+              ? { fuerza: 60, porque: fortaleza.label.toLowerCase(), base: baseEtiqueta }
               : null;
-
-      const explotable = flojos[0]
-        ? { porque: `${flojos[0].nombre.replace(/\s*%$/, "")}: peor que ${deCada(100 - flojos[0].percentil)} de cada 10 de su puesto`, base: baseWyscout }
-        : debilidades[0]
-          ? { porque: debilidades[0].label.toLowerCase(), base: baseEtiqueta }
+      const explotable = flojo
+        ? { fuerza: 100 - flojo.percentil, porque: `${flojo.nombre.replace(/\s*%$/, "")}: peor que ${deCada(100 - flojo.percentil)} de cada 10 de su puesto`, base: baseWyscout }
+        : debilidad
+          ? { fuerza: 60, porque: debilidad.label.toLowerCase(), base: baseEtiqueta }
           : null;
+      const gana = peligro && (!explotable || peligro.fuerza >= explotable.fuerza) ? "peligro" : explotable ? "explotable" : null;
+      const elegido = gana === "peligro" ? peligro : gana === "explotable" ? explotable : null;
 
-      return {
-        player,
-        linea,
-        peligro,
-        explotable,
-        puntosPeligro: fuertes.length * 2 + goles * 1.5 + fortalezas.length,
-        puntosExplotable: flojos.length * 2 + debilidades.length,
-        minutos: temporada?.minutos ?? 0,
-      };
+      return [
+        {
+          linea: linea.clave,
+          x: bloque.anchorX,
+          ficha: {
+            clave: playerKey(player),
+            nombre: nombreDe(player),
+            dorsal: String(player.DORSAL ?? ""),
+            hueco: bloque.code,
+            puesto: puestoDelRival(String(player["POSICIÓN"] ?? ""), bloque).enElOnce ?? puestoDelBloque(bloque),
+            fuera: fuera.has(playerKey(player)),
+            veredicto: gana && elegido ? { tipo: gana, porque: elegido.porque, base: elegido.base } : null,
+          } satisfies FichaResumen,
+        },
+      ];
     });
 
-    const TITULOS = { portero: "Portería", defensa: "Defensa", medio: "Medio", ataque: "Ataque" } as const;
     const COLORES = Object.fromEntries(LINE_DEFINITIONS.map((linea) => [linea.key, linea.color])) as Record<string, string>;
 
-    return (["portero", "defensa", "medio", "ataque"] as const).map((clave) => {
-      const deLaLinea = lecturas
-        .filter((uno) => uno.linea === clave)
-        .sort((a, b) => {
-          const ba = bloques.find((x) => x.key === titularesEnSuHueco.asignados[playerKey(a.player)]);
-          const bb = bloques.find((x) => x.key === titularesEnSuHueco.asignados[playerKey(b.player)]);
-
-          return (ba?.anchorX ?? 0.5) - (bb?.anchorX ?? 0.5);
-        });
-
-      const mejor = (lista: typeof deLaLinea, puntos: (uno: (typeof deLaLinea)[number]) => number) =>
-        [...lista].sort((a, b) => puntos(b) - puntos(a) || b.minutos - a.minutos)[0];
-
-      const peligroso = mejor(deLaLinea.filter((uno) => uno.peligro && uno.puntosPeligro > 0), (uno) => uno.puntosPeligro);
-      /* El explotable, a ser posible otro que el peligroso. */
-      const candidatosFlojos = deLaLinea.filter((uno) => uno.explotable && uno.puntosExplotable > 0);
-      const flojo =
-        mejor(candidatosFlojos.filter((uno) => uno !== peligroso), (uno) => uno.puntosExplotable) ??
-        mejor(candidatosFlojos, (uno) => uno.puntosExplotable);
-
-      return {
-        clave,
-        titulo: TITULOS[clave],
-        color: COLORES[clave] ?? "#C8A96B",
-        fichas: deLaLinea.map((uno) => ({
-          clave: playerKey(uno.player),
-          nombre: nombreDe(uno.player),
-          dorsal: String(uno.player.DORSAL ?? ""),
-          hueco: bloques.find((x) => x.key === titularesEnSuHueco.asignados[playerKey(uno.player)])?.code ?? "",
-        })),
-        peligro: peligroso?.peligro ? { clave: playerKey(peligroso.player), nombre: nombreDe(peligroso.player), ...peligroso.peligro } : null,
-        explotable: flojo?.explotable ? { clave: playerKey(flojo.player), nombre: nombreDe(flojo.player), ...flojo.explotable } : null,
-      };
-    });
+    return lineas.map((linea) => ({
+      clave: linea.clave,
+      titulo: linea.titulo,
+      color: COLORES[linea.color] ?? "#C8A96B",
+      fichas: fichas
+        .filter((uno) => uno.linea === linea.clave)
+        .sort((a, b) => a.x - b.x)
+        .map((uno) => uno.ficha),
+    }));
   }, [pitchTeam, selectedTeam, once.doc.titulares, dibujoDelEquipo, plantillaCampo, statsDoc, titularesEnSuHueco, perfilesPorFicha]);
 
   /* Del resumen a la ficha: la clave del once → su fila de la plantilla. */
@@ -4076,12 +4084,11 @@ export default function RivalPlayersPage() {
 
   const resetFilters = () => {
     setSearch("");
-    setPositionSearch("");
     setActiveTags([]);
   };
 
   const hasFilters = Boolean(
-    search || positionSearch || activeTags.length > 0,
+    search || activeTags.length > 0,
   );
 
   /* Un puesto de la lista se ve abierto si es el elegido o si se está buscando. */
@@ -4202,7 +4209,6 @@ export default function RivalPlayersPage() {
                     onClick={() => {
                       setSelectedTeam(team.name);
                       setCambiandoEquipo(false);
-                      setPositionSearch("");
                       setSearch("");
                     }}
                     className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border transition ${
@@ -4347,7 +4353,7 @@ export default function RivalPlayersPage() {
                   {/* COLUMNA IZQUIERDA — LISTADO DE JUGADORES */}
                   {/* ============================================ */}
 
-                  <div className="order-2 min-w-0 space-y-4 lg:order-none">
+                  <div className="order-1 min-w-0 space-y-4 lg:order-none">
                     {/* EL ONCE DE UN VISTAZO — la conclusión antes de los 25 (17/11/2026, jueces de fútbol). */}
                     {selectedTeam && <ResumenDelOnce equipo={selectedTeam} dibujo={`Once probable en ${dibujoDelEquipo}`} lineas={resumenDelOnce} abrir={abreDelOnce} />}
 
@@ -4357,13 +4363,7 @@ export default function RivalPlayersPage() {
                       <SearchInput
                         value={search}
                         onChange={setSearch}
-                        placeholder="Buscar jugador, equipo, dorsal o rol..."
-                      />
-
-                      <SearchInput
-                        value={positionSearch}
-                        onChange={setPositionSearch}
-                        placeholder="Buscar posición..."
+                        placeholder="Buscar jugador, dorsal o puesto (LD, MP…)"
                       />
                     </div>
 
@@ -4676,7 +4676,8 @@ export default function RivalPlayersPage() {
                   {/* COLUMNA DERECHA — CAMPOGRAMA */}
                   {/* ============================================ */}
 
-                  <div className="order-1 flex min-w-0 lg:order-none">
+                  {/* En el móvil (390 px) va DEBAJO de la lista por línea: ahí las fichas del campo no se leen (18/11/2026, jueces). */}
+                  <div className="order-2 flex min-w-0 lg:order-none">
                     <div className="campograma-capa sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
                       {/*
                         La cabecera se **parte en dos renglones** cuando no
@@ -4713,8 +4714,9 @@ export default function RivalPlayersPage() {
                             {(() => {
                               if (!dibujoSuyo) return `Once probable en ${dibujoDelEquipo}.`;
 
+                              /* Un dato, sin tono de error (18/11/2026): el once guardado manda y su sistema se cuenta al lado. */
                               if (dibujoDelEquipo !== dibujoSuyo) {
-                                return `Once probable en ${dibujoDelEquipo}, elegido a mano · su sistema más usado: ${dibujoSuyo} ×${baseDelSistema}.`;
+                                return `Once probable en ${dibujoDelEquipo} · su sistema más usado: ${dibujoSuyo} (${baseDelSistema}).`;
                               }
 
                               return `Once probable en ${dibujoDelEquipo} · su sistema en ${baseDelSistema}.`;
@@ -4723,7 +4725,16 @@ export default function RivalPlayersPage() {
                         )}
 
                         {/* Un titular por hueco: lo que no cuadra se dice, con el arreglo a un toque. */}
-                        {pitchPlayers.length > 0 && (titularesEnSuHueco.vacios.length > 0 || titularesEnSuHueco.sobran.length > 0) && (
+                        {/* Quien juega en un hueco que no es el suyo, dicho como dato (como Duelos con fueraDeSitioEn). */}
+                        {pitchPlayers.length > 0 && titularesEnSuHueco.fuera.length > 0 && (
+                          <p className="mt-1 text-[12px] text-white/60">
+                            Fuera de su sitio:{" "}
+                            {titularesEnSuHueco.fuera.map((uno) => `${uno.nombre} en ${uno.hueco}`).join(", ")}.
+                          </p>
+                        )}
+
+                        {/* El aviso técnico y el arreglo, sólo para el administrador: al cuerpo técnico le llega un once que cuadra. */}
+                        {admin && pitchPlayers.length > 0 && (titularesEnSuHueco.vacios.length > 0 || titularesEnSuHueco.sobran.length > 0) && (
                           <p role="status" data-export-hide className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[12px]" style={{ color: chipInk("#F59E0B") }}>
                             <AlertTriangle size={12} aria-hidden />
                             {titularesEnSuHueco.vacios.length > 0 && <span>Sin titular en {titularesEnSuHueco.vacios.join(", ")}.</span>}
@@ -8456,6 +8467,10 @@ type PlacedCluster = {
   boxTop: number;
   boxWidth: number;
   boxHeight: number;
+  /** Todos los del hueco, también los del desplegable «+N». */
+  total: number;
+  /** Los que no se pintan en un hueco amontonado: van en el «+N». */
+  ocultos: RivalPlayer[];
 };
 
 type PitchLayout = {
@@ -8570,7 +8585,8 @@ function layoutPitch(
     players,
     sitioDe,
     dibujo,
-    (player) => puestos[playerKey(player)] ?? asignados[playerKey(player)],
+    /* El hueco del titular primero: ya respeta lo puesto a mano, sin dos titulares en el mismo bloque. */
+    (player) => asignados[playerKey(player)] ?? puestos[playerKey(player)],
   );
 
   /* El mismo reparto sin lo puesto a mano: es lo que hace falta para saber si
@@ -8583,11 +8599,38 @@ function layoutPitch(
 
   const entradas: BloqueEntrada<RivalPlayer>[] = [];
 
+  /*
+  | FICHAS AMONTONADAS (18/11/2026, jueces): un hueco con cuatro o más (el
+  | extremo izquierdo, el delantero) se leía como un racimo de fotos
+  | diminutas. Ahí se pinta al titular del once probable —o a los dos
+  | primeros, si el hueco no tiene titular— y el resto va a un desplegable
+  | «+N» junto a la chapa. La chapa sigue contando a todos.
+  */
+  const AMONTONADO_DESDE = 4;
+  const ocultosDe = new Map<string, RivalPlayer[]>();
+  const totalDe = new Map<string, number>();
+
   dibujo.forEach((bloque) => {
-    const gente = porBloque.get(bloque.key);
+    const todos = porBloque.get(bloque.key);
 
     /* Un bloque vacío no se pinta: sería una chapa flotando en el césped. */
-    if (!gente || gente.length === 0) return;
+    if (!todos || todos.length === 0) return;
+
+    totalDe.set(bloque.key, todos.length);
+
+    let gente = todos;
+
+    if (todos.length >= AMONTONADO_DESDE) {
+      const titular = todos.filter((player) => asignados[playerKey(player)] === bloque.key);
+      const porDorsal = [...todos].sort((a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999));
+      const vistos = titular.length > 0 ? titular : porDorsal.slice(0, 2);
+
+      gente = vistos;
+      ocultosDe.set(
+        bloque.key,
+        porDorsal.filter((player) => !vistos.includes(player)),
+      );
+    }
 
     /*
     | El color de la chapa sale de la línea del PRIMER jugador del bloque y no
@@ -8751,6 +8794,8 @@ function layoutPitch(
       boxTop: bloque.cajaArriba,
       boxWidth: bloque.cajaAncho,
       boxHeight: bloque.cajaAlto,
+      total: totalDe.get(bloque.key) ?? bloque.cuantos,
+      ocultos: ocultosDe.get(bloque.key) ?? [],
     };
   });
 
@@ -8945,6 +8990,9 @@ function TacticalPitch({
   */
   const ARRANQUE_PX = 6;
   const ESPERA_DEDO_MS = 180;
+
+  /* El desplegable «+N» abierto (clave del hueco). */
+  const [masAbierto, setMasAbierto] = useState<string | null>(null);
 
   const [arrastre, setArrastre] = useState<{
     id: string;
@@ -9263,9 +9311,52 @@ function TacticalPitch({
         >
           {cluster.code}
 
-          <span className="font-semibold text-black/45">{cluster.count}</span>
+          <span className="font-semibold text-black/45">{cluster.total}</span>
         </span>
       ))}
+
+      {/* «+N»: los demás de un hueco amontonado, en un desplegable junto a la chapa. */}
+      {clusters
+        .filter((cluster) => cluster.ocultos.length > 0)
+        .map((cluster) => (
+          <div
+            key={`mas-${cluster.key}`}
+            data-export-hide
+            className="absolute z-30"
+            style={{ left: cluster.boxX + cluster.boxWidth / 2 - 4, top: cluster.boxTop - 4, transform: "translate(-100%, 0)" }}
+          >
+            <button
+              type="button"
+              onClick={() => setMasAbierto((cual) => (cual === cluster.key ? null : cluster.key))}
+              aria-expanded={masAbierto === cluster.key}
+              title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
+              className="rounded-full border border-black/30 px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
+              style={{ background: cluster.color, color: "#0B0F14" }}
+            >
+              +{cluster.ocultos.length}
+            </button>
+
+            {masAbierto === cluster.key && (
+              <ul className="absolute right-0 top-full mt-1 w-44 space-y-0.5 rounded-xl border border-white/15 bg-[#11161D] p-1.5 shadow-xl">
+                {cluster.ocultos.map((player) => (
+                  <li key={idDeJugador(player)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMasAbierto(null);
+                        onPlayerClick(player);
+                      }}
+                      className="flex w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[12px] text-white/80 hover:bg-white/[0.06] hover:text-white"
+                    >
+                      {player.DORSAL && <span className="shrink-0 tabular-nums text-[#C8A96B]">{player.DORSAL}</span>}
+                      <span className="truncate">{conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "")))}</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        ))}
 
       {/* JUGADORES */}
 

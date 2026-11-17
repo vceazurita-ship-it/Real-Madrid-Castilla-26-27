@@ -660,7 +660,18 @@ export function asignaTitulares<T>(
   titulares: T[],
   lee: (jugador: T) => { slot: string; lado: number },
   bloques: BloqueOnce[] = ONCE_1_4_2_3_1,
-  opciones: { peso?: (jugador: T) => number; fijado?: (jugador: T) => string | null | undefined } = {},
+  opciones: {
+    peso?: (jugador: T) => number;
+    fijado?: (jugador: T) => string | null | undefined;
+    /**
+     * Para COLOCAR un once ya marcado (18/11/2026, jueces): quien no se parece
+     * a ningún hueco libre no se queda fuera, va al hueco libre más cercano a
+     * su zona (el segundo lateral derecho al extremo izquierdo vacío) y se
+     * rotula «fuera de su sitio» (`fueraDeSuHueco`). Así siempre hay 11 en 11.
+     * Para ELEGIR (once sugerido) no se usa: ahí se prefiere dejar el hueco.
+     */
+    rellena?: boolean;
+  } = {},
 ): Map<T, string> {
   const salida = new Map<T, string>();
   const ocupados = new Set<string>();
@@ -669,7 +680,8 @@ export function asignaTitulares<T>(
   for (const jugador of titulares) {
     const aMano = opciones.fijado?.(jugador);
 
-    if (aMano && bloques.some((b) => b.key === aMano)) {
+    /* Dos puestos a mano en el mismo bloque: el primero se lo queda y el otro se coloca solo. */
+    if (aMano && !ocupados.has(aMano) && bloques.some((b) => b.key === aMano)) {
       salida.set(jugador, aMano);
       ocupados.add(aMano);
     } else {
@@ -702,7 +714,51 @@ export function asignaTitulares<T>(
     salida.set(libres[j], huecos[fila].key);
   });
 
+  if (!opciones.rellena) return salida;
+
+  /* Los que no encajan en nada, al hueco libre más cercano a su zona (distancia de anclas). */
+  const sinHueco = libres.map((jugador, j) => ({ jugador, j })).filter(({ jugador }) => !salida.has(jugador));
+  const tomados = new Set(salida.values());
+  const quedan = bloques.filter((b) => !tomados.has(b.key) && b.key !== "por");
+
+  if (sinHueco.length === 0 || quedan.length === 0) return salida;
+
+  const zona = (j: number) => {
+    const { slot, lado } = lecturas[j];
+    const ancla = ANCLAS_SLOT[slot] ?? ANCLA_SUELTA;
+    const suyo = LADO_DE_SLOT[slot] ?? (lado < 0 ? -1 : lado > 0 ? 1 : 0);
+
+    return { x: ancla.x + (ancla.xSide ? suyo * ancla.xSide : 0), y: ancla.y };
+  };
+
+  /* Filas = huecos que quedan; columnas = los que sobran (con relleno). */
+  const ancho = Math.max(sinHueco.length, quedan.length);
+  const distancias = quedan.map((bloque) =>
+    Array.from({ length: ancho }, (_, c) => {
+      if (c >= sinHueco.length) return 1e5;
+
+      const { x, y } = zona(sinHueco[c].j);
+
+      return Math.hypot(bloque.anchorX - x, bloque.anchorY - y);
+    }),
+  );
+
+  hungaro(distancias).forEach((c, fila) => {
+    if (c < 0 || c >= sinHueco.length) return;
+
+    salida.set(sinHueco[c].jugador, quedan[fila].key);
+  });
+
   return salida;
+}
+
+/**
+ * `true` si el jugador (su slot y lado) está en un hueco que no se parece a lo
+ * que juega: un lateral en el extremo. Es el rótulo «fuera de su sitio» del
+ * once que se rellena con `asignaTitulares({ rellena: true })`.
+ */
+export function fueraDeSuHueco(bloque: BloqueOnce, slot: string, lado: number): boolean {
+  return costeDeBloque(bloque, slot, lado) >= COSTE_IMPOSIBLE;
 }
 
 /*
