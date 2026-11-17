@@ -39,7 +39,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BarChart3, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Users, Zap } from "lucide-react";
+import { BarChart3, ClipboardList, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Users, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -65,6 +65,7 @@ import { BarrasFrenteAMedia } from "@/components/analisis/BarrasFrenteAMedia";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
+import { mismoClub } from "@/lib/rivals/mismoClub";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
@@ -232,8 +233,17 @@ export default function FaltasPage() {
   | etiqueta, manda lo etiquetado.
   */
   const respaldo = useRespaldoOpta<PartidoFaltasOpta>("faltas", FECHAS_FALTAS);
+  /* 17/11/2026 (ronda 20): además de la fecha, la misma jornada y el mismo club que uno etiquetado no entra dos veces. */
   const PARTIDOS = useMemo(
-    () => [...PARTIDOS_ETIQUETADOS, ...respaldo.filas.filter((o) => o.faltas.length > 0 && !fechaEtiquetada(o.fecha, FECHAS_FALTAS))],
+    () => [
+      ...PARTIDOS_ETIQUETADOS,
+      ...respaldo.filas.filter(
+        (o) =>
+          o.faltas.length > 0 &&
+          !fechaEtiquetada(o.fecha, FECHAS_FALTAS) &&
+          !PARTIDOS_ETIQUETADOS.some((p) => p.jornada === o.jornada && mismoClub(p.rival, o.rival)),
+      ),
+    ],
     [respaldo.filas],
   );
 
@@ -241,6 +251,8 @@ export default function FaltasPage() {
     () => (conPretemporada ? PARTIDOS : PARTIDOS.filter((p) => !esPretemporada(p.jornada))),
     [PARTIDOS, conPretemporada],
   );
+  const fechasVisibles = useMemo(() => partidosVisibles.map((p) => p.fecha), [partidosVisibles]);
+  const algunoOpta = partidosVisibles.some((p) => p.faltas.some(esDeOpta));
 
   /*
   | Se abre por el último partido analizado: el lunes se quiere ver lo del
@@ -274,6 +286,18 @@ export default function FaltasPage() {
       partidosVisibles.find((p) => p.id === partidoId) ?? ultimoPorFecha(partidosVisibles),
     [partidoId, partidosVisibles],
   );
+
+  /* 17/11/2026 (ronda 20): el partido elegido sale de Opta; los rótulos lo dicen. */
+  const partidoDeOpta = Boolean(partido?.faltas.some(esDeOpta));
+  /* Y el que más faltas comete en él, a un toque (como en robos y pérdidas). */
+  const masFaltas = (() => {
+    const cuenta = new Map<string, number>();
+    for (const f of partido?.faltas ?? []) if (f.lado !== "ofensivo" && f.jugador) cuenta.set(f.jugador, (cuenta.get(f.jugador) ?? 0) + 1);
+    return [...cuenta.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], "es"))[0] ?? null;
+  })();
+  const anterioresOpta = partido
+    ? partidosVisibles.filter((p) => p.fecha < partido.fecha && p.faltas.some(esDeOpta)).length
+    : 0;
 
   /** Pinchar un lado en cualquier sitio: lo pone, o lo quita si ya estaba. */
   const alternaLado = (lado: LadoFalta) => {
@@ -527,7 +551,9 @@ export default function FaltasPage() {
     if (cortesSuyos) {
       frases.push(`${cortesSuyos} de las faltas a favor nos ${cortesSuyos === 1 ? "cortó" : "cortaron"} una transición con el campo abierto.`);
     }
-    if (!cortes.length) frases.push("Ninguna falta cortó una transición: todas con el bloque hecho.");
+    /* 17/11/2026 (ronda 20, fútbol): sólo se afirma si las faltas traen los
+       defensores por delante (el vídeo los cuenta; Opta no los da). */
+    if (!cortes.length && faltas.some((f) => f.entre !== null && f.entre !== undefined)) frases.push("Ninguna falta cortó una transición: todas con el bloque hecho.");
 
     return frases;
   }, [faltas, filtro, filtros, porLado, defensores, cortes]);
@@ -635,11 +661,12 @@ export default function FaltasPage() {
     const partes: string[] = [];
     if (enContra.length) {
       const atras = enContra.filter((f) => sitioEnCampo(f).zona === "nuestro campo").length;
-      partes.push(`De las ${enContra.length} que cometemos, ${atras} (${pc(atras, enContra.length)} %) en nuestro tercio`);
+      /* 17/11/2026 (ronda 20, análisis): con menos de 15 faltas en esa zona, la cifra es tendencia. */
+      partes.push(`De las ${enContra.length} que cometemos, ${atras} (${pc(atras, enContra.length)} %${atras < 15 ? ", tendencia" : ""}) en nuestro tercio`);
     }
     if (aFavor.length) {
       const arriba = aFavor.filter((f) => sitioEnCampo(f).zona === "campo rival").length;
-      partes.push(`de las ${aFavor.length} que nos hacen, ${arriba} (${pc(arriba, aFavor.length)} %) en su tercio`);
+      partes.push(`de las ${aFavor.length} que nos hacen, ${arriba} (${pc(arriba, aFavor.length)} %${arriba < 15 ? ", tendencia" : ""}) en su tercio`);
     }
     const t = partes.join("; ");
     return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
@@ -653,7 +680,10 @@ export default function FaltasPage() {
   const bloqueCampo = (
     <div className="mt-5">
       {enVisual && tituloCampoFaltas ? (
-        <TituloConclusion pregunta="¿Dónde se cometen?" fuente={`Vídeo etiquetado · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}`}>
+        <TituloConclusion
+          pregunta="¿Dónde se cometen?"
+          fuente={`${partidoDeOpta ? "Opta" : "Vídeo etiquetado"} · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}${partido ? ` en la ${jornadaCorta(partido.jornada)}` : ""}`}
+        >
           {tituloCampoFaltas}
         </TituloConclusion>
       ) : null}
@@ -750,7 +780,15 @@ export default function FaltasPage() {
             />
 
             {/* 16/11/2026 (expertos, ronda 17): una línea, sin la franja «incompleta». */}
-            <SelloDeFechas fuente="Etiquetado propio" fechas={FECHAS_FALTAS} queEs="faltas etiquetadas" compacto />
+            {/* 17/11/2026 (ronda 20, los tres jueces): el sello cuenta también los
+                partidos del respaldo de Opta, con el mismo recuento que el selector. */}
+            <SelloDeFechas
+              fuente={algunoOpta ? "Etiquetado propio y Opta" : "Etiquetado propio"}
+              fechas={fechasVisibles}
+              queEs="faltas"
+              cuantos={partidosVisibles.length}
+              compacto
+            />
 
             {/* 17/11/2026: el partido elegido sale de Opta (aún sin etiquetar en Hudl). */}
             <SelloOpta className="mt-2" partidos={partido && partido.faltas.some(esDeOpta) ? [{ jornada: partido.jornada, rival: partido.rival }] : []} />
@@ -776,6 +814,11 @@ export default function FaltasPage() {
                   { href: enlaceConPartido("/laboratorio/transiciones", partido), texto: "Robos de este partido", icono: Crosshair },
                   { href: enlaceConPartido("/laboratorio/perdidas", partido), texto: "Pérdidas de este partido", icono: Swords },
                   { href: urlPostDelPartido(partido.fecha, partido.rival), texto: `Post del partido · ${jornadaCorta(partido.jornada)}`, icono: BarChart3 },
+                  /* 17/11/2026 (ronda 20, análisis y marketing): el que más faltas comete, a su ficha y su seguimiento. */
+                  masFaltas
+                    ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}`, texto: `${masFaltas[0]}, el que más comete (${masFaltas[1]} de ${porLado.defensivo})`, icono: Users }
+                    : { texto: "" },
+                  masFaltas ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
                   { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
                   /* 17/11/2026 (ronda 19): el balón parado del próximo rival (sus faltas a favor y en contra). */
                   proximoRivalFaltas ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `ABP del ${proximoRivalFaltas}`, icono: Shield } : { texto: "" },
@@ -801,12 +844,12 @@ export default function FaltasPage() {
                   >
                     {[...partidosEnOrden].reverse().map((p) => (
                       <option key={p.id} value={p.id}>
-                        {jornadaCorta(p.jornada)} · {p.rival}
+                        {jornadaCorta(p.jornada)} · {nombreEquipo(p.rival)}
                       </option>
                     ))}
                   </select>
                   <span className="shrink-0 text-[11px] text-white/50">
-                    de {partidosEnOrden.length} etiquetados
+                    de {partidosEnOrden.length} partidos
                   </span>
                 </label>
               ) : null}
@@ -842,7 +885,7 @@ export default function FaltasPage() {
               </div>
 
               <span className="rounded-full border border-white/10 bg-white/[0.03] px-3 py-1.5 text-[11px] text-white/50">
-                {faltas.length} {faltas.length === 1 ? "falta" : "faltas"}
+                {faltas.length} {faltas.length === 1 ? "falta" : "faltas"} en {partido ? `la ${jornadaCorta(partido.jornada)}` : "el partido"}
               </span>
             </div>
 
@@ -1027,7 +1070,21 @@ export default function FaltasPage() {
                 <BarrasFrenteAMedia
                   metricas={comparativa.metricas.filter((m) => !escasa(m)).map((m) => (m.formato ? m : { ...m, formato: numeroCorto }))}
                   anteriores={comparativa.anteriores}
-                  titulo="Este partido frente a los anteriores"
+                  titulo={`${partido ? jornadaCorta(partido.jornada) : "Este partido"}${partidoDeOpta ? " (Opta)" : ""} frente a los anteriores`}
+                  tendencia={partidoDeOpta}
+                  /* 17/11/2026 (ronda 20, marketing): los casos escasos, dentro del gráfico al que afectan; y de qué fuente es cada partido. */
+                  pie={[
+                    anterioresOpta ? `De los ${comparativa.anteriores} anteriores, ${comparativa.anteriores - anterioresOpta} del vídeo etiquetado y ${anterioresOpta} de Opta.` : "",
+                    partidoDeOpta ? "Este partido sale de Opta: fuentes distintas, se lee como tendencia." : "",
+                    comparativa.metricas.some(escasa)
+                      ? `Fuera del gráfico, con 2 casos o menos (sólo tendencia): ${comparativa.metricas
+                          .filter(escasa)
+                          .map((m) => `${m.nombre.toLowerCase()}, ${m.actual ?? 0}${m.media !== null ? ` (media ${decimal(m.media)})` : ""}`)
+                          .join("; ")}.`
+                      : "",
+                  ]
+                    .filter(Boolean)
+                    .join(" ")}
                 />
               ) : (
               <ComparativaPartido
@@ -1058,7 +1115,7 @@ export default function FaltasPage() {
               )}
               {/* 16/11/2026 (expertos, ronda 17): «Casos escasos: …» plegado no
                   decía nada; ahora es una frase con las cifras y lo que valen. */}
-              {comparativa.metricas.some(escasa) ? (
+              {!enVisual && comparativa.metricas.some(escasa) ? (
                 <p className="mt-2 text-[12px] leading-relaxed text-white/65">
                   Con 2 casos o menos, sólo tendencia y sin veredicto:{" "}
                   {comparativa.metricas

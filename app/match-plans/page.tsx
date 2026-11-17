@@ -630,35 +630,30 @@ export default function Page() {
               {metrics.played > 0 ? (
                 /* 10/11/2026: el titular dice lo que no está en las tarjetas (el
                    reparto) y la racha va aparte, rotulada como tendencia reciente. */
+                /*
+                | 17/11/2026 (ronda 20): el titular de la página son los puntos
+                | con la racha (marketing), y el reparto va debajo en pequeño. El
+                | bloque «Tendencia reciente» y su línea de marcadores se quitan:
+                | repetían lo mismo que la curva, cuyos puntos llevan a cada
+                | tarjeta (fútbol).
+                */
                 <>
-                  <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
-                    {/* 16/11/2026 (marketing): el titular lleva a la tira partido a partido, con su fuente. */}
-                    <a href="#partido-a-partido" className="underline decoration-[#C8A96B]/50 underline-offset-4 hover:decoration-[#C8A96B]">
-                      {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
-                    </a>
-                    {matches.some((m) => !m.esLiga) ? " (sin la pretemporada)" : ""}.
-                    <span className="ml-2 text-[12px] font-normal text-white/55">Resultados: calendario de BeSoccer.</span>
+                  <p className="mt-3 text-lg font-semibold text-white sm:text-xl">
+                    {(() => {
+                      const pts = metrics.todos.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
+                      const ult = metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
+                      return `${pts} de ${metrics.played * 3} puntos${metrics.lastFive.length >= 3 ? `, ${ult} de ${metrics.lastFive.length * 3} en los últimos ${metrics.lastFive.length}` : ""}`;
+                    })()}
                   </p>
-                  {metrics.lastFive.length >= 3 ? (
-                    <p className="mt-2 inline-flex flex-wrap items-center gap-x-2 rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3 py-1 text-[13px] text-white/80">
-                      <span className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: "var(--rmcf-gold-ink)" }}>Tendencia reciente</span>
-                      {metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de {metrics.lastFive.length * 3} puntos en los últimos {metrics.lastFive.length}
-                    </p>
-                  ) : null}
-                  {/* 11/11/2026 (análisis): los cinco partidos de la racha, para comprobarla. */}
-                  {metrics.lastFive.length >= 3 ? (
-                    <p className="mt-1.5 text-[12px] leading-relaxed text-white/60">
-                      {[...metrics.lastFive]
-                        .reverse()
-                        /* 16/11/2026 (fútbol): el nuestro primero, como en Histórico; «Algeciras 2-0» se leía como victoria. */
-                        .map((m) => `${m.microciclo.match(/(\d+)/)?.[1] ? `J${m.microciclo.match(/(\d+)/)![1]} · ` : ""}${m.opponent} ${marcadorNuestro(m)} (${m.isHome ? "casa" : "fuera"})`)
-                        .join(" · ")}
-                    </p>
-                  ) : null}
+                  <p className="mt-1 text-[13px] text-white/65">
+                    {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
+                    {matches.some((m) => !m.esLiga) ? " (sin la pretemporada)" : ""} · resultados del calendario de BeSoccer.
+                  </p>
                 </>
               ) : null}
 
-              <p className="mt-2 max-w-2xl text-sm text-white/55">
+              {/* 17/11/2026 (ronda 20): en el móvil, fuera, para que la curva de puntos se vea sin bajar. */}
+              <p className="mt-2 max-w-2xl text-sm text-white/55 max-sm:hidden">
                 El vídeo de análisis de cada partido ya jugado, microciclo a microciclo.
               </p>
               {proximoRival ? (
@@ -942,15 +937,22 @@ function MetricsPanel({
           el titular; la tira ocupa la fila entera. */}
       {/* 16/11/2026 (ronda 18): Visual (los puntos y la tira) por defecto; «Detalle» añade los goles. */}
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
+        {/* 17/11/2026 (ronda 20): los puntos y la racha ya son el titular de la
+            página; aquí, la conclusión del gráfico: frente a un equipo medio. */}
         <TituloConclusion pregunta="¿Cómo va la temporada?" fuente={`Calendario de BeSoccer · ${metrics.played} de liga`}>
-          {totalPuntos} de {metrics.played * 3} puntos ({Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)
-          {metrics.lastFive.length >= 3
-            ? ` · ${metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de ${metrics.lastFive.length * 3} en los últimos ${metrics.lastFive.length}`
-            : ""}
+          {(() => {
+            const medio = ligaPuntosPP !== null ? ligaPuntosPP * metrics.played : null;
+            if (medio === null) return `${totalPuntos} de ${metrics.played * 3} puntos (${Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)`;
+            const d = Math.round((totalPuntos - medio) * 10) / 10;
+            const base = `${coma1(medio)}, media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? `, J1–J${ligaBase.jornadas}` : ""}`;
+            return Math.abs(d) < 0.5
+              ? `${totalPuntos} puntos, lo que suma un equipo medio de la liga (${base})`
+              : `${totalPuntos} puntos, ${coma1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio de la liga (${base})`;
+          })()}
         </TituloConclusion>
         <ConmutadorVista vista={vista} onCambia={setVista} />
       </div>
-      {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} ligaPuntosPP={ligaPuntosPP} equipos={ligaBase?.equipos ?? 0} /> : null}
+      {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} ligaPuntosPP={ligaPuntosPP} equipos={ligaBase?.equipos ?? 0} jornadas={ligaBase?.jornadas ?? 0} /> : null}
       {/* 17/11/2026 (ronda 19, fútbol y marketing): en Visual la tira repetía la curva y las tarjetas; queda en Detalle. */}
       {vista === "detalle" ? (
       <div className="grid grid-cols-1 gap-3">
@@ -1055,7 +1057,7 @@ function MetricsPanel({
  * 16/11/2026 (ronda 18): los puntos acumulados partido a partido, con cada
  * punto del color del resultado. Sin referencia inventada: sólo la nuestra.
  */
-function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos }: { puntos: number[]; partidos: Match[]; ligaPuntosPP: number | null; equipos: number }) {
+function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { puntos: number[]; partidos: Match[]; ligaPuntosPP: number | null; equipos: number; jornadas: number }) {
   const ancho = 640;
   const alto = 150;
   const m = { izq: 28, der: 12, arr: 10, abj: 22 };
@@ -1099,7 +1101,19 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos }: { puntos: numb
           );
         })}
       </svg>
-      <figcaption className="mt-1 text-[12px] text-white/60">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos. Toca uno para ir a su tarjeta.{liga ? ` La raya: lo que suma de media un equipo de la liga${equipos ? ` (los ${equipos})` : ""}, ${liga[liga.length - 1].toFixed(1).replace(".", ",")} en ${puntos.length} partidos.` : ""}</figcaption>
+      {/* 17/11/2026 (ronda 20, análisis y marketing): la leyenda de las dos líneas, con su base, pegada al gráfico. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-1 text-[12px] text-white/75">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-[3px] w-5 rounded" style={{ background: "#C8A96B" }} aria-hidden /> RM Castilla, {puntos[puntos.length - 1]}
+        </span>
+        {liga ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / .5)" }} aria-hidden />
+            Media de los {equipos || 20} equipos{jornadas ? ` (J1–J${jornadas})` : ""}, {liga[liga.length - 1].toFixed(1).replace(".", ",")}
+          </span>
+        ) : null}
+      </p>
+      <figcaption className="mt-1 text-[12px] text-white/60">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos. Toca uno para ir a su tarjeta.</figcaption>
     </figure>
   );
 }

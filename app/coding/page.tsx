@@ -4191,6 +4191,7 @@ function Coding() {
                   resultado={resultado}
                   detalle={detalle}
                   total={total}
+                  aparte={recuento.deJugador}
                   porEtiqueta={porEtiqueta}
                 />
               ) : (
@@ -4199,6 +4200,7 @@ function Coding() {
                   resultado=""
                   detalle={detalle}
                   total={total}
+                  aparte={recuento.deJugador}
                   porEtiqueta={porEtiqueta}
                 />
               );
@@ -5676,6 +5678,14 @@ function Coding() {
                   <ListaClips
                     clips={clipsDeLaLista}
                     miniaturaDe={miniaturaDe}
+                    /* 17/11/2026 (ronda 20, marketing): cada corte con jugador lleva a su ficha (la nuestra o la del rival). */
+                    fichaDe={(clip) =>
+                      !clip.jugadorNombre
+                        ? null
+                        : nombreRival
+                          ? `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}&jugador=${encodeURIComponent(clip.jugadorNombre)}`
+                          : `/individual?nombre=${encodeURIComponent(clip.jugadorNombre)}`
+                    }
                     videoDe={verTodosEnLista ? videoDeClip : undefined}
                     categorias={config.categorias}
                     seleccionado={seleccionado}
@@ -5991,6 +6001,10 @@ function Coding() {
                   }
                   bodyClassName="p-3 sm:p-3"
                 >
+                  {/* 17/11/2026 (ronda 20, marketing y análisis): en el móvil la plantilla entera
+                      (25 filas) empujaba la lista de cortes dos pantallas abajo; se queda en una
+                      caja con su propio desplazamiento. */}
+                  <div className="max-sm:max-h-72 max-sm:overflow-y-auto max-sm:overscroll-contain">
                   <PanelJugadores
                     jugadores={jugadores}
                     teclas={teclas}
@@ -6006,6 +6020,7 @@ function Coding() {
                       )
                     }
                   />
+                  </div>
                 </Panel>
 
                 {/*

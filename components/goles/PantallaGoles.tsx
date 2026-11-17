@@ -862,8 +862,9 @@ export function PantallaGoles() {
     */
     const otros = nubeLiga.filter((p) => p.equipo !== yoEnNube.equipo);
     const vecino = otros.reduce((a, b) => (Math.hypot(b.x - yoEnNube.x, b.y - yoEnNube.y) < Math.hypot(a.x - yoEnNube.x, a.y - yoEnNube.y) ? b : a), otros[0]);
-    const cuadrante = mejorX && mejorY ? "en la esquina buena (marca más y encaja menos que la media)" : peorX && peorY ? "en la esquina mala (marca menos y encaja más que la media)" : `${marca} y ${encaja}`;
-    return `${corto}, ${cuadrante}; el más parecido en las dos cifras, ${nombreEquipo(vecino.equipo)} (${fmt(vecino.x)} y ${fmt(vecino.y)} por partido)`;
+    /* 17/11/2026 (ronda 20, análisis): sin la coma entre sujeto y verbo («El Castilla, marca…»). */
+    const cuadrante = mejorX && mejorY ? "está en la esquina buena (marca más y encaja menos que la media)" : peorX && peorY ? "está en la esquina mala (marca menos y encaja más que la media)" : `${marca} y ${encaja}`;
+    return `${corto} ${cuadrante}; el más parecido en las dos cifras, ${nombreEquipo(vecino.equipo)} (${fmt(vecino.x)} y ${fmt(vecino.y)} por partido)`;
   })();
   /* «el tramo 76-90'» o «los tramos 0-15' y 76-90'»; con tres o más empatados no hay tramo que nombrar. */
   const enTramo = (t: { tramos: string[]; goles: number } | null) =>
@@ -881,6 +882,10 @@ export function PantallaGoles() {
         { href: "/data-analisis?area=post", texto: "Post del último partido", icono: Goal },
         { href: "/setpieces", texto: "Nuestro ABP ofensivo", icono: Trophy },
         { href: "/collective_history", texto: "Histórico de la temporada", icono: ListOrdered },
+        /* 17/11/2026 (ronda 20): y el próximo rival, a un toque: sus goles y cómo le marcan. */
+        proximoRival ? { href: urlGolesDelEquipo(proximoRival), texto: `Cómo marca el ${nombreEquipo(proximoRival)}`, icono: Goal } : { texto: "" },
+        proximoRival ? { href: urlGolesDelEquipo(proximoRival, "contra"), texto: "Cómo le marcan", icono: Goal } : { texto: "" },
+        proximoRival ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRival)}`, texto: "Su ABP", icono: Trophy } : { texto: "" },
       ]
     : [
         /* 17/11/2026 (ronda 19, los tres jueces): con el rival elegido, sus goles y cómo le marcan
@@ -894,7 +899,6 @@ export function PantallaGoles() {
       ];
   const visualGoles = () => delEquipo.length ? (
     <div className="space-y-4">
-      {fraseAbre ? <p className="text-[15px] font-semibold leading-snug text-white">{fraseAbre}</p> : null}
       <EnlacesRapidos enlaces={enlacesEquipo} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {tituloFranjas ? (
@@ -919,10 +923,19 @@ export function PantallaGoles() {
           </Lamina>
         ) : null}
       </div>
+      {/* 17/11/2026 (ronda 20, marketing): el gráfico primero y el resumen debajo, con la base de la liga. */}
+      {fraseAbre ? (
+        <p className="text-[15px] font-semibold leading-snug text-white">
+          {fraseAbre}
+          {nubeLiga.length >= 4 ? <span className="font-normal text-white/65"> «La liga»: media por partido de los {nubeLiga.length} equipos, J{jDesde}–J{jHasta}.</span> : null}
+        </p>
+      ) : null}
       {esNuestro && conTipo.length ? (
         <Lamina>
           <TituloConclusion pregunta="¿Cómo llegan los goles?" fuente="Hudl, nuestros partidos (con la corrección a mano)">
             {deTipologia[0] ?? "Nuestros goles y los que encajamos, por cómo llegan"}
+            {/* 17/11/2026 (ronda 20, análisis): la base de la dona en el titular, y que es tendencia. */}
+            {` · ${conTipo.length} de ${gf + gc} goles con su tipo${delEquipo.length < 20 ? `, tendencia (${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"})` : ""}`}
           </TituloConclusion>
           <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc, partidos: delEquipo.length }} />
         </Lamina>
