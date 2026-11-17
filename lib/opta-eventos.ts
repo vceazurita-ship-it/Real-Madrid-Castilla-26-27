@@ -206,13 +206,25 @@ export const SITUACION: Record<string, string> = {
   "Open play": "Juego",
   "Fastbreak/Counter": "Contragolpe",
   Corner: "Córner",
-  "Free Kick Set Piece": "Falta (jugada)",
+  /* «Falta (jugada)» se leía como jugada y era balón parado (17/11/2026, jueces de fútbol). */
+  "Free Kick Set Piece": "Falta",
   "Direct Free Kick": "Falta directa",
   "Throw-in": "Saque de banda",
   Penalty: "Penalti",
 };
 
 export const PRESION: Record<string, string> = { High: "Alta", Moderate: "Media", Low: "Baja" };
+
+/**
+ * El minuto como se dice en el campo (17/11/2026, jueces de fútbol): el 100′
+ * de la segunda parte es «90+10′», y el 47′ de la primera, «45+2′».
+ */
+export function minutoTexto(minuto: number, parte = 2) {
+  if (parte === 1 && minuto > 45) return `45+${minuto - 45}′`;
+  if (parte === 2 && minuto > 90) return `90+${minuto - 90}′`;
+
+  return `${minuto}′`;
+}
 
 /** Minuto de partido (1-90+), del reloj de Opta en segundos. */
 export const minutoDe = (segundo: number) => Math.floor(segundo / 60) + 1;

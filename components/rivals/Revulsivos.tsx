@@ -88,7 +88,7 @@ function Bloque({ equipo }: { equipo: string }) {
               <tr key={j.playerId} className={`border-b border-white/5 ${j.destacado ? "bg-[#C8A96B]/10" : ""}`}>
                 <td className="max-w-[12rem] truncate py-1.5 pr-2 font-semibold text-white">
                   {j.destacado && (
-                    <span className="mr-1.5 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[10px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
+                    <span className="mr-1.5 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[11px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
                       revulsivo
                     </span>
                   )}
@@ -102,7 +102,7 @@ function Bloque({ equipo }: { equipo: string }) {
                 <td className={`px-2 py-1.5 text-right ${j.destacado ? "font-bold text-white" : "text-white/75"}`}>
                   {j.ga90Sup != null ? coma(j.ga90Sup) : ""}
                   {j.ga90Sup != null && j.minSup < 90 && (
-                    <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[10px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
+                    <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
                       tendencia
                     </span>
                   )}
@@ -129,7 +129,7 @@ function Bloque({ equipo }: { equipo: string }) {
         </button>
       )}
 
-      <p className="mt-3 text-[11px] leading-5 text-white/45">
+      <p className="mt-3 text-[12px] leading-5 text-white/55">
         Sólo lo hecho con este equipo. «Revulsivo»: 90′ o más entrando, 0,3 G+A/90 o más y al menos 1,5 veces lo que da de titular. Los /90 salen con 45′ (suplente) o 90′ (titular). El minuto de entrada es aproximado (90 − minutos jugados) y la banda sale de sus remates tras entrar, con dos o más.
       </p>
     </section>

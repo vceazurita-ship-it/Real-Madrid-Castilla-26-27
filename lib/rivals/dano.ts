@@ -87,7 +87,7 @@ export function fraseDeDano(
   puesto = "",
   /** «PIE DOMINANTE» de la plantilla: «ZURDO», «Diestro», «IZDO»… */
   pie = "",
-): { frases: string[]; accion: string; respaldo: string | null } | null {
+): { frases: string[]; conDato: string[]; accion: string; respaldo: string | null } | null {
   const frases: string[] = [];
   /*
   | Qué rasgo de Wyscout sostiene cada regla (16/11/2026, jueces de fútbol): una
@@ -135,7 +135,17 @@ export function fraseDeDano(
 
   if (elegida) accion = elegida.frase === UNA_PIERNA && pierna ? accionDePierna(pierna, esCentral, esBanda) : adaptaAccion(elegida, esCentral, esLateral);
 
-  return accion ? { frases: frases.slice(0, 3), accion, respaldo: elegida ? respaldos.get(elegida.frase) ?? null : null } : null;
+  /*
+  | Las frases que tienen cifra detrás (17/11/2026, jueces de fútbol): «pierde
+  | duelos» salía sólo de la etiqueta, sin número. En pantalla van éstas; la
+  | pierna escrita en la plantilla cuenta como dato.
+  */
+  const fraseConDato = (f: string) =>
+    f.startsWith("sólo juega con la pierna") ? Boolean(pierna) : respaldos.has(f);
+
+  return accion
+    ? { frases: frases.slice(0, 3), conDato: frases.filter(fraseConDato).slice(0, 3), accion, respaldo: elegida ? respaldos.get(elegida.frase) ?? null : null }
+    : null;
 }
 
 /*
@@ -158,7 +168,13 @@ export function ordenDelDuelo(
   nombre: string,
   grupos: { buscar: DueloParaOrden[]; doble: DueloParaOrden[]; vigilar: DueloParaOrden[] } | null | undefined,
   mismo: (a: string, b: string) => boolean,
-): { accion: string; cifra: string; enContra: boolean } | null {
+): {
+  accion: string;
+  cifra: string;
+  enContra: boolean;
+  /** Las piezas por separado (17/11/2026): el chip, la tarea, el objetivo y la base, para plegarlas tras «Ver el duelo». */
+  duelo: { titulo: string; conBalon: number | null; sinBalon: number | null; tarea: string; objetivo: string; base: string };
+} | null {
   if (!grupos || !nombre) return null;
 
   /* Primero donde perdemos: es la orden que no se puede contradecir. */
@@ -173,11 +189,14 @@ export function ordenDelDuelo(
     duelo.conBalon != null ? `con nuestro balón ${signo(duelo.conBalon)}` : "",
     duelo.sinBalon != null ? `con el suyo ${signo(duelo.sinBalon)}` : "",
   ].filter(Boolean);
-  const enContra = (duelo.sinBalon ?? 0) <= -10 || (duelo.conBalon ?? 0) <= -10;
+  /* La orden es defensiva cuando el duelo se pierde con su balón: es el sentido que elige `sentidoDeLaConsigna`. */
+  const enContra = (duelo.sinBalon ?? 0) <= -10;
+  const pieza = (rotulo: string) => resto.find((r) => r.startsWith(rotulo))?.slice(rotulo.length).trim().replace(/\.\s*$/, "") ?? "";
 
   return {
     accion: orden.replace(/\.\s*$/, ""),
     cifra: `Duelo «${duelo.titulo}» (${cifras.join(" · ")}), el mismo de Duelos y del Plan de partido.${resto.length ? ` ${resto.join(" ")}` : ""}${duelo.base ? ` ${duelo.base}.` : ""}`,
     enContra,
+    duelo: { titulo: duelo.titulo, conBalon: duelo.conBalon, sinBalon: duelo.sinBalon, tarea: pieza("Tarea:"), objetivo: pieza("Objetivo:"), base: duelo.base },
   };
 }
