@@ -3572,7 +3572,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Sólo para el analista", es: "Con la sesión de administrador: las vistas en YouTube de cada corte y, en «Por jugador», qué titulares del once probable no tienen clip y de qué líneas no hay cortes" },
           { que: "Titular en X de Y", es: "Titularidades y partidos de la temporada, con los minutos de BeSoccer; con menos de 10 partidos, «(muestra corta)»" },
           { que: "Etiquetas en lenguaje de caseta", es: "Cada etiqueta de la ficha se dice como comportamiento («El duro» → va fuerte al duelo) y, si BeSoccer tiene la cifra, con su base («se carga de amarillas: 4 en 12 partidos»)" },
-          { que: "Cifras de su puesto", es: "En cada corte, su rasgo más fuerte (▲) y el más flojo (▼) de Wyscout contra los de su puesto en la categoría: valor, percentil, contra cuántos y sus minutos. La misma cuenta que la ficha de /rivals; con menos de 270′ no sale", cuenta: "P85 = mejor que el 85 % de los de su puesto. En las de «menos es mejor» (faltas cometidas, pérdidas) se dice con palabras: «comete más que 7 de cada 10 laterales (aquí menos es mejor)»" },
+          { que: "Cifras de su puesto", es: "En cada corte, su rasgo más fuerte (▲) y el más flojo (▼) de Wyscout contra los de su puesto en la categoría: valor, percentil, contra cuántos y sus minutos, a 12 px y con una barrita de su percentil y la raya de la mediana (17/11/2026). Fuera del ▲/▼ los penaltis y los porcentajes de menos de 15 intentos; los demás porcentajes llevan sus intentos («50 % (10 de 20)»). Al delantero, si la tiene, una de remate o xG. Quien no tiene nada por debajo de p30 lleva como ▼ su cifra más baja bajo la mediana, si pasa de 450′. «Porterías a cero» va como total («5 en 12 partidos»), no por 90′. La misma cuenta que la ficha de /rivals; con menos de 270′ no sale", cuenta: "P85 = mejor que el 85 % de los de su puesto. En las de «menos es mejor» (faltas cometidas, pérdidas) se dice con palabras: «comete más que 7 de cada 10 laterales (aquí menos es mejor)»" },
           { que: "Lista del canal", es: "Al abrirla, la de este rival arriba; las de otros rivales, en «Otras jornadas»" },
           { que: "Su ficha · Su duelo · Su ABP", es: "En cada corte, enlaces a su ficha de Plantillas rivales y a Duelos de ese rival; si su ficha le marca de balón parado (rematador, lanzador, córner…), también a ABP del rival. «Explotable» va con la frase entera" },
           { que: "Fuera del once probable", es: "Con once marcado, los demás van por línea rotulados «Fuera del once probable · defensas»…; con menos de 10 cortes en la lista, «muestra corta»" },
@@ -3598,7 +3598,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */

@@ -111,6 +111,12 @@ export type PerfilWyscout = {
   muestraCorta: boolean;
   fuertes: RasgoWyscout[];
   flojos: RasgoWyscout[];
+  /**
+   * Su cifra más baja aunque no llegue a «flojo» (p30), para que todo titular
+   * tenga su ▼ en Scout individual (17/11/2026, ronda 19, jueces de fútbol:
+   * Javi Moreno salía sin ninguno). Sin los porcentajes de menos de 15 intentos.
+   */
+  peor?: RasgoWyscout | null;
 };
 
 export type PerfilesDeEquipo = {
@@ -193,7 +199,7 @@ export function perfilesDeEquipo(
     };
 
     if (fila.minutos < MINUTOS_PARA_LEER || iguales.length < IGUALES_MINIMOS) {
-      return { ...base, muestraCorta: true, fuertes: [], flojos: [] };
+      return { ...base, muestraCorta: true, fuertes: [], flojos: [], peor: null };
     }
 
     /*
@@ -217,6 +223,10 @@ export function perfilesDeEquipo(
         .filter((f) => f.percentil <= PERCENTIL_FLOJO)
         .slice(0, 3)
         .map((f) => rasgo(f, minutos, fila)),
+      peor: (() => {
+        const lista = [...validas].sort((a, b) => a.percentil - b.percentil).map((f) => rasgo(f, minutos, fila));
+        return lista.find((r) => r.percentil < 50 && !(r.unidad === "porcentaje" && r.intentos != null && r.intentos < 15) && !/penalti/i.test(r.nombre)) ?? null;
+      })(),
     };
   });
 

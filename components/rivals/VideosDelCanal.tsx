@@ -1368,7 +1368,7 @@ export function VideosDelCanal({
                         </p>
                       ))}
                     {(j.cifras ?? []).map((c) => (
-                      <p key={c} className="mt-0.5 text-[11px] leading-snug tabular-nums text-white/65">{c}</p>
+                      <CifraConBarra key={c} c={c} />
                     ))}
                     <p className="mt-1 flex flex-wrap gap-x-4 text-[12px]">
                       <Link
@@ -1702,11 +1702,7 @@ function Rejilla({
 
             {/* Su cifra contra los de su puesto (Wyscout), con su base. */}
             {conJugador &&
-              cifras.map((c) => (
-                <p key={c} className="mb-0.5 text-[11px] leading-snug tabular-nums text-white/65">
-                  {c}
-                </p>
-              ))}
+              cifras.map((c) => <CifraConBarra key={c} c={c} />)}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
@@ -1842,5 +1838,28 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
         })}
       </div>
     </section>
+  );
+}
+
+/*
+| La cifra de su puesto con una barrita de percentil y la raya de la mediana
+| (17/11/2026, ronda 19, jueces de análisis y marketing): el verde o el naranja
+| se lee sin leer la frase. A 12 px (antes 11). Si la frase no trae «P73», sólo
+| el texto.
+*/
+function CifraConBarra({ c }: { c: string }) {
+  const p = Number(c.match(/P(\d{1,3})/)?.[1] ?? NaN);
+  const flojo = c.startsWith("▼");
+
+  return (
+    <div className="mb-1 min-w-0">
+      <p className="text-[12px] leading-snug tabular-nums text-white/70">{c}</p>
+      {Number.isFinite(p) && (
+        <span className="relative mt-0.5 block h-1.5 w-full max-w-[12rem] rounded-full bg-white/10" aria-hidden>
+          <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, Math.min(100, p))}%`, background: flojo ? PEOR : MEJOR }} />
+          <span className="absolute -top-0.5 bottom-[-2px] left-1/2 w-px bg-white/50" title="Mediana de su puesto" />
+        </span>
+      )}
+    </div>
   );
 }
