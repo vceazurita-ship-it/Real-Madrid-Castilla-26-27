@@ -26,7 +26,7 @@
  * a discutir.
  */
 
-import { Fragment, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CalendarDays,
@@ -65,6 +65,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAhora, useQuinielaDoc } from "@/hooks/useQuinielaDoc";
 import { useQuinielaSesion } from "@/hooks/useQuinielaSesion";
+import { nombreOficial } from "@/lib/equipos/nombres";
 import { cuandoCierra, estadoDe, estadoPara, instanteDeCierre } from "@/lib/quiniela/cierre";
 import {
   JORNADAS,
@@ -127,8 +128,53 @@ function mismosSignos(a: (Signo | null)[], b: (Signo | null)[], largo: number) {
   return true;
 }
 
+/*
+| 17/11/2026 (marketing): los escudos de BeSoccer —los mismos de /laboratorio/
+| escudos— junto a cada equipo de la jornada. Si no llegan, el nombre solo.
+*/
+const EscudosLiga = createContext<Map<string, string>>(new Map());
+
+function useEscudosLiga() {
+  const [mapa, setMapa] = useState<Map<string, string>>(() => new Map());
+
+  useEffect(() => {
+    let cancelado = false;
+
+    (async () => {
+      try {
+        const respuesta = await fetch("/api/data-analisis?escudos=1");
+
+        if (!respuesta.ok) return;
+
+        const datos = await respuesta.json();
+        const lista: { equipo?: string; escudo?: string }[] = Array.isArray(datos?.escudos) ? datos.escudos : [];
+
+        if (cancelado) return;
+
+        setMapa(
+          new Map(
+            lista
+              .filter((uno) => uno.equipo && uno.escudo)
+              .map((uno) => [nombreOficial(uno.equipo as string), (uno.escudo as string).startsWith("/") ? (uno.escudo as string) : `/api/rivals/foto?url=${encodeURIComponent(uno.escudo as string)}`] as const),
+          ),
+        );
+      } catch {
+        /* Sin escudos, los nombres solos. */
+      }
+    })();
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  return mapa;
+}
+
 export default function QuinielaPage() {
   const ahora = useAhora();
+
+  const escudosLiga = useEscudosLiga();
 
   const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
 
@@ -349,6 +395,24 @@ export default function QuinielaPage() {
     );
     return validos.length ? validos.reduce((t, f) => t + f.total.porcentaje, 0) / validos.length : null;
   }, [tabla, maxJugados]);
+
+  /*
+  | 17/11/2026 (marketing): la escala de la barra va del suelo al techo del
+  | grupo (en decenas) y no de 0 a 80 %: con 54, 53 y 50 % las barras eran
+  | iguales. El eje se dice en el subtítulo. Y el líder, para la diferencia.
+  */
+  const escala = useMemo(() => {
+    const pcts = tabla.filter((f) => f.total.jugados > 0).map((f) => f.total.porcentaje);
+
+    if (!pcts.length) return { suelo: 0, techo: 100 };
+
+    const suelo = Math.max(0, Math.floor((Math.min(...pcts) - 5) / 10) * 10);
+    const techo = Math.min(100, Math.max(suelo + 10, Math.ceil(Math.max(...pcts) / 10) * 10));
+
+    return { suelo, techo };
+  }, [tabla]);
+  const anchoBarra = (pct: number) => Math.max(2, Math.min(100, ((pct - escala.suelo) / (escala.techo - escala.suelo)) * 100));
+  const liderTabla = tabla.find((f) => f.total.jugados > 0 && !pocasApuestas(f)) ?? null;
 
   const ultimaCerrada = useMemo(() => {
     const k = Object.values(doc.jornadas)
@@ -651,9 +715,8 @@ export default function QuinielaPage() {
     <div className="text-[13px] leading-relaxed text-white/70">
       <p>
         <strong className="font-semibold text-white/85">Cómo se cuenta.</strong>{" "}
-        Acierto = partidos acertados / partidos ya jugados desde tu primera apuesta;
-        desde ahí, el que no pones cuenta como fallo. «=» es puesto compartido:
-        mismo porcentaje y mismos aciertos.
+        Acierto = acertados / jugados desde tu primera apuesta (el que no pones es fallo).
+        «=» es puesto compartido.
       </p>
       <details className="mt-1 text-white/60">
         <summary className="cursor-pointer select-none text-[#C8A96B]">
@@ -697,30 +760,35 @@ export default function QuinielaPage() {
                 /* La regla va una sola vez, al pie de la tabla (11/11/2026, marketing). */
                 subtitle={
                   mediaGrupo !== null
-                    ? `Media del grupo: ${mediaGrupo.toFixed(0)} % (la raya azul de cada barra) · ${
+                    ? `Media del grupo ${mediaGrupo.toFixed(0)} % (raya azul) · ${
                         tabla.filter((f) => f.total.jugados > 0 && !pocasApuestas(f) && f.total.porcentaje > mediaGrupo).length
-                      } por encima. Cómo se cuenta, al pie.`
-                    : "Ordenado por porcentaje de acierto. Cómo se cuenta, al pie."
+                      } por encima, en oro · la barra va de ${escala.suelo} a ${escala.techo} %. «Ganadas»: jornadas en que acertó más que nadie.`
+                    : "Ordenado por porcentaje de acierto. «Ganadas»: jornadas en que acertó más que nadie."
                 }
                 icon={Trophy}
               >
                 {(
-                  <div className="min-w-0 overflow-x-auto sm:pr-14">
+                  <div className="min-w-0 overflow-x-auto pr-8 sm:pr-14">
                     {/* 13-14 px (11/11/2026, marketing): a 12 px no se leía en escritorio. */}
                     <table className="w-full text-[13px] sm:min-w-[520px] sm:text-[14px]">
                       <thead>
                         <tr className="text-[12px] uppercase tracking-[0.12em] text-white/55">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
-                          <th className="w-24 pb-2 pt-1.5 text-right font-medium sm:w-40">Acierto</th>
+                          <th className="w-32 pb-2 pt-1.5 text-left font-medium sm:w-52">Acierto</th>
                           <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Aciertos</th>
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
                             <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
                           )}
                           {ultimaCerrada && (
-                            <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">J{ultimaCerrada.numero}</th>
+                            <th
+                              title={`Aciertos en la jornada ${ultimaCerrada.numero}`}
+                              className="hidden w-28 pb-2 pt-1.5 text-right font-medium sm:table-cell"
+                            >
+                              Jornada {ultimaCerrada.numero}
+                            </th>
                           )}
-                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Jornadas ganadas</th>
+                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Ganadas</th>
                         </tr>
                       </thead>
 
@@ -815,28 +883,37 @@ export default function QuinielaPage() {
                                 </span>
                               </td>
 
-                              <td
-                                className={`py-1.5 text-right tabular-nums ${
-                                  lider ? "font-semibold text-[#C8A96B]" : "text-white/75"
-                                }`}
-                              >
-                                <span className="flex items-center justify-end gap-2">
-                                  {mediaGrupo !== null && fila.total.jugados > 0 && (
-                                    <span aria-hidden className="relative hidden h-2 w-20 rounded-full bg-white/[0.08] sm:block">
-                                      <span
-                                        className={`absolute inset-y-0 left-0 rounded-full ${
-                                          lider ? "bg-[#C8A96B]" : fila.total.porcentaje >= mediaGrupo ? "bg-[#C8A96B]/70" : "bg-white/20"
-                                        }`}
-                                        style={{ width: `${Math.min(100, fila.total.porcentaje / 0.8)}%` }}
-                                      />
-                                      <span
-                                        className="absolute -inset-y-1 w-0.5 bg-sky-400"
-                                        style={{ left: `${Math.min(100, mediaGrupo / 0.8)}%` }}
-                                      />
+                              {/* 17/11/2026 (marketing): la barra es lo primero que se lee, con la
+                                  cifra encima, oro sobre la media y la distancia al líder. */}
+                              <td className="py-1.5 pl-2 tabular-nums">
+                                <span className="flex items-baseline justify-between gap-2 text-[13px]">
+                                  <span className={lider ? "font-semibold text-[#C8A96B]" : "font-semibold text-white/85"}>
+                                    {`${fila.total.porcentaje.toFixed(0)} %`}
+                                  </span>
+                                  {!pocasApuestas(fila) && liderTabla && fila.total.jugados > 0 ? (
+                                    <span className="text-[12px] text-white/60">
+                                      {lider
+                                        ? "líder"
+                                        : liderTabla.total.aciertos - fila.total.aciertos > 0
+                                          ? `−${liderTabla.total.aciertos - fila.total.aciertos} ${liderTabla.total.aciertos - fila.total.aciertos === 1 ? "acierto" : "aciertos"}`
+                                          : "mismos aciertos"}
                                     </span>
-                                  )}
-                                  {`${fila.total.porcentaje.toFixed(0)} %`}
+                                  ) : null}
                                 </span>
+                                {mediaGrupo !== null && fila.total.jugados > 0 && (
+                                  <span aria-hidden className="relative mt-1 block h-2.5 w-full rounded-full bg-white/[0.08]">
+                                    <span
+                                      className={`absolute inset-y-0 left-0 rounded-full ${
+                                        pocasApuestas(fila) ? "bg-white/20" : fila.total.porcentaje > mediaGrupo ? "bg-[#C8A96B]" : "bg-slate-400/60"
+                                      }`}
+                                      style={{ width: `${anchoBarra(fila.total.porcentaje)}%` }}
+                                    />
+                                    <span
+                                      className="absolute -inset-y-1 w-0.5 bg-sky-500"
+                                      style={{ left: `${anchoBarra(mediaGrupo)}%` }}
+                                    />
+                                  </span>
+                                )}
                               </td>
 
                               <td className="hidden py-1.5 text-right tabular-nums text-white/55 sm:table-cell">
@@ -1033,6 +1110,7 @@ export default function QuinielaPage() {
   );
 
   return (
+    <EscudosLiga.Provider value={escudosLiga}>
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
         <Sidebar />
@@ -1258,8 +1336,10 @@ export default function QuinielaPage() {
                   </div>
                 )}
 
-                {/* El plazo, siempre a la vista: es lo que más se pregunta. */}
-                {plazo.viernes && (
+                {/* El plazo, cuando hay algo que añadir a la franja de estado: cerrada,
+                    reabierta o últimas horas. El «se puede apostar hasta…» de siempre
+                    ya lo dice la franja (17/11/2026, marketing). */}
+                {plazo.viernes && (plazo.cerrada || plazo.prorrogaHasta || plazo.ultimasHoras) && (
                   <div
                     className={`mb-3 flex items-start gap-2 rounded-xl border px-3 py-2 text-[13px] leading-snug ${
                       plazo.cerrada
@@ -1618,104 +1698,94 @@ export default function QuinielaPage() {
             {/* ---------------------- LA COMIDA ----------------------- */}
 
             <div className="mt-5">
+              {/*
+              | 17/11/2026 (marketing y guionista): el premio en el título, una
+              | frase titular con quién come gratis y un gráfico de barras
+              | ordenado en lugar de once tarjetas planas.
+              */}
+              {(() => {
+                const base = tablaBloque.some((fila) => fila.jugados > 0) ? Math.max(...tablaBloque.map((fila) => fila.jugados)) : 0;
+                const invitados = tablaBloque.filter((fila) => fila.invitado);
+                const corto = (slug: string) => {
+                  const persona = PERSONA_POR_SLUG.get(slug);
+
+                  return persona ? nombreCorto(persona) : slug;
+                };
+                const lider = tabla.find((fila) => fila.total.jugados > 0 && !pocasApuestas(fila));
+                const puestoLider = lider ? tablaBloque.findIndex((fila) => fila.slug === lider.slug) : -1;
+                const maxPct = Math.max(1, ...tablaBloque.map((fila) => fila.porcentaje));
+
+                return (
               <Panel
-                title={`La comida · jornadas ${bloque.desde} a ${bloque.hasta}${
-                  tablaBloque.some((fila) => fila.jugados > 0) ? ` · ${Math.max(...tablaBloque.map((fila) => fila.jugados))} partidos` : ""
-                }`}
-                subtitle={
-                  cerrado
-                    ? "Bloque cerrado: éstos son los dos que no pagan"
-                    : tablaBloque.every((fila) => fila.jugados === 0)
-                      ? undefined
-                      : "Los dos primeros comen invitados por el resto"
-                }
+                title="La comida · los dos primeros comen invitados"
+                subtitle={`Jornadas ${bloque.desde} a ${bloque.hasta}${base ? ` · sobre ${base} ${base === 1 ? "partido jugado" : "partidos jugados"}` : ""}${cerrado ? " · bloque cerrado" : ""}`}
                 icon={UtensilsCrossed}
               >
-                {/*
-                | LA BASE, EN UNA LÍNEA A LA VISTA (11/11/2026, marketing): contra
-                | qué se mide cada porcentaje y por qué no es el del ranking, sin
-                | repetir la regla del acierto (va al pie del ranking).
-                */}
-                {tablaBloque.some((fila) => fila.jugados > 0) ? (
-                  <p className="mb-3 text-[13px] leading-relaxed text-white/75">
-                    {(() => {
-                      const base = Math.max(...tablaBloque.map((fila) => fila.jugados));
-
-                      return `Cada porcentaje es sobre los ${base} ${base === 1 ? "partido jugado" : "partidos jugados"} de las jornadas ${bloque.desde} a ${bloque.hasta}, no sobre toda la temporada: por eso no coincide con el ranking.`;
-                    })()}
+                {base > 0 && invitados.length > 0 ? (
+                  <p className="mb-3 text-[15px] font-semibold leading-snug text-white">
+                    {invitados.map((fila) => corto(fila.slug)).join(" y ")}{" "}
+                    {cerrado ? (invitados.length === 1 ? "come gratis" : "comen gratis") : invitados.length === 1 ? "come gratis por ahora" : "comen gratis por ahora"}
+                    {`: ${invitados[invitados.length - 1].aciertos} de ${base} · ${invitados[invitados.length - 1].porcentaje.toFixed(0)} %`}
                   </p>
                 ) : null}
+
                 {/* Sin ningún partido jugado del bloque, el orden no significa nada
-                    (07/11/2026, guionista y marketing): una sola frase, sin
-                    subtítulo que la repita (08/11/2026). */}
-                {!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? (
+                    (07/11/2026, guionista y marketing). */}
+                {!cerrado && base === 0 ? (
                   <p className="text-[13px] leading-relaxed text-white/75">
                     Arranca el bloque {bloque.desde}-{bloque.hasta}: los dos primeros comen invitados por el resto.
                   </p>
                 ) : null}
 
-                {/* 11/11/2026 (marketing): todos a la vista y en rejilla a todo el ancho, con la base
-                    en palabras («5 aciertos de 9»); antes los otros nueve iban plegados. */}
-                {!cerrado && tablaBloque.every((fila) => fila.jugados === 0) ? null : (
-                <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                  {tablaBloque.map((fila, indice) => {
-                    const persona = PERSONA_POR_SLUG.get(fila.slug);
+                {!cerrado && base === 0 ? null : (
+                  <ol className="space-y-1.5">
+                    {tablaBloque.map((fila, indice) => {
+                      const persona = PERSONA_POR_SLUG.get(fila.slug);
 
-                    if (!persona) return null;
+                      if (!persona) return null;
 
-                    return (
-                      <div
-                        key={fila.slug}
-                        className={`flex items-center gap-2.5 rounded-xl border px-2.5 py-2 ${
-                          fila.invitado
-                            ? "border-[#C8A96B]/50 bg-[#C8A96B]/[0.10]"
-                            : "border-white/10 bg-white/[0.02]"
-                        }`}
-                      >
-                        <span className="w-5 text-right text-[12px] font-semibold tabular-nums text-white/55">
-                          {indice + 1}
-                        </span>
+                      const corte = fila.invitado && !tablaBloque[indice + 1]?.invitado;
 
-                        <Avatar slug={fila.slug} lado={26} />
-
-                        <span className="min-w-0 flex-1">
-                          <span
-                            className={`block truncate text-[13px] ${
-                              fila.invitado
-                                ? "font-semibold text-[#C8A96B]"
-                                : "text-white/80"
-                            }`}
-                          >
+                      return (
+                        <li
+                          key={fila.slug}
+                          className={`grid grid-cols-[1.25rem_1.5rem_minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2 pb-1.5 ${
+                            corte ? "border-b border-dashed border-[#C8A96B]/50" : ""
+                          }`}
+                        >
+                          <span className="text-right text-[12px] font-semibold tabular-nums text-white/55">{indice + 1}</span>
+                          <Avatar slug={fila.slug} lado={22} />
+                          <span className={`truncate text-[13px] ${fila.invitado ? "font-semibold text-[#C8A96B]" : "text-white/85"}`}>
                             {nombreCorto(persona)}
                           </span>
-
-                          {fila.jugados > 0 ? (
-                            <span className="block text-[13px] tabular-nums text-white/65">
-                              {`${fila.aciertos}/${fila.jugados} · ${fila.porcentaje.toFixed(0)} %`}
-                            </span>
-                          ) : null}
-                        </span>
-
-                        {fila.invitado && (
-                          <UtensilsCrossed
-                            size={13}
-                            className="shrink-0 text-[#C8A96B]"
-                            aria-label="No paga"
-                          />
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
+                          <span aria-hidden className="h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+                            <span
+                              className={`block h-full rounded-full ${fila.invitado ? "bg-[#C8A96B]" : "bg-white/25"}`}
+                              style={{ width: `${(fila.porcentaje / maxPct) * 100}%` }}
+                            />
+                          </span>
+                          <span className="whitespace-nowrap text-right text-[13px] tabular-nums text-white/75">
+                            {fila.jugados > 0 ? `${fila.aciertos}/${fila.jugados} · ${fila.porcentaje.toFixed(0)} %` : ""}
+                            {fila.invitado ? <UtensilsCrossed size={12} className="ml-1 inline text-[#C8A96B]" aria-label="No paga" /> : null}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ol>
                 )}
 
-                {cerrado ? (
-                  <p className="mt-3 text-[11px] leading-relaxed text-white/50">
-                    Las diez jornadas están jugadas, así que esto ya no cambia.
+                {base > 0 ? (
+                  <p className="mt-3 text-[13px] leading-relaxed text-white/70">
+                    Cuenta sólo este bloque, no la temporada
+                    {lider && puestoLider > 1
+                      ? `: por eso ${corto(lider.slug)}, primero del ranking, va ${puestoLider + 1}.º aquí.`
+                      : "."}
+                    {cerrado ? " Las diez jornadas están jugadas, así que ya no cambia." : ""}
                   </p>
                 ) : null}
-
               </Panel>
+                );
+              })()}
             </div>
 
             {/* Sin ranking todavía, las reglas salen sueltas; con ranking van a su pie (11/11/2026). */}
@@ -1755,6 +1825,7 @@ export default function QuinielaPage() {
         />
       )}
     </main>
+    </EscudosLiga.Provider>
   );
 }
 
@@ -2084,12 +2155,18 @@ function Tripleta({
 | 1-X-2.
 */
 function Equipo({ nombre }: { nombre: string }) {
+  const escudo = useContext(EscudosLiga).get(nombreOficial(nombre));
+
   return (
     <Link
       href={`/rivals?equipo=${encodeURIComponent(nombre)}`}
-      title={`Ficha de ${nombre}`}
-      className="underline decoration-white/20 underline-offset-2 hover:text-white hover:decoration-[#C8A96B]"
+      title={`Ficha de ${nombre}: forma, plantilla y goles en vídeo`}
+      className="inline-flex items-center gap-1.5 align-middle underline decoration-white/20 underline-offset-2 hover:text-white hover:decoration-[#C8A96B]"
     >
+      {escudo ? (
+        /* eslint-disable-next-line @next/next/no-img-element */
+        <img src={escudo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 object-contain" />
+      ) : null}
       {nombre}
     </Link>
   );

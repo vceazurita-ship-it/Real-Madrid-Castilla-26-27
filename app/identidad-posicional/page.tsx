@@ -120,7 +120,11 @@ const MINIMO_INTENTOS = 15;
 
 type JugadorCifra = CifraDelContenido["nuestros"][number];
 
-const esTendencia = (j: JugadorCifra) => j.intentos !== undefined && j.intentos < MINIMO_INTENTOS;
+/* 17/11/2026 (fútbol): también las cifras por 90′ con menos de 15 acciones
+   (Joan, ≈2 conducciones en 602′, ya no sale ▼ ni con tarea). */
+const esTendencia = (j: JugadorCifra) =>
+  (j.intentos !== undefined && j.intentos < MINIMO_INTENTOS) ||
+  (j.intentos === undefined && j.acciones !== undefined && j.acciones < MINIMO_INTENTOS);
 
 /** «11 de 29» en los %, «≈ 26 en 883′» en las cifras por 90′. */
 const baseDe = (j: JugadorCifra) =>
@@ -531,6 +535,13 @@ export default function IdentidadPosicionalPage() {
   }, [cifrasPuesto]);
 
   const puestoCampo = cifrasPuesto[0]?.cifra.puesto ?? null;
+
+  /* 17/11/2026 (fútbol y marketing): quién del puesto sale en alguna cifra; al
+     que no llega a los minutos se le dice en su chip, para que no parezca un hueco. */
+  const conCifra = useMemo(
+    () => new Set(cifrasPuesto.flatMap((x) => x.cifra.nuestros.map((j) => nombrePlantilla(j.nombre, quienes)))),
+    [cifrasPuesto, quienes],
+  );
 
   /*
   | 13/11/2026: «¿Quién lo ejecuta mejor?»: toda la plantilla de campo contra
@@ -1190,6 +1201,9 @@ export default function IdentidadPosicionalPage() {
                             className={cn("inline-flex items-center gap-1 px-3 py-1 transition-colors hover:bg-[#C8A96B]/10 hover:text-white", focusRing)}
                           >
                             {uno.corto}
+                            {cifrasPuesto.length > 0 && !conCifra.has(uno.corto) && (
+                              <span className="text-[12px] font-normal text-gray-400">· menos de {MINUTOS_CONTENIDO}′</span>
+                            )}
                             <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
                           </Link>
                           <Link
@@ -1218,22 +1232,39 @@ export default function IdentidadPosicionalPage() {
                           <p className="mt-1 break-words text-xl font-bold text-white lg:text-2xl">
                             {prioridad.item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}
                           </p>
-                          <p className="mt-1 break-words text-sm text-gray-300">
-                            {yLista(prioridad.debajo.map((j) => nombrePlantilla(j.nombre, quienes)))} por debajo de la mediana (
-                            {prioridad.debajo
-                              .map((j) => `${cifraTexto(j.valor, prioridad.cifra.porcentaje)}${baseDe(j) ? ` · ${baseDe(j)}` : ""}`)
-                              .join("; ")}
-                            ). Objetivo: {prioridad.cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
+                          {/* 17/11/2026 (guionista): partido en líneas que se leen en 3 segundos:
+                              la frase, una fila por jugador y el objetivo. */}
+                          <p className="mt-1 break-words text-sm text-gray-200">
+                            {prioridad.debajo.length === prioridad.firmes && prioridad.firmes > 1
+                              ? `Los ${prioridad.firmes} están por debajo de la mediana del puesto`
+                              : `${yLista(prioridad.debajo.map((j) => nombrePlantilla(j.nombre, quienes)))}, por debajo de la mediana del puesto`}
+                          </p>
+                          <ul className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                            {prioridad.debajo.map((j) => (
+                              <li key={j.nombre} className="tabular-nums text-gray-300">
+                                <Link
+                                  href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=mejora`}
+                                  className="font-semibold text-white hover:underline"
+                                >
+                                  {nombrePlantilla(j.nombre, quienes)}
+                                </Link>{" "}
+                                <span className="font-semibold text-amber-400">{cifraTexto(j.valor, prioridad.cifra.porcentaje)}</span>
+                                {baseDe(j) ? <span className="text-gray-400"> ({baseDe(j)})</span> : null}
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="mt-2 break-words text-sm text-gray-300">
+                            Objetivo: {prioridad.cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
                             <b className="text-white">{cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}</b>, la mediana de{" "}
-                            {prioridad.cifra.n} {(PLURAL_PUESTO[prioridad.cifra.puesto] ?? "jugadores").toLowerCase()} de la categoría con{" "}
+                            {prioridad.cifra.n} {(PLURAL_PUESTO[prioridad.cifra.puesto] ?? "jugadores").toLowerCase()} con{" "}
                             {MINUTOS_CONTENIDO}′ o más.
                           </p>
                         </div>
                       )}
                       <p className="break-words text-xs text-gray-400">
                         Cifras de liga (Wyscout) de los que llevan {MINUTOS_CONTENIDO}′ o más: ▲ mejor que la
-                        mediana del puesto en la categoría (raya azul) · ▼ peor · = la misma cifra · «tendencia»: un % de
-                        menos de {MINIMO_INTENTOS} intentos.{" "}
+                        mediana del puesto en la categoría (raya azul) · ▼ peor · = la misma cifra · «tendencia»: menos
+                        de {MINIMO_INTENTOS} acciones o intentos (punto hueco, sin tarea).{" "}
                         <Link
                           href={`/identidad-campo${puestoCampo ? `#puesto-${puestoCampo}` : ""}`}
                           className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
@@ -1510,7 +1541,9 @@ function FichaContenido({
   */
   const firmes = cifra ? cifra.nuestros.filter((j) => !esTendencia(j)) : [];
   const debajo = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) < 0) : [];
-  const encima = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) >= 0) : [];
+  /* 17/11/2026 (guionista): quien iguala la mediana va aparte, no «por encima». */
+  const encima = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) > 0) : [];
+  const iguales = cifra ? firmes.filter((j) => comparaConMediana(j.valor, cifra) === 0) : [];
   const nombre = (j: JugadorCifra) => nombrePlantilla(j.nombre, quienes);
   const escala = (() => {
     if (!cifra) return { lo: 0, hi: 1 };
@@ -1522,19 +1555,20 @@ function FichaContenido({
     return { lo: Math.max(0, lo - margen), hi: hi + margen };
   })();
   const pos = (v: number) => `${Math.min(100, Math.max(0, ((v - escala.lo) / (escala.hi - escala.lo)) * 100))}%`;
+  const tramos = [
+    debajo.length ? `${yLista(debajo.map(nombre))}, por debajo` : "",
+    encima.length ? `${yLista(encima.map(nombre))}, por encima` : "",
+    iguales.length ? `${yLista(iguales.map(nombre))}, en la mediana` : "",
+  ].filter(Boolean);
   const titular = !cifra
     ? ""
-    : debajo.length === 0
-      ? firmes.length > 1
-        ? `los ${firmes.length} del lado bueno de la mediana`
-        : firmes.length === 1
-          ? `${nombre(firmes[0])}, del lado bueno de la mediana`
-          : "sólo tendencia por ahora"
-      : encima.length === 0
-        ? firmes.length > 1
-          ? `los ${firmes.length} por debajo de la mediana`
-          : `${nombre(debajo[0])}, por debajo de la mediana`
-        : `${yLista(debajo.map(nombre))}, por debajo; ${yLista(encima.map(nombre))}, por encima`;
+    : firmes.length === 0
+      ? "sólo tendencia por ahora"
+      : debajo.length === firmes.length && firmes.length > 1
+        ? `los ${firmes.length} por debajo de la mediana`
+        : encima.length === firmes.length && firmes.length > 1
+          ? `los ${firmes.length} por encima de la mediana`
+          : tramos.join("; ");
 
   const medida = columna && (
     <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-3 text-[14px] leading-relaxed text-gray-300">
@@ -1613,6 +1647,25 @@ function FichaContenido({
               {item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}»; contar{" "}
               {QUE_CONTAR[cifra.columna] ?? nombreColumna(cifra.columna).toLowerCase()}; objetivo de partido{" "}
               {cifra.mejorAlto ? "llegar a" : "bajar de"} {cifraTexto(cifra.mediana, cifra.porcentaje)}.
+              {/* 17/11/2026 (fútbol y marketing): de la tarea a la ficha de cada uno, a un toque. */}
+              <span className="mt-2 flex flex-wrap gap-2">
+                {debajo.map((j) => (
+                  <span key={j.nombre} className="inline-flex items-center overflow-hidden rounded-full border border-amber-500/40 text-[13px] font-semibold">
+                    <Link
+                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=mejora`}
+                      className="px-2.5 py-0.5 text-gray-100 hover:bg-amber-500/10 hover:text-white"
+                    >
+                      Área de mejora de {nombre(j)} →
+                    </Link>
+                    <Link
+                      href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=seguimiento`}
+                      className="border-l border-amber-500/30 px-2.5 py-0.5 text-gray-300 hover:bg-amber-500/10 hover:text-white"
+                    >
+                      Seguimiento
+                    </Link>
+                  </span>
+                ))}
+              </span>
             </p>
           )}
         </figure>

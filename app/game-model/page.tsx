@@ -49,6 +49,8 @@ import {
 import { formatea } from "@/lib/data-analisis/metricas";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
+import { urlPostDelPartido } from "@/lib/post-partido";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 type Principio = {
   ID: number;
@@ -368,8 +370,20 @@ export default function GameModelPage() {
   | texto en la hoja, ni medida) no pesan lo mismo que los que sí: van al pie,
   | en una rejilla compacta «Otros principios del bloque».
   */
+  /* 17/11/2026 (fútbol y marketing): un innegociable sin texto y sin cifra
+     (Amenazar la profundidad) también va a la rejilla compacta, con su
+     candado: una tarjeta vacía junto a dos con gráfico parecía un hueco. */
+  const cifrasModelo = useCifras();
+  const tieneCifra = (p: Principio) => {
+    const m = medidaDe(p);
+
+    if (!m) return false;
+    if (typeof cifrasModelo === "string") return true;
+
+    return (cifrasModelo.get(m.ancla)?.length ?? 0) > 0;
+  };
   const soloTitulo = (p: Principio) =>
-    !editing && !filtrando && !esClave(p.PRINCIPIO) && !tieneDetalle(p) && !medidaDe(p);
+    !editing && !filtrando && !tieneDetalle(p) && !tieneCifra(p);
   const principales = principios.filter((p) => !soloTitulo(p));
   const otros = principios.filter(soloTitulo);
 
@@ -920,9 +934,17 @@ export default function GameModelPage() {
                       )}
                     >
                       <div className="flex min-w-0 items-start gap-3 lg:gap-4">
-                        <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:text-sm">
-                          {p.ORDEN}
-                        </div>
+                        {/* 17/11/2026 (marketing): en edición, el número de la hoja; fuera,
+                            un candado en los innegociables y nada más (los números saltaban: 2, 5, 6). */}
+                        {editing ? (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-xs font-bold tabular-nums text-black lg:text-sm">
+                            {p.ORDEN}
+                          </div>
+                        ) : esClave(p.PRINCIPIO) ? (
+                          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#C8A96B] text-black">
+                            <Lock className="h-4 w-4" aria-hidden />
+                          </div>
+                        ) : null}
 
                         <div className="min-w-0 flex-1">
                           {editing ? (
@@ -972,11 +994,19 @@ export default function GameModelPage() {
                           id={`principio-${p.ID}`}
                           className="flex min-w-0 scroll-mt-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
                         >
-                          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/60 text-[11px] font-bold tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                            {p.ORDEN}
-                          </span>
+                          {/* 17/11/2026 (marketing): sin el número de la hoja, que saltaba (1, 3, 4). */}
+                          {esClave(p.PRINCIPIO) ? (
+                            <Lock className="h-4 w-4 shrink-0 text-[color:var(--rmcf-gold-ink,#C8A96B)]" aria-label="Innegociable" />
+                          ) : (
+                            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#C8A96B]/60" />
+                          )}
                           <span className="min-w-0 break-words text-sm text-gray-200">
                             {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
+                            {esClave(p.PRINCIPIO) && (
+                              <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                                innegociable
+                              </span>
+                            )}
                           </span>
                         </li>
                       ))}
@@ -1151,16 +1181,25 @@ const ladoBueno = (c: CifraDelPrincipio, v: number) => (c.mejorAlto ? v >= c.med
 
 const nombreCorto = (c: CifraDelPrincipio) => enEspanol(c.nombre).replace(/\s*\(.*\)$/, "");
 
-function GraficoCifra({ c }: { c: CifraDelPrincipio }) {
+/*
+| 17/11/2026 (fútbol y marketing): cada barra se toca. Las de debajo de la
+| mediana en ámbar (no gris), y la elegida dice su cifra y lleva al análisis
+| de ese partido y a los goles del rival en vídeo. Sin tocar, la elegida es
+| la del último partido, con su base («82 de 534»).
+*/
+function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: string }) {
   const serie = c.serie?.length
     ? c.serie
     : [{ valor: c.ultimo.valor, rival: c.ultimo.rival, fecha: c.ultimo.fecha, jornada: c.ultimo.jornada }];
+  const [elegida, setElegida] = useState(serie.length - 1);
   const buenos = serie.filter((x) => ladoBueno(c, x.valor)).length;
   const tope = Math.max(c.mediana, ...serie.map((x) => x.valor)) * 1.12 || 1;
   const alto = (v: number) => `${Math.max(3, (v / tope) * 100)}%`;
-  const bien = cumple(c);
-  const igual = c.ultimo.valor === c.mediana;
   const mayoria = buenos * 2 >= serie.length;
+  const x = serie[Math.min(elegida, serie.length - 1)];
+  const esUltimo = elegida >= serie.length - 1;
+  const igual = formatea(x.valor, c.unidad) === formatea(c.mediana, c.unidad);
+  const bien = ladoBueno(c, x.valor);
 
   return (
     <figure className="min-w-0">
@@ -1173,67 +1212,113 @@ function GraficoCifra({ c }: { c: CifraDelPrincipio }) {
       </figcaption>
       <p className="mt-0.5 text-xs text-gray-400">
         {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de los {c.equipos} equipos del grupo (
-        {formatea(c.mediana, c.unidad)})
+        {formatea(c.mediana, c.unidad)}) · toca una barra para ver su partido
       </p>
 
-      <div
-        role="img"
-        aria-label={`${nombreCorto(c)} partido a partido: ${serie
-          .map((x) => `${x.jornada ? `J${x.jornada} ` : ""}${formatea(x.valor, c.unidad)}`)
-          .join(", ")}. Mediana del grupo ${formatea(c.mediana, c.unidad)}.`}
-        className="relative mt-3 h-24 border-b border-white/15"
-      >
+      <div className="relative mt-3 h-24 border-b border-white/15">
         <div
           aria-hidden
-          className="absolute inset-x-0 z-10 h-0.5 translate-y-1/2 bg-sky-400"
+          className="pointer-events-none absolute inset-x-0 z-10 h-0.5 translate-y-1/2 bg-sky-400"
           style={{ bottom: alto(c.mediana) }}
         />
-        <div className="flex h-full items-end gap-[3px] sm:gap-1">
-          {serie.map((x, i) => {
-            const ultimo = i === serie.length - 1;
-            const ok = ladoBueno(c, x.valor);
+        <div className="flex h-full items-end gap-[3px] sm:gap-1" role="group" aria-label={`${nombreCorto(c)} partido a partido`}>
+          {serie.map((p, i) => {
+            const ok = ladoBueno(c, p.valor);
+            const activa = i === elegida;
 
             return (
-              <div
-                key={`${x.fecha}-${i}`}
-                title={`${x.jornada ? `J${x.jornada} · ` : ""}${x.rival}: ${formatea(x.valor, c.unidad)}`}
+              <button
+                key={`${p.fecha}-${i}`}
+                type="button"
+                onClick={() => setElegida(i)}
+                aria-pressed={activa}
+                aria-label={`${p.jornada ? `J${p.jornada} · ` : ""}${p.rival}: ${formatea(p.valor, c.unidad)}`}
+                title={`${p.jornada ? `J${p.jornada} · ` : ""}${p.rival}: ${formatea(p.valor, c.unidad)}`}
                 className={cn(
-                  "min-w-0 flex-1 rounded-t-sm",
-                  ok ? "bg-[#C8A96B]" : "bg-white/20",
-                  ultimo && "outline outline-2 outline-offset-1 outline-[#C8A96B]",
+                  "min-w-0 flex-1 rounded-t-sm transition-opacity hover:opacity-80",
+                  ok ? "bg-[#C8A96B]" : "bg-amber-500/45",
+                  activa && "outline outline-2 outline-offset-1 outline-sky-400",
                 )}
-                style={{ height: alto(x.valor) }}
+                style={{ height: alto(p.valor) }}
               />
             );
           })}
         </div>
       </div>
       <div className="mt-1 flex gap-[3px] text-[11px] tabular-nums text-gray-400 sm:gap-1" aria-hidden>
-        {serie.map((x, i) => (
-          <span key={`${x.fecha}-e-${i}`} className="min-w-0 flex-1 truncate text-center">
-            {x.jornada ? `J${x.jornada}` : i + 1}
+        {serie.map((p, i) => (
+          <span
+            key={`${p.fecha}-e-${i}`}
+            className={cn("min-w-0 flex-1 truncate text-center", i === elegida && "font-semibold text-white")}
+          >
+            {p.jornada ? `J${p.jornada}` : i + 1}
           </span>
         ))}
       </div>
 
-      <p className="mt-2 text-[13px] leading-relaxed text-gray-300">
+      <p className="mt-2 text-[13px] leading-relaxed text-gray-300" aria-live="polite">
         <span
           className={cn(
             "font-bold tabular-nums",
             igual ? "text-gray-200" : bien ? "text-emerald-400" : "text-amber-400",
           )}
         >
-          {igual ? "=" : bien ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+          {igual ? "=" : bien ? "▲" : "▼"} {formatea(x.valor, c.unidad)}
         </span>
-        {c.ultimo.base && (
+        {esUltimo && c.ultimo.base && (
           <span className="tabular-nums text-gray-400">
             {" "}
             ({c.ultimo.base.de} de {c.ultimo.base.total})
           </span>
         )}{" "}
-        ante {c.ultimo.rival} ({cualPartido(c.ultimo)}) · temporada {formatea(c.temporada, c.unidad)} en {c.partidos}{" "}
-        partidos
+        ante {x.rival} ({x.jornada ? `J${x.jornada}` : `${elegida + 1}.º partido`}
+        {x.fecha ? `, ${x.fecha.slice(8, 10)}/${x.fecha.slice(5, 7)}` : ""})
+        {" · "}
+        {igual ? "en la mediana" : `${bien ? "" : "le faltó "}${formatea(Math.abs(x.valor - c.mediana), c.unidad)} ${bien ? "por encima de" : "para"} la mediana`}
+        {" · "}temporada {formatea(c.temporada, c.unidad)} en {c.partidos} partidos
       </p>
+
+      <div className="mt-2 flex flex-wrap gap-2">
+        <Link
+          href={urlPostDelPartido(x.fecha, x.rival)}
+          className={cn(
+            "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
+            focusRing,
+          )}
+        >
+          Análisis del partido {x.jornada ? `J${x.jornada} ` : ""}ante {x.rival} →
+        </Link>
+        <Link
+          href={urlGolesDelEquipo(x.rival)}
+          className={cn(
+            "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
+            focusRing,
+          )}
+        >
+          Goles de {x.rival} en vídeo →
+        </Link>
+        <Link
+          href={`/rivals?equipo=${encodeURIComponent(x.rival)}`}
+          className={cn(
+            "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
+            focusRing,
+          )}
+        >
+          Ficha de {x.rival} →
+        </Link>
+      </div>
+
+      {/* 17/11/2026 (fútbol y marketing): si toca entrenarlo, qué tarea, qué se cuenta y el objetivo. */}
+      {!mayoria && (
+        <div className="mt-3 rounded-lg border-l-2 border-amber-500/70 bg-amber-500/[0.06] px-3 py-2 text-[13px] leading-relaxed text-gray-200">
+          <span className="font-semibold text-white">Qué entrenamos:</span> tarea de «{principio}»; contar{" "}
+          {c.ultimo.base ? `${nombreCorto(c).replace(/^% de /, "")} sobre el total (como ${c.ultimo.base.de} de ${c.ultimo.base.total} ante ${c.ultimo.rival})` : nombreCorto(c).toLowerCase()}; objetivo de partido{" "}
+          {c.mejorAlto ? "llegar a" : "bajar de"} <b className="text-white">{formatea(c.mediana, c.unidad)}</b>, la mediana de los {c.equipos} equipos del grupo.{" "}
+          <Link href="/microcycles" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+            Al microciclo de la semana →
+          </Link>
+        </div>
+      )}
     </figure>
   );
 }
@@ -1250,14 +1335,13 @@ function MedidaPrincipio({ p }: { p: Principio }) {
      trae una medida para este principio»). */
   if (cifras !== "error" && !suyas?.length) return null;
 
-  const ultimo = suyas?.[0]?.ultimo;
 
   return (
     <div className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
       {suyas ? (
         <div className="space-y-5">
           {suyas.map((c) => (
-            <GraficoCifra key={c.nombre} c={c} />
+            <GraficoCifra key={c.nombre} c={c} principio={quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, "")} />
           ))}
         </div>
       ) : (
@@ -1275,17 +1359,6 @@ function MedidaPrincipio({ p }: { p: Principio }) {
         >
           Partido a partido →
         </Link>
-        {ultimo && (
-          <Link
-            href="/data-analisis?area=post"
-            className={cn(
-              "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
-              focusRing,
-            )}
-          >
-            Análisis del partido {ultimo.jornada ? `J${ultimo.jornada} ` : ""}ante {ultimo.rival} →
-          </Link>
-        )}
       </div>
     </div>
   );

@@ -2009,7 +2009,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Identidad de Juego",
     resumen: "Los principios ofensivos y defensivos del modelo, por fase, bloque y apartado, y cómo se cumplen en el último partido los que se pueden medir.",
     origen: "Los principios: la hoja del modelo de juego del cuerpo técnico (se edita aquí y se escribe en la hoja). Las cifras de cada principio: Wyscout de nuestros partidos y de la categoría, el mismo cálculo que /identidad-campo; la jornada, del calendario de BeSoccer.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se organiza",
@@ -2024,20 +2024,22 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cada principio",
         filas: [
-          { que: "Innegociable", es: "Los que la hoja marca «CLAVE»: borde dorado y candado" },
+          { que: "Innegociable", es: "Los que la hoja marca «CLAVE»: borde dorado y candado. Fuera de edición las tarjetas no llevan el número de la hoja (saltaba: 2, 5, 6); en edición, sí" },
           { que: "Lo que no se negocia", es: "Arriba del apartado, un chip por innegociable: verde con ▲ y su cifra si el último partido quedó del lado bueno de la mediana del grupo, ámbar con ▼ si no; cada chip salta a su tarjeta" },
           { que: "La frase de debajo", es: "Nombra en qué cumplimos y qué nos falta en el último partido, cada uno con su cifra frente a la mediana del grupo" },
-          { que: "Otros principios del bloque", es: "Los que sólo son un título (sin texto en la hoja ni medida), en una rejilla compacta al pie" },
+          { que: "Otros principios del bloque", es: "Los que sólo son un título (sin texto en la hoja ni cifra), en una rejilla compacta al pie; un innegociable sin cifra (Amenazar la profundidad) va aquí con su candado" },
           { que: "El desplegable", es: "Definición, qué se ve, criterio y clip, sólo si la hoja los trae" },
         ],
       },
       {
         titulo: "Se mide cada jornada",
         filas: [
-          { que: "El gráfico", es: "Una barra por partido de la temporada (J1…), la raya azul es la mediana de los equipos del grupo; en oro los partidos del lado bueno, apagados los demás, y el último recuadrado. El título dice cuántos partidos quedaron del lado bueno y si «se sostiene» (la mitad o más) o «toca entrenarlo»" },
-          { que: "▲ / ▼", es: "El último partido, mejor o peor que la mediana del grupo, con su base (28 de 53) y nuestra temporada en N partidos" },
+          { que: "El gráfico", es: "Una barra por partido de la temporada (J1…), la raya azul es la mediana de los equipos del grupo; en oro los partidos del lado bueno, en ámbar los de debajo. El título dice cuántos partidos quedaron del lado bueno y si «se sostiene» (la mitad o más) o «toca entrenarlo»" },
+          { que: "Tocar una barra", es: "La elige (recuadro azul): la línea de debajo pasa a ese partido, con su cifra, rival, jornada y cuánto le faltó o le sobró frente a la mediana. Sin tocar, el último" },
+          { que: "▲ / ▼", es: "El partido elegido, mejor o peor que la mediana del grupo; el último lleva su base (28 de 53). Y nuestra temporada en N partidos" },
+          { que: "Análisis del partido · Goles en vídeo · Ficha", es: "Del partido elegido: su post en Data análisis (/data-analisis?area=post con fecha y rival), los goles del rival en /analisis-goles y su ficha en /rivals" },
+          { que: "Qué entrenamos", es: "Si «toca entrenarlo»: tarea del principio, qué contar (con la base del último partido) y el objetivo de partido, la mediana del grupo; enlace al microciclo de la semana" },
           { que: "Partido a partido →", es: "Su fila en /identidad-campo" },
-          { que: "Análisis del partido →", es: "El post del último partido en Data análisis" },
         ],
       },
       {
@@ -2132,7 +2134,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se rellena",
@@ -2151,12 +2153,12 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que se ve",
         filas: [
           { que: "Quién manda", es: "El primero del ranking, arriba del todo, con su porcentaje y sus aciertos; si el segundo puesto está compartido, se nombra a todos" },
-          { que: "La barra del ranking", es: "El acierto de cada uno (en oro los que van por encima de la media) y la raya azul de la media del grupo; el subtítulo dice la media y cuántos la superan", cuenta: "Media de los porcentajes de los que entran en el orden (sin los de pocas apuestas)" },
-          { que: "J12 (la última jornada con resultados)", es: "Aciertos de cada uno en la última jornada ya jugada, «x de 9»" },
+          { que: "La barra del ranking", es: "El porcentaje encima, la distancia al líder en aciertos («−1 acierto», «líder») y la barra: oro si va por encima de la media, gris si no; la raya azul es la media del grupo", cuenta: "La barra va del suelo al techo del grupo en decenas (p. ej. de 30 a 60 %), no de 0 a 100, para que 54 y 50 % se distingan; el subtítulo dice la escala. Media = la de los que entran en el orden (sin los de pocas apuestas)" },
+          { que: "Jornada 12 (la última con resultados)", es: "Aciertos de cada uno en la última jornada ya jugada, «x de 9»" },
           { que: "Los nombres", es: "Llevan a sus apuestas del staff" },
-          { que: "Los equipos", es: "Cada equipo de la jornada abre su ficha en /rivals, con forma, plantilla y goles en vídeo" },
-          { que: "La comida", es: "El título dice el bloque de jornadas y sobre cuántos partidos se cuenta" },
-          { que: "La franja", es: "Lo que falta para el cierre, «N de M con la apuesta completa» con una barra por persona, quién falta y «Ver las caritas»" },
+          { que: "Los equipos", es: "Con su escudo de BeSoccer (los mismos de /laboratorio/escudos); cada uno abre su ficha en /rivals, con forma, plantilla y goles en vídeo" },
+          { que: "La comida", es: "«Los dos primeros comen invitados»: frase titular con quién come gratis por ahora y su acierto, y barras ordenadas del bloque (oro los invitados, raya discontinua bajo el segundo). El pie explica por qué el líder del ranking puede ir más abajo aquí", cuenta: "Porcentaje sobre los partidos jugados de esas diez jornadas, no sobre la temporada" },
+          { que: "La franja", es: "Una línea con el cierre y la cuenta atrás («Cierra el vie 20, 12:00 · faltan 3 días»), «N de M con la apuesta completa» con una barra por persona, quién falta y «Ver las caritas». En «Los partidos» el plazo sólo se repite si hay algo nuevo: cerrada, reabierta o últimas horas" },
           { que: "Quién juega", es: "Se cambia con su botón; entra y sale quien haga falta sin perder lo ya jugado" },
           { que: "Lo que ha puesto cada uno", es: "Sólo con la jornada cerrada: una columna por persona, verde acertado, rojo fallado, el reparto de 1-X-2 y «el único» o «todos igual»" },
           { que: "Lo vio todo el mundo · No lo vio nadie", es: "Los partidos que acertaron todos los que apostaron, o ninguno" },
@@ -2172,7 +2174,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "=8", es: "Puesto compartido: mismo porcentaje y mismos aciertos. A igual porcentaje, manda quien más acierta" },
           { que: "Con pocas apuestas", es: "Abajo y fuera del orden", cuenta: "quien lleva menos de la mitad de partidos que el que más, o apostó menos de la mitad de los suyos" },
           { que: "Esta jornada", es: "Aciertos de la semana entre sus partidos ya jugados" },
-          { que: "Jornadas ganadas", es: "Las que cerró con más aciertos que nadie; si empatan dos, la ganan los dos" },
+          { que: "Ganadas", es: "Las que cerró con más aciertos que nadie; si empatan dos, la ganan los dos" },
         ],
       },
     ],
@@ -2191,7 +2193,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
     origen:
       "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase («apuestas-staff»); no salen de ninguna hoja.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Cómo se juega",
@@ -2207,19 +2209,20 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las tarjetas",
         filas: [
-          { que: "En juego", es: "Las abiertas, primero la que se comprueba antes" },
-          { que: "Faltan N días", es: "La cuenta atrás hasta la comprobación, grande, y debajo «se decide el…»; el último día, «Se decide mañana»" },
-          { que: "El equipo de la apuesta", es: "Si la predicción nombra a un equipo de la liga, un enlace a su ficha en /rivals" },
-          { que: "N a favor · N en contra", es: "Una barra partida con cuántos van a cada lado (el autor cuenta a favor)" },
-          { que: "Lado vacío", es: "«Nadie en contra todavía: ¿te mojas?» en vez de una caja vacía" },
-          { que: "Se juega", es: "Lo que pone el autor, en su propio bloque" },
-          { que: "N de M ya se han mojado", es: "Barra de progreso; «Quién falta» despliega los nombres", cuenta: "M = los que tienen cuenta en la quiniela; el autor cuenta a favor" },
+          { que: "Resumen", es: "Tres cifras arriba: abiertas, cuántas se deciden en los próximos 30 días y cuántas siguen sin nadie en contra; debajo, «La más disputada» (la que tiene más votos en su lado más corto), sólo si alguna tiene a alguien en contra" },
+          { que: "Filtros", es: "Todas · Las mías (con sesión: las que lanzaste o en las que te has mojado) · Sin contrario" },
+          { que: "Grupos", es: "Por cuándo se deciden: «Toca dar el veredicto», «En los próximos 30 días» y luego por mes (diciembre = Navidad; mayo y junio = Fin de liga). Dentro, la que antes se comprueba, primero" },
+          { que: "La tarjeta", es: "Una fila: autor y día en que la lanzó, la predicción como titular y, a la derecha, los días que faltan con la fecha" },
+          { que: "El equipo de la apuesta", es: "Si la predicción nombra a un equipo de la liga, «Ficha de X →» lleva a su ficha en /rivals" },
+          { que: "N a favor · N en contra", es: "Cada lado con sus caras y nombres cortos; el autor cuenta a favor. La barra partida sólo sale cuando hay alguien en contra (con un solo voto pintaba un 100 % engañoso)" },
+          { que: "Se juega", es: "Lo que escribió el autor, en una línea; si no escribió nada de verdad, no sale" },
+          { que: "Mojarme", es: "Sin sesión, lleva al acceso de arriba; con sesión salen los botones A favor / En contra" },
+          { que: "N de M se han mojado", es: "«Ver quién falta (n)» despliega los nombres", cuenta: "M = los que tienen cuenta en la quiniela; el autor cuenta a favor" },
           { que: "?quien=", es: "Desde el ranking de la quiniela: sólo las apuestas en las que está esa persona; «Ver todas» quita el filtro" },
-          { que: "Quién tenía razón", es: "Las ya comprobadas, de la última a la primera" },
+          { que: "Ya decididas", es: "Las ya comprobadas, de la última a la primera, con enlace al ranking de la quiniela; sin ninguna, no sale" },
         ],
       },
-      {
-        titulo: "El marcador",
+      {titulo: "El marcador",
         filas: [
           { que: "Lanzadas", es: "Apuestas que ha tirado, resueltas o no" },
           { que: "Seguidas", es: "Veces que se ha mojado en las de otros" },
@@ -2828,8 +2831,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "El titular", es: "Cuántos valores se votaron y cuál fue el más votado, con sus votos sobre el total", cuenta: "Sale del propio documento de valores: si cambia el recuento, cambia el titular" },
           { que: "Bajo el titular", es: "Qué hacer con el documento y, a un toque, la hoja de ruta de la cultura (/team-values) y el seguimiento de los jugadores" },
-          { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye» (barra granate por antivalor con sus votos). Pulsar una lámina abre su diapositiva de conductas en la vista previa", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí" },
-          { que: "+N a otro valor (aparte)", es: "Votos a un valor afín que el recuento agrupó con el suyo; no entran en el total" },
+          { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye · votos» (barra granate por antivalor con sus votos; el nombre entero, a dos líneas si no cabe). Pulsar una lámina abre su diapositiva de conductas en la vista previa; «Seguimiento →» lleva al seguimiento de los jugadores", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí. La cabecera da las dos bases: votos a los valores y votos a los antivalores, contados aparte" },
+          { que: "Antivalores sin cifra", es: "Si un antivalor sin votos ya cuenta en otro valor (Conformismo, con 10 en Compromiso), no se repite en la lámina; el que no tiene cifra en ninguno sale con su nombre, sin barra. Las diapositivas los mantienen tal y como los escribió la plantilla" },
+          { que: "+N a otro valor (aparte)", es: "Votos a un valor afín que el recuento agrupó con el suyo; no suman al valor ni entran en el total" },
+          { que: "La unidad", es: "Siempre votos: «9 de 32 votos», igual en la lámina, en la portada y en la diapositiva de cada valor" },
         ],
       },
       {
@@ -2853,7 +2858,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -3072,8 +3077,9 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Las etapas",
         filas: [
           { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una (rail en escritorio)" },
-          { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las anteriores teñidas; pulsar una la abre" },
-          { que: "Láminas", es: "Los contenidos de la etapa en tarjetas numeradas, a dos columnas en escritorio" },
+          { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las ya hechas teñidas; pulsar una la abre" },
+          { que: "Hoy", es: "Si la hoja trae FECHA, la etapa en la que está la plantilla lleva «Hoy» y la pantalla abre en ella (salvo que la dirección traiga #etapa)", cuenta: "La última etapa cuya fecha ya ha llegado; FECHA como «17/11/2026», «17/11» o «2026-11-17»" },
+          { que: "Láminas", es: "Los contenidos de la etapa en tarjetas numeradas, a dos columnas en escritorio. En el Marco van plegadas bajo «El método»: lo primero es la votación" },
           { que: "Contenidos de conductas", es: "Llevan al seguimiento de los jugadores y a las conductas de cada valor en /identidad-cultura" },
           { que: "Titular de la etapa", es: "La idea de esa etapa; encima, su nombre y, si la hoja la trae, su semana real" },
           { que: "Filtro por tipo", es: "Sólo los tipos de contenido que hay en esa etapa" },
@@ -3084,8 +3090,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La votación",
         filas: [
-          { que: "Resultado de la votación", es: "Una línea con el valor más votado y su base; arriba en el Marco, al pie en las demás etapas", cuenta: "El recuento completo (barras de votos y antivalores) está sólo en /identidad-cultura" },
-          { que: "Chips de los valores", es: "Cada uno abre su diapositiva de conductas en /identidad-cultura" },
+          { que: "El gráfico de la votación (Marco)", es: "Titular con el más votado y una barra por valor con «N de 32», de más a menos; cada barra abre las conductas de ese valor en /identidad-cultura. Debajo, la fila de acciones: seguimiento de los jugadores, conductas de cada valor y el documento para la charla", cuenta: "Votos del documento de valores; los antivalores se cuentan aparte" },
+          { que: "Chips de los valores (otras etapas)", es: "Al pie, un chip por valor con sus votos («Compromiso · 8 de 32») que abre su diapositiva de conductas" },
           { que: "Ver el recuento y el documento", es: "Abre /identidad-cultura" },
         ],
       },
@@ -3100,7 +3106,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */
@@ -3207,9 +3213,10 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "N escudos de BeSoccer", es: "Cuántos han llegado y de cuándo es el documento («actualizados el…»)" },
           { que: "Descargar .pptx", es: "Veinte escudos por diapositiva (5 × 4) sobre el azul noche del documento, recortado el aire de los márgenes", cuenta: "Espera a que lleguen todas las imágenes; la que no llega en 15 s sale sin ella" },
-          { que: "Actualizar escudos", es: "Vuelve a pedir la lista" },
+          { que: "Actualizar escudos", es: "Vuelve a pedir la lista y dice qué ha hecho: «Comprobado a las hh:mm: N escudos · ninguno ha cambiado» o cuáles son nuevos o han cambiado", cuenta: "Compara equipo a equipo la dirección del escudo con la de la lista anterior" },
           { que: "Buscar equipo", es: "Filtra la parrilla por nombre de equipo" },
-          { que: "Ver rival →", es: "Abre la ficha de ese equipo en /rivals" },
+          { que: "El nombre del equipo", es: "Abre su ficha en /rivals (?equipo=)" },
+          { que: "Píldora azul «J12 · dom 22 · vs X»", es: "El equipo juega la jornada de la quiniela de esta semana: día y rival; lleva a /quiniela", cuenta: "La jornada es la primera del calendario de la quiniela cuyo último partido no se ha jugado (sin los partidos del Castilla)" },
           { que: "Cada tarjeta", es: "Copia ese escudo en PNG transparente (dice «Copiado» dos segundos); si el navegador no deja copiar imágenes, lo descarga" },
           { que: "Borde oro", es: "El nuestro" },
           { que: "Borde ámbar", es: "Trae fondo, no es transparente", cuenta: "Las cuatro esquinas del PNG son opacas" },
@@ -3220,7 +3227,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
       "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */
@@ -3638,7 +3645,7 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Posiciones", es: "Los puestos de la hoja; el buscador filtra los contenidos" },
           { que: "Con balón / Sin balón", es: "Los contenidos del puesto en dos columnas, con cuántos hay en cada una", cuenta: "Fuera de edición, primero los que se miden" },
-          { que: "Sus jugadores · su área de mejora", es: "Los de la plantilla en ese puesto; el nombre abre su área de mejora en Individual y el icono de la carpeta, su seguimiento" },
+          { que: "Sus jugadores · su área de mejora", es: "Los de la plantilla en ese puesto; el nombre abre su área de mejora en Individual y el icono de la carpeta, su seguimiento. Quien no sale en ninguna cifra lleva «menos de 450′» en su chip" },
           { que: "Los demás contenidos", es: "Los que no se miden quedan plegados tras «Ver los otros N contenidos» en cada columna (se abren al editar o buscar)" },
           { que: "Ficha del contenido", es: "Si la hoja lo trae, se despliega con definición, qué se ve, criterio y clip" },
         ],
@@ -3647,13 +3654,13 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo que se mide",
         filas: [
           { que: "Se mide en el partido", es: "La métrica de Wyscout con que se sigue ese contenido; sin métrica no sale nada" },
-          { que: "El gráfico", es: "Una fila por jugador: su punto sobre una escala común, la raya azul es la mediana del puesto y la franja verde el lado bueno. El título dice quién queda por debajo y quién por encima; el nombre abre su ficha" },
+          { que: "El gráfico", es: "Una fila por jugador: su punto sobre una escala común, la raya azul es la mediana del puesto y la franja verde el lado bueno. El título dice quién queda por debajo, quién por encima y quién en la mediana (=); el nombre abre su ficha" },
           { que: "▲ / ▼ / =", es: "Cada jugador nuestro frente a la mediana del puesto en la categoría", cuenta: "▲ mejor, ▼ peor, = la misma cifra con los decimales que se enseñan. Con el sentido de la métrica puesto" },
           { que: "11 de 29 · ≈ 26 en 883′", es: "La base de cada cifra: en los %, aciertos de intentos; en las cifras por 90′, cuántas acciones lleva en sus minutos", cuenta: "Estimado con el volumen por 90′ de Wyscout y sus minutos de liga" },
-          { que: "tendencia", es: "Un % que sale de menos de 15 intentos: punto hueco, sin ▲/▼, y no entra en «Por dónde empezar a entrenar»" },
+          { que: "tendencia", es: "Una cifra que sale de menos de 15 intentos (en los %) o de menos de 15 acciones (en las cifras por 90′): punto hueco, sin ▲/▼, sin «Qué entrenamos» y fuera de «Por dónde empezar a entrenar»" },
           { que: "Mediana", es: "La de los jugadores del puesto en la categoría", cuenta: "Sólo con 450′ o más de liga, y con al menos seis para comparar" },
-          { que: "Qué entrenamos", es: "Si alguno queda por debajo: a quién, la tarea del contenido, qué contar en ella y el objetivo de partido (llegar a la mediana, o bajar de ella si menos es mejor)" },
-          { que: "Por dónde empezar a entrenar", es: "Tarjeta destacada: el contenido medido con más jugadores nuestros por debajo de la mediana, quiénes con su cifra y base, y el objetivo", cuenta: "Por la proporción de los que quedan por debajo (sin contar los de «tendencia»); empate, por el número" },
+          { que: "Qué entrenamos", es: "Si alguno queda por debajo: a quién, la tarea del contenido, qué contar en ella y el objetivo de partido (llegar a la mediana, o bajar de ella si menos es mejor). Debajo, por jugador, su área de mejora y su seguimiento en Individual" },
+          { que: "Por dónde empezar a entrenar", es: "Tarjeta destacada en tres líneas: quién queda por debajo, una fila por jugador con su cifra y base (el nombre abre su área de mejora) y el objetivo", cuenta: "Por la proporción de los que quedan por debajo (sin contar los de «tendencia»); empate, por el número" },
         ],
       },
       {
@@ -3680,7 +3687,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 ];
 

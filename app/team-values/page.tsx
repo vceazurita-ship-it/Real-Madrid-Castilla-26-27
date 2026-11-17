@@ -1,7 +1,7 @@
 "use client";
 import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -31,7 +31,7 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
-import { EnlacesValores } from "@/components/cultura/ValoresIndice";
+import { EnlacesValores, VotosValores } from "@/components/cultura/ValoresIndice";
 import { confirmar } from "@/lib/avisos";
 
 type CulturaItem = {
@@ -54,6 +54,44 @@ type CulturaItem = {
 };
 
 const limpio = (t?: unknown) => String(t ?? "").trim();
+
+/** «2026-11-17», «17/11/2026» o «17/11» (de la temporada) → «2026-11-17»; si no se entiende, "". */
+function fechaIso(texto: string, anio: number): string {
+  const iso = texto.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+
+  if (iso) return `${iso[1]}-${iso[2].padStart(2, "0")}-${iso[3].padStart(2, "0")}`;
+
+  const dmy = texto.match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{2,4}))?/);
+
+  if (!dmy) return "";
+
+  const a = dmy[3] ? (dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]) : String(anio);
+
+  return `${a}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
+}
+
+/*
+| 17/11/2026 (fútbol): en el Marco, las seis ideas del método van plegadas
+| bajo «El método»; lo primero es la votación. En las demás etapas, abiertas.
+*/
+function Plegable({ plegado, n, children }: { plegado: boolean; n: number; children: ReactNode }) {
+  if (!plegado) return <>{children}</>;
+
+  return (
+    <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-2">
+      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
+        <span>
+          El método <span className="font-normal text-gray-400">· {n} ideas para construir la cultura</span>
+        </span>
+        <span className="text-[13px] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+          <span className="group-open:hidden">Ver</span>
+          <span className="hidden group-open:inline">Ocultar</span>
+        </span>
+      </summary>
+      <div className="pb-2 pt-2">{children}</div>
+    </details>
+  );
+}
 
 const CSV_URL =
   "https://docs.google.com/spreadsheets/d/e/2PACX-1vS3_1ScOV6sTyEpZSgLgCf2dKbwkLzb3zUEYM-7ZOoMbcFUTp7nvu1pBfGOP7EzppXXQYQhLeVa_SPr/pub?gid=1367356753&single=true&output=csv";
@@ -161,6 +199,8 @@ export default function TeamValuesPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [recarga, setRecarga] = useState(0);
+  /** La etapa en la que está hoy la plantilla, si la hoja trae fechas. */
+  const [etapaHoy, setEtapaHoy] = useState("");
 
   /* Deja rescatar el texto de los cambios que el servidor no acepte. */
   const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
@@ -196,9 +236,22 @@ export default function TeamValuesPage() {
           window.location.hash.replace("#", ""),
         ).toUpperCase();
 
+        /* 17/11/2026 (fútbol): si la hoja trae FECHA, la etapa de hoy es la
+           última que ya ha empezado; la pantalla abre en ella. */
+        const hoy = new Date();
+        const hoyIso = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
+        const empiezan = [...new Set(rows.map((r) => r.SECCION))].flatMap((s) => {
+          const iso = rows.filter((r) => r.SECCION === s).map((r) => fechaIso(limpio(r.FECHA), hoy.getFullYear())).find(Boolean);
+
+          return iso ? [{ s, iso }] : [];
+        });
+        const deHoy = empiezan.filter((e) => e.iso <= hoyIso).sort((a, b) => a.iso.localeCompare(b.iso)).pop()?.s ?? "";
+
+        setEtapaHoy(deHoy);
+
         const inicial =
           rows.find((r) => r.SECCION.toUpperCase() === hash)?.SECCION ??
-          rows[0]?.SECCION ??
+          (deHoy || rows[0]?.SECCION) ??
           "";
 
         setSeccion((actual) => actual || inicial);
@@ -512,12 +565,16 @@ export default function TeamValuesPage() {
   | repetido aquí). Aquí, una línea con el más votado y un chip por valor que
   | abre sus conductas en el documento.
   */
+  /* 17/11/2026 (marketing y fútbol): en el Marco, el gráfico de la votación
+     con la fila de acciones; en las demás etapas, la línea con un chip por valor. */
   const votacion =
     !editing ? (
-      <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4">
-        <EnlacesValores />
+      <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:p-5">
+        {etapaIndex === 0 ? <VotosValores /> : <EnlacesValores />}
       </div>
     ) : null;
+
+  const metodoPlegado = etapaIndex === 0 && !editing && !filtrando;
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
@@ -653,7 +710,7 @@ export default function TeamValuesPage() {
               >
                 {secciones.map((s, i) => {
                   const activa = s === seccion;
-                  const hecha = etapaIndex >= 0 && i < etapaIndex;
+                  const hecha = (etapaHoy ? secciones.indexOf(etapaHoy) : etapaIndex) > i;
                   const fecha = data
                     .filter((r) => r.SECCION === s)
                     .map((r) => limpio(r.FECHA))
@@ -692,6 +749,11 @@ export default function TeamValuesPage() {
                           {rotuloSeccion(s)}
                         </span>
                         {fecha && <span className="text-[12px] text-gray-400">{fecha}</span>}
+                        {s === etapaHoy && (
+                          <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-sky-500/30">
+                            Hoy
+                          </span>
+                        )}
                       </button>
                     </li>
                   );
@@ -797,6 +859,7 @@ export default function TeamValuesPage() {
                     </p>
                   )}
 
+                  <Plegable plegado={metodoPlegado} n={contenidos.length}>
                   <ul className={cn("grid gap-3", !editing && "lg:grid-cols-2")}>
                     {contenidos.map((p) => (
                       <li
@@ -898,6 +961,7 @@ export default function TeamValuesPage() {
                       </li>
                     ))}
                   </ul>
+                  </Plegable>
                 </>
               )}
             </div>

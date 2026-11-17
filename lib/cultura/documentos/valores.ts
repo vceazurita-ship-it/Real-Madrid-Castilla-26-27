@@ -30,7 +30,7 @@ const VALORES: Valor[] = [
   {
     numero: 1,
     titulo: "Humildad",
-    votos: "Votado por 9 jugadores",
+    votos: "9 de 32 votos",
     antivalores: "Egoísmo (22) y Arrogancia (3)",
     explicacion:
       "Tener humildad **no es sentirse menos que nadie** ni agachar la cabeza. " +
@@ -78,7 +78,7 @@ const VALORES: Valor[] = [
   {
     numero: 2,
     titulo: "Compromiso",
-    votos: "Votado por 8 jugadores",
+    votos: "8 de 32 votos",
     antivalores: "Conformismo (10) e Irresponsabilidad (6)",
     explicacion:
       "El compromiso es **tu palabra dada**. Es dar el 100 % incluso los días que " +
@@ -125,7 +125,7 @@ const VALORES: Valor[] = [
   {
     numero: 3,
     titulo: "Profesionalidad",
-    votos: "Votado por 6 jugadores",
+    votos: "6 de 32 votos",
     antivalores: "Desprecio (6) y Mediocridad (3)",
     explicacion:
       "Ser profesional es **un estilo de vida las 24 horas**, no solo las dos horas " +
@@ -173,7 +173,7 @@ const VALORES: Valor[] = [
   {
     numero: 4,
     titulo: "Compañerismo",
-    votos: "Votado por 5 jugadores (+3 Amistad)",
+    votos: "5 de 32 votos (+3 Amistad)",
     antivalores: "Deslealtad (5)",
     explicacion:
       "Es la **red de seguridad del vestuario**. Ningún jugador triunfa solo. " +
@@ -220,7 +220,7 @@ const VALORES: Valor[] = [
   {
     numero: 5,
     titulo: "Exigencia y valentía",
-    votos: "Votado por 4 jugadores (+3 Valentía / Pasión)",
+    votos: "4 de 32 votos (+3 Valentía / Pasión)",
     antivalores: "Conformismo y Apatía",
     explicacion:
       "Ganar en el Real Madrid no es una opción, **es una costumbre que se entrena " +
