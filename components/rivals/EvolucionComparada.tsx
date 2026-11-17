@@ -147,20 +147,20 @@ function Grafico({ titulo, nota, serie, rival }: { titulo: string; nota: string;
     <figure className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <figcaption className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-[13px] font-semibold text-white">{titulo}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{nota}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{nota}</span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={`${titulo}: Castilla, ${rival} y la media del grupo por jornada`}>
         {marcas.map((m, i) => (
           <g key={i}>
             <line x1={M.izq} x2={W - M.der} y1={yDe(m)} y2={yDe(m)} style={{ stroke: tinta(0.08), strokeWidth: 1 }} />
-            <text x={M.izq - 4} y={yDe(m) + 3} textAnchor="end" style={{ fill: tinta(0.5), fontSize: 9 }}>
+            <text x={M.izq - 4} y={yDe(m) + 3} textAnchor="end" style={{ fill: tinta(0.6), fontSize: 11 }}>
               {coma(m)}
             </text>
           </g>
         ))}
         {ps.map((p, i) =>
           i % cada === 0 || i === n - 1 ? (
-            <text key={p.jornada} x={xDe(i)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 9 }}>
+            <text key={p.jornada} x={xDe(i)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.6), fontSize: 11 }}>
               J{p.jornada}
             </text>
           ) : null,

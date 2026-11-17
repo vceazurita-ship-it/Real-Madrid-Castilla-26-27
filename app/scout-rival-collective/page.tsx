@@ -37,9 +37,9 @@ import RecursosRival, {
 } from "@/components/rivals/RecursosRival";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
-import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
+import { AmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { CambioModelo } from "@/components/rivals/CambioModelo";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
@@ -1699,6 +1699,9 @@ export default function ScoutRivalCollective() {
             </section>
           )}
 
+          {/* La amenaza en datos, antes del embudo (17/11/2026, ronda 19, jueces de fútbol): quién le hace el xG y por dónde centra, cada uno con su orden. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <AmenazaDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} nombres={nombresRival} />}
+
           {/*
             «Dibujo de referencia» (11/11/2026, jueces): antes «Contraste con
             los datos», que se leía como una incoherencia. Es una explicación:
@@ -1717,11 +1720,13 @@ export default function ScoutRivalCollective() {
             </p>
           )}
 
-          {/* Por dónde ataca (13/11/2026): sus acciones por banda en Wyscout y quién carga cada una. */}
-          {!modoEdicion && rivalActivo && <PorDondeAtaca equipo={equipoActivo} plantilla={plantillaDelRival} />}
-
-          {/* Sus goles en vídeo (16/11/2026): los que marca y los que encaja, de seguido o uno a uno. */}
-          {!modoEdicion && rivalActivo && equipoActivo && <SeccionGolesDelRival equipo={equipoActivo} />}
+          {/*
+            Por dónde ataca (13/11/2026), en una línea y con el enlace al bloque
+            entero de Área del rival (17/11/2026, ronda 19, jueces): salía
+            idéntico en las dos pantallas. Sus goles en vídeo, igual: están en
+            la tira de arriba («▶ Sus goles en vídeo»), en una ventana.
+          */}
+          {!modoEdicion && rivalActivo && <PorDondeAtaca equipo={equipoActivo} plantilla={plantillaDelRival} compacto rivalId={String(rivalActivo.ID ?? "")} />}
 
           {modoEdicion && (
             <div

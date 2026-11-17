@@ -1140,7 +1140,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
     origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1149,8 +1149,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tira de accesos del rival", es: "Bajo el título, con el rival puesto: ▶ Sus goles en vídeo, ▶ Cómo le marcan y ▶ Su último partido (en una ventana, sin salir), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Pizarra táctica y Pizarra ABP. En el móvil, una fila que se desliza" },
           { que: "Nombres de los jugadores", es: "En el campo, en las tarjetas y en «quién nos roba» abren su ficha: los nuestros en Individual y los suyos en Scout individual con sus cortes filtrados" },
           { que: "Balón: Castilla · Balón: rival · Los dos", es: "Qué momento pintan el campo, las cajas y las tarjetas" },
-          { que: "El recuento", es: "Duelos medidos y, aparte, los de pocos minutos (menos de 450′ en un lado: tendencia), con la misma suma arriba y en el pie" },
-          { que: "Qué hacemos", es: "El duelo que buscamos (el de más ventaja con nuestro balón) y los dos que vigilamos (los de más riesgo con el suyo), con una orden de una línea, «Qué entrenamos» (la tarea de la consigna) y los minutos; pinchando uno se abre su tarjeta, donde va la consigna entera" },
+          { que: "El recuento", es: "Duelos medidos y, aparte, los de pocos minutos (menos de 450′ en un lado: tendencia), con la misma frase que el Plan de partido (17/11/2026). Dice el umbral: cuenta desde ±10 de percentil, y «Dónde les podemos hacer daño» lleva todos los de +10 o más con nuestro balón, también los de doble cara (por eso puede tener más de los que dice «para buscar»)" },
+          { que: "Qué hacemos", es: "El duelo que buscamos (el de más ventaja con nuestro balón) y los dos que vigilamos (los de más riesgo con el suyo), con una orden de una línea, «Qué entrenamos» (la tarea, qué se cuenta en ella y el objetivo de la mediana de su puesto, en la misma unidad: «1 contra 1 defensivo en banda, contando regates ganados %; objetivo: que Jorge Mier no pase de P50…») y los minutos; pinchando uno se abre su tarjeta, donde va la consigna entera" },
         ],
       },
       {
@@ -1160,7 +1160,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Faceta", es: "Lo que hace con balón el que ataca contra lo que hace sin balón el que defiende (regate contra duelo defensivo…)", cuenta: "Percentil nuestro − suyo (media si son dos); ventaja desde 15 puntos" },
           { que: "Duelo", es: "Media de sus facetas en los dos sentidos y, donde toca, por arriba", cuenta: "Ventaja o desventaja desde 10 puntos. La altura pesa sólo donde se juega por arriba: 3 puntos por cm, tope ±20" },
           { que: "Se anulan", es: "Gana con un balón y pierde con el otro por 10 o más: manda la suma, y si queda por debajo de 10, se anulan" },
-          { que: "Con pocos minutos", es: "Con menos de 450′ de Wyscout en un lado el duelo no se destaca: va plegado al final y es tendencia" },
+          { que: "Con pocos minutos", es: "Con menos de 450′ de Wyscout en un lado el duelo no se destaca: va plegado al final y es tendencia. En «quién nos roba», quien tiene menos de 450′ va plegado con el resto, nunca en la lista" },
+          { que: "Uno sin minutos en el hueco", es: "Si en un hueco de dos (el doble pivote) uno no tiene minutos en Wyscout, la tarjeta lo dice: «Sergio también está en este hueco, sin minutos en Wyscout: la cifra es sólo de Cestero»" },
         ],
       },
       {
@@ -1316,7 +1317,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plan de Partido",
     resumen: "La preparación de cada jornada: contexto, proyección del juego, plan con y sin balón, duelos, análisis del rival y recursos de vídeo.",
     origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -1327,6 +1328,8 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "«▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» en una ventana sin salir del plan, y Plantilla, Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este partido puesto. La misma tira que en el resto de pantallas del rival",
             cuenta: "Los enlaces llevan ?rival=ID de esta fila y ?equipo=NOMBRE (components/rivals/AccesosDelRival.tsx)",
           },
+          { que: "Lo suyo que hay que parar (17/11/2026)", es: "Quinta idea de «Cómo le ganamos»: quién le hace el xG («Flakus suma el 27 % de su xG: 4,29 en 840′») y por dónde centra (la banda con la mitad o más de sus centros y quién los pone), con la orden (marcarle en el área; cerrar el carril) y enlaces a su ficha en Scout individual y a Área del rival. El mismo bloque «Cómo nos hacen daño» del Scout colectivo (components/rivals/AmenazaDelRival.tsx)" },
+          { que: "El córner, con nuestra base", es: "En «Su punto débil», junto a lo que le rematan, lo nuestro en la misma unidad: «nosotros rematamos el 23,6 % (13 de 55); objetivo, subir a la mediana de la liga, 30,7 %», la misma cuenta que ABP del rival (Wyscout)" },
           { que: "Cómo le ganamos", es: "Arriba del todo, una idea por fase con su métrica: su salida ante nuestra presión, lo nuestro con balón, su punto débil (el córner con su base: cuántos de cada 10 acaban en remate, su puesto y los partidos de Wyscout) y el duelo que decide (la orden, el momento, la cifra explicada y los minutos de los dos). Su punto fuerte, débil y el nuestro ya no se repiten debajo. Cada tarjeta lleva el enlace al dato que la sostiene con el rival puesto: su salida en Scout colectivo, «Su ABP» y «La rutina en la Pizarra ABP», «Ver el duelo». El duelo que decide es la misma orden que sale para ese jugador en Plantillas rivales" },
           { que: "Siglas", es: "La primera vez que sale una sigla en cada línea lleva al lado lo que quiere decir en gris (CP, ataque posicional; CR, contraataque; ABP, balón parado; PTO, portero; Z1, zona 1); al pasar el ratón, la explicación entera" },
           { que: "«media» en la proyección", es: "Es la media de los equipos del grupo en Opta (lo dice cada frase: «media de los 20 equipos del grupo en Opta»), la misma población que la tabla de la proyección" },
@@ -1348,6 +1351,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Ver las N cifras del partido", es: "Plegada: posesión, xG, remates, toques en el área rival, centros, PPDA, recuperaciones en el último tercio y contraataques, con su fuente (Opta o Wyscout) en cada fila; xG, toques y PPDA se explican en la propia fila", cuenta: "Lo que hace el que ataca × lo que concede el que defiende ÷ media del grupo × efecto del campo; pesan más los últimos partidos" },
           { que: "Entre paréntesis", es: "El intervalo del 80 %" },
           { que: "Su presión en la temporada", es: "PPDA de Opta de la temporada y su puesto entre los que más aprietan de su grupo: la cifra principal del área, la misma de Plantillas rivales y del Scout colectivo. Wyscout sólo se nombra si le da otro puesto, con el motivo", cuenta: "Sus pases ÷ sus acciones defensivas de la temporada (opta:equipos); 1.º el que menos PPDA" },
+          { que: "Orden (17/11/2026)", es: "Primero la tabla «Por qué» (nosotros, el rival, la media y lo esperado); la lectura y «cómo se calcula», plegadas en «Leer el porqué»; después «Tipo de partido»" },
           { que: "Tipo de partido", es: "Tres frases: posesión esperada, si será abierto o cerrado y el PPDA esperado contra nosotros (Opta); el estilo pasa a «Por qué»" },
           { que: "Contraste con los datos", es: "Una frase: el PPDA esperado en este partido y si al Castilla le presionan más o menos que a la media del grupo" },
           { que: "Por qué", es: "En el móvil, una tarjeta por cifra. Tabla de posesión, xG y remates a favor y en contra: nosotros, el rival (lo que concede o lo que hace), la media del grupo y lo esperado, con su sentido (más, mejor · menos, mejor · estilo) y una línea de cómo sale lo esperado" },
@@ -1368,6 +1372,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Para buscar · Doble cara · Para vigilar", es: "Los duelos decisivos (sin repetir el que ya está en «Cómo le ganamos»), cada uno con una orden de una línea; la consigna entera, los parejos y los de pocos minutos, en Duelos" },
           { que: "Tendencias", es: "Duelos con menos de 450′ en un lado: no cuentan como ventaja ni como riesgo" },
           { que: "Qué le decimos", es: "La consigna de cada duelo para el jugador, sacada del enfrentamiento que más pierde, con sus dos percentiles" },
+          { que: "Qué entrenamos (en cada duelo, 17/11/2026)", es: "La tarea, qué se cuenta en ella y el objetivo sacado de la mediana de su puesto, la misma de Duelos" },
+          { que: "El recuento de duelos", es: "La misma frase que Duelos: «8 duelos medidos y 1 con pocos minutos: …», contando desde ±10 de percentil" },
           { que: "Sin minutos en Wyscout", es: "Se dice una vez arriba; el duelo que sólo repetiría a los mismos nuestros va en una línea, sin tarjeta" },
           { que: "Nombres", es: "Los nuestros, con el nombre corto de la plantilla (el mismo de la pizarra y de Duelos)" },
           { que: "El analista · Duelos del analista", es: "Lo escrito a mano va en la tarjeta del duelo con el que casa; lo que no casa, en tarjetas propias" },
@@ -1390,13 +1396,14 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Pizarra Táctica",
     resumen: "Dibujar una idea con fichas, flechas y escenas, presentarla moviéndose y montar el once de la semana, que usa toda la app.",
     origen: "Las fichas propias salen de la plantilla (con su nombre corto, el mismo de Duelos y del Plan) y las rivales de Plantillas rivales, con sus tildes. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer). Pizarras, bajas y once se guardan en Supabase.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "El once de la semana",
         filas: [
           { que: "Onces de la semana", es: "Tres renglones: nuestro once y su fuente, el suyo con su etiqueta (probable, su último once o por minutos) y cómo se cambia un jugador. El tablero «Once 4-2-3-1»: el Castilla ataca hacia la derecha y el rival hacia la izquierda; dentro de la semana no se toca solo" },
-          { que: "Rellenar otra vez · Deshacer", es: "El botón principal: vuelve a poner los dos onces, con un aviso antes si el tablero se ha tocado; «Deshacer», en «Más», lo deja como estaba" },
+          { que: "Rellenar otra vez · Deshacer", es: "El botón principal: vuelve a poner los dos onces, con un aviso antes si el tablero se ha tocado; «Deshacer», en «Más», lo deja como estaba. Desde el 17/11/2026 precarga los puntos de «Cómo le ganamos» del Plan de partido: la escena 1 lleva en «Qué se cuenta» el duelo que decide (con su cifra de Duelos) y cada punto más (lo suyo que hay que parar, el segundo duelo) es otra escena con los mismos onces, lista para dibujar. Esas escenas sin dibujar no cuentan como tablero tocado" },
+          { que: "Su ficha (al elegir una ficha)", es: "En la barra de la ficha elegida: la del rival abre su ficha y sus cortes en Scout individual con el equipo y el jugador puestos; la nuestra, Individual" },
           { que: "? (ayuda)", es: "Qué es cada ficha, quién lee este once y por qué algunos no llevan dorsal (no lo tienen publicado en la plantilla del Castilla)" },
           { que: "Más · Deshacer el relleno · Probar sin guardar", es: "Deshacer deja el tablero como antes del relleno; probar cambia el once sólo en esta pantalla y al terminar se guarda o se descarta" },
           { que: "Accesos del rival", es: "Bajo los onces, la misma tira que en todas las pantallas del rival: ▶ sus goles en vídeo, cómo le marcan y su último partido (en una ventana), Plan de partido, Plantilla, Colectivo, Individual, ABP, Área, Duelos y Pizarra ABP, todos con este rival puesto. El nombre del rival abre su plantilla" },
@@ -1420,7 +1427,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Dibujo", es: "Coloca a un equipo en 4-4-2, 4-3-3… con fase (con o sin balón) y altura (alto, medio, bajo), cada uno al puesto más cercano" },
           { que: "Qué se cuenta", es: "La nota de la escena: sale bajo el campo a pantalla completa y en todo lo que se exporta" },
           { que: "Por voz", es: "Explicar la jugada hablando y que se propongan las escenas; se revisan y se añaden o no; se deshace como cualquier cambio" },
-          { que: "Nombres bajo las fichas", es: "El nombre corto de la plantilla (el de Duelos y el Plan), aunque la ficha se rellenara con otro (se casa por dorsal o, sin él, por el nombre), y con apellido si choca con uno del rival. En el móvil, sólo el dorsal y el nombre de la ficha que se toca, para que no se pisen; «Nombres en el móvil», en Vista, los pone todos. Al exportar, siempre" },
+          { que: "Nombres bajo las fichas", es: "El nombre corto de la plantilla (el de Duelos y el Plan; en la lista del once también, con la misma regla: el apodo si nadie más lo lleva, si no el apellido, lib/tactics/nombreCorto.ts), aunque la ficha se rellenara con otro (se casa por dorsal o, sin él, por el nombre), y con apellido si choca con uno del rival. En el móvil, sólo el dorsal y el nombre de la ficha que se toca, para que no se pisen; «Nombres en el móvil», en Vista, los pone todos. Al exportar, siempre" },
           { que: "Escena", es: "Un solo mando para duplicar la escena o añadir una en blanco detrás" },
           { que: "Elegir varias", es: "Arrastrar sobre el césped vacío o Mayús + clic; luego se mueven, alinean, reparten o duplican juntas" },
           { que: "Medidas del bloque", es: "Con varias elegidas, el largo y el ancho que ocupan en metros; con dos, la distancia", cuenta: "El campo de la pizarra es 100 × 68; el largo se pasa a 105 m" },
@@ -1518,7 +1525,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "Cómo llega cada rival, su plantilla en el campo y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba, antes de mirar a nadie",
@@ -1542,20 +1549,21 @@ export const AYUDAS: AyudaDePagina[] = [
             cuenta: "Wyscout, equipos de su competición esta temporada (sin copa). Aspecto: percentil medio de sus cifras, si se separa ±20 puntos. Una cifra sólo entra en «Fuerte en» si está entre los 6 primeros de 20 y en «Flojo en» si está entre los 6 últimos; lo que vale la mediana, nunca. Puesto y mediana salen de puestoEnLiga (lib/rivals/puesto-liga.ts): con el sentido de la métrica (en PPDA, 1.º el que más aprieta), empates con el mismo puesto y mediana de verdad (media de los dos del medio con 20). Es la misma cuenta que el Scout colectivo y Área del rival",
           },
           {
-            que: "«Dónde hacerles daño»",
-            es: "Hasta tres jugadores, cada uno con su «Qué hacemos» y la cifra de Wyscout que lo sostiene («duelos aéreos ganados 50 % · peor que 8 de cada 10 de su puesto»); sin cifra detrás no hay «Qué hacemos»; primero el central que el analista da por el de menor capacidad en Scout Colectivo",
+            que: "«Dónde hacerles daño» y «Dónde nos hacen daño» (17/11/2026)",
+            es: "Dos bloques según el signo del duelo de Duelos: con nuestro balón (verde) y con el suyo (rojo, la orden es defensiva). Hasta tres jugadores, cada uno en una tarjeta que abre con su orden y el chip del duelo («nuestro balón +20 · el suyo −33»); debajo, sólo las debilidades con cifra detrás, la cifra de Wyscout con sus intentos si es un porcentaje («duelos aéreos ganados 50 % · 10 de 20, tendencia») y la base en el mismo formato en todas («Base: 1180′ en Wyscout · 12 partidos»). «Ver el duelo» despliega la tarea, el objetivo y los minutos de los dos lados, con un enlace a Duelos. Sin cifra detrás no hay «Qué hacemos»; primero el central que el analista da por el de menor capacidad en Scout Colectivo",
             cuenta: "Etiqueta de debilidad en la ficha y rasgo flojo en Wyscout a la vez, con 450′ o más; no sale el central que el analista da por solvente. «Perfil único» dice la pierna de «PIE DOMINANTE» (zurdo: «cerrarle el perfil de dentro y obligarle a centrar con la derecha»); sin pierna escrita, esa etiqueta no da «Qué hacemos». Una sola orden por jugador (16/11/2026): si está en un duelo de Duelos que se despega (±10, sin muestra corta), el «Qué hacemos» es la orden de ese duelo, con su cifra con nuestro balón y con el suyo, la misma que en Duelos y en el Plan de partido (lib/rivals/dano.ts, ordenDelDuelo). El nombre abre su ficha",
           },
           { que: "Los nombres de «Le hacen los goles»", es: "Abren la ficha del jugador en esta misma pantalla, si está en la plantilla" },
-          { que: "Otros puntos fuertes o flojos (plegados)", es: "Cada uno con su primera cifra y su puesto entre los 20 en el rótulo, sin tener que abrirlo" },
+          { que: "Otros puntos fuertes o flojos (plegados)", es: "«Ver otro punto flojo: cuidado del balón»; dentro, con el formato de las tarjetas: cifra por partido, en cuántos partidos, «(menos es mejor)» cuando lo es, mediana y puesto. Cada aspecto lleva una barra con su puesto (llena, el 1.º)" },
           {
             que: "Tira del rival (bajo los equipos, 16/11/2026)",
-            es: "La misma en las ocho pantallas del rival y del partido: «▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» (en una ventana, sin salir) y Plan de partido (con su jornada), Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto. En el móvil se desliza en una fila",
+            es: "La misma en las ocho pantallas del rival y del partido: «▶ Sus goles en vídeo», «▶ Cómo le marcan» y «▶ Su último partido» (en una ventana, sin salir) y Plan de partido (con su jornada), Colectivo, Individual, ABP, Área, Duelos, Pizarra táctica y Pizarra ABP con este rival puesto. En el móvil va en varias filas, a la vista (17/11/2026)",
             cuenta: "Los enlaces llevan ?equipo=NOMBRE y ?rival=ID (la fila de la hoja RIVALES del próximo partido contra él o, si ya se jugaron, del último); el rival queda apuntado durante la visita y las pestañas de la sección lo llevan también (components/rivals/AccesosDelRival.tsx, lib/rivals/rival-en-curso.ts). Sustituye a «Más de este rival»",
           },
           { que: "Para la semana", es: "Sólo del próximo rival: informe y PDF del once probable a la vista (también en el móvil); PDF para el portero y PowerPoint de día de partido en «Más»" },
+          { que: "Vídeo de sus partidos (plegado, 17/11/2026)", es: "Los resúmenes y sus goles en vídeo van en un desplegable bajo «Para la semana»: ya están a un toque en la tira de arriba" },
           { que: "Resúmenes de sus partidos", es: "El resumen oficial de sus tres últimos partidos de liga en el canal de la RFEF (abre YouTube); «Ver los N» despliega el resto" },
-          { que: "Sus goles en vídeo (16/11/2026)", es: "Debajo de los resúmenes. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF", cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes" },
+          { que: "Sus goles en vídeo (16/11/2026)", es: "Debajo de los resúmenes. Los que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista de debajo; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. El minuto, como en el campo («90+10′»), y «Falta» para la falta jugada. Cada gol, con el corte de Opta del partido (10 s antes y 6 después) o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF", cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes. Opta puede dar algún gol a otro jugador que BeSoccer (un rebote, un remate desviado): por eso «Le hacen los goles» y esta lista pueden no cuadrar en uno" },
           {
             que: "Revulsivos",
             es: "La conclusión y, a la vista, sólo quien ha hecho algo entrando (goles o asistencias, o «revulsivo»), hasta tres; «Ver la tabla de los N suplentes» despliega a todos: veces que entra, minutos de suplente, goles y asistencias entrando, G+A por 90 como suplente frente a como titular, el minuto medio de su cambio y la banda de sus remates tras entrar. Un G+A/90 sacado de menos de 90′ de suplente lleva «tendencia»",
@@ -1641,13 +1649,14 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Cómo nos hacen daño", es: "Hasta tres de su ataque (atacan el área, sus centros, por fuera, al espacio, sus referencias), con lo que hacemos, deducido del campo" },
           {
-            que: "Sus goles en vídeo (16/11/2026)",
-            es: "Debajo de «Por dónde ataca»: los goles que marca y los que encaja (= por dónde hacerle daño), de seguido («▶ Ver de seguido») o uno a uno en la lista; filtros: en jugada o a balón parado (córner, faltas, banda y penalti) y temporada, últimos 3 o últimos 5 partidos. Cada gol, con el corte de Opta del partido o, si aún no está, sobre el resumen de la RFEF. «Verlos en el campo» abre Análisis de goles con el equipo puesto. No va en el PDF",
-            cuenta: "Goles de Opta (opta:remates; los de propia puerta no son remates y no salen). Balón parado = situación del remate distinta de «juego» y «contragolpe». Vídeo: opta:goles-video y, si no, rfef:goles-resumenes",
+            que: "Cómo nos hacen daño, en datos (17/11/2026)",
+            es: "Debajo de lo del analista y antes del embudo: quién le hace el gol («Flakus suma el 27 % de su xG: 4,29 en 840′») y por dónde centra («sobre todo por la derecha: 54 % de sus 208 centros; Jorge Mier, el 17 %»), cada uno con su «Qué hacemos» (marcarle en el área; cerrar el carril del que centra) y los enlaces a su ficha en Scout individual y a Área del rival. Es el mismo punto 4 del Plan de partido",
+            cuenta: "xG de Opta (opta:jugadores-partidos, el mismo «Reparto del xG» de abajo); sólo si el primero suma el 18 % o más con 270′ o más. Centros de Wyscout (los de «Por dónde ataca»): la banda que da la mitad o más de sus centros, con 20 o más. components/rivals/AmenazaDelRival.tsx",
           },
+          { que: "Sus goles en vídeo", es: "Ya no va en esta pantalla (17/11/2026): está a un toque en la tira de arriba («▶ Sus goles en vídeo»), en una ventana, sin salir" },
           {
             que: "Por dónde ataca",
-            es: "Primero, como el original de X («¿Por qué carril ataca?»), medio campo atacando hacia arriba con sus tres carriles sombreados según su parte de todas esas acciones (el porcentaje grande dentro, el más cargado más grande) y al lado quién carga cada carril (el que más pone sumando los tipos en los que es el primero). Debajo, el detalle: sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales y «▶ Su vídeo», sus cortes en Scout individual con él ya elegido; el puesto, en castellano («lateral izquierdo», no «LB»)",
+            es: "Aquí, en una línea (17/11/2026): el reparto por carril, el mismo del campo de Área («izquierda 28 · centro 39 · derecha 33»), y sólo por fuera (centros, regates y pases al área) la banda que carga, dichas como dos cuentas distintas; el jugador del que más depende, y el enlace «Banda a banda… en Área del rival». El bloque entero vive en Área del rival. En Área: primero, como el original de X («¿Por qué carril ataca?»), medio campo atacando hacia arriba con sus tres carriles sombreados según su parte de todas esas acciones (el porcentaje grande dentro, el más cargado más grande) y al lado quién carga cada carril (el que más pone sumando los tipos en los que es el primero). Debajo, el detalle: sus centros, regates, pases al área y acciones progresivas (pases progresivos + carreras en progresión) de la temporada, repartidos entre banda izquierda, centro y banda derecha, y en cada banda el jugador que más pone; su nombre abre su ficha en Plantillas rivales y «▶ Su vídeo», sus cortes en Scout individual con él ya elegido; el puesto, en castellano («lateral izquierdo», no «LB»)",
             cuenta:
               "Wyscout por jugador: cifra por 90 × minutos / 90, jugadores de campo con minutos. El lado, del puesto principal (laterales, carrileros y extremos con L/R a su banda; centrales, medios, mediapuntas y delanteros al centro); los centros, de «Centros desde la banda izquierda/derecha». El % es sobre el total del equipo; el titular dice qué banda carga (≥ 58 % de lo de fuera) y el jugador del que más depende",
           },
@@ -1671,7 +1680,7 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           {
             que: "Según el marcador",
-            es: "Arriba, una frase dice si cuando se adelanta se repliega o sigue apretando, y «Qué hacemos»: la orden que sale del dato («si nos adelantamos, sube a 16,7 remates por 90′… defender el área y la segunda jugada»), con su base en minutos. En Visual (por defecto), barras por métrica con los tres estados (verde ganando, gris empatando, naranja perdiendo) y la raya de su media; en Detalle, la tabla: por cada 90 minutos en ese estado, remates, xG a favor, xG en contra, posesión, toques en el último tercio y balones ganados en el último tercio, con su media al lado y en rojo lo que se aparta más de un 25 %. Un estado con menos de 270′ lleva «tendencia» y con menos de 90′ «pocos minutos». Debajo, una línea por partido coloreada por el marcador (verde ganando, gris empatando, naranja perdiendo) con el minuto y el marcador de cada gol (▲ suyo, ▼ en contra); salen los 8 últimos y un botón enseña todos",
+            es: "Arriba, una frase dice si cuando se adelanta se repliega o sigue apretando, y «Qué hacemos»: la orden que sale del dato («si nos adelantamos, sube a 16,7 remates por 90′… defender el área y la segunda jugada»; si se adelanta, «no precipitarnos; amplitud, paciencia y llegada al área»), con su base en minutos. En Visual (por defecto), barras por métrica con los tres estados (verde ganando, gris empatando, naranja perdiendo) y la raya de su media; en Detalle, la tabla: por cada 90 minutos en ese estado, remates, xG a favor, xG en contra, posesión, toques en el último tercio y balones ganados en el último tercio, con su media al lado y en rojo lo que se aparta más de un 25 %. Un estado con menos de 270′ lleva «tendencia» y con menos de 90′ «pocos minutos». Debajo, una línea por partido coloreada por el marcador (verde ganando, gris empatando, naranja perdiendo) con el minuto y el marcador de cada gol (▲ suyo, ▼ en contra); salen los 8 últimos y un botón enseña todos",
             cuenta:
               "Opta. Los goles de opta:remates (sin la fila repetida de cada evento) dan la línea del marcador de cada partido; el descuento de la primera parte se cuenta en el 45′ y el partido acaba en el 90′ o en lo último que se ve. Remates (con los bloqueados) y xG van al estado del MatchState de cada remate (el «ganando» del contrario es su «perdiendo»). Posesión (media pesada por el tiempo), toques en el último tercio (TchsA3) y balones ganados en el último tercio (PosWonA3rd), de opta:momento: cada tramo de 5′ se reparte entre los estados por los segundos que pasa en cada uno. Por 90 = suma / segundos en el estado × 5.400; la media, lo mismo con todos los minutos. Sólo se marca en rojo con 90′ o más en ese estado. Qué hacemos: perdiendo (= si nos adelantamos), remates o toques arriba más de un 25 % sobre su media; ganando, posesión más de un 12,5 % por debajo o xG en contra más de un 25 % por encima; con al menos 90′ en ese estado. La frase: ganando, posesión, toques arriba y balones ganados arriba frente a su media (dos que bajen un 15 % = se repliega). Opta no trae para todos los equipos el pase a pase ni los centros: el % de pases en campo contrario se lee con la posesión y los toques en el último tercio, la altura defensiva con los balones ganados arriba, y los centros no salen. Un partido cuyos goles no cuadran con el resultado de opta:partidos (gol en propia puerta) sale en la lista pero no entra en las cuentas. Si el rival no cruza con Opta, no sale",
           },
@@ -1814,18 +1823,19 @@ export const AYUDAS: AyudaDePagina[] = [
       "Sus centros laterales: cuánto centran y con qué acierto, cuántos reciben, qué hacemos en cada caso y las láminas de la jornada.",
     origen:
       "Wyscout (sus centros frente a los equipos de la liga), el texto del Scout Colectivo para contrastar y la carpeta de centros de cada jornada, con las láminas que se dibujan aquí (Supabase).",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Sus centros según Wyscout",
         filas: [
           { que: "El rival", es: "Abre con el del próximo partido, o con el que trae la dirección (?equipo=, desde las demás pantallas del rival); «Cambiar equipo» despliega los demás, por calendario" },
           { que: "Accesos del rival", es: "Bajo el título, la misma tira que en todas las pantallas del rival: ▶ sus goles en vídeo, cómo le marcan y su último partido (en una ventana), Plan de partido, Plantilla, Colectivo, Individual, ABP, Duelos y las pizarras, con este rival puesto" },
+          { que: "Un solo titular (17/11/2026)", es: "El del mapa, con su base: «centra mucho y mal: 3.º de 20 en volumen y 19.º en acierto (60 precisos de 208 en 12 partidos)». Debajo del mapa, lo nuestro en percentil: «P89 en centros por partido · P5 en centros precisos»" },
           { que: "Mapa de dos ejes (arriba)", es: "Lo primero tras el titular. Los equipos de la liga en centros por partido frente a centros precisos %, en percentil dentro de la liga, con el rival en azul y el Castilla en oro; el título dice la conclusión («Real Murcia centra mucho y mal: 3.º de 20 en volumen y 19.º en acierto»)", cuenta: "Wyscout, esta temporada, su competición; percentil de cada equipo entre los de la liga en cada eje; el puesto, 1 + los equipos con más (de más a menos)" },
           { que: "Cuando nos centran · Cuando les centramos", es: "Los dos bloques, rotulados por quién centra: sus centros laterales (cuando nos centran) y los centros que recibe (cuando les centramos)" },
           { que: "Sus centros · Los que recibe", es: "Por partido o en porcentaje frente a los equipos de la liga; «x de y» es la base real" },
           { que: "Barra", es: "El rival en oro entre cero y el máximo de la liga: la raya es la mediana de los 20 equipos y el rombo verde, el mejor (la leyenda va una vez, encima de las tarjetas). Cada cifra lleva su base: «17,3 por partido · 208 en 12 partidos» o «60 de 208»" },
-          { que: "Por dónde ataca · quién centra", es: "Debajo: sus centros, regates y pases al área por banda y quién carga cada una, el mismo bloque del Scout colectivo; cada nombre abre su ficha y «▶ Su vídeo», sus cortes en Scout individual" },
+          { que: "Por dónde ataca · quién centra", es: "Debajo: sus centros, regates y pases al área por banda y quién carga cada una, el bloque entero vive aquí (en el Scout colectivo va en una línea con enlace a éste); el titular da el reparto por carril (el mismo número que el campo) y, aparte, sólo por fuera; cada nombre abre su ficha y «▶ Su vídeo», sus cortes en Scout individual" },
           {
             que: "▲ ▼ y puesto",
             es: "Mejor o peor según le convenga a ese equipo; el puesto va del 1.º (el mejor) al último y es el mismo que en el Scout colectivo y Plantillas. La flecha sólo sale entre los 6 primeros (▲) o los 6 últimos (▼) de 20; en medio, «en la zona media de la liga»",
@@ -1834,7 +1844,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Tendencia", es: "Un porcentaje con menos de 15 casos arriba o 25 abajo, o menos de 10 partidos: sin flecha ni color" },
           {
             que: "Qué hacemos · Qué entrenamos",
-            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). Cada «Qué hacemos / Qué entrenamos» va bajo su bloque (su ataque junto a sus centros; el nuestro junto a los que recibe). Los objetivos salen en la MISMA columna que el dato y nunca por debajo de lo que ya hacemos: en su ataque, la mediana de centros precisos de la liga (con el mejor centrador como referencia); en el nuestro, mantener o subir frente a lo que le hacen sus rivales: los centros por partido (los suyos o los nuestros, si son más) y que llegue a un rematador nuestro al menos el acierto que consiguen sus rivales contra él (o el nuestro, si es más), diciendo si es mantenerlo o subirlo. «Meter en el microciclo» abre el editor de microciclos",
+            es: "Criterio de juego a partir de la cifra, encima de la tabla: la cifra lo sostiene, no lo dicta. El titular lleva su base («60 precisos de 208 en 12 partidos»). En nuestro ataque, el objetivo de acierto es «mantener o subir» lo nuestro frente a lo que le hacen sus rivales, en la misma unidad. Cada «Qué hacemos / Qué entrenamos» va bajo su bloque (su ataque junto a sus centros; el nuestro junto a los que recibe). Los objetivos salen en la MISMA columna que el dato y nunca por debajo de lo que ya hacemos: en su ataque, la mediana de centros precisos de la liga (con el mejor centrador como referencia); en el nuestro, mantener o subir frente a lo que le hacen sus rivales: los centros por partido (los suyos o los nuestros, si son más) y que llegue a un rematador nuestro al menos el acierto que consiguen sus rivales contra él (o el nuestro, si es más), diciendo si es mantenerlo o subirlo. «Meter en el microciclo» abre el editor de microciclos",
             cuenta: "«Cuando les centramos» mira cuántos centros recibe y también su acierto: si el acierto de los centros que recibe está entre los 6 peores de 20 (y no es tendencia), «el X % de los centros que le hacen llega a un rematador contrario (n de m)… defienden mal el centro: atacar el área con centro y tres rematadores»; si está entre los 6 mejores, «probar primero por dentro» lleva ese porqué",
           },
           { que: "Contraste con el Scout Colectivo", es: "Si su texto dice que centran mucho o poco, se dice si Wyscout lo respalda, con enlace al análisis" },
@@ -3610,7 +3620,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Sólo para el analista", es: "Con la sesión de administrador: las vistas en YouTube de cada corte y, en «Por jugador», qué titulares del once probable no tienen clip y de qué líneas no hay cortes" },
           { que: "Titular en X de Y", es: "Titularidades y partidos de la temporada, con los minutos de BeSoccer; con menos de 10 partidos, «(muestra corta)»" },
           { que: "Etiquetas en lenguaje de caseta", es: "Cada etiqueta de la ficha se dice como comportamiento («El duro» → va fuerte al duelo) y, si BeSoccer tiene la cifra, con su base («se carga de amarillas: 4 en 12 partidos»)" },
-          { que: "Cifras de su puesto", es: "En cada corte, su rasgo más fuerte (▲) y el más flojo (▼) de Wyscout contra los de su puesto en la categoría: valor, percentil, contra cuántos y sus minutos. La misma cuenta que la ficha de /rivals; con menos de 270′ no sale", cuenta: "P85 = mejor que el 85 % de los de su puesto. En las de «menos es mejor» (faltas cometidas, pérdidas) se dice con palabras: «comete más que 7 de cada 10 laterales (aquí menos es mejor)»" },
+          { que: "Cifras de su puesto", es: "En cada corte, su rasgo más fuerte (▲) y el más flojo (▼) de Wyscout contra los de su puesto en la categoría: valor, percentil, contra cuántos y sus minutos, a 12 px y con una barrita de su percentil y la raya de la mediana (17/11/2026). Fuera del ▲/▼ los penaltis y los porcentajes de menos de 15 intentos; los demás porcentajes llevan sus intentos («50 % (10 de 20)»). Al delantero, si la tiene, una de remate o xG. Quien no tiene nada por debajo de p30 lleva como ▼ su cifra más baja bajo la mediana, si pasa de 450′. «Porterías a cero» va como total («5 en 12 partidos»), no por 90′. La misma cuenta que la ficha de /rivals; con menos de 270′ no sale", cuenta: "P85 = mejor que el 85 % de los de su puesto. En las de «menos es mejor» (faltas cometidas, pérdidas) se dice con palabras: «comete más que 7 de cada 10 laterales (aquí menos es mejor)»" },
           { que: "Lista del canal", es: "Al abrirla, la de este rival arriba; las de otros rivales, en «Otras jornadas»" },
           { que: "Su ficha · Su duelo · Su ABP", es: "En cada corte, enlaces a su ficha de Plantillas rivales y a Duelos de ese rival; si su ficha le marca de balón parado (rematador, lanzador, córner…), también a ABP del rival. «Explotable» va con la frase entera" },
           { que: "Fuera del once probable", es: "Con once marcado, los demás van por línea rotulados «Fuera del once probable · defensas»…; con menos de 10 cortes en la lista, «muestra corta»" },
@@ -3636,7 +3646,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */

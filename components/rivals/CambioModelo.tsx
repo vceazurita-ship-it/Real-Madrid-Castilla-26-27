@@ -104,7 +104,7 @@ function Contenido({ equipo }: { equipo: string }) {
         <div className="mt-3 min-w-0 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02]">
           <table className="w-full min-w-[420px] text-left text-[12px] tabular-nums">
             <thead>
-              <tr className="text-[10px] uppercase tracking-[0.12em] text-white/45">
+              <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
                 <th className="px-3 py-2 font-semibold">Bloque</th>
                 <th className="px-3 py-2 font-semibold">PPDA</th>
                 <th className="px-3 py-2 font-semibold">Pases</th>
@@ -192,7 +192,7 @@ function Curva({ titulo, nota, serie, k, decimales }: { titulo: string; nota: st
     <figure className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
       <figcaption className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-[13px] font-semibold text-white">{titulo}</span>
-        <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">{nota}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{nota}</span>
       </figcaption>
       <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={`${titulo} jornada a jornada y su media de los últimos ${VENTANA}`}>
         <rect x={xIni} y={M.arriba} width={W - M.der - xIni} height={alto} style={{ fill: tinta(0.06) }} />

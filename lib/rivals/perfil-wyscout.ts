@@ -25,6 +25,7 @@ import {
   PUESTOS,
   fuertesYFlojos,
   puestoDe,
+  volumenDelPorcentaje,
   type Puesto,
 } from "@/lib/data-analisis/individual";
 import type { Unidad } from "@/lib/data-analisis/metricas";
@@ -85,6 +86,12 @@ export type RasgoWyscout = {
   mejorAlto: boolean;
   /** Cuántas veces en la temporada, si la métrica es «por 90′»; `null` en porcentajes. */
   casos: number | null;
+  /**
+   * En un porcentaje, de cuántos intentos sale en la temporada (17/11/2026,
+   * jueces de fútbol: «Duelos aéreos ganados 50 %» sin «10 de 20» no se podía
+   * pesar). `null` si no se conoce el volumen o no es un porcentaje.
+   */
+  intentos?: number | null;
 };
 
 export type PerfilWyscout = {
@@ -104,6 +111,12 @@ export type PerfilWyscout = {
   muestraCorta: boolean;
   fuertes: RasgoWyscout[];
   flojos: RasgoWyscout[];
+  /**
+   * Su cifra más baja aunque no llegue a «flojo» (p30), para que todo titular
+   * tenga su ▼ en Scout individual (17/11/2026, ronda 19, jueces de fútbol:
+   * Javi Moreno salía sin ninguno). Sin los porcentajes de menos de 15 intentos.
+   */
+  peor?: RasgoWyscout | null;
 };
 
 export type PerfilesDeEquipo = {
@@ -122,15 +135,20 @@ type Candidato = {
 const casosDe = (c: Candidato, minutos: number) =>
   c.metrica.columna.endsWith("/90") ? Math.round((c.valor * minutos) / 90) : null;
 
-const rasgo = (c: Candidato, minutos: number): RasgoWyscout => ({
-  nombre: c.metrica.nombre,
-  valor: c.valor,
-  unidad: c.metrica.unidad,
-  percentil: c.percentil,
-  comoLeer: c.metrica.comoLeer,
-  mejorAlto: c.metrica.mejorAlto !== false,
-  casos: casosDe(c, minutos),
-});
+const rasgo = (c: Candidato, minutos: number, fila?: FilaJugador): RasgoWyscout => {
+  const volumen = fila && c.metrica.unidad === "porcentaje" ? volumenDelPorcentaje(fila, c.metrica.columna).cuantas : null;
+
+  return {
+    nombre: c.metrica.nombre,
+    valor: c.valor,
+    unidad: c.metrica.unidad,
+    percentil: c.percentil,
+    comoLeer: c.metrica.comoLeer,
+    mejorAlto: c.metrica.mejorAlto !== false,
+    casos: casosDe(c, minutos),
+    intentos: volumen != null && volumen > 0 ? Math.round((volumen * minutos) / 90) : null,
+  };
+};
 
 /** Con un caso o dos, el percentil no dice nada de él. */
 const conCasos = (minutos: number) => (c: Candidato) => {
@@ -181,7 +199,7 @@ export function perfilesDeEquipo(
     };
 
     if (fila.minutos < MINUTOS_PARA_LEER || iguales.length < IGUALES_MINIMOS) {
-      return { ...base, muestraCorta: true, fuertes: [], flojos: [] };
+      return { ...base, muestraCorta: true, fuertes: [], flojos: [], peor: null };
     }
 
     /*
@@ -199,12 +217,16 @@ export function perfilesDeEquipo(
         .sort((a, b) => b.percentil - a.percentil)
         .filter((f) => f.percentil >= PERCENTIL_FUERTE && !NO_ES_FORTALEZA.has(f.metrica.columna))
         .slice(0, 3)
-        .map((f) => rasgo(f, minutos)),
+        .map((f) => rasgo(f, minutos, fila)),
       flojos: [...validas]
         .sort((a, b) => a.percentil - b.percentil)
         .filter((f) => f.percentil <= PERCENTIL_FLOJO)
         .slice(0, 3)
-        .map((f) => rasgo(f, minutos)),
+        .map((f) => rasgo(f, minutos, fila)),
+      peor: (() => {
+        const lista = [...validas].sort((a, b) => a.percentil - b.percentil).map((f) => rasgo(f, minutos, fila));
+        return lista.find((r) => r.percentil < 50 && !(r.unidad === "porcentaje" && r.intentos != null && r.intentos < 15) && !/penalti/i.test(r.nombre)) ?? null;
+      })(),
     };
   });
 

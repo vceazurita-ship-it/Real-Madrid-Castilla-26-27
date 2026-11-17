@@ -34,6 +34,7 @@ import { normalizaDuelos, type JugadorDuelo } from "@/lib/duelos";
 import type { Player } from "@/types/player";
 
 import { DIBUJO_DE_PARTIDA, numerosDelOnce } from "./dosOnces";
+import { nombreCortoUnico } from "./nombreCorto";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "./ultimoOnce";
 import { rivalTokenId } from "./rivals";
 import { PITCH_HEIGHT, type TacticToken } from "./types";
@@ -157,7 +158,7 @@ function nuestroUltimoOnce(temporada: RatingsSeason | null, plantilla: Player[],
         id: `once-home-${ficha}`,
         kind: "home" as const,
         label: p?.dorsal ? String(p.dorsal) : NUMERO_DEL_HUECO[h.clave],
-        nombre: p ? p.apodo || p.nombre : undefined,
+        nombre: p ? nombreCortoUnico(p, plantilla) : undefined,
         foto: p?.foto,
         posicion: p?.posicion,
         ...sitio,
@@ -323,7 +324,7 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
         id: `once-home-${ficha}`,
         kind: "home" as const,
         label: p?.dorsal ? String(p.dorsal) : NUMERO_DEL_HUECO[h.clave],
-        nombre: p ? p.apodo || p.nombre : nuestro?.nombre,
+        nombre: p ? nombreCortoUnico(p, plantilla) : nuestro?.nombre,
         foto: p?.foto ?? nuestro?.foto,
         posicion: p?.posicion ?? nuestro?.posicion,
         ...sitio,
@@ -426,7 +427,9 @@ export function huellaFichas(tokens: TacticToken[]): string {
 export const idEscenaOnces = (tokens: TacticToken[]) => `onces-auto-${huellaFichas(tokens)}`;
 
 export function tableroSinTocar(escenas: { id: string; tokens: TacticToken[]; shapes: unknown[] }[]): boolean {
-  if (escenas.length !== 1) return false;
+  /* Las escenas de los puntos del Plan (17/11/2026), sin dibujar, no cuentan como tocado. */
+  const extra = escenas.slice(1);
+  if (escenas.length === 0 || extra.some((e) => !e.id.startsWith("onces-plan-") || e.shapes.length > 0)) return false;
 
   const [escena] = escenas;
 

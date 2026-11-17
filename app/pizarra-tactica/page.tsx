@@ -27,6 +27,8 @@ import { confirmar } from "@/lib/avisos";
 import Link from "next/link";
 import { Sidebar } from "@/components/ui/sidebar";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
+import { useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
+import { useDuelosClave, type DueloClave } from "@/hooks/useDuelosClave";
 import { Topbar } from "@/components/ui/topbar";
 import EstadoGuardado from "@/components/tactics/EstadoGuardado";
 import OnceTitular from "@/components/tactics/OnceTitular";
@@ -760,6 +762,8 @@ function BoardEditor({
   const [antesDelRelleno, setAntesDelRelleno] = useState<TacticsDoc | null>(null);
   const semanaMirada = useRef(false);
   const docVivo = useRef(doc);
+  /* Los puntos de «Cómo le ganamos» del Plan, para precargarlos como escenas al rellenar (17/11/2026). */
+  const notasDelPlan = useRef<string[]>([]);
 
   useEffect(() => {
     docVivo.current = doc;
@@ -802,7 +806,22 @@ function BoardEditor({
             ...base,
             semanaOnces: onces.semana,
             /* La huella en el id: así se sabe después si alguien lo ha tocado (08/11/2026). */
-            scenes: [{ id: idEscenaOnces(onces.tokens), nombre: `Onces · ${onces.rival}`, tokens: onces.tokens, shapes: [] }],
+            /*
+            | 17/11/2026 (ronda 19, jueces de fútbol): la escena 1 salía con «Qué se
+            | cuenta» vacío. Ahora lleva el primer punto de «Cómo le ganamos» del
+            | Plan de partido (el duelo que decide, lo suyo que hay que parar) y
+            | cada punto más es otra escena con los mismos onces, lista para dibujar.
+            */
+            scenes: [
+              { id: idEscenaOnces(onces.tokens), nombre: `Onces · ${onces.rival}`, tokens: onces.tokens, shapes: [], ...(notasDelPlan.current[0] ? { nota: notasDelPlan.current[0] } : {}) },
+              ...notasDelPlan.current.slice(1).map((nota, i) => ({
+                id: `onces-plan-${i + 1}-${tacticId("scene")}`,
+                nombre: nota.split(/[:.(]/)[0].slice(0, 40),
+                tokens: onces.tokens,
+                shapes: [],
+                nota,
+              })),
+            ],
           };
         });
 
@@ -820,6 +839,30 @@ function BoardEditor({
 
   /* El próximo partido, para el pie de la lámina y la portada del vídeo de cualquier pizarra. */
   const [partido, setPartido] = useState<{ rival: string; fecha: string; lado: "casa" | "fuera" } | undefined>(undefined);
+
+  /*
+  | Los puntos de «Cómo le ganamos» que tienen orden y cifra (17/11/2026): el
+  | duelo que decide, el segundo que más pesa y lo suyo que hay que parar, con
+  | la misma cuenta que el Plan (useDuelosClave, useAmenazaDelRival).
+  */
+  const duelosDelPlan = useDuelosClave(deLaSemana ? (partido?.rival ?? "") : "");
+  const amenazaDelPlan = useAmenazaDelRival(deLaSemana ? (partido?.rival ?? "") : "");
+  useEffect(() => {
+    const firma = (v: number | null) => (v == null ? "" : `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}`);
+    const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
+    const duelos = duelosDelPlan
+      ? [...duelosDelPlan.grupos.vigilar, ...duelosDelPlan.grupos.doble, ...duelosDelPlan.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))
+      : [];
+    const deDuelo = (d: DueloClave) => {
+      const v = Math.abs(d.sinBalon ?? 0) > Math.abs(d.conBalon ?? 0) ? d.sinBalon : d.conBalon;
+      return `${d.consigna.split(" (")[0]} (${d.titulo}: ${firma(v)} en Duelos).`;
+    };
+    notasDelPlan.current = [
+      ...duelos.slice(0, 1).map(deDuelo),
+      ...amenazaDelPlan.slice(0, 1).map((a) => `${a.orden.charAt(0).toUpperCase()}${a.orden.slice(1)}: ${a.dato}.`),
+      ...duelos.slice(1, 2).map(deDuelo),
+    ].map((t) => t.slice(0, 280));
+  }, [duelosDelPlan, amenazaDelPlan]);
 
   useEffect(() => {
     let vivo = true;

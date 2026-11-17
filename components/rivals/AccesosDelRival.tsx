@@ -126,8 +126,12 @@ export function AccesosDelRival({
       data-export-hide
       className={`relative min-w-0 ${className}`}
     >
-      {/* Una sola fila que se desliza en el móvil (con el borde que avisa de que hay más); en escritorio, en dos si no cabe. */}
-      <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto pb-1 [mask-image:linear-gradient(to_right,black_calc(100%-28px),transparent)] scrollbar-none sm:flex-wrap sm:overflow-visible sm:[mask-image:none]">
+      {/*
+        En varias filas también en el móvil (17/11/2026, jueces de marketing): la
+        fila que se deslizaba cortaba «Sus goles en vídeo / Cómo le marcan / Plan»
+        a la derecha y el resto no se veía.
+      */}
+      <div className="flex min-w-0 flex-wrap items-center gap-1.5 pb-1">
         {nombre && <VideosDelRival key={`${nombre}-${tipoVideo}`} rival={nombre} etiqueta={`${nombre} · vídeo`} tipo={tipoVideo} />}
         {DESTINOS.filter((d) => d.ruta !== aqui).map((d) => {
           const href = d.ruta === "/pizarra-tactica" ? "/pizarra-tactica?once=1" : conRivalEnUrl(d.ruta, llaves);

@@ -3068,14 +3068,18 @@ export default function RivalPlayersPage() {
         return {
           nombre: conTildes(nombrePropio(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())),
           puesto: (puestoHoja || perfil?.posicionTexto || String(p["POSICIÓN"] ?? "").trim()).toLowerCase(),
-          rasgos: frase?.frases ?? [],
+          /* Sólo lo que tiene cifra detrás (17/11/2026, jueces): «pierde duelos» de la etiqueta, sin número, no se dice. */
+          rasgos: frase?.conDato ?? [],
           accion: frase?.accion ?? "",
           /* La cifra que sostiene la orden (16/11/2026, jueces de fútbol): el rasgo de Wyscout, contra los de su puesto. */
           cifra: (() => {
             const rasgo = frase?.respaldo ? perfil?.flojos.find((x) => x.nombre === frase.respaldo) : null;
             if (!rasgo) return "";
             const valor = rasgo.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 });
-            return `${rasgo.nombre.replace(/\s*%$/, "")}: ${valor}${rasgo.unidad === "porcentaje" ? " %" : ""}${rasgo.casos != null ? ` (${Math.round(rasgo.casos)} en la temporada)` : ""} · peor que ${Math.min(9, Math.max(1, Math.round((100 - rasgo.percentil) / 10)))} de cada 10 de su puesto (Wyscout)`;
+            /* Un porcentaje con sus intentos (17/11/2026, jueces): «50 % · 10 de 20», y con menos de 15, tendencia. */
+            const intentos = rasgo.unidad === "porcentaje" && rasgo.intentos ? rasgo.intentos : 0;
+            const deIntentos = intentos ? ` · ${Math.round((rasgo.valor * intentos) / 100)} de ${intentos}${intentos < 15 ? ", tendencia" : ""}` : "";
+            return `${rasgo.nombre.replace(/\s*%$/, "")}: ${valor}${rasgo.unidad === "porcentaje" ? " %" : ""}${deIntentos}${rasgo.casos != null ? ` (${Math.round(rasgo.casos)} en la temporada)` : ""}${rasgo.mejorAlto ? "" : " (menos es mejor)"} · peor que ${Math.min(9, Math.max(1, Math.round((100 - rasgo.percentil) / 10)))} de cada 10 de su puesto (Wyscout)`;
           })(),
           cruzan: debilidades.length > 0 && flojos.length > 0,
           base: base ? `${base.minutos}′${base.fuente} · ${base.partidos} ${base.partidos === 1 ? "partido" : "partidos"}` : "",
@@ -3123,7 +3127,7 @@ export default function RivalPlayersPage() {
     return [...deAnalista.map((uno) => ({ ...uno, cifra: "" })), ...deWyscout].slice(0, 3).map((uno) => {
       const delDuelo = ordenDelDuelo(uno.nombre, duelosDelRival?.grupos, mismoNombreRival);
 
-      return delDuelo ? { ...uno, accion: delDuelo.accion, cifra: delDuelo.cifra } : uno;
+      return delDuelo ? { ...uno, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
     });
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos]);
 
@@ -4118,11 +4122,26 @@ export default function RivalPlayersPage() {
 
               {/* RESÚMENES — el vídeo oficial de cada partido suyo (canal de la RFEF). */}
 
-              {selectedTeam && !loading && <ResumenesRival equipo={selectedTeam} />}
+              {/*
+                17/11/2026 (ronda 19, jueces de análisis): plegados. Ya están a un
+                toque en la tira de arriba («▶ Sus goles en vídeo», «▶ Su último
+                partido»), y abiertos empujaban la plantilla seis capas abajo.
+              */}
+              {selectedTeam && !loading && (
+                <details className="group mt-6 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2 sm:px-4" data-export-hide>
+                  <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-1 text-sm font-semibold text-white/80 hover:text-white">
+                    <span>▶ Vídeo de {selectedTeam}: resúmenes de sus partidos y sus goles, uno a uno</span>
+                    <span className="shrink-0 text-[12px] font-medium text-white/55 group-open:hidden">Abrir</span>
+                    <span className="hidden shrink-0 text-[12px] font-medium text-white/55 group-open:inline">Cerrar</span>
+                  </summary>
 
-              {/* GOLES EN VÍDEO — los suyos y los que encaja, de seguido o uno a uno (16/11/2026). */}
+                  {/* RESÚMENES — el vídeo oficial de cada partido suyo (canal de la RFEF). */}
+                  <ResumenesRival equipo={selectedTeam} />
 
-              {selectedTeam && !loading && <SeccionGolesDelRival equipo={selectedTeam} />}
+                  {/* GOLES EN VÍDEO — los suyos y los que encaja, de seguido o uno a uno (16/11/2026). */}
+                  <SeccionGolesDelRival equipo={selectedTeam} />
+                </details>
+              )}
 
               {/* REVULSIVOS — quién le cambia el partido desde el banquillo (Opta). */}
 

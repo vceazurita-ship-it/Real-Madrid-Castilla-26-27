@@ -7,6 +7,7 @@ import { traeJson } from "@/lib/hojaCsv";
 import { puestoEnPalabras } from "@/lib/posiciones";
 import { puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { asignaPerfiles } from "@/lib/rivals/perfil-wyscout";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { fichaRivalPath, playerKey } from "@/lib/rivals/once";
 import { BANDAS, TIPOS_ACCION, type PorDondeAtaca as Datos } from "@/lib/rivals/por-donde-ataca";
 
@@ -24,7 +25,22 @@ type Ficha = Record<string, unknown>;
 
 const pct = (parte: number, total: number) => (total > 0 ? Math.round((parte / total) * 100) : 0);
 
-export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla: Ficha[] }) {
+export function PorDondeAtaca({
+  equipo,
+  plantilla,
+  compacto = false,
+  rivalId = "",
+}: {
+  equipo: string;
+  plantilla: Ficha[];
+  /**
+   * Una línea con el reparto y el enlace al bloque entero de Área del rival
+   * (17/11/2026, ronda 19, jueces): el bloque salía idéntico en Scout colectivo
+   * y en Área. Se queda entero en Área, que es la pantalla de las bandas.
+   */
+  compacto?: boolean;
+  rivalId?: string;
+}) {
   const [estado, setEstado] = useState<{ equipo: string; datos: Datos | null }>({ equipo: "", datos: null });
 
   useEffect(() => {
@@ -107,6 +123,26 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
     .map((x) => ({ ...x, parte: pct(x.lider!.acciones, total[x.tipo.key]) }))
     .sort((a, b) => b.parte - a.parte)[0];
 
+  /* El reparto por carril, el mismo que dibuja el campo: con él se titula (17/11/2026, jueces de fútbol: la frase decía 48/52 y el gráfico 28/39/33). */
+  const sumaDe = (key: string) => {
+    const parte = datos.bandas.find((b) => b.banda === key);
+    return parte ? TIPOS_ACCION.reduce((x, t) => x + parte.acciones[t.key], 0) : 0;
+  };
+  const carriles = BANDAS.map(({ key }) => ({ key, suma: sumaDe(key) }));
+  const totalCarriles = carriles.reduce((x, c) => x + c.suma, 0);
+  const pctCarril = (key: string) => pct(carriles.find((c) => c.key === key)?.suma ?? 0, totalCarriles);
+  const masCargado = totalCarriles ? carriles.reduce((a, b) => (b.suma > a.suma ? b : a)) : null;
+  const nombreCarril = (key: string) => (key === "izquierda" ? "la banda izquierda" : key === "derecha" ? "la banda derecha" : "el centro");
+  const reparto = masCargado
+    ? `Su ataque pasa más por ${nombreCarril(masCargado.key)}: ${pctCarril(masCargado.key)} % (izquierda ${pctCarril("izquierda")} · centro ${pctCarril("centro")} · derecha ${pctCarril("derecha")}, con las acciones progresivas).`
+    : "";
+  const porFuera =
+    izq + der > 0
+      ? dominante
+        ? ` Sólo por fuera (centros, regates y pases al área), carga la banda ${dominante}: ${dominante === "izquierda" ? parteIzq : 100 - parteIzq} %.`
+        : ` Sólo por fuera (centros, regates y pases al área), reparte: ${parteIzq} % izquierda · ${100 - parteIzq} % derecha.`
+      : "";
+
   const nombre = (jugador: string, posicion: string, clase: string) => {
     const href = enlaces.mapa.get(jugador);
     /* Primero el de la plantilla; sin cruce, la sigla de Wyscout en castellano. */
@@ -142,6 +178,30 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
     );
   };
 
+  if (compacto) {
+    return (
+      <section aria-label="Por dónde ataca" className="mb-6 rounded-2xl border border-sky-400/25 bg-sky-400/[0.05] px-5 py-3">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-sky-300">
+          Por dónde ataca
+          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Wyscout, temporada</span>
+        </p>
+        <p className="mt-1 text-sm leading-6 text-white/85">
+          {reparto}
+          {porFuera}
+          {carga && (
+            <>
+              {" "}
+              El {carga.parte} % {carga.tipo.deQue} sale de {nombre(carga.lider!.jugador, carga.lider!.posicion, "font-semibold text-white")}.
+            </>
+          )}
+        </p>
+        <Link href={conRivalEnUrl("/scout-rival-area", { equipo, id: rivalId })} className="mt-1 inline-block text-sm font-semibold text-sky-300 hover:underline">
+          Banda a banda y quién carga cada una, en Área del rival ›
+        </Link>
+      </section>
+    );
+  }
+
   return (
     <section aria-label="Por dónde ataca" className="mb-6 rounded-2xl border border-sky-400/25 bg-sky-400/[0.05] px-5 py-4">
       <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-sky-300">
@@ -150,11 +210,8 @@ export function PorDondeAtaca({ equipo, plantilla }: { equipo: string; plantilla
       </p>
 
       <p className="mt-1 text-sm leading-6 text-white/85">
-        {dominante
-          ? `Carga la banda ${dominante}: ${dominante === "izquierda" ? parteIzq : 100 - parteIzq} % de los centros, regates y pases al área que hace por fuera.`
-          : izq + der > 0
-            ? `Reparte por las dos bandas (${parteIzq} % izquierda · ${100 - parteIzq} % derecha en centros, regates y pases al área por fuera).`
-            : null}
+        {reparto}
+        {porFuera}
         {carga && (
           <>
             {" "}

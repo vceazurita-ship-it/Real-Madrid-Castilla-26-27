@@ -28,7 +28,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { fechaCorta } from "@/lib/opta-analisis";
 import { cargaResumenesRfef, mismoEquipo, resumenDelPartido } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
-import { SITUACION, type Remate } from "@/lib/opta-eventos";
+import { minutoTexto, SITUACION, type Remate } from "@/lib/opta-eventos";
 
 import { nombreDe } from "./eventos";
 
@@ -131,7 +131,7 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
     const marca = nombreDe(g.teamId, g.equipo);
     const rival = nombreDe(g.rivalId, g.rival);
     const clip = clips[`${g.partido}|${g.parte}|${g.segundo}`];
-    const titulo = `${g.tirador} · ${g.minuto}′`;
+    const titulo = `${g.tirador} · ${minutoTexto(g.minuto, g.parte)}`;
     const cuando = `${fechaCorta(g.fecha)} · ${marca} contra ${rival}`;
     const situacion = SITUACION[g.situacion] ?? "";
 

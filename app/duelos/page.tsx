@@ -624,7 +624,7 @@ export default function DuelosPage() {
                 {" "}
                 <span className="text-sm font-normal text-white/50">
                   · {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}
-                  {tendencias.size ? ` y ${tendencias.size} con pocos minutos (menos de 450′ en un lado: tendencia)` : ""}, los huecos del 4-2-3-1 con Wyscout en los dos lados
+                  {tendencias.size ? ` y ${tendencias.size} con pocos minutos (tendencia)` : ""}, como en el Plan de partido. Cuenta a partir de ±{UMBRAL_DUELO} de diferencia de percentil; «Dónde les podemos hacer daño» lleva todos los de +{UMBRAL_DUELO} o más con nuestro balón, también los de doble cara. Menos de 450′ en un lado es tendencia
                 </span>
               </p>
             )}
@@ -764,10 +764,13 @@ export default function DuelosPage() {
                                 <span className="mt-1 block text-[13px] leading-snug text-white/85">{ordenCorta(consignaDelDuelo(d, sentido))}</span>
                                 {/* Y qué se entrena, si la consigna trae su tarea (16/11/2026, ronda 18, fútbol). */}
                                 {(() => {
-                                  const tarea = consignaDelDuelo(d, sentido).split(" Tarea: ")[1]?.split(" Objetivo: ")[0]?.replace(/\.$/, "");
+                                  const c = consignaDelDuelo(d, sentido);
+                                  const tarea = c.split(" Tarea: ")[1]?.split(" Objetivo: ")[0]?.replace(/\.$/, "");
+                                  /* Con el objetivo de la mediana de su puesto, en la misma unidad (17/11/2026, ronda 19, jueces de fútbol). */
+                                  const objetivo = c.split(" Objetivo: ")[1]?.replace(/\.$/, "");
                                   return tarea ? (
-                                    <span className="mt-0.5 block text-[12px] leading-snug text-white/65">
-                                      <b className="text-white/80">Qué entrenamos:</b> {tarea}.
+                                    <span className="mt-0.5 block text-[13px] leading-snug text-white/70">
+                                      <b className="text-white/85">Qué entrenamos:</b> {tarea}{objetivo ? `; objetivo: ${objetivo}` : ""}.
                                     </span>
                                   ) : null;
                                 })()}
@@ -1687,7 +1690,8 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
   | los de 450′ o más de la mitad alta de su puesto, en barras de percentil;
   | el resto del once, plegado debajo con sus cifras.
   */
-  const cuenta = (r: RoboJugador) => r.robador || (!r.tendencia && (r.percentil ?? 0) >= 50);
+  /* Con menos de 450′, ni robador (17/11/2026, ronda 19, jueces de análisis: Olmedo, 376′, salía como robador): va plegado con los de pocos minutos. */
+  const cuenta = (r: RoboJugador) => !r.tendencia && (r.robador || (r.percentil ?? 0) >= 50);
   const lista = listaEntera.filter(cuenta).sort(porPercentil);
   const resto = [...listaEntera.filter((r) => !cuenta(r) && !r.tendencia).sort(porPercentil), ...listaEntera.filter((r) => !cuenta(r) && r.tendencia)];
   const posesion = lista.find((r) => r.posesion != null)?.posesion ?? null;
@@ -1916,6 +1920,14 @@ function Tarjeta({
         <span className="text-xs uppercase tracking-wider text-white/55 sm:pt-2">vs</span>
         {gente(d.suyos, false)}
       </div>
+
+      {/* Quien está en el hueco y no tiene minutos en Wyscout (17/11/2026, ronda 19, jueces de fútbol: «sólo sale Cestero» con doble pivote). */}
+      {(d.sinMinutos ?? []).length > 0 && (
+        <p className="mt-2 text-xs text-white/55">
+          {(d.sinMinutos ?? []).map((j) => apellidoDe(j)).join(" y ")} también {(d.sinMinutos ?? []).length === 1 ? "está" : "están"} en este hueco, sin minutos en Wyscout esta temporada: la cifra es sólo de{" "}
+          {[...d.nuestros, ...d.suyos].map((j) => apellidoDe(j)).join(" y ")}.
+        </p>
+      )}
 
       {/* Si el rival no juega con mediapunta, el hueco lo ocupa otro puesto: se dice cuál. */}
       {enHuecoMedia.map(({ j, de, hueco }) => (

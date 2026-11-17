@@ -40,10 +40,11 @@ import { comoNombre } from "@/lib/duelos-onces";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { sinErratas } from "@/lib/rivals/erratas";
 import { useAdmin } from "@/hooks/useAdmin";
-import { DUELOS, fraseRecuentoPartes } from "@/lib/duelos";
+import { DUELOS, UMBRAL_DUELO, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
+import { useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 
 import {
   Activity,
@@ -1687,6 +1688,28 @@ export default function MatchPreparation() {
     if (!fila || !fila.puesto || !fila.de) return null;
     return { valor: `${fila.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`, puesto: fila.puesto, de: fila.de };
   })();
+  /*
+  | Nuestro córner, en la misma unidad que el suyo (17/11/2026, ronda 19, jueces
+  | de fútbol): «rematamos el 23,6 % · 13 de 55; objetivo, la mediana de la liga,
+  | 30,7 %», la misma cuenta que ABP del rival (Wyscout, abpRival del Castilla).
+  */
+  const [nuestroCorner, setNuestroCorner] = useState<{ valor: number; mediana: number; base?: { arriba: number; abajo: number } } | null>(null);
+  useEffect(() => {
+    let vivo = true;
+    traeJson<{ ok?: boolean; aspectos?: { clave: string; filas: { nombre: string; valor: number; mediana: number; base?: { arriba: number; abajo: number } }[] }[] }>(
+      `/api/data-analisis?abpRival=${encodeURIComponent("Real Madrid Castilla")}&v=7`,
+    )
+      .then((r) => {
+        const fila = r?.aspectos?.find((a) => a.clave === "abpOf")?.filas.find((f) => f.nombre === "Córners con remate %");
+        if (vivo && fila && Number.isFinite(fila.valor)) setNuestroCorner({ valor: fila.valor, mediana: fila.mediana, base: fila.base });
+      })
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, []);
+  /* Lo suyo que hay que parar: el mismo bloque «Cómo nos hacen daño» del Scout colectivo. */
+  const amenaza = useAmenazaDelRival(rivalActivo?.EQUIPO ?? "");
   /* El duelo que decide va en «Cómo le ganamos»; abajo no se repite (16/11/2026, ronda 17). */
   const claveDelQueDecide = duelosClave
     ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar]
@@ -1720,7 +1743,13 @@ export default function MatchPreparation() {
       ideas.push({
         titulo: "Su punto débil",
         texto: "El córner a favor: atacar el primer palo con bloqueo",
-        base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate (${cornerEnContra.puesto}.º de ${cornerEnContra.de}; ${partidosW}): unos ${decimas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de cada 10.`,
+        base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate (${cornerEnContra.puesto}.º de ${cornerEnContra.de}; ${partidosW}): unos ${decimas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de cada 10.${
+          nuestroCorner
+            ? ` Nosotros rematamos el ${nuestroCorner.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %${nuestroCorner.base ? ` (${Math.round(nuestroCorner.base.arriba)} de ${Math.round(nuestroCorner.base.abajo)})` : ""}; objetivo, ${
+                nuestroCorner.valor < nuestroCorner.mediana ? "subir a" : "sostenerlo por encima de"
+              } la mediana de la liga, ${nuestroCorner.mediana.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %.`
+            : ""
+        }`,
         enlaces: [
           { href: `/scout-rival-abp${equipoQ}`, texto: "Su ABP →" },
           ...(rivalActivo ? [{ href: enlacePizarraAbp(rivalActivo), texto: "La rutina en la Pizarra ABP →" }] : []),
@@ -1746,6 +1775,22 @@ export default function MatchPreparation() {
         texto: duelo.consigna.split(" (")[0],
         base: `${duelo.titulo}, ${momento}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}.${duelo.base ? ` ${duelo.base.replace(/^Base, /, "").replace(/^m/, "M")}.` : ""}`,
         enlaces: [{ href: enlaceDuelos, texto: "Ver el duelo →" }],
+      });
+    }
+    /* 4 · Lo suyo que hay que parar (17/11/2026, ronda 19, jueces de fútbol): ninguno de los tres frenaba su amenaza principal. */
+    if (amenaza.length > 0 && rivalActivo?.EQUIPO) {
+      const [primero, segundo] = amenaza;
+      const ordenes = [primero, segundo].filter(Boolean).map((p) => p!.orden);
+      ideas.push({
+        titulo: "Lo suyo que hay que parar",
+        texto: ordenes.join("; ").replace(/^./, (c) => c.toUpperCase()),
+        base: amenaza.map((p) => `${p.dato}.`).join(" "),
+        enlaces: [
+          { href: `/scout-rival-individual?${new URLSearchParams({ equipo: String(rivalActivo.EQUIPO), jugador: primero.jugador }).toString()}`, texto: `${primero.jugador}, su ficha →` },
+          ...(amenaza.some((p) => p.clave === "centros")
+            ? [{ href: `/scout-rival-area?${new URLSearchParams({ equipo: String(rivalActivo.EQUIPO), ...(rivalActivo.ID ? { rival: String(rivalActivo.ID) } : {}) }).toString()}`, texto: "Sus centros, en Área del rival →" }]
+            : []),
+        ],
       });
     }
     return ideas;
@@ -2998,7 +3043,7 @@ export default function MatchPreparation() {
                 {!editando && tresIdeas.length > 0 && (
                   <div className="mp-no-print" aria-label="Cómo le ganamos">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Cómo le ganamos</p>
-                  <div className={`grid gap-3 sm:grid-cols-2 ${tresIdeas.length >= 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+                  <div className={`grid gap-3 sm:grid-cols-2 ${tresIdeas.length === 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
                     {tresIdeas.map((idea, i) => (
                       <div key={idea.titulo} className="min-w-0 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-4">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
@@ -3335,7 +3380,16 @@ export default function MatchPreparation() {
 
                   return (
                     <p className="mb-1 text-[15px] font-semibold text-white/90">
-                      {duelosClave.medidos} {duelosClave.medidos === 1 ? "duelo medido" : "duelos medidos"}
+                      {/* La misma frase que el titular de Duelos (17/11/2026, ronda 19, jueces de análisis): los de pocos minutos, aparte y antes de los dos puntos. */}
+                      {duelosClave.medidos - duelosClave.grupos.tendencia.length} {duelosClave.medidos - duelosClave.grupos.tendencia.length === 1 ? "duelo medido" : "duelos medidos"}
+                      {duelosClave.grupos.tendencia.length > 0 && (
+                        <span className="font-normal text-white/55">
+                          {" y "}
+                          <a href="#duelos-tendencia" className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B]">
+                            {duelosClave.grupos.tendencia.length} con pocos minutos (tendencia)
+                          </a>
+                        </span>
+                      )}
                       {r.partes.length > 0 && ": "}
                       {r.partes.map((p, i) => (
                         <span key={p.grupo}>
@@ -3345,14 +3399,7 @@ export default function MatchPreparation() {
                           </a>
                         </span>
                       ))}
-                      {duelosClave.grupos.tendencia.length > 0 && (
-                        <span className="font-normal text-white/55">
-                          {r.partes.length ? ", " : ": "}
-                          <a href="#duelos-tendencia" className="underline decoration-white/25 underline-offset-4 hover:text-[#C8A96B]">
-                            {duelosClave.grupos.tendencia.length} con pocos minutos (tendencia)
-                          </a>
-                        </span>
-                      )}
+                      {r.partes.length > 0 && <span className="text-[13px] font-normal text-white/55"> · cuenta a partir de ±{UMBRAL_DUELO} de diferencia de percentil</span>}
                     </p>
                   );
                 })()}
@@ -3408,6 +3455,17 @@ export default function MatchPreparation() {
                             <b className="font-semibold text-[#C8A96B]">Qué le decimos:</b> {d.consigna.split(" (")[0]}
                           </span>
                         )}
+                        {/* Qué entrenamos, con la tarea y el objetivo de la mediana de su puesto (17/11/2026, ronda 19, jueces de análisis): la misma consigna de Duelos. */}
+                        {(() => {
+                          const tarea = d.consigna.match(/Tarea: ([^.]+)\./)?.[1] ?? "";
+                          const objetivo = d.consigna.match(/Objetivo: ([^.]+(?:\.\d[^.]*)?)\./)?.[1] ?? "";
+                          if (!tarea && !objetivo) return null;
+                          return (
+                            <span className="mt-1 block text-[13px] leading-5 text-white/75">
+                              <b className="font-semibold text-[#C8A96B]">Qué entrenamos:</b> {[tarea, objetivo ? `objetivo: ${objetivo}` : ""].filter(Boolean).join("; ")}.
+                            </span>
+                          );
+                        })()}
                         {(lectura.etiquetas.get(d.clave) ?? []).map((e, i) => (
                           <span
                             key={`${e.campo}-${i}`}

@@ -63,7 +63,7 @@ function Casilla({
       <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/55">
         {titulo}
         {tendencia && (
-          <span className="rounded-full border border-white/20 px-1.5 py-px text-[10px] font-semibold normal-case tracking-normal text-white/65" title="Muestra corta: se lee como tendencia, no como rasgo">
+          <span className="rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold normal-case tracking-normal text-white/65" title="Muestra corta: se lee como tendencia, no como rasgo">
             tendencia
           </span>
         )}
@@ -187,6 +187,79 @@ export function fuerteYFlojoDelRival(equipo: string, aspectosEntrada: AspectoDes
 const BLOQUES_A_LA_VISTA = 3;
 
 
+/** Una línea de «Dónde hacerles daño» (o «dónde nos lo hacen»): el jugador, su orden y lo que la sostiene. */
+export type Dano = {
+  nombre: string;
+  puesto: string;
+  rasgos: string[];
+  accion?: string;
+  cifra?: string;
+  base?: string;
+  minutos?: number;
+  contraste?: string;
+  /** La orden es defensiva: el duelo se pierde con su balón (17/11/2026). */
+  enContra?: boolean;
+  /** El duelo de /duelos del que sale la orden, por piezas. */
+  duelo?: { titulo: string; conBalon: number | null; sinBalon: number | null; tarea: string; objetivo: string; base: string };
+};
+
+const signoDuelo = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}`;
+
+function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; equipo: string; abre: (() => void) | null }) {
+  const accion = uno.accion ? uno.accion.charAt(0).toUpperCase() + uno.accion.slice(1) : "";
+  const d = uno.duelo;
+
+  return (
+    <li className="min-w-0 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: `${color}44`, background: `${color}0f` }}>
+      <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
+        <p className="min-w-0">
+          {abre ? (
+            <button type="button" onClick={abre} title={`Abrir la ficha de ${uno.nombre}`} className="font-semibold text-white underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
+              {uno.nombre}
+            </button>
+          ) : (
+            <b className="font-semibold text-white">{uno.nombre}</b>
+          )}
+          {uno.puesto ? <span className="text-white/55"> · {uno.puesto}</span> : null}
+        </p>
+        {d && (d.conBalon != null || d.sinBalon != null) && (
+          <span className="shrink-0 rounded-full border border-white/15 px-2 py-px text-[12px] font-semibold tabular-nums text-white/80" title="El duelo de Duelos: con nuestro balón · con el suyo">
+            {[d.conBalon != null ? `nuestro balón ${signoDuelo(d.conBalon)}` : "", d.sinBalon != null ? `el suyo ${signoDuelo(d.sinBalon)}` : ""].filter(Boolean).join(" · ")}
+          </span>
+        )}
+      </div>
+
+      {/* La orden, en una línea y la primera (17/11/2026, jueces de marketing). */}
+      {accion && <p className="mt-1 font-medium text-white">{accion}.</p>}
+      {uno.rasgos.length > 0 && <p className="mt-0.5 text-[13px] text-white/65">{uno.rasgos.join(" y ").replace(/^./, (c) => c.toUpperCase())}.</p>}
+      {uno.cifra ? <p className="mt-0.5 text-[13px] tabular-nums text-white/75">{uno.cifra}</p> : null}
+      {/* La base, en el mismo formato en todas las tarjetas: «Base: 1180′ en Wyscout · 12 partidos». */}
+      {uno.base ? (
+        <p className="mt-0.5 text-[12px] tabular-nums text-white/55">
+          Base: {uno.base}
+          {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · tendencia: menos de ${MUESTRA_CORTA}′` : ""}
+        </p>
+      ) : null}
+      {uno.contraste ? <p className="mt-0.5 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>{uno.contraste}</p> : null}
+
+      {d && (d.tarea || d.objetivo) && (
+        <details className="mt-1 min-w-0">
+          <summary className="cursor-pointer text-[13px] font-semibold text-white/65 hover:text-white">Ver el duelo</summary>
+          <div className="mt-1 space-y-0.5 text-[13px] text-white/70">
+            <p>«{d.titulo}», el mismo de Duelos y del Plan de partido.</p>
+            {d.tarea && <p><b className="font-semibold text-white/85">Tarea:</b> {d.tarea}.</p>}
+            {d.objetivo && <p><b className="font-semibold text-white/85">Objetivo:</b> {d.objetivo}.</p>}
+            {d.base && <p className="text-[12px] text-white/55">{d.base}.</p>}
+            <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+              Abrir en Duelos <ArrowUpRight size={12} aria-hidden />
+            </Link>
+          </div>
+        </details>
+      )}
+    </li>
+  );
+}
+
 export type AvisosRival = {
   fuera: { nombre: string; estado: string }[];
   apercibidos: { nombre: string; amarillas: number }[];
@@ -208,7 +281,7 @@ export function VistazoRival({
   /** Abre la ficha del jugador en la pantalla (16/11/2026): devuelve con qué abrirla, o `null` si no está en la plantilla. */
   abreJugador?: (nombre: string) => (() => void) | null;
   /** Dónde hacerles daño: jugadores con etiquetas de debilidad y rasgos flojos en Wyscout. */
-  dano?: { nombre: string; puesto: string; rasgos: string[]; accion?: string; cifra?: string; base?: string; minutos?: number; contraste?: string }[];
+  dano?: Dano[];
   /** Bajas de la hoja, apercibidos y rojas de BeSoccer; `null` si no hay nada. */
   avisos?: AvisosRival | null;
   equipo: string;
@@ -368,7 +441,7 @@ export function VistazoRival({
             /* La base: de cuántos goles y en cuántos partidos (07/11/2026, análisis). */
             pie={
               tabla && tabla.favor > 0
-                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados (las pantallas de Wyscout pueden ir una jornada por detrás)`
+                ? `${goleadores.reduce((suma, g) => suma + g.goles, 0)} de sus ${tabla.favor} goles (${Math.round((100 * goleadores.reduce((suma, g) => suma + g.goles, 0)) / tabla.favor)} %) en ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"} · BeSoccer, todos los jugados. «Sus goles en vídeo» cuenta con Opta, que puede dar algún gol a otro jugador (un rebote o un remate desviado)`
                 : undefined
             }
           >
@@ -505,6 +578,15 @@ export function VistazoRival({
                         style={{ borderColor: `${grupo.color}55`, background: `${grupo.color}14` }}
                       >
                         <span className="min-w-0 break-words font-medium">{a.aspecto}</span>
+                        {/* Su puesto en una barra (17/11/2026, jueces de marketing): lleno, el 1.º; vacío, el último. */}
+                        {equipos > 0 && a.filas[0] && (
+                          <span className="relative block h-1.5 w-full max-w-[14rem] overflow-hidden rounded-full bg-white/10" aria-hidden title={`${puestoDeFila(a.filas[0], equipos)}.º de ${a.filas[0].de ?? equipos}`}>
+                            <span
+                              className="absolute inset-y-0 left-0 rounded-full"
+                              style={{ width: `${Math.max(4, (100 * ((a.filas[0].de ?? equipos) - puestoDeFila(a.filas[0], equipos) + 1)) / (a.filas[0].de ?? equipos))}%`, background: grupo.color }}
+                            />
+                          </span>
+                        )}
                         {/*
                           Todas las cifras del aspecto, cada una con SU puesto (11/11/2026, jueces de fútbol):
                           el puesto del aspecto es la media de dos o tres cifras y, junto a la primera sola,
@@ -513,10 +595,12 @@ export function VistazoRival({
                         {a.filas.map((f) => (
                           <span key={f.nombre} className="text-[13px] leading-snug tabular-nums text-white/70">
                             {nombreDeFila(a.aspecto, f.nombre)}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
-                            {porPartido(f.nombre, f.unidad)} · mediana {cifraAspecto(f.mediana, f.unidad)}
+                            {porPartido(f.nombre, f.unidad)}
+                            {/* El sentido, si menos es mejor (17/11/2026, jueces de análisis: «pérdidas 120,5» no decía hacia dónde). */}
+                            {(f.valor > f.mediana && f.percentil < 50) || (f.valor < f.mediana && f.percentil > 50) ? " (menos es mejor)" : ""} · mediana {cifraAspecto(f.mediana, f.unidad)}
                             {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/* La base y el proveedor (16/11/2026, jueces de fútbol): «25 de 56 en 12 partidos», «Opta». */}
-                            {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : ""}
+                            {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : partidosWyscout > 0 && porPartido(f.nombre, f.unidad) ? ` · ${partidosWyscout} partidos` : ""}
                             {f.proveedor === "Opta" ? " · Opta" : ""}
                             {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
                           </span>
@@ -531,14 +615,8 @@ export function VistazoRival({
                         <summary className="cursor-pointer text-[13px] text-white/60 hover:text-white">
                           {/* Que diga qué hay dentro (16/11/2026, jueces de fútbol). */}
                           {/* Con su cifra y su puesto (16/11/2026, ronda 18): «cuidado del balón» a secas no decía nada. */}
-                          {`${grupo.titulo === "Fuerte en" ? (lista.length === 1 ? "Otro punto fuerte" : "Otros puntos fuertes") : lista.length === 1 ? "Otro punto flojo" : "Otros puntos flojos"}: ${lista
-                            .map((x) => {
-                              const f = x.filas[0];
-                              return f
-                                ? `${x.aspecto.toLowerCase()} (${nombreDeFila(x.aspecto, f.nombre).toLowerCase()} ${cifraAspecto(f.valor, f.unidad)}${equipos > 0 ? `, ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""})`
-                                : x.aspecto.toLowerCase();
-                            })
-                            .join(", ")}`}
+                          {/* 17/11/2026 (jueces de análisis): sin cifra suelta en el rótulo; dentro va con el formato de las tarjetas (base, mediana, puesto y sentido). */}
+                          {`Ver ${lista.length === 1 ? "otro punto" : `otros ${lista.length} puntos`} ${grupo.titulo === "Fuerte en" ? (lista.length === 1 ? "fuerte" : "fuertes") : lista.length === 1 ? "flojo" : "flojos"}: ${lista.map((x) => x.aspecto.toLowerCase()).join(", ")}`}
                         </summary>
                         <div className="mt-1.5">{filas}</div>
                       </details>
@@ -553,51 +631,32 @@ export function VistazoRival({
       )}
 
       {dano.length > 0 && (
-        <div className="mt-3 min-w-0">
-          <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">Dónde hacerles daño</p>
-
-          {/*
-            30/10/2026: la base va en su propia línea debajo de la frase («485′ ·
-            6 partidos · muestra corta: menos de 500′»). Pegada al final se leía
-            «primer pase485′». Los minutos son los de la plantilla (BeSoccer).
-          */}
-          <ul className="min-w-0 space-y-2 text-sm text-white/80">
-            {dano.map((uno) => (
-              <li key={uno.nombre} className="min-w-0">
-                <p>
-                  {(() => {
-                    const abre = abreJugador?.(uno.nombre) ?? null;
-
-                    return abre ? (
-                      <button type="button" onClick={abre} title={`Abrir la ficha de ${uno.nombre}`} className="font-semibold text-white underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
-                        {uno.nombre}
-                      </button>
-                    ) : (
-                      <b className="font-semibold text-white">{uno.nombre}</b>
-                    );
-                  })()}
-                  {uno.puesto ? <span className="text-white/55"> ({uno.puesto})</span> : null}: {uno.rasgos.join(" y ")}.
+        /*
+          17/11/2026 (ronda 19, jueces de fútbol y marketing): dos bloques según
+          el signo del duelo de /duelos, cada jugador en una tarjeta que abre con
+          su orden y el chip del duelo; la tarea, el objetivo y la base, plegados
+          tras «Ver el duelo». Antes, un bloque de texto mezclaba las órdenes
+          defensivas (tapar a Romero) con las de ataque.
+        */
+        <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
+          {[
+            { clave: "ataque", titulo: "Dónde hacerles daño", sub: "con nuestro balón", color: "#34D399", lista: dano.filter((d) => !d.enContra) },
+            { clave: "defensa", titulo: "Dónde nos hacen daño", sub: "con el suyo", color: "#F87171", lista: dano.filter((d) => d.enContra) },
+          ]
+            .filter((b) => b.lista.length > 0)
+            .map((bloque) => (
+              <div key={bloque.clave} className="min-w-0">
+                <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: chipInk(bloque.color) }}>
+                  {bloque.titulo}
+                  <span className="text-[12px] font-medium normal-case tracking-normal text-white/55">{bloque.sub}</span>
                 </p>
-                {/* La consigna nuestra, en su renglón y con su nombre (11/11/2026, jueces de marketing): «→ presionar» se perdía al final de la frase. */}
-                {uno.accion ? (
-                  <p className="mt-0.5">
-                    <span className="text-xs font-semibold uppercase tracking-[0.12em]" style={{ color: chipInk("#C8A96B") }}>
-                      Qué hacemos
-                    </span>{" "}
-                    <span className="text-white/85">{uno.accion.charAt(0).toUpperCase() + uno.accion.slice(1)}.</span>
-                  </p>
-                ) : null}
-                {uno.cifra ? <p className="mt-0.5 text-[13px] tabular-nums text-white/75">{uno.cifra}</p> : null}
-                {uno.base ? (
-                  <p className="mt-0.5 text-[13px] tabular-nums text-white/55">
-                    {uno.base}
-                    {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · muestra corta: menos de ${MUESTRA_CORTA}′` : ""}
-                  </p>
-                ) : null}
-                {uno.contraste ? <p className="mt-0.5 text-[13px] text-[#C8A96B]">{uno.contraste}</p> : null}
-              </li>
+                <ul className="grid min-w-0 gap-2">
+                  {bloque.lista.map((uno) => (
+                    <TarjetaDano key={uno.nombre} uno={uno} color={bloque.color} equipo={equipo} abre={abreJugador?.(uno.nombre) ?? null} />
+                  ))}
+                </ul>
+              </div>
             ))}
-          </ul>
         </div>
       )}
 

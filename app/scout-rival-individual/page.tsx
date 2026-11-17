@@ -71,21 +71,37 @@ function cifrasDePerfil(perfil: PerfilWyscout | undefined) {
   const escribe = (r: RasgoWyscout, signo: string) => {
     const base = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
     const puesto = perfil.puestoLabel.toLowerCase();
+    /* Un porcentaje con sus intentos (17/11/2026, ronda 19): «50 % · 10 de 20». */
+    const deIntentos = r.unidad === "porcentaje" && r.intentos ? ` (${Math.round((r.valor * r.intentos) / 100)} de ${r.intentos})` : "";
+
+    /* «Porterías a cero 5,0» era un total, no un «por 90′» (17/11/2026, jueces de fútbol). */
+    if (/porter[ií]as? a cero/i.test(r.nombre)) {
+      return `${signo} Porterías a cero: ${Math.round(r.valor)} en ${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
+    }
 
     if (r.mejorAlto === false) {
       const flojo = signo === "▼";
       const de10 = Math.min(9, Math.max(1, Math.round((flojo ? 100 - r.percentil : r.percentil) / 10)));
 
-      return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · ${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto} (aquí menos es mejor) · ${base}`;
+      return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)}${deIntentos} · ${flojo ? "más" : "menos"} que ${de10} de cada 10 ${puesto} (aquí menos es mejor) · ${base}`;
     }
 
-    return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
+    return `${signo} ${r.nombre} ${formatea(r.valor, r.unidad)}${deIntentos} · P${Math.round(r.percentil)} entre ${perfil.iguales} ${puesto} · ${base}`;
   };
 
-  return [
-    ...(perfil.fuertes[0] ? [escribe(perfil.fuertes[0], "▲")] : []),
-    ...(perfil.flojos[0] ? [escribe(perfil.flojos[0], "▼")] : []),
-  ];
+  /*
+  | 17/11/2026 (ronda 19, jueces de fútbol): fuera del ▲/▼ los porcentajes de
+  | menos de 15 intentos y los penaltis («Penaltis marcados 100 %» de Flakus no
+  | es lo que le hace peligroso). Al delantero, si la tiene, una de remate o xG.
+  */
+  const vale = (r: RasgoWyscout) => !/penalti/i.test(r.nombre) && !(r.unidad === "porcentaje" && r.intentos != null && r.intentos < 15);
+  const fuertes = perfil.fuertes.filter(vale);
+  const delantero = /delanter/i.test(perfil.puestoLabel);
+  const fuerte = (delantero ? fuertes.find((r) => /xg|remate|gol/i.test(r.nombre)) : undefined) ?? fuertes[0];
+  /* Todo titular con su ▼: si nada llega a «flojo», su cifra más baja (por debajo de la mediana). */
+  const flojo = perfil.flojos.filter(vale)[0] ?? (perfil.minutos >= 450 ? perfil.peor ?? undefined : undefined);
+
+  return [...(fuerte ? [escribe(fuerte, "▲")] : []), ...(flojo ? [escribe(flojo, "▼")] : [])];
 }
 
 /*

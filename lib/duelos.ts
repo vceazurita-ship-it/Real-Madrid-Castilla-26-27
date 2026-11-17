@@ -679,7 +679,8 @@ export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): str
   const objetivo = peor
     ? `que ${nombre(s)} no pase de la mediana de su puesto (P50)${en}; hoy está en P${elegida.suyo}`
     : `que ${nombre(n)} siga por encima de P${elegida.nuestro}${en}`;
-  return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).${tarea ? ` Tarea: ${tarea}.` : ""} Objetivo: ${objetivo}.`;
+  /* Qué se cuenta en la tarea, en la misma unidad que el objetivo (17/11/2026, ronda 19, jueces de fútbol). */
+  return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).${tarea ? ` Tarea: ${tarea}${columna ? `, contando ${columna}` : ""}.` : ""} Objetivo: ${objetivo}.`;
 }
 
 const TAREA_DEFENDER: Record<string, string> = {
