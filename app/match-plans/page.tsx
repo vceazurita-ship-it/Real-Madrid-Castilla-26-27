@@ -22,6 +22,10 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
+import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { useEtiquetadoEnVideo, type Etiquetado } from "@/hooks/useEtiquetadoEnVideo";
+import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
+import Link from "next/link";
 
 import {
   ArrowUpDown,
@@ -424,7 +428,9 @@ export default function Page() {
     /* 16/11/2026 (análisis): «Todos (12 de liga + 1 de pretemporada…)» no se
        entendía; la pretemporada va en su propio grupo del selector. */
     return {
-      todos: `Todos los partidos (${matches.length})`,
+      /* 16/11/2026 (expertos, ronda 18): sin número en el selector; el
+         recuento, uno solo, va en la línea de los filtros (con la pretemporada aparte). */
+      todos: "Todos los partidos",
       liga: list.filter((m) => m.esLiga),
       pretemporada: list.filter((m) => !m.esLiga),
     };
@@ -539,6 +545,8 @@ export default function Page() {
   };
 
   const selected = openIndex !== null ? filtered[openIndex] ?? null : null;
+  /* 16/11/2026 (expertos, ronda 18): robos, pérdidas y faltas, sólo si ese partido está etiquetado. */
+  const etiquetado = useEtiquetadoEnVideo();
 
   const goTo = useCallback(
     (delta: number) => {
@@ -767,7 +775,8 @@ export default function Page() {
                   <span className="font-semibold text-white">
                     {filtered.length}
                   </span>{" "}
-                  {filtered.length === 1 ? "partido" : "partidos"} ·{" "}
+                  {filtered.length === 1 ? "partido" : "partidos"}
+                  {filtered.length > metrics.played && metrics.played > 0 ? ` (${metrics.played} de liga y ${filtered.length - metrics.played} sin contar en las cifras)` : ""} ·{" "}
                   {metrics.withVideo} con vídeo
                 </span>
               </div>
@@ -829,6 +838,7 @@ export default function Page() {
                       key={match.id}
                       match={match}
                       escudoDe={escudoDe}
+                      etiquetado={etiquetado}
                       onOpen={() => setOpenIndex(index)}
                     />
                   ))}
@@ -877,24 +887,39 @@ function MetricsPanel({
     /* 16/11/2026 (análisis): la diferencia en goles, con signo y su base
        («16 en 12 frente a 15,6»), en vez de «igual que la liga 1,3»: lo que
        habría marcado un equipo medio de la liga en los mismos partidos. */
-    const esperado = ligaPP * metrics.played;
-    const d = Math.round((goles - esperado) * 10) / 10;
-    const base = `${goles} en ${metrics.played} frente a ${coma(esperado)} de la liga (${coma(ligaPP)} por partido)`;
+    /* 16/11/2026 (expertos, ronda 18): una sola unidad, por partido; el total va en la cifra grande. */
+    const porPartido = goles / metrics.played;
+    const d = Math.round((porPartido - ligaPP) * 10) / 10;
 
-    if (Math.abs(d) < 0.05) return { texto: `±0 · ${base}`, mejor: null };
+    if (Math.abs(d) < 0.05) return { texto: "Como la liga", mejor: null };
 
     const mejor = (d > 0) === mejorAlto;
 
-    return { texto: `${d > 0 ? "▲ +" : "▼ −"}${coma(Math.abs(d))} ${mejor ? "mejor" : "peor"} · ${base}`, mejor };
+    return { texto: `${d > 0 ? "▲ +" : "▼ −"}${coma(Math.abs(d))} por partido: ${mejor ? "mejor" : "peor"} que la liga`, mejor };
   };
-  const baseLiga = ligaBase
-    ? ` · media de los ${ligaBase.equipos} equipos, J1–J${ligaBase.jornadas}`
+  const coma1 = (n: number) => n.toFixed(1).replace(".", ",");
+  const [vista, setVista] = useVistaAnalisis("match-plans");
+  const puntos = metrics.todos.reduce<number[]>((acc, m) => [...acc, (acc.length ? acc[acc.length - 1] : 0) + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0)], []);
+  const totalPuntos = puntos.length ? puntos[puntos.length - 1] : 0;
+  const baseLiga = ligaBase && ligaPP !== null
+    ? ` · liga ${coma1(ligaPP)} por partido (media de los ${ligaBase.equipos} equipos, J1–J${ligaBase.jornadas})`
     : "";
 
   return (
     <section className="rounded-[28px] border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.02] p-4 sm:p-6">
       {/* 11/11/2026 (marketing): fuera la tarjeta «11 partidos», que repetía
           el titular; la tira ocupa la fila entera. */}
+      {/* 16/11/2026 (ronda 18): Visual (los puntos y la tira) por defecto; «Detalle» añade los goles. */}
+      <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
+        <TituloConclusion pregunta="¿Cómo va la temporada?" fuente={`Calendario de BeSoccer · ${metrics.played} de liga`}>
+          {totalPuntos} de {metrics.played * 3} puntos ({Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)
+          {metrics.lastFive.length >= 3
+            ? ` · ${metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0)} de ${metrics.lastFive.length * 3} en los últimos ${metrics.lastFive.length}`
+            : ""}
+        </TituloConclusion>
+        <ConmutadorVista vista={vista} onCambia={setVista} />
+      </div>
+      {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} /> : null}
       <div className="grid grid-cols-1 gap-3">
 
         {/* 08/11/2026: «4 de 10» salía en el titular y otra vez en tres
@@ -904,7 +929,8 @@ function MetricsPanel({
               el orden contrario): del más antiguo al más reciente, con la
               jornada debajo y los cinco últimos marcados. */}
           <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">Partido a partido</p>
-          <div className="mt-3 flex flex-wrap items-start gap-1.5">
+          {/* 16/11/2026 (ronda 18): en el móvil, una sola fila que se desliza (la tira ocupaba casi dos pantallas). */}
+          <div className="mt-3 flex items-start gap-1.5 max-sm:-mx-1 max-sm:overflow-x-auto max-sm:px-1 max-sm:pb-1 sm:flex-wrap">
             {metrics.todos.map((m, i) => {
               const token = OUTCOME[m.outcome as Outcome];
               const reciente = i >= metrics.todos.length - metrics.lastFive.length;
@@ -914,7 +940,7 @@ function MetricsPanel({
               const texto = `${jornada ? `J${jornada}` : m.microciclo} · ${m.opponent} · ${marcador} (${m.isHome ? "en casa" : "fuera"}) · ${token.label} · ${formatDate(m)}`;
 
               return (
-                <span key={m.id} title={texto} className="flex w-[3.4rem] flex-col items-center gap-0.5">
+                <span key={m.id} title={texto} className="flex w-[3.4rem] shrink-0 flex-col items-center gap-0.5">
                   {/* 16/11/2026 (marketing): el rival (escudo) y la fecha en cada recuadro. */}
                   <EscudoEquipo nombre={m.opponent} escudo={escudoDe(m.opponent)} lado={18} />
                   <span
@@ -946,11 +972,13 @@ function MetricsPanel({
         </div>
       </div>
 
+      {vista === "detalle" ? (
+      <>
       <div className="mt-3 grid grid-cols-2 gap-3 lg:grid-cols-3">
         <Stat
           title="Goles a favor"
           value={metrics.goalsFor}
-          hint={`${metrics.avgFor} por partido${baseLiga} · más es mejor`}
+          hint={`${metrics.avgFor} por partido (${metrics.goalsFor} en ${metrics.played})${baseLiga} · más es mejor`}
           juicio={frenteLiga(metrics.goalsFor, true)}
           icon={<Goal className="h-4 w-4" />}
         />
@@ -958,7 +986,7 @@ function MetricsPanel({
         <Stat
           title="Goles en contra"
           value={metrics.goalsAgainst}
-          hint={`${metrics.avgAgainst} por partido${baseLiga} · menos es mejor`}
+          hint={`${metrics.avgAgainst} por partido (${metrics.goalsAgainst} en ${metrics.played})${baseLiga} · menos es mejor`}
           juicio={frenteLiga(metrics.goalsAgainst, false)}
           icon={<Target className="h-4 w-4" />}
         />
@@ -983,13 +1011,55 @@ function MetricsPanel({
       {/* 30/10/2026: la barra «3 de 9 victorias · 3 V 3 E 3 D» repetía las tres
           tarjetas de arriba; queda una sola vista (marketing). En su sitio, la
           base de la media de la liga, escrita una vez (análisis). */}
-      {ligaPP !== null && ligaBase ? (
-        <p className="mt-3 text-[12px] text-white/55">
-          «Liga»: goles por equipo y partido, media de los {ligaBase.equipos} equipos en {ligaBase.jornadas}{" "}
-          {ligaBase.jornadas === 1 ? "jornada" : "jornadas"}.
-        </p>
+      </>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * 16/11/2026 (ronda 18): los puntos acumulados partido a partido, con cada
+ * punto del color del resultado. Sin referencia inventada: sólo la nuestra.
+ */
+function CurvaPuntos({ puntos, partidos }: { puntos: number[]; partidos: Match[] }) {
+  const ancho = 640;
+  const alto = 150;
+  const m = { izq: 28, der: 12, arr: 10, abj: 22 };
+  const max = Math.max(3, puntos.length * 3);
+  const x = (i: number) => m.izq + (i / Math.max(1, puntos.length - 1)) * (ancho - m.izq - m.der);
+  const y = (v: number) => alto - m.abj - (v / max) * (alto - m.arr - m.abj);
+  const color = (o: Outcome | null) => (o === "W" ? "#34D399" : o === "D" ? "#FBBF24" : "#FB7185");
+  return (
+    <figure className="mb-3 min-w-0 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
+      <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puntos acumulados: ${puntos[puntos.length - 1]} en ${puntos.length} partidos`}>
+        {[0, 0.5, 1].map((t) => (
+          <g key={t}>
+            <line x1={m.izq} x2={ancho - m.der} y1={y(max * t)} y2={y(max * t)} stroke="currentColor" strokeOpacity={0.12} />
+            <text x={m.izq - 6} y={y(max * t) + 4} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+              {Math.round(max * t)}
+            </text>
+          </g>
+        ))}
+        <polyline points={puntos.map((v, i) => `${x(i)},${y(v)}`).join(" ")} fill="none" stroke="#C8A96B" strokeWidth={2.5} strokeLinejoin="round" />
+        {puntos.map((v, i) => {
+          const p = partidos[i];
+          const j = p?.microciclo.match(/(\d+)/)?.[1];
+          return (
+            <g key={p?.id ?? i}>
+              <circle cx={x(i)} cy={y(v)} r={4.5} fill={color(p?.outcome ?? null)} stroke="#0B0F14" strokeWidth={1}>
+                <title>{`${j ? `J${j} · ` : ""}${p?.opponent ?? ""} ${p ? marcadorNuestro(p) : ""} · ${v} puntos`}</title>
+              </circle>
+              {j && (i % Math.ceil(puntos.length / 12) === 0 || i === puntos.length - 1) ? (
+                <text x={x(i)} y={alto - 6} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+                  J{j}
+                </text>
+              ) : null}
+            </g>
+          );
+        })}
+      </svg>
+      <figcaption className="mt-1 text-[11px] text-white/55">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos.</figcaption>
+    </figure>
   );
 }
 
@@ -1054,10 +1124,12 @@ function Stat({
 function MatchCard({
   match,
   escudoDe,
+  etiquetado,
   onOpen,
 }: {
   match: Match;
   escudoDe: (team: string) => string | undefined;
+  etiquetado: Etiquetado | null;
   onOpen: () => void;
 }) {
   const token = match.outcome ? OUTCOME[match.outcome] : null;
@@ -1083,7 +1155,7 @@ function MatchCard({
   return (
     <div
       className={cn(
-        "group relative overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition",
+        "group relative flex h-full flex-col overflow-hidden rounded-2xl border border-white/[0.08] bg-white/[0.03] transition",
         hasVideo && "hover:border-[#C8A96B]/40 hover:bg-white/[0.06]"
       )}
     >
@@ -1173,16 +1245,46 @@ function MatchCard({
       {/* 16/11/2026 (análisis, fútbol): «Cortes en Coding» deja de ser el
           botón dorado (no se sabe desde aquí si tiene cortes) y va en la
           fila de accesos, con Hudl y el resumen, con iconos y etiqueta corta. */}
+      {/* 16/11/2026 (expertos, ronda 18): los accesos abajo del todo, para que
+          las tarjetas de una fila queden alineadas aunque a una le falte un botón. */}
+      <div className="mt-auto">
       {dia ? (
         <AccesosVideo
           dia={dia}
           jugado={match.esLiga && match.outcome !== null}
           coding={match.enCoding ? "/coding?ambito=partido" : undefined}
-          className="-mt-2 px-5 pb-5 pl-6"
+          className="-mt-2 px-5 pb-3 pl-6"
         />
       ) : match.enCoding ? (
-        <AccesosVideo dia="" jugado={false} coding="/coding?ambito=partido" className="-mt-2 px-5 pb-5 pl-6" />
+        <AccesosVideo dia="" jugado={false} coding="/coding?ambito=partido" className="-mt-2 px-5 pb-3 pl-6" />
       ) : null}
+      {/* El análisis del partido a un toque, con el partido ya elegido. Robos,
+          pérdidas y faltas sólo si ese partido está etiquetado. */}
+      {dia && match.outcome !== null ? (
+        <nav aria-label={`Análisis del partido contra ${match.opponent}`} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-5 pb-5 pl-6 text-xs font-semibold">
+          <Link href={urlPostDelPartido(dia, match.opponent)} className="text-[#C8A96B] underline-offset-2 hover:underline">
+            Análisis post
+          </Link>
+          {etiquetado?.robos({ fecha: dia, rival: match.opponent }) ? (
+            <Link href={enlaceConPartido("/laboratorio/transiciones", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+              Robos
+            </Link>
+          ) : null}
+          {etiquetado?.perdidas({ fecha: dia, rival: match.opponent }) ? (
+            <Link href={enlaceConPartido("/laboratorio/perdidas", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+              Pérdidas
+            </Link>
+          ) : null}
+          {etiquetado?.faltas({ fecha: dia, rival: match.opponent }) ? (
+            <Link href={enlaceConPartido("/laboratorio/faltas", { fecha: dia, rival: match.opponent })} className="text-white/70 underline-offset-2 hover:text-white hover:underline">
+              Faltas
+            </Link>
+          ) : null}
+        </nav>
+      ) : (
+        <div className="pb-2" />
+      )}
+      </div>
     </div>
   );
 }

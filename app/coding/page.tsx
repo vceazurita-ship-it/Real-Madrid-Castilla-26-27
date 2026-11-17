@@ -41,6 +41,7 @@ import {
   type ReactNode,
 } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   ArrowDownWideNarrow,
   BookOpen,
@@ -123,6 +124,10 @@ import {
   useYoutube,
 } from "@/components/coding/YoutubePanel";
 import { Sidebar } from "@/components/ui/sidebar";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { useEtiquetadoEnVideo } from "@/hooks/useEtiquetadoEnVideo";
+import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useEscudos } from "@/hooks/useEscudos";
@@ -849,6 +854,8 @@ function Coding() {
   /* --------------------------------------------------- la sesión */
 
   const sesion = useSesionCoding({ ambito, refId, titulo, config });
+  /* 16/11/2026 (ronda 18): robos, pérdidas y faltas de nuestro partido, sólo si están etiquetados. */
+  const etiquetado = useEtiquetadoEnVideo();
 
   const { ponFuente, añadeVideos, ponCortesCompletos, quitaVideo } = sesion;
 
@@ -4039,6 +4046,37 @@ function Coding() {
         />
   ) : null;
 
+  /*
+  | 16/11/2026 (expertos, ronda 18): a un toque, con el equipo o el partido ya
+  | elegidos, lo que completa el coding: del rival, sus goles en vídeo, cómo le
+  | marcan, su ABP, su plantilla y (si es el de esta semana) el plan; de
+  | nuestro partido, su post en Análisis de datos y los laboratorios que lo
+  | tengan etiquetado.
+  */
+  const nombreRival = ambito === "rival" ? (rival?.nombre ?? "") : "";
+  const esElDeLaSemana = Boolean(rival && rivales.length > 0 && rivales[0].origen === "liga" && rivales[0].clave === rival.clave);
+  const diaPartido = ambito === "partido" && !rivalPropio ? (partido?.date ?? "") : "";
+  const rivalPartido = partido?.opponent ?? "";
+  const enlacesCoding =
+    ambito === "rival"
+      ? nombreRival
+        ? [
+            { href: urlGolesDelEquipo(nombreRival), texto: "Sus goles en vídeo", icono: Video },
+            { href: urlGolesDelEquipo(nombreRival, "contra"), texto: "Cómo le marcan", icono: Video },
+            { href: `/scout-rival-abp?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su ABP" },
+            { href: `/rivals?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su plantilla" },
+            esElDeLaSemana ? { href: "/match-preparation", texto: "Plan de partido" } : { texto: "" },
+          ]
+        : []
+      : diaPartido && rivalPartido
+        ? [
+            { href: urlPostDelPartido(diaPartido, rivalPartido), texto: "Post del partido" },
+            etiquetado?.robos({ fecha: diaPartido, rival: rivalPartido }) ? { href: enlaceConPartido("/laboratorio/transiciones", { fecha: diaPartido, rival: rivalPartido }), texto: "Robos" } : { texto: "" },
+            etiquetado?.perdidas({ fecha: diaPartido, rival: rivalPartido }) ? { href: enlaceConPartido("/laboratorio/perdidas", { fecha: diaPartido, rival: rivalPartido }), texto: "Pérdidas" } : { texto: "" },
+            etiquetado?.faltas({ fecha: diaPartido, rival: rivalPartido }) ? { href: enlaceConPartido("/laboratorio/faltas", { fecha: diaPartido, rival: rivalPartido }), texto: "Faltas" } : { texto: "" },
+          ]
+        : [];
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -4051,11 +4089,8 @@ function Coding() {
               40 px (regla en globals.css; con ratón no cambia nada). */}
           <div className="tactil-holgado min-w-0 px-4 py-6 sm:px-6 lg:px-8">
             <AbpHeader
-              area={
-                ambito === "rival"
-                  ? "RMCF Castilla · Rival"
-                  : "RMCF Castilla · Competición"
-              }
+              /* 16/11/2026 (ronda 18): el área del menú; el equipo ya lo dice el marcador de debajo. */
+              area="Análisis · Coding"
               /* El mismo nombre que en el menú; qué se codifica lo dice el conmutador de debajo. */
               title="Coding de Partido"
               lead="Marca el inicio y el final de cada acción sin soltar el teclado. Los cortes se guardan solos y se convierten en vídeo de verdad desde aquí."
@@ -4114,7 +4149,9 @@ function Coding() {
               const detalle =
                 ambito === "partido"
                   ? [partido?.competition, fecha].filter(Boolean).join(" · ") || "Coding de partido"
-                  : "Coding del rival";
+                  : esElDeLaSemana
+                    ? "Coding del rival · el de esta semana"
+                    : "Coding del rival";
               const porEtiqueta = [
                 ...config.categorias.map((una) => ({
                   id: una.id,
@@ -4151,6 +4188,8 @@ function Coding() {
                 />
               );
             })()}
+
+            <EnlacesRapidos enlaces={enlacesCoding} className="mt-3" />
 
             {/* ===================== QUÉ SE CODIFICA ==================== */}
 
@@ -4606,6 +4645,7 @@ function Coding() {
                   | se sabía por dónde se elegía el vídeo.
                   */}
                   {!src && (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 px-4 text-center">
                     <button
                       type="button"
                       onClick={() =>
@@ -4613,7 +4653,7 @@ function Coding() {
                           .getElementById("coding-el-video")
                           ?.scrollIntoView({ behavior: "smooth", block: "start" })
                       }
-                      className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 text-white/60 transition hover:text-white"
+                      className="flex flex-col items-center gap-1.5 text-white/60 transition hover:text-white"
                     >
                       {/* 16/11/2026 (marketing): un único botón principal. */}
                       <span className="inline-flex items-center gap-2 rounded-full bg-[#C8A96B] px-4 py-2 text-sm font-semibold text-black">
@@ -4624,6 +4664,26 @@ function Coding() {
                         de la carpeta, de un enlace o del ordenador
                       </span>
                     </button>
+                    {/* 16/11/2026 (expertos, ronda 18): sin vídeo del rival, el hueco
+                        ofrece lo que sí hay: sus goles y cómo le marcan, en vídeo,
+                        y cuántos cortes lleva ya. */}
+                    {sesion.sesion.clips.length > 0 ? (
+                      <span className="text-[12px] font-semibold text-white/80">
+                        {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}
+                        {nombreRival ? ` de ${nombreRival}` : ""}
+                      </span>
+                    ) : null}
+                    {nombreRival ? (
+                      <span className="flex flex-wrap items-center justify-center gap-2">
+                        <Link href={urlGolesDelEquipo(nombreRival)} className="rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white">
+                          ▶ Sus goles en vídeo
+                        </Link>
+                        <Link href={urlGolesDelEquipo(nombreRival, "contra")} className="rounded-full border border-white/20 bg-black/40 px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:border-[#C8A96B]/60 hover:text-white">
+                          ▶ Cómo le marcan
+                        </Link>
+                      </span>
+                    ) : null}
+                    </div>
                   )}
 
                   {/*
@@ -4695,6 +4755,24 @@ function Coding() {
                     </div>
                   )}
                 </div>
+
+                {/* 16/11/2026 (expertos, ronda 18): las teclas de marcar, siempre a la vista bajo el vídeo. */}
+                {src ? (
+                  <p className="flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[11px] text-white/60" aria-label="Teclas para marcar">
+                    {[
+                      ["I", "inicio"],
+                      ["O", "cierre"],
+                      ["Intro", "un toque"],
+                      ["Espacio", "reproducir o parar"],
+                      ["J / L", "velocidad"],
+                    ].map(([k, q]) => (
+                      <span key={k} className="inline-flex items-center gap-1">
+                        <kbd className="rounded border border-white/20 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-white/85">{k}</kbd>
+                        {q}
+                      </span>
+                    ))}
+                  </p>
+                ) : null}
 
                 {/*
                 | LOS VÍDEOS DE LA SESIÓN

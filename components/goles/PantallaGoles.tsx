@@ -28,6 +28,9 @@ import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
+import { GolesDelRivalEnVideo } from "@/components/rivals/GolesDelRivalEnVideo";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { useAsoma } from "@/hooks/useAsoma";
 import { GolesEnElCampo } from "@/app/opta/_piezas/Remates";
 import { avisoMuestra, loImportante, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -289,6 +292,20 @@ function tarjetaTramoCorto(
 /* ------------------------------------------------------------------ */
 /*  Pantalla                                                           */
 /* ------------------------------------------------------------------ */
+
+/**
+ * 16/11/2026 (expertos, ronda 18): en «Visual», los goles del equipo elegido
+ * en vídeo (los que marca y, con `?lado=contra`, los que encaja). Opta se pide
+ * al asomar la lámina, como en Plantillas rivales; sin goles, no sale.
+ */
+function GolesEnVideoAlAsomar({ equipo, lado }: { equipo: string; lado: "favor" | "contra" }) {
+  const { caja, abierto } = useAsoma<HTMLDivElement>();
+  return (
+    <div ref={caja} className="min-w-0">
+      {abierto && <GolesDelRivalEnVideo equipo={equipo} ladoInicial={lado} enMarco />}
+    </div>
+  );
+}
 
 /** Un parámetro de la dirección, sin `useSearchParams` (no pide Suspense). */
 const suscribeUrl = (aviso: () => void) => {
@@ -815,30 +832,55 @@ export function PantallaGoles() {
       }
     return [...suma.entries()].filter(([, v]) => v.n > 0).map(([e, v]) => ({ equipo: e, x: v.gf / v.n, y: v.gc / v.n }));
   })();
-  const medianaDe = (xs: number[]) => {
-    const o = [...xs].sort((a, b) => a - b);
-    return o.length ? (o.length % 2 ? o[(o.length - 1) / 2] : (o[o.length / 2 - 1] + o[o.length / 2]) / 2) : 0;
-  };
   const yoEnNube = nubeLiga.find((p) => p.equipo === equipo);
+  /*
+  | 16/11/2026 (expertos, ronda 18): una sola población en toda la pantalla, la
+  | media de los equipos (la de la frase de arriba), y la misma regla: a menos
+  | de 0,1 goles por partido es «como la media». Antes el titular decía «como
+  | la media» y la nube «más que la mediana… de los mejores».
+  */
   const tituloNube = (() => {
     if (!yoEnNube || nubeLiga.length < 4) return "";
-    const mx = medianaDe(nubeLiga.map((p) => p.x));
-    const my = medianaDe(nubeLiga.map((p) => p.y));
-    const marca = yoEnNube.x >= mx ? "marca más" : "marca menos";
-    const encaja = yoEnNube.y <= my ? "encaja menos" : "encaja más";
-    const juicio = yoEnNube.x >= mx && yoEnNube.y <= my ? ": de los mejores de la liga en las dos áreas" : yoEnNube.x < mx && yoEnNube.y > my ? ": por debajo en las dos áreas" : "";
-    return `${corto} ${marca} y ${encaja} que la mediana de la liga (${fmt(yoEnNube.x)} y ${fmt(yoEnNube.y)} por partido)${juicio}`;
+    const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
+    const mx = media(nubeLiga.map((p) => p.x));
+    const my = media(nubeLiga.map((p) => p.y));
+    const cerca = (a: number, b: number) => Math.abs(a - b) < 0.1;
+    const marca = cerca(yoEnNube.x, mx) ? "marca como la media" : yoEnNube.x > mx ? "marca más que la media" : "marca menos que la media";
+    const encaja = cerca(yoEnNube.y, my) ? "encaja como la media" : yoEnNube.y < my ? "encaja menos que la media" : "encaja más que la media";
+    const mejorX = !cerca(yoEnNube.x, mx) && yoEnNube.x > mx;
+    const mejorY = !cerca(yoEnNube.y, my) && yoEnNube.y < my;
+    const peorX = !cerca(yoEnNube.x, mx) && yoEnNube.x < mx;
+    const peorY = !cerca(yoEnNube.y, my) && yoEnNube.y > my;
+    const juicio = mejorX && mejorY ? ": mejor que la media en las dos áreas" : peorX && peorY ? ": peor que la media en las dos áreas" : "";
+    return `${corto} ${marca} (${fmt(yoEnNube.x)} por partido; liga ${fmt(mx)}) y ${encaja} (${fmt(yoEnNube.y)}; liga ${fmt(my)})${juicio}`;
   })();
   /* «el tramo 76-90'» o «los tramos 0-15' y 76-90'»; con tres o más empatados no hay tramo que nombrar. */
   const enTramo = (t: { tramos: string[]; goles: number } | null) =>
     !t || t.tramos.length > 2 ? "" : `${t.tramos.length === 2 ? "los tramos" : "el tramo"} ${t.tramos.map(tramoLargo).join(" y ")} (${t.goles}${t.tramos.length === 2 ? " cada uno" : ""})`;
+  /* 16/11/2026 (expertos, ronda 18): con 0-4 goles por franja es tendencia, no fortaleza: se dice en el titular. */
   const tituloFranjas = [enTramo(masGoleadora) && `${corto} marca sobre todo en ${enTramo(masGoleadora)}`, enTramo(masEncajada) && `encaja sobre todo en ${enTramo(masEncajada)}`]
     .filter(Boolean)
     .join(" y ")
-    .replace(/^encaja/, `${corto} encaja`);
+    .replace(/^encaja/, `${corto} encaja`)
+    .replace(/.+/, (t) => (delEquipo.length < 20 ? `${t} · tendencia, ${delEquipo.length} ${delEquipo.length === 1 ? "partido" : "partidos"}` : t));
+  /* 16/11/2026 (expertos, ronda 18): a un toque, lo que completa a este equipo. */
+  const esElProximo = Boolean(proximoRival && !esNuestro && mismoEquipo(equipo, proximoRival));
+  const enlacesEquipo = esNuestro
+    ? [
+        { href: "/data-analisis?area=post", texto: "Post del último partido", icono: Goal },
+        { href: "/setpieces", texto: "Nuestro ABP ofensivo", icono: Trophy },
+        { href: "/collective_history", texto: "Histórico de la temporada", icono: ListOrdered },
+      ]
+    : [
+        { href: `/rivals?equipo=${encodeURIComponent(equipo)}`, texto: "Su plantilla", icono: Crosshair },
+        { href: `/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`, texto: "Su ABP", icono: Trophy },
+        esElProximo ? { href: "/match-preparation", texto: "Plan de partido", icono: Lightbulb } : { texto: "" },
+        esElProximo ? { href: "/data-analisis?area=equipo", texto: "De un vistazo", icono: Microscope } : { texto: "" },
+      ];
   const visualGoles = () => delEquipo.length ? (
     <div className="space-y-4">
       {fraseAbre ? <p className="text-[15px] font-semibold leading-snug text-white">{fraseAbre}</p> : null}
+      <EnlacesRapidos enlaces={enlacesEquipo} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {tituloFranjas ? (
           <Lamina>
@@ -871,9 +913,11 @@ export function PantallaGoles() {
           <TituloConclusion pregunta="¿Cómo llegan los goles?" fuente="Hudl, nuestros partidos (con la corrección a mano)">
             {deTipologia[0] ?? "Nuestros goles y los que encajamos, por cómo llegan"}
           </TituloConclusion>
-          <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} />
+          <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc }} />
         </Lamina>
       ) : null}
+      {/* 16/11/2026 (expertos, ronda 18): los goles de este equipo en vídeo, con el equipo ya elegido (y «?lado=contra», los que encaja). */}
+      <GolesEnVideoAlAsomar key={`${equipo}-${ladoPedido}`} equipo={equipo} lado={ladoPedido} />
     </div>
   ) : null;
   /* Los títulos hablan desde nosotros cuando el equipo es el Castilla. */
@@ -1362,7 +1406,7 @@ export function PantallaGoles() {
             analisis={esNuestro && deTipologia.length ? <div className="px-4 pb-4 sm:px-5"><Lectura>{deTipologia.join(" ")}</Lectura></div> : undefined}
             action={<SaveState status={manual.status} localOnly={manual.localOnly} savedAt={manual.lastSavedAt} sinGuardar={manual.sinGuardar} onGuardar={() => void manual.guardaYa()} />}
           >
-            {conTipo.length ? <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} /> : null}
+            {conTipo.length ? <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc }} /> : null}
 
             <details className="mt-6">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/45 hover:text-white/70">Ver la tabla y lo que se sabe del resto de la liga</summary>

@@ -56,6 +56,8 @@ import { CampoFaltas, CARRILES_CAMPO, sitioEnCampo, ZONAS_CAMPO } from "@/compon
 import { ComoActualizar } from "@/components/faltas/ComoActualizar";
 import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
+import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { VerAccion } from "@/components/video/VerAccion";
 import { opcionesDeAccion, useMenuAccion } from "@/components/video/MenuAccion";
 import { PorJugador, SinJugador, type ColumnaJugador } from "@/components/analisis/PorJugador";
@@ -616,6 +618,83 @@ export default function FaltasPage() {
     return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
   })();
 
+  /*
+  | 16/11/2026 (expertos, ronda 18): en «Visual» el campo con su conclusión va
+  | justo debajo del partido, antes de la tabla; en «Detalle» sigue en su
+  | pestaña «En el campo».
+  */
+  const bloqueCampo = (
+    <div className="mt-5">
+      {enVisual && tituloCampoFaltas ? (
+        <TituloConclusion pregunta="¿Dónde se cometen?" fuente={`Vídeo etiquetado · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}`}>
+          {tituloCampoFaltas}
+        </TituloConclusion>
+      ) : null}
+      <Panel
+        title="Dónde se cometen"
+        /* 11/11/2026 (expertos, ronda 2): la base del mapa, siempre a la vista. */
+        subtitle={`${partido ? `${jornadaCorta(partido.jornada)} · ${partido.rival} · ` : ""}${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}: ${paraCampo.filter((f) => f.lado === "ofensivo").length} a favor y ${paraCampo.filter((f) => f.lado !== "ofensivo").length} en contra · el Castilla ataca hacia la derecha${
+          explicativos
+            ? ". Cada punto es una falta, en su tercio y su carril del campo de verdad, también en las faltas que saca el rival. El etiquetado guarda zonas, no metros: dentro de cada zona los puntos se reparten para no taparse"
+            : ""
+        }`}
+        icon={Crosshair}
+      >
+        <CampoFaltas
+          faltas={paraCampo}
+          zonas={ZONAS_CAMPO}
+          carriles={CARRILES_CAMPO}
+          tinta={TINTA_LADO}
+          resaltada={resaltada}
+          onResaltar={setResaltada}
+          zonasMarcadas={filtros.zona ?? []}
+          carrilesMarcados={filtros.carril ?? []}
+          ladoMarcado={filtro === "todas" ? null : filtro}
+          onCajon={(zona, carril) =>
+            alternaVarios([
+              ["zona", zona],
+              ["carril", carril],
+            ])
+          }
+          onPunto={(id, origen) => {
+            const f = paraCampo.find((x) => x.clip === id);
+
+            if (!f) return;
+
+            const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => {
+                setVista("lista");
+                setVistaPantalla("detalle");
+              } });
+
+            /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
+            if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {
+              const sitio = sitioEnCampo(f);
+
+              alternaVarios([
+                ["zona", sitio.zona],
+                ["carril", sitio.carril],
+              ]);
+            }
+          }}
+          onZona={(zona) => alterna("zona", zona)}
+          onCarril={(carril) => alterna("carril", carril)}
+          onLado={alternaLado}
+        />
+
+        {sinSitio > 0 && explicativos && (
+          <p className="mt-3 text-[11px] text-white/35">
+            {sinSitio}{" "}
+            {sinSitio === 1
+              ? "falta no se pudo situar"
+              : "faltas no se pudieron situar"}{" "}
+            en el campo y no salen dibujadas.
+          </p>
+        )}
+      </Panel>
+
+    </div>
+  );
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       {menuAccion}
@@ -650,6 +729,19 @@ export default function FaltasPage() {
                   </Explicativo>
                 </Panel>
               </div>
+            ) : null}
+
+            {/* 16/11/2026 (expertos, ronda 18): a un toque, lo que completa el partido elegido. */}
+            {partido ? (
+              <EnlacesRapidos
+                className="mt-3"
+                enlaces={[
+                  { href: enlaceConPartido("/laboratorio/transiciones", partido), texto: "Robos de este partido", icono: Crosshair },
+                  { href: enlaceConPartido("/laboratorio/perdidas", partido), texto: "Pérdidas de este partido", icono: Swords },
+                  { href: urlPostDelPartido(partido.fecha, partido.rival), texto: `Post del partido · ${jornadaCorta(partido.jornada)}`, icono: BarChart3 },
+                  { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
+                ]}
+              />
             ) : null}
 
             {/* ---------------- mandos ---------------- */}
@@ -818,6 +910,8 @@ export default function FaltasPage() {
               </div>
             )}
 
+            {enVisual && bloqueCampo}
+
             {/* ---------------- frente a los anteriores ---------------- */}
 
             {comparativa && (
@@ -904,9 +998,10 @@ export default function FaltasPage() {
                     const [bajo, alto] = m.rango;
                     const donde =
                       m.actual < bajo
-                        ? `menos que en ninguno de los anteriores (de ${numeroCorto(bajo)} a ${numeroCorto(alto)})`
+                        ? /* 16/11/2026 (ronda 18): en neutro; «menos que en ninguno» sonaba a fallo y a favor no se juzga. */
+                          `por debajo de lo habitual (los anteriores, de ${numeroCorto(bajo)} a ${numeroCorto(alto)})`
                         : m.actual > alto
-                          ? `más que en ninguno de los anteriores (de ${numeroCorto(bajo)} a ${numeroCorto(alto)})`
+                          ? `por encima de lo habitual (los anteriores, de ${numeroCorto(bajo)} a ${numeroCorto(alto)})`
                           : `dentro de lo normal (de ${numeroCorto(bajo)} a ${numeroCorto(alto)})`;
                     return { ...conFormato, pie: `${donde} · el volumen depende del estilo; lo que se juzga es dónde, en las filas de zona` };
                   })}
@@ -960,6 +1055,8 @@ export default function FaltasPage() {
             <Conclusiones items={conclusiones} className="mt-4" />
 
             {/* 10/11/2026: Opta cuenta lo mismo (faltas pitadas): el partido al lado del etiquetado y el grupo. */}
+            {/* 16/11/2026 (ronda 18): Opta es la temporada entera: en «Visual» no se mezcla con el partido. */}
+            {!enVisual && (
             <OptaLaboratorio
               modo="faltas"
               partido={partido ? { rival: partido.rival, fecha: partido.fecha, jornada: jornadaCorta(partido.jornada) } : null}
@@ -972,84 +1069,11 @@ export default function FaltasPage() {
                   : null
               }
             />
+            )}
             </>
             )}
 
-            {(vista === "campo" || enVisual) && (
-            <>
-            {/* ---------------- el campo ---------------- */}
-
-            <div className="mt-5">
-              {enVisual && tituloCampoFaltas ? (
-                <TituloConclusion pregunta="¿Dónde se cometen?" fuente={`Vídeo etiquetado · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}`}>
-                  {tituloCampoFaltas}
-                </TituloConclusion>
-              ) : null}
-              <Panel
-                title="Dónde se cometen"
-                /* 11/11/2026 (expertos, ronda 2): la base del mapa, siempre a la vista. */
-                subtitle={`${partido ? `${jornadaCorta(partido.jornada)} · ${partido.rival} · ` : ""}${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}: ${paraCampo.filter((f) => f.lado === "ofensivo").length} a favor y ${paraCampo.filter((f) => f.lado !== "ofensivo").length} en contra · el Castilla ataca hacia la derecha${
-                  explicativos
-                    ? ". Cada punto es una falta, en su tercio y su carril del campo de verdad, también en las faltas que saca el rival. El etiquetado guarda zonas, no metros: dentro de cada zona los puntos se reparten para no taparse"
-                    : ""
-                }`}
-                icon={Crosshair}
-              >
-                <CampoFaltas
-                  faltas={paraCampo}
-                  zonas={ZONAS_CAMPO}
-                  carriles={CARRILES_CAMPO}
-                  tinta={TINTA_LADO}
-                  resaltada={resaltada}
-                  onResaltar={setResaltada}
-                  zonasMarcadas={filtros.zona ?? []}
-                  carrilesMarcados={filtros.carril ?? []}
-                  ladoMarcado={filtro === "todas" ? null : filtro}
-                  onCajon={(zona, carril) =>
-                    alternaVarios([
-                      ["zona", zona],
-                      ["carril", carril],
-                    ])
-                  }
-                  onPunto={(id, origen) => {
-                    const f = paraCampo.find((x) => x.clip === id);
-
-                    if (!f) return;
-
-                    const opciones = opcionesDeAccion({ video: f.video, hudl: f.hudl, fila: faltas.some((x) => x.clip === id) ? id : null, aLaTabla: () => {
-                        setVista("lista");
-                        setVistaPantalla("detalle");
-                      } });
-
-                    /* Sin vídeo ni fila, el punto hace lo de siempre: filtra su cajón. */
-                    if (!abreMenu(origen, `Falta ${f.lado === "ofensivo" ? "a favor" : "en contra"}${f.minuto ? ` · ${f.minuto}` : ""}`, opciones)) {
-                      const sitio = sitioEnCampo(f);
-
-                      alternaVarios([
-                        ["zona", sitio.zona],
-                        ["carril", sitio.carril],
-                      ]);
-                    }
-                  }}
-                  onZona={(zona) => alterna("zona", zona)}
-                  onCarril={(carril) => alterna("carril", carril)}
-                  onLado={alternaLado}
-                />
-
-                {sinSitio > 0 && explicativos && (
-                  <p className="mt-3 text-[11px] text-white/35">
-                    {sinSitio}{" "}
-                    {sinSitio === 1
-                      ? "falta no se pudo situar"
-                      : "faltas no se pudieron situar"}{" "}
-                    en el campo y no salen dibujadas.
-                  </p>
-                )}
-              </Panel>
-
-            </div>
-            </>
-            )}
+            {vista === "campo" && !enVisual && bloqueCampo}
 
             {!enVisual && vista === "detalle" && (
             <>

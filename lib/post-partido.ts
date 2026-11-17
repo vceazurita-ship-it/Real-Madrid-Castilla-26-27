@@ -126,3 +126,14 @@ export function enlaceConPartido(ruta: string, p: Pick<PartidoPost, "fecha" | "r
   const q = new URLSearchParams({ fecha: p.fecha, rival: p.rival });
   return `${ruta}?${q.toString()}`;
 }
+
+/**
+ * 16/11/2026 (ronda 18): el «Post del partido» de Análisis de datos abierto en
+ * ese partido (`/data-analisis?area=post&fecha=&rival=`). Lo usan los
+ * laboratorios, el Plan de partido y el histórico; el panel lo resuelve con
+ * `partidoEnlazado`, a 4 días como mucho.
+ */
+export function urlPostDelPartido(fecha: string, rival: string): string {
+  const q = new URLSearchParams({ area: "post", fecha: fecha.slice(0, 10), rival });
+  return `/data-analisis?${q.toString()}`;
+}

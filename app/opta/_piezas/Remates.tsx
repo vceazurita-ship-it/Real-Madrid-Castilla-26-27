@@ -70,8 +70,11 @@ export function MapaRemates({
   maxAlto = 440,
   soloGolesInicial = false,
   rotuloGoles,
+  referenciaXgRemate,
 }: {
   remates: Remate[];
+  /** 16/11/2026 (ronda 18): con qué comparar «xG por remate» de un partido (la media del equipo en el resto de la temporada). */
+  referenciaXgRemate?: { valor: number; partidos: number } | null;
   ariaLabel: string;
   /** El rótulo de la cifra de goles («Nos marcaron» en el post del partido). */
   rotuloGoles?: string;
@@ -145,7 +148,16 @@ export function MapaRemates({
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
         <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} detalle={`xG ${dec(r.xG, 1)} · ${conSigno(r.golesMenosXG, 1)}`} />
-        <Cifra rotulo="xG por remate" valor={dec(r.xGPorRemate)} detalle={r.pctPuerta != null ? `${pct(r.pctPuerta)} a puerta` : undefined} />
+        <Cifra
+          rotulo="xG por remate"
+          valor={dec(r.xGPorRemate)}
+          detalle={[
+            r.pctPuerta != null ? `${pct(r.pctPuerta)} a puerta` : "",
+            referenciaXgRemate && !delPartido ? `su media, ${dec(referenciaXgRemate.valor)} (${referenciaXgRemate.partidos} partidos)` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ") || undefined}
+        />
         {r.xGOTmenosXG != null && (
           /*
           | 16/11/2026 (expertos, ronda 17): «+0,7» con 0 goles no se entendía.
@@ -156,12 +168,16 @@ export function MapaRemates({
           <Cifra
             rotulo="Calidad del golpeo"
             valor={conSigno(r.xGOTmenosXG, 1)}
+            /* 16/11/2026 (expertos, ronda 18): en contra y sin gol, «+0,7» se
+               leía «nos golpean bien»; se dice de forma directa lo que valían
+               sus tiros a puerta y que el portero los paró. */
             detalle={[
-              enContra
-                ? "xG de sus remates a puerta menos xG de sus remates: + es que nos golpean bien"
-                : "xG del remate a puerta menos xG del remate: + es buen golpeo",
-              r.pctPuerta != null && r.remates ? `${Math.round(r.pctPuerta * r.remates)} a puerta de ${r.remates}` : "",
-              enContra && r.goles === 0 && r.xGOTmenosXG >= 0.3 ? "bien dirigidos y parados: el portero sostuvo" : "",
+              enContra && r.goles === 0 && r.xGOTmenosXG >= 0.3 && r.aPuerta
+                ? `sus ${r.aPuerta} ${r.aPuerta === 1 ? "tiro" : "tiros"} a puerta valían ${dec(visibles.filter((x) => x.aPuerta).reduce((s, x) => s + x.xGOT, 0), 1)} de xG tras el golpeo y el portero ${r.aPuerta === 1 ? "lo paró" : "los paró"}`
+                : enContra
+                  ? "xG de sus remates a puerta menos xG de sus remates: + es que remataron mejor de lo que valía la ocasión"
+                  : "xG del remate a puerta menos xG del remate: + es buen golpeo",
+              r.pctPuerta != null && r.remates ? `${r.aPuerta} a puerta de ${r.remates}` : "",
               r.partidos === 1 ? "un solo partido: tendencia" : "",
             ]
               .filter(Boolean)
