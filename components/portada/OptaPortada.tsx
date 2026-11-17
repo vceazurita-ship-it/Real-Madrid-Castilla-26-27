@@ -10,7 +10,9 @@
  *   grupo, sale sólo el Castilla.
  * - **Lo que dicen las cifras** (17/11/2026): las dos conclusiones que más
  *   pesan del rival (tercio de arriba o de abajo de su grupo), con su cifra,
- *   la nuestra y un toque a la pantalla donde se prepara.
+ *   la nuestra y, desde el 18/11/2026, la orden («→ qué hacemos»); la que es
+ *   tendencia (balón parado) nunca abre. Cada fila del gráfico lleva su
+ *   sentido («más es mejor», «menos es mejor») bajo la pista.
  *
  * 10/11/2026 (expertos): la base en el título («11 partidos»), «puesto en el
  * grupo» como cabecera de la columna, «xG» y «PPDA» explicados la primera vez
@@ -34,17 +36,28 @@ import { trackModuleVisit } from "@/lib/module-usage";
 import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { nombreEquipo, partidosDe, valorEquipo, type Fila } from "@/lib/opta-analisis";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { contextoGrupo, equipoOptaDe, hastaElPartido, type FilaLab, type MetricaLab } from "@/lib/opta-laboratorio";
 import { SelloFuente } from "@/components/ui/SelloFuente";
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 
 /** Lo que se lee bajo el nombre de cada fila: la sigla explicada y el sentido. */
 const AYUDA: Record<string, string> = {
-  ExpG: "goles esperados · más es mejor",
-  ExpGAg: "goles esperados que concede · menos es mejor",
-  PPDA: "pases que deja dar antes de presionar · menos es más presión",
+  ExpG: "goles esperados",
+  ExpGAg: "goles esperados que concede",
+  PPDA: "pases que deja dar antes de presionar",
   xGSetPly: "córner y falta, sin penaltis",
+};
+
+/**
+ * El sentido de cada fila, dentro del propio gráfico (18/11/2026, ronda 22,
+ * análisis): bajo la pista, a la derecha (donde está «mejor»), no sólo en la
+ * leyenda de arriba.
+ */
+const SENTIDO: Record<string, string> = {
+  ExpG: "más es mejor",
+  ExpGAg: "menos es mejor",
+  PPDA: "menos es más presión",
+  xGSetPly: "más es mejor",
 };
 
 /**
@@ -88,7 +101,8 @@ const CLAVE: MetricaLab[] = [
 ];
 
 const coma = (v: number, d: number) => v.toFixed(d).replace(".", ",");
-const valorTexto = (x: FilaLab) => (x.pos.valor == null ? "" : coma(x.pos.valor, x.a === "PPDA" ? 1 : 2));
+/* 18/11/2026 (ronda 22, fútbol): una cifra, un formato: xG y PPDA por partido con un decimal. */
+const valorTexto = (x: FilaLab) => (x.pos.valor == null ? "" : coma(x.pos.valor, 1));
 
 export function OptaPortada() {
   const { opta, cargando } = useOptaLigero();
@@ -171,16 +185,10 @@ export function OptaPortada() {
           <div className="min-w-0 flex-1 basis-[280px]" style={{ boxShadow: `inset 3px 0 0 ${principal.color}`, paddingLeft: 14 }}>
             <p className="fuente-club text-[22px] font-bold uppercase leading-tight text-white sm:text-[26px]">{principal.titular}</p>
             <p className="mt-1 text-[13.5px] leading-snug text-white/70">{principal.base}</p>
+            <p className="mt-1.5 text-[14px] font-semibold leading-snug text-white">
+              <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {principal.orden}
+            </p>
           </div>
-          <Link
-            href={principal.href}
-            onClick={() => trackModuleVisit(principal.href.split("?")[0])}
-            className="portada-celda portada-viva group inline-flex min-h-10 shrink-0 items-center gap-1 px-4 text-[13.5px] font-semibold"
-            style={{ color: "var(--rmcf-gold-ink)", borderRadius: 999 }}
-          >
-            {principal.accion}
-            <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-          </Link>
         </div>
       ) : null}
 
@@ -233,7 +241,15 @@ export function OptaPortada() {
                     {AYUDA[x.a] ? <span className="mt-0.5 block text-[12px] leading-snug text-white/60">{AYUDA[x.a]}</span> : null}
                   </span>
 
-                  <Pista nuestro={x} suyo={rival ? r : undefined} hueca={tendencia} />
+                  <span className="block min-w-0">
+                    <Pista nuestro={x} suyo={rival ? r : undefined} hueca={tendencia} />
+                    {SENTIDO[x.a] ? (
+                      <span className="mt-0.5 flex justify-between text-[11px] font-semibold leading-none text-white/55">
+                        <span>peor</span>
+                        <span>{SENTIDO[x.a]} · mejor →</span>
+                      </span>
+                    ) : null}
+                  </span>
 
                   <span className="flex items-baseline justify-between gap-4 tabular-nums sm:justify-end">
                     <Valor x={x} color={ORO} />
@@ -271,23 +287,15 @@ export function OptaPortada() {
       {/* Las lecturas, a lo ancho y con su toque (sin hueco debajo en escritorio). */}
       {resto.length ? (
         <div className={`mt-3 grid min-w-0 gap-3 ${resto.length > 1 ? "md:grid-cols-2" : ""}`}>
+          {/* 18/11/2026 (ronda 22, fútbol y marketing): cada lectura acaba en la orden del dato («→ qué hacemos»), no en un enlace que ya está en la botonera del rival; cada fila del gráfico abre su análisis. */}
           {resto.map((c) => (
-            <Link
-              key={c.a}
-              href={c.href}
-              onClick={() => trackModuleVisit(c.href.split("?")[0])}
-              className="portada-celda portada-viva group flex min-w-0 items-start gap-3 p-3.5"
-              style={{ boxShadow: `inset 3px 0 0 ${c.color}` }}
-            >
-              <span className="min-w-0 flex-1">
-                <span className="block text-[15px] font-semibold leading-snug text-white">{c.titular}</span>
-                <span className="mt-1 block text-[13px] leading-snug text-white/70">{c.base}</span>
-              </span>
-              <span className="inline-flex shrink-0 items-center gap-0.5 self-center text-[13px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
-                {c.accion}
-                <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-              </span>
-            </Link>
+            <div key={c.a} className="portada-celda min-w-0 p-3.5" style={{ boxShadow: `inset 3px 0 0 ${c.color}` }}>
+              <p className="text-[15px] font-semibold leading-snug text-white">{c.titular}</p>
+              <p className="mt-1 text-[13px] leading-snug text-white/70">{c.base}</p>
+              <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-white/90">
+                <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {c.orden}
+              </p>
+            </div>
           ))}
         </div>
       ) : null}
@@ -363,33 +371,34 @@ function Valor({ x, color }: { x: FilaLab; color: string }) {
 /*  La lectura: una conclusión por fila (17/11/2026)                   */
 /* ------------------------------------------------------------------ */
 
-type Lectura = { a: string; titular: string; base: string; accion: string; href: string; color: string; peso: number };
+type Lectura = { a: string; titular: string; base: string; orden: string; color: string; peso: number; tendencia: boolean };
 
 /** Qué quiere decir cada métrica del rival cuando es de las mejores o de las peores del grupo. */
-const FRASES: Record<string, { fuerte: string; flojo: string; accion: string; href: (rival: string) => string }> = {
+/* 18/11/2026 (ronda 22, fútbol): cada lectura con su orden: qué hacemos contra eso. */
+const FRASES: Record<string, { fuerte: string; flojo: string; ordenFuerte: string; ordenFlojo: string }> = {
   xGSetPly: {
     fuerte: "Ojo a su balón parado",
     flojo: "Su balón parado apenas genera",
-    accion: "ABP rival",
-    href: (r) => `/scout-rival-abp?equipo=${encodeURIComponent(r)}`,
+    ordenFuerte: "defensa del balón parado en la semana: marcas, primer palo y rechace",
+    ordenFlojo: "no regalarle faltas laterales ni córners: su peligro está en el juego, no en la pelota parada",
   },
   PPDA: {
     fuerte: "Presiona de los que más",
     flojo: "Presiona poco: deja salir jugando",
-    accion: "Plantilla",
-    href: (r) => `/rivals?equipo=${encodeURIComponent(r)}`,
+    ordenFuerte: "salida en corto con apoyos por dentro o balón al espacio a la espalda de su presión",
+    ordenFlojo: "salir jugando con pausa: atraerle y progresar por dentro",
   },
   ExpG: {
     fuerte: "Genera mucho peligro",
     flojo: "Genera poco peligro",
-    accion: "Sus goles",
-    href: (r) => urlGolesDelEquipo(r),
+    ordenFuerte: "defensa del área: vigilancias y cerrar su remate",
+    ordenFlojo: "bloque más alto y asumir riesgo arriba: le cuesta llegar",
   },
   ExpGAg: {
     fuerte: "Concede poco: cuesta hacerle ocasiones",
     flojo: "Concede mucho: por ahí se le hace daño",
-    accion: "Cómo le marcan",
-    href: (r) => urlGolesDelEquipo(r, "contra"),
+    ordenFuerte: "paciencia con balón: circular para abrirle y llegar al área con segunda línea",
+    ordenFlojo: "atacar el área con gente: llegadas desde segunda línea y remate",
   },
 };
 
@@ -414,7 +423,7 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTenden
     if (!fuerte && !flojo) continue;
 
     const n = nuestro.find((x) => x.a === r.a);
-    const decimales = r.a === "PPDA" ? 1 : 2;
+    const decimales = 1;
     const unidad = r.a === "PPDA" ? "pases por acción defensiva" : "xG por partido";
     const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · el nuestro, ${coma(n.pos.valor, decimales)} (${n.pos.puesto}.º)` : "";
 
@@ -423,14 +432,15 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTenden
       /* 17/11/2026 (ronda 21, análisis): la población con la misma fórmula que el subtítulo y la leyenda. */
       titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º del ${grupoDe(deCuantos)}`,
       base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
-      accion: frase.accion,
-      href: frase.href(rival),
+      orden: fuerte ? frase.ordenFuerte : frase.ordenFlojo,
+      tendencia: ES_TENDENCIA.has(r.a),
       /* Lo que es una amenaza del rival, en naranja; por donde se le puede hacer daño, en verde. */
       color: fuerte ? "#F97316" : "#10B981",
-      peso: Math.min(puesto, deCuantos + 1 - puesto) + (r.a === "xGSetPly" ? -0.5 : 0),
+      peso: Math.min(puesto, deCuantos + 1 - puesto),
     });
   }
 
-  return salen.sort((x, y) => x.peso - y.peso).slice(0, 3);
+  /* 18/11/2026 (ronda 22, guionista): la conclusión más sólida abre; la que es tendencia (poca muestra) nunca es el titular. */
+  return salen.sort((x, y) => Number(x.tendencia) - Number(y.tendencia) || x.peso - y.peso).slice(0, 3);
 }
 
