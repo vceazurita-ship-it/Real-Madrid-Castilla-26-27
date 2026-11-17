@@ -59,16 +59,18 @@ import {
   enlaceVideo,
   esEtiquetaDebil,
   etiquetaEnCaseta,
+  jornadaDeLista,
   jugadorDelTitulo,
   tituloSoloRepite,
   resumenDeTemporada,
   temaDelTitulo,
   type JugadorPlantilla,
+  type RasgoCorto,
   type ListaCanal,
   type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
 import { Explicativo } from "@/components/ui/textos-analisis";
-import { ClipsHudlJugador } from "@/components/rivals/ClipsDeHudl";
+import { ClipsHudlJugador, useCuentaHudl } from "@/components/rivals/ClipsDeHudl";
 import { MEJOR, PEOR } from "@/components/data/graficas";
 
 type Video = {
@@ -126,7 +128,7 @@ function temaLegible(tema: string, _posicion: number, descripcion = "") {
 }
 
 /** Orden de los puestos para los chips: portero, defensa, medio, delantero; lo desconocido, al final. */
-function rangoDePuesto(puesto: string) {
+export function rangoDePuesto(puesto: string) {
   const p = puesto.toLowerCase().trim();
 
   if (/portero|^(por|pt|gk)$/.test(p)) return 0;
@@ -139,7 +141,7 @@ function rangoDePuesto(puesto: string) {
 }
 
 /** El rótulo de cada línea, por el rango de `rangoDePuesto`. */
-const LINEAS = ["Porteros", "Defensas", "Centrocampistas", "Delanteros", "Otros"] as const;
+export const LINEAS = ["Porteros", "Defensas", "Centrocampistas", "Delanteros", "Otros"] as const;
 
 /** Etiquetas de la ficha que hablan de balón parado: rematador, lanzador, córner, falta directa… */
 const ES_ABP = /abp|bal[oó]n parado|rematador|lanzador|c[oó]rner|falta directa|penalti/i;
@@ -161,8 +163,11 @@ type Pieza = {
   clave?: string;
   /** Las etiquetas ya en lenguaje de caseta, con su cifra si la hay (16/11/2026). */
   enCaseta: { texto: string; debil: boolean }[];
-  /** 1 o 2 cifras de su puesto (Wyscout), con percentil, población y minutos. */
-  cifras: string[];
+  /** Su ▲ y su ▼ de Wyscout contra su puesto, con la base aparte (17/11/2026, ronda 21). */
+  rasgos: RasgoCorto[];
+  poblacion: string;
+  /** Cuántos cortes suyos hay en la lista: en lo que se apoyan sus etiquetas. */
+  clips: number;
 };
 
 type Estado =
@@ -275,8 +280,20 @@ export function VideosDelCanal({
   visionados = {},
   equipos = [],
   jugadorInicial = "",
+  vista = "clips",
+  jornada,
+  onReparto,
+  onIrALista,
 }: {
   equipo: string;
+  /** «clips» (la pantalla) o «lista» (la pestaña secundaria con la lista del canal, 17/11/2026, ronda 21). */
+  vista?: "clips" | "lista";
+  /** La jornada elegida arriba: se abre la lista «J<n> · …» de ese partido, si está en el canal. */
+  jornada?: number;
+  /** Cortes de cada jugador (por su nombre de pantalla) en la lista abierta; `null` mientras no se sabe. */
+  onReparto?: (cuenta: Record<string, number> | null) => void;
+  /** Lleva a la pestaña «Lista del canal». */
+  onIrALista?: () => void;
   plantilla: JugadorPlantilla[];
   /** `?jugador=` (desde Duelos, 16/11/2026): se abre con sus cortes filtrados. */
   jugadorInicial?: string;
@@ -485,8 +502,11 @@ export function VideosDelCanal({
        su lista en el canal era una pantalla vacía sin motivo (29/10/2026). */
     const puesta = aMano && aMano !== SIN_LISTA ? listas.find((item) => item.id === aMano) : null;
 
-    return puesta ?? buscaLista(listas, equipo, jornadasDelEquipo);
-  }, [clave, elegidas.porEquipo, equipo, estado, jornadasDelEquipo]);
+    /* La jornada elegida arriba manda (17/11/2026, ronda 21): la lista «J32 · …» si existe y es de este rival. */
+    const deLaJornada = jornada ? listas.find((item) => jornadaDeLista(item.nombre) === jornada && buscaLista([item], equipo, [jornada])) : null;
+
+    return deLaJornada ?? puesta ?? buscaLista(listas, equipo, jornadasDelEquipo);
+  }, [clave, elegidas.porEquipo, equipo, estado, jornadasDelEquipo, jornada]);
 
   /*
   | ¿Y si la lista puesta a mano no es la de este equipo?
@@ -585,6 +605,25 @@ export function VideosDelCanal({
 
   const termino = busca.trim().toLowerCase();
 
+  /* Cortes de cada jugador en la lista, sin el buscador: la base de sus etiquetas y de la radiografía de arriba. */
+  const cortesDe = useMemo(() => {
+    const cuenta: Record<string, number> = {};
+
+    for (const video of videos) {
+      const jugador = jugadorDelTitulo(video.titulo, plantilla);
+
+      if (jugador) cuenta[jugador.nombre] = (cuenta[jugador.nombre] ?? 0) + 1;
+    }
+
+    return cuenta;
+  }, [videos, plantilla]);
+
+  const listoElReparto = estado.fase === "listo" && (!lista || (!cargandoVideos && !falloVideos));
+
+  useEffect(() => {
+    onReparto?.(listoElReparto ? cortesDe : null);
+  }, [onReparto, listoElReparto, cortesDe]);
+
   const grupos = useMemo(() => {
     const porJugador = new Map<string, { jugador: string; dorsal: string; puesto: string; titular: boolean; minutos: number; resumen: string; explotables: number; videos: Pieza[] }>();
 
@@ -607,12 +646,14 @@ export function VideosDelCanal({
         tema: temaDelTitulo(video.titulo, jugador),
         jugador: jugador?.nombre ?? "",
         dorsal: jugador?.dorsal ?? "",
-        puesto: jugador?.puesto ?? "",
+        puesto: jugador?.rol || jugador?.puesto || "",
         etiquetas: jugador?.etiquetas ?? [],
         resumen: resumenDeTemporada(jugador),
         clave: jugador?.clave,
         enCaseta: (jugador?.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, jugador), debil: esEtiquetaDebil(e) })),
-        cifras: jugador?.cifras ?? [],
+        rasgos: jugador?.rasgos ?? [],
+        poblacion: jugador?.poblacion ?? "",
+        clips: jugador ? cortesDe[jugador.nombre] ?? 0 : 0,
       };
 
       if (!jugador) {
@@ -646,7 +687,7 @@ export function VideosDelCanal({
       ),
       sueltos,
     };
-  }, [plantilla, termino, videos]);
+  }, [plantilla, termino, videos, cortesDe]);
 
   /*
   | Ver sólo a uno.
@@ -884,124 +925,127 @@ export function VideosDelCanal({
     );
   }
 
+  /* El aviso de una lista puesta a mano que no parece de este rival: en las dos pestañas. */
+  const avisoSospechosa =
+    sospechosa && lista ? (
+      <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
+        <AlertTriangle size={15} className="shrink-0 text-amber-300" />
+
+        <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-white/70">
+          «{lista.nombre}» no parece la lista de <strong>{equipo}</strong>, y
+          está puesta a mano. Si es un despiste, lo que se ve son los cortes de
+          otro rival.
+        </p>
+
+        <button
+          type="button"
+          onClick={olvidaLaLista}
+          className="shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
+        >
+          Quitar el emparejado
+        </button>
+      </div>
+    ) : null;
+
+  /*
+  | LA PESTAÑA «LISTA DEL CANAL» (17/11/2026, ronda 21): qué lista del canal
+  | se ve para este rival y, si hace falta, cambiarla por otra. Lo elegido vale
+  | para todo el cuerpo técnico. «J» = nuestra jornada contra ese rival.
+  */
+  if (vista === "lista") {
+    return (
+      <div className="min-w-0 space-y-3">
+        <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+          <p className="flex items-center gap-2 text-xs uppercase tracking-[0.16em] text-white/50">
+            <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
+            Lista del canal
+          </p>
+          <p className="mt-1 text-sm font-semibold text-white">
+            {lista ? `${etiquetaLista} · ${lista.cuenta} ${lista.cuenta === 1 ? "vídeo" : "vídeos"}` : `Elige la lista de ${equipo}`}
+          </p>
+
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <select
+              value={lista?.id ?? ""}
+              aria-label="Lista del canal de este rival"
+              onChange={(evento) => {
+                const id = evento.target.value;
+
+                if (!id) return;
+
+                setElegidas((actual) => ({
+                  ...actual,
+                  porEquipo: { ...actual.porEquipo, [clave]: id },
+                }));
+              }}
+              className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 sm:w-auto sm:flex-1"
+            >
+              {!lista && (
+                <option value="" className="bg-[#11161C]">
+                  Elige la lista de este rival…
+                </option>
+              )}
+
+              {lista && (
+                <option value={lista.id} className="bg-[#11161C]">
+                  {etiquetaLista} · {lista.cuenta} {lista.cuenta === 1 ? "vídeo" : "vídeos"}
+                </option>
+              )}
+              <optgroup label="Otras jornadas" className="bg-[#11161C]">
+                {estado.listas
+                  .filter((item) => item.id !== lista?.id)
+                  .map((item) => (
+                    <option key={item.id} value={item.id} className="bg-[#11161C]">
+                      {nombreDeLista(item.nombre, rivalDeJornada, equipos)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
+                    </option>
+                  ))}
+              </optgroup>
+            </select>
+
+            {lista && (
+              <a
+                href={enlaceLista(lista.id)}
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 px-2.5 py-1.5 text-xs text-white/60 transition hover:border-white/25 hover:text-white"
+              >
+                <ExternalLink size={12} />
+                Abrir en YouTube
+              </a>
+            )}
+          </div>
+
+          <p className="mt-2 text-[12px] text-white/50">
+            Se empareja sola por el nombre del rival y la jornada; lo que elijas aquí vale para todo el cuerpo técnico. J = nuestra jornada contra ese rival · {estado.canal}
+          </p>
+        </section>
+
+        {avisoSospechosa}
+      </div>
+    );
+  }
+
   return (
     <div className="min-w-0">
       {/* ---------------------- QUÉ LISTA SE MIRA --------------------- */}
 
-      {/* En el móvil el selector va en su fila y a todo el ancho: en la misma
-          línea que el rótulo y el canal salía «J10 Cartag…» (29/10/2026). */}
       {/*
-      | LA LISTA DEL CANAL, PLEGADA (16/11/2026, ronda 18, fútbol y análisis):
-      | arriba mandaba el desplegable de las listas de los 13 rivales, una
-      | tercera forma de elegir rival. Ahora es una línea con la lista que se
-      | está viendo; se abre para cambiarla. Sin lista, o con una que no
-      | parece de este rival, sale abierta.
+      | LA LISTA DEL CANAL, A SU PESTAÑA (17/11/2026, ronda 21, análisis): el
+      | rival se elige una vez arriba (rival y jornada) y la lista se empareja
+      | sola. Cambiarla a mano vive en la pestaña «Lista del canal»; aquí sólo
+      | queda el aviso si la puesta a mano no parece de este rival.
       */}
-      {/* Conclusión primero (16/11/2026, marketing): quién tiene vídeo y cuántos del once. */}
-      {lista && !cargandoVideos && grupos.jugadores.length > 0 && (() => {
-        const delOnce = grupos.jugadores.filter((g) => g.titular).length;
-        const explotables = jugadoresPorPuesto.filter((g) => g.explotables > 0).map((g) => g.jugador);
-
-        return (
-          <p className="mb-3 text-base font-semibold text-white sm:text-lg">
-            {grupos.jugadores.length} {grupos.jugadores.length === 1 ? "jugador" : "jugadores"} con vídeo
-            {delOnce > 0 ? `, ${delOnce} del once probable` : ""}
-            {explotables.length > 0 ? `; algo que explotar en ${explotables.slice(0, 3).join(", ").replace(/, ([^,]*)$/, " y $1")}${explotables.length > 3 ? ` y ${explotables.length - 3} más` : ""}` : ""}.
-          </p>
-        );
-      })()}
-
-      <details
-        key={lista && !sospechosa ? "plegada" : "abierta"}
-        open={!lista || Boolean(sospechosa)}
-        className="group/lista rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2"
-      >
-        <summary className="flex min-h-9 cursor-pointer list-none flex-wrap items-center gap-2 text-[13px] text-white/70">
-          <ListVideo size={15} className="shrink-0 text-[#C8A96B]" />
-          <span className="text-xs uppercase tracking-[0.16em] text-white/50">Lista del canal</span>
-          {lista && <span className="min-w-0 truncate font-semibold text-white/85">{etiquetaLista} · {lista.cuenta} {lista.cuenta === 1 ? "vídeo" : "vídeos"}</span>}
-          <span className="ml-auto text-[12px] text-[#C8A96B] group-open/lista:hidden">Cambiar</span>
-        </summary>
-
-      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-white/[0.06] pt-2">
-        {/* Qué es la J (16/11/2026, fútbol): la de nuestro calendario, no la del rival. */}
-        <span className="text-[11px] text-white/50">J = nuestra jornada contra ese rival</span>
-
-        <select
-          value={lista?.id ?? ""}
-          onChange={(evento) => {
-            const id = evento.target.value;
-
-            if (!id) return;
-
-            setElegidas((actual) => ({
-              ...actual,
-              porEquipo: { ...actual.porEquipo, [clave]: id },
-            }));
-          }}
-          className="w-full min-w-0 rounded-lg border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-sm text-white outline-none transition focus:border-[#C8A96B]/50 sm:w-auto sm:flex-1"
-        >
-          {/* Sin «Ninguna»: con lista, se cambia por otra; sin ella, se elige. */}
-          {!lista && (
-            <option value="" className="bg-[#11161C]">
-              Elige la lista de este rival…
-            </option>
-          )}
-
-          {/* La de este rival arriba; las demás, plegadas en «Otras jornadas» (16/11/2026, fútbol). */}
-          {lista && (
-            <option value={lista.id} className="bg-[#11161C]">
-              {nombreDeLista(lista.nombre, rivalDeJornada, equipos)} · {lista.cuenta} {lista.cuenta === 1 ? "vídeo" : "vídeos"}
-            </option>
-          )}
-          <optgroup label="Otras jornadas" className="bg-[#11161C]">
-          {estado.listas.filter((item) => item.id !== lista?.id).map((item) => (
-            <option key={item.id} value={item.id} className="bg-[#11161C]">
-              {nombreDeLista(item.nombre, rivalDeJornada, equipos)} · {item.cuenta} {item.cuenta === 1 ? "vídeo" : "vídeos"}
-            </option>
-          ))}
-          </optgroup>
-        </select>
-
-        {lista && (
-          <a
-            href={enlaceLista(lista.id)}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/12 px-2.5 py-1.5 text-xs text-white/60 transition hover:border-white/25 hover:text-white"
-          >
-            <ExternalLink size={12} />
-            Abrir en YouTube
-          </a>
-        )}
-
-        <span className="text-[11px] text-white/30">{estado.canal}</span>
-      </div>
-      </details>
-
-      {/* Sin lista (10/11/2026, jueces): ni instrucciones al analista ni hueco;
-          la plantilla con la ficha de cada jugador, que es contenido. */}
-      {!lista && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}
-
-      {sospechosa && lista && (
-        <div className="mt-3 flex flex-wrap items-center gap-3 rounded-2xl border border-amber-400/30 bg-amber-400/[0.07] px-4 py-3">
-          <AlertTriangle size={15} className="shrink-0 text-amber-300" />
-
-          <p className="min-w-0 flex-1 text-[12px] leading-relaxed text-white/70">
-            «{lista.nombre}» no parece la lista de <strong>{equipo}</strong>, y
-            está puesta a mano. Si es un despiste, lo que se ve abajo son los
-            cortes de otro rival.
-          </p>
-
-          <button
-            type="button"
-            onClick={olvidaLaLista}
-            className="shrink-0 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
-          >
-            Quitar el emparejado
-          </button>
-        </div>
+      {!lista && admin && onIrALista && (
+        <p className="text-[12px] text-white/55">
+          Este rival no tiene lista emparejada en el canal.{" "}
+          <button type="button" onClick={onIrALista} className="font-semibold text-[#C8A96B] underline underline-offset-2">
+            Elegir su lista
+          </button>{" "}
+          · sólo lo ves tú
+        </p>
       )}
+
+      {avisoSospechosa}
 
       {/* -------------------------- BUSCADOR -------------------------- */}
 
@@ -1099,12 +1143,50 @@ export function VideosDelCanal({
           <span className="font-semibold" style={{ color: MEJOR }}>▲ verde = lo que hace bien</span>
           {" · "}
           <span className="font-semibold" style={{ color: PEOR }}>▼ naranja = lo que podemos explotar</span>
-          . Los jugadores van por puesto y, dentro, primero el once y quien más tiene que explotar.
+          . Cada etiqueta dice en cuántos clips suyos se apoya («tendencia» si es uno); «Ver base» da el percentil, contra cuántos y los minutos.
         </p>
       )}
 
       {lista && !cargandoVideos && videos.length > 0 && (
-        <div className="mt-3 flex [scrollbar-width:thin] items-center gap-1.5 overflow-x-auto pb-1 pr-6 [mask-image:linear-gradient(to_right,#000_calc(100%-32px),transparent)] [&_button]:shrink-0 [&_span]:shrink-0 sm:flex-wrap sm:overflow-visible sm:pb-0 sm:pr-0 sm:[mask-image:none]">
+        <>
+        {/*
+        | EN EL MÓVIL, UN SELECTOR (17/11/2026, ronda 21, análisis): la tira de
+        | chips se cortaba sin decir que seguía. A 390 px, un desplegable con
+        | los jugadores por puesto; desde 640 px, los chips de siempre.
+        */}
+        <label className="mt-3 block sm:hidden">
+          <span className="sr-only">Ver los cortes de</span>
+          <select
+            value={soloDe}
+            onChange={(evento) => setSoloDe(evento.target.value)}
+            className="w-full min-w-0 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-white outline-none transition focus:border-[#C8A96B]/50"
+          >
+            <option value="" className="bg-[#11161C]">
+              Todos los vídeos ({grupos.jugadores.reduce((suma, g) => suma + g.videos.length, 0) + grupos.sueltos.length})
+            </option>
+            {LINEAS.map((rotulo, rango) => {
+              const suyos = jugadoresPorPuesto.filter((g) => rangoDePuesto(g.puesto) === rango);
+
+              return suyos.length ? (
+                <optgroup key={rotulo} label={rotulo} className="bg-[#11161C]">
+                  {suyos.map((g) => (
+                    <option key={g.jugador} value={g.jugador} className="bg-[#11161C]">
+                      {[g.dorsal, g.jugador].filter(Boolean).join(" ")} · {g.videos.length} {g.videos.length === 1 ? "corte" : "cortes"}
+                      {g.titular ? " · once probable" : ""}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : null;
+            })}
+            {grupos.sueltos.length > 0 && (
+              <option value={SUELTOS} className="bg-[#11161C]">
+                Del equipo ({grupos.sueltos.length})
+              </option>
+            )}
+          </select>
+        </label>
+
+        <div className="mt-3 hidden flex-wrap items-center gap-1.5 sm:flex">
           <Chip
             activo={!soloDe}
             onClick={() => setSoloDe("")}
@@ -1151,6 +1233,7 @@ export function VideosDelCanal({
             />
           )}
         </div>
+        </>
       )}
 
       {/* --------------------------- VÍDEOS --------------------------- */}
@@ -1179,7 +1262,6 @@ export function VideosDelCanal({
         </div>
       )}
 
-      {!cargandoVideos && lista && !falloVideos && videos.length === 0 && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}
 
       {!cargandoVideos && lista && videos.length > 0 && mostrados.length === 0 && (
         <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-6 text-center text-xs text-white/40">
@@ -1280,7 +1362,7 @@ export function VideosDelCanal({
             )}
 
             {variosCortes.map((grupo) => (
-              <div key={grupo.jugador} className="min-w-0">
+              <div key={grupo.jugador} id={anclaDe(grupo.jugador)} className="min-w-0 scroll-mt-24">
                 <div className="mb-2 flex flex-wrap items-center gap-2">
                   {grupo.dorsal && (
                     <span className="rounded-md bg-[#C8A96B]/15 px-1.5 py-0.5 text-[11px] font-semibold tabular-nums text-[#C8A96B]">
@@ -1337,72 +1419,23 @@ export function VideosDelCanal({
       )}
 
       {/*
-      | EL RESTO DEL ONCE PROBABLE (16/11/2026, ronda 18, fútbol): de los
-      | titulares sin corte (sus tres más peligrosos, a veces) no se veía nada.
-      | Cada uno sale con lo que sí hay: su radiografía contra los de su puesto
-      | (Wyscout) y la lectura del analista, con su ficha y su duelo. Quien no
-      | tiene ni cifra ni etiqueta no sale.
+      | EL RESTO DE SU ONCE PROBABLE (16/11/2026; 17/11/2026, ronda 21): los
+      | titulares sin corte en el canal, con la MISMA tarjeta que los de arriba
+      | (▲/▼ en una línea, «Ver base», Su ficha y Su duelo con el mismo peso) y
+      | sus clips de Hudl para ver o bajar: ningún titular se queda sin vídeo
+      | si lo hay en Hudl. Sale también sin lista en el canal.
       */}
-      {!cargandoVideos && lista && videos.length > 0 && !soloDe && !termino && (() => {
+      {!cargandoVideos && !falloVideos && !soloDe && !termino && (() => {
         const conVideo = new Set(grupos.jugadores.map((g) => g.jugador));
         const resto = plantilla
-          .filter((j) => j.titular && !conVideo.has(j.nombre) && ((j.cifras?.length ?? 0) > 0 || (j.etiquetas?.length ?? 0) > 0))
+          .filter((j) => j.titular && !conVideo.has(j.nombre))
           .sort((a, b) => rangoDePuesto(a.puesto ?? "") - rangoDePuesto(b.puesto ?? "") || (b.minutos ?? 0) - (a.minutos ?? 0));
 
-        return resto.length > 0 ? (
-          <section className="mt-6 min-w-0">
-            <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
-              <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">El resto de su once probable</h2>
-              <span className="text-[12px] text-white/55">lo que dicen sus datos y la ficha del analista</span>
-            </header>
-            <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
-              {resto.map((j) => {
-                const enCaseta = (j.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, j), debil: esEtiquetaDebil(e) }));
-                const resumen = resumenDeTemporada(j);
-
-                return (
-                  <div key={j.hoja ?? j.nombre} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
-                    <p className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">
-                      {j.dorsal && <span className="tabular-nums">{j.dorsal}</span>}
-                      <span className="min-w-0 truncate">{j.nombre}</span>
-                    </p>
-                    {(j.puesto || resumen) && <p className="mt-0.5 text-[12px] tabular-nums text-white/60">{[j.puesto, resumen].filter(Boolean).join(" · ")}</p>}
-                    {[
-                      { rotulo: "▲ Hace bien", color: MEJOR, lista: enCaseta.filter((e) => !e.debil).map((e) => e.texto) },
-                      { rotulo: "▼ Explotable", color: PEOR, lista: enCaseta.filter((e) => e.debil).map((e) => e.texto) },
-                    ]
-                      .filter((g) => g.lista.length > 0)
-                      .map((g) => (
-                        <p key={g.rotulo} className="mt-0.5 text-[12px] leading-snug" style={{ color: g.color }}>
-                          <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
-                        </p>
-                      ))}
-                    {(j.cifras ?? []).map((c) => (
-                      <CifraConBarra key={c} c={c} />
-                    ))}
-                    <p className="mt-1 flex flex-wrap gap-x-4 text-[12px]">
-                      <Link
-                        href={`/rivals?equipo=${encodeURIComponent(equipo)}${j.clave ? `&jugador=${encodeURIComponent(j.clave)}` : ""}`}
-                        className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0"
-                      >
-                        Su ficha →
-                      </Link>
-                      <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
-                        Su duelo →
-                      </Link>
-                      {(j.etiquetas ?? []).some((e) => ES_ABP.test(e)) && (
-                        <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center font-semibold text-[#C8A96B] hover:underline sm:min-h-0">
-                          Su ABP →
-                        </Link>
-                      )}
-                    </p>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-        ) : null;
+        return resto.length > 0 ? <RestoDelOnce equipo={equipo} resto={resto} plantilla={plantilla} hayCortes={conVideo.size > 0} /> : null;
       })()}
+
+      {/* Sin cortes en el canal, el resto de la plantilla (los titulares ya van arriba). */}
+      {!cargandoVideos && (!lista || (!falloVideos && videos.length === 0)) && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}
 
       {!cargandoVideos &&
         agrupado &&
@@ -1655,11 +1688,12 @@ function Rejilla({
      mirar—, pero se leen al pasar el cursor (29/10/2026). */
   return (
     <div className={`grid min-w-0 gap-2.5 ${columnas}`}>
-      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, cifras, etiquetas }) => (
+      {piezas.map(({ video, tema, jugador, dorsal, puesto, resumen, clave, enCaseta, rasgos, poblacion, clips, etiquetas }, i) => (
         <div
           key={video.id}
+          id={conJugador && jugador && piezas.findIndex((p) => p.jugador === jugador) === i ? anclaDe(jugador) : undefined}
           title={[video.titulo, fecha(video.publicado) && `subido el ${fecha(video.publicado)}`].filter(Boolean).join(" · ")}
-          className="group min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
+          className="group min-w-0 scroll-mt-24 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] transition hover:border-[#C8A96B]/40"
         >
           <button
             type="button"
@@ -1697,22 +1731,7 @@ function Rejilla({
             | grupo dice qué es: «▲ Hace bien» en verde, «▼ Explotable» en naranja.
             */}
             {conJugador && puesto && <p className="mb-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
-            {conJugador &&
-              ([
-                { rotulo: "▲ Hace bien", color: MEJOR, lista: enCaseta.filter((e) => !e.debil).map((e) => e.texto) },
-                { rotulo: "▼ Explotable", color: PEOR, lista: enCaseta.filter((e) => e.debil).map((e) => e.texto) },
-              ] as const)
-                .filter((g) => g.lista.length > 0)
-                .map((g) => (
-                  /* La frase entera, sin cortar (16/11/2026, ronda 18, marketing): «va al suelo para robar:…» no decía nada. */
-                  <p key={g.rotulo} className="mb-0.5 text-[12px] leading-snug" style={{ color: g.color }} title="Lectura del analista, de la ficha del jugador">
-                    <span className="font-semibold">{g.rotulo}:</span> {g.lista.join(" · ")}
-                  </p>
-                ))}
-
-            {/* Su cifra contra los de su puesto (Wyscout), con su base. */}
-            {conJugador &&
-              cifras.map((c) => <CifraConBarra key={c} c={c} />)}
+            {conJugador && <LecturaDelJugador enCaseta={enCaseta} rasgos={rasgos} poblacion={poblacion} clips={clips} />}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
@@ -1729,28 +1748,8 @@ function Rejilla({
               );
             })()}
 
-            {/* Del vídeo a la consigna (16/11/2026, fútbol): su ficha en /rivals y su duelo en /duelos. */}
-            {jugador && equipo && (
-              /* 44 px de alto en el móvil para el dedo (16/11/2026, análisis). */
-              /* Botones a la vista, no texto pequeño (17/11/2026, ronda 20, análisis). */
-              <p className="mt-1.5 flex flex-wrap gap-1.5 text-[12px]">
-                <Link
-                  href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`}
-                  className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5"
-                >
-                  Su ficha →
-                </Link>
-                <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5">
-                  Su duelo →
-                </Link>
-                {/* Rematador o lanzador de ABP: su balón parado (16/11/2026, ronda 18, fútbol). */}
-                {etiquetas.some((e) => ES_ABP.test(e)) && (
-                  <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5">
-                    Su ABP →
-                  </Link>
-                )}
-              </p>
-            )}
+            {/* Del vídeo a la consigna: Su ficha y Su duelo con el mismo peso, y Su ABP si toca. */}
+            {jugador && equipo && <BotonesDelJugador equipo={equipo} clave={clave} nombre={jugador} etiquetas={etiquetas} className="mt-1.5" />}
 
             {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
                 el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}
@@ -1807,19 +1806,19 @@ function rivalDelCorte(titulo: string, suEquipo: string): string {
  * enlace a su ficha.
  */
 function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: JugadorPlantilla[] }) {
-  const ordenados = [...plantilla].sort(
+  const hayOnce = plantilla.some((j) => j.titular);
+  const ordenados = plantilla.filter((j) => !j.titular).sort(
     (a, b) => Number(Boolean(b.titular)) - Number(Boolean(a.titular)) || rangoDePuesto(a.puesto ?? "") - rangoDePuesto(b.puesto ?? "") || (b.minutos ?? 0) - (a.minutos ?? 0),
   );
 
   if (ordenados.length === 0) return null;
 
-  const titulares = ordenados.filter((j) => j.titular).length;
 
   return (
     <section className="mt-4 min-w-0">
       <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
         <h2 className="text-sm font-semibold text-white">
-          {titulares ? `Su once probable y el resto de la plantilla: ${ordenados.length} jugadores` : `Su plantilla: ${ordenados.length} jugadores`}
+          {hayOnce ? `El resto de la plantilla: ${ordenados.length} jugadores` : `Su plantilla: ${ordenados.length} jugadores`}
         </h2>
         <span className="text-[12px] text-white/45">Todavía sin cortes en el canal · cada ficha abre la del jugador</span>
       </header>
@@ -1866,25 +1865,177 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
   );
 }
 
+/** El ancla de la tarjeta de un jugador: la radiografía de arriba salta a ella. */
+export const anclaDe = (nombre: string) => `ficha-${desnuda(nombre).replace(/\s+/g, "-")}`;
+
+/** «1 clip · tendencia» o «3 clips»: en cuántos cortes se apoya la lectura del analista. */
+export const apoyoDeClips = (clips: number) => (clips <= 0 ? "" : clips === 1 ? "1 clip · tendencia" : `${clips} clips`);
+
 /*
-| La cifra de su puesto con una barrita de percentil y la raya de la mediana
-| (17/11/2026, ronda 19, jueces de análisis y marketing): el verde o el naranja
-| se lee sin leer la frase. A 12 px (antes 11). Si la frase no trae «P73», sólo
-| el texto.
+| LA LECTURA DE CADA JUGADOR, EN DOS LÍNEAS (17/11/2026, ronda 21, marketing y
+| análisis): antes eran cuatro frases largas (las etiquetas y las dos cifras de
+| Wyscout con su percentil, su población y sus minutos). Ahora una línea por
+| signo —«▲ Hace bien: va fuerte al duelo (1 clip · tendencia) · Acciones de
+| ataque exitosas 2,7 P91»— y la base entera en «Ver base». La etiqueta dice
+| en cuántos clips suyos se apoya; con uno solo, «tendencia».
 */
-function CifraConBarra({ c }: { c: string }) {
-  const p = Number(c.match(/P(\d{1,3})/)?.[1] ?? NaN);
-  const flojo = c.startsWith("▼");
+export function LecturaDelJugador({
+  enCaseta,
+  rasgos,
+  poblacion,
+  clips,
+}: {
+  enCaseta: { texto: string; debil: boolean }[];
+  rasgos: RasgoCorto[];
+  poblacion?: string;
+  /** Clips suyos (canal o Hudl) en los que se apoyan sus etiquetas. */
+  clips: number;
+}) {
+  const buenas = enCaseta.filter((e) => !e.debil).map((e) => e.texto);
+  const malas = enCaseta.filter((e) => e.debil).map((e) => e.texto);
+  const apoyo = apoyoDeClips(clips);
+  const lineas = [
+    { signo: "▲", rotulo: "Hace bien", color: MEJOR, etiqueta: buenas[0], rasgo: rasgos.find((r) => r.signo === "▲") },
+    { signo: "▼", rotulo: "Explotable", color: PEOR, etiqueta: malas[0], rasgo: rasgos.find((r) => r.signo === "▼") },
+  ].filter((l) => l.etiqueta || l.rasgo);
+
+  if (!lineas.length) return null;
 
   return (
-    <div className="mb-1 min-w-0">
-      <p className="text-[12px] leading-snug tabular-nums text-white/70">{c}</p>
-      {Number.isFinite(p) && (
-        <span className="relative mt-0.5 block h-1.5 w-full max-w-[12rem] rounded-full bg-white/10" aria-hidden>
-          <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, Math.min(100, p))}%`, background: flojo ? PEOR : MEJOR }} />
-          <span className="absolute -top-0.5 bottom-[-2px] left-1/2 w-px bg-white/50" title="Mediana de su puesto" />
-        </span>
-      )}
+    <div className="min-w-0">
+      {/* Con quién se le compara, si no es su puesto de la hoja (fútbol): «pivote en su once, comparado con 123 medios». */}
+      {poblacion && rasgos.length > 0 && <p className="mb-0.5 text-[12px] leading-snug text-white/55">{poblacion.charAt(0).toUpperCase() + poblacion.slice(1)}</p>}
+      {lineas.map((l) => (
+        <p key={l.signo} className="mb-0.5 text-[12px] leading-snug" style={{ color: l.color }}>
+          <span className="font-semibold">
+            {l.signo} {l.rotulo}:
+          </span>{" "}
+          {l.etiqueta}
+          {l.etiqueta && apoyo && <span className="text-white/50"> ({apoyo})</span>}
+          {l.etiqueta && l.rasgo ? " · " : ""}
+          {l.rasgo && (
+            <span className="tabular-nums">
+              {l.rasgo.corta} <b>{l.rasgo.marca}</b>
+            </span>
+          )}
+        </p>
+      ))}
+
+      <details className="mt-0.5 min-w-0">
+        <summary className="inline-flex min-h-[44px] cursor-pointer list-none items-center gap-1 text-[12px] text-white/55 transition hover:text-white sm:min-h-0">
+          Ver base ▾
+        </summary>
+        <ul className="mt-1 space-y-1 text-[12px] leading-snug text-white/65">
+          {rasgos.map((r) => (
+            <li key={r.base} className="min-w-0">
+              <span style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>{r.signo}</span> {r.corta}: {r.base}
+              <span className="relative mt-0.5 block h-1.5 w-full max-w-[12rem] rounded-full bg-white/10" aria-hidden>
+                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, Math.min(100, r.percentil))}%`, background: r.signo === "▼" ? PEOR : MEJOR }} />
+                <span className="absolute -top-0.5 bottom-[-2px] left-1/2 w-px bg-white/50" title="Mediana de su puesto" />
+              </span>
+            </li>
+          ))}
+          {enCaseta.length > 0 && (
+            <li>
+              Lectura del analista (su ficha): {[...buenas.map((t) => `▲ ${t}`), ...malas.map((t) => `▼ ${t}`)].join(" · ")}
+              {clips > 0 ? ` · sobre ${clips} ${clips === 1 ? "clip suyo: tendencia, no patrón" : "clips suyos"}` : ""}.
+            </li>
+          )}
+        </ul>
+      </details>
     </div>
+  );
+}
+
+/** Su ficha y Su duelo con el mismo peso (y Su ABP si su ficha le marca de balón parado). */
+export function BotonesDelJugador({
+  equipo,
+  clave,
+  nombre,
+  etiquetas = [],
+  className = "",
+}: {
+  equipo: string;
+  clave?: string;
+  nombre: string;
+  etiquetas?: string[];
+  className?: string;
+}) {
+  const boton =
+    "inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5";
+
+  return (
+    <p className={`flex flex-wrap gap-1.5 text-[12px] ${className}`}>
+      <Link href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`} className={boton}>
+        Su ficha →
+      </Link>
+      <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(nombre)}`} className={boton}>
+        Su duelo →
+      </Link>
+      {etiquetas.some((e) => ES_ABP.test(e)) && (
+        <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className={boton}>
+          Su ABP →
+        </Link>
+      )}
+    </p>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL RESTO DE SU ONCE PROBABLE                                       */
+/* ------------------------------------------------------------------ */
+
+function RestoDelOnce({
+  equipo,
+  resto,
+  plantilla,
+  hayCortes,
+}: {
+  equipo: string;
+  resto: JugadorPlantilla[];
+  plantilla: JugadorPlantilla[];
+  /** Hay cortes de otros en el canal: entonces son «el resto». */
+  hayCortes: boolean;
+}) {
+  const paraHudl = useMemo(() => plantilla.map((j) => ({ nombres: [j.nombre, j.hoja], dorsal: j.dorsal })), [plantilla]);
+  const buscados = useMemo(() => resto.map((j) => ({ clave: j.hoja ?? j.nombre, nombres: [j.nombre, j.hoja], dorsal: j.dorsal })), [resto]);
+  const hudl = useCuentaHudl(equipo, buscados, paraHudl);
+  const conHudl = Object.keys(hudl).length;
+
+  return (
+    <section className="mt-6 min-w-0">
+      <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+        <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{hayCortes ? "El resto de su once probable" : "Su once probable"}</h2>
+        <span className="text-[12px] text-white/55">
+          {resto.length} sin corte en el canal{conHudl > 0 ? ` · ${conHudl} con sus clips de Hudl para ver o bajar` : ""}
+        </span>
+      </header>
+      <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
+        {resto.map((j) => {
+          const enCaseta = (j.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, j), debil: esEtiquetaDebil(e) }));
+          const resumen = resumenDeTemporada(j);
+          const puesto = j.rol || j.puesto;
+
+          return (
+            <div key={j.hoja ?? j.nombre} id={anclaDe(j.nombre)} className="min-w-0 scroll-mt-24 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+              <p className="flex min-w-0 items-center gap-1.5 text-[12px] font-semibold uppercase tracking-wide text-[#C8A96B]">
+                {j.dorsal && <span className="tabular-nums">{j.dorsal}</span>}
+                <span className="min-w-0 truncate">{j.nombre}</span>
+              </p>
+              {puesto && <p className="mt-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
+              {resumen && <p className="mb-1 text-[12px] tabular-nums text-white/60">{resumen}</p>}
+              <LecturaDelJugador enCaseta={enCaseta} rasgos={j.rasgos ?? []} poblacion={j.poblacion} clips={hudl[j.hoja ?? j.nombre] ?? 0} />
+              <BotonesDelJugador equipo={equipo} clave={j.clave} nombre={j.nombre} etiquetas={j.etiquetas} className="mt-1.5" />
+              <ClipsHudlJugador
+                className="mt-2"
+                equipo={equipo}
+                jugador={{ nombres: [j.nombre, j.hoja], dorsal: j.dorsal }}
+                plantilla={paraHudl}
+              />
+            </div>
+          );
+        })}
+      </div>
+    </section>
   );
 }

@@ -170,7 +170,7 @@ export function buscaLista(listas: ListaCanal[], equipo: string, jornadasDelEqui
 }
 
 /** El número de jornada del nombre de una lista («J10 Cartagena» → 10); 0 si no lo dice. */
-function jornadaDeLista(nombre: string) {
+export function jornadaDeLista(nombre: string) {
   const casa = /\bJ(?:ORNADA)?\s*(\d{1,2})\b/i.exec(nombre);
 
   return casa ? Number(casa[1]) : 0;
@@ -203,6 +203,25 @@ export type JugadorPlantilla = {
   asistencias?: number;
   /** 1 o 2 cifras de Wyscout contra su puesto, ya escritas («Duelos ganados 68 % · P85 de 40 laterales · 1.020′»). */
   cifras?: string[];
+  /** Su ▲ y su ▼ de Wyscout, cortos para la tarjeta y con la base aparte (17/11/2026, ronda 21). */
+  rasgos?: RasgoCorto[];
+  /** Contra quién se le compara, con el motivo si no es su puesto de la hoja: «pivote en su once, comparado con 123 medios». */
+  poblacion?: string;
+  /** Su puesto como en Plantillas y Duelos: «pivote en su once (mediapunta de origen)». */
+  rol?: string;
+};
+
+/** Una cifra de Wyscout lista para la tarjeta: «Acciones de ataque exitosas 2,7 · P91», con la base entera aparte. */
+export type RasgoCorto = {
+  signo: "▲" | "▼";
+  /** «Acciones de ataque exitosas 2,7». */
+  corta: string;
+  /** «P91», o «más que 7 de 10» en las de menos es mejor. */
+  marca: string;
+  /** 0-100, ya en el sentido «más es mejor». */
+  percentil: number;
+  /** «P91 entre 117 laterales · 1.017′ en Wyscout». */
+  base: string;
 };
 
 /*
