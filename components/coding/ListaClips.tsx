@@ -92,8 +92,11 @@ export function ListaClips({
   videoDe,
   libre = false,
   miniaturaDe,
+  fichaDe,
   tituloBorrar = "Eliminar (se deshace con Retroceso o el botón de deshacer)",
 }: {
+  /** La ficha del jugador de un corte (la nuestra o la del rival), o null. */
+  fichaDe?: (clip: ClipCoding) => string | null;
   clips: ClipCoding[];
   /** Una lista guardada: se reordena sin mirar de qué vídeo es cada corte. */
   libre?: boolean;
@@ -290,9 +293,21 @@ export function ListaClips({
         )
       )}
 
-      <span className="truncate text-[12px] font-medium text-white/80">
-        {clip.jugadorNombre}
-      </span>
+      {/* 17/11/2026 (ronda 20, marketing): el jugador del corte, a un toque a su ficha. */}
+      {fichaDe && clip.sujeto !== "colectivo" && !esCompleto(clip) && fichaDe(clip) ? (
+        <a
+          href={fichaDe(clip)!}
+          onClick={(evento) => evento.stopPropagation()}
+          title={`Ficha de ${clip.jugadorNombre}`}
+          className="truncate text-[12px] font-medium text-white/80 underline decoration-[#C8A96B]/50 underline-offset-2 hover:decoration-[#C8A96B]"
+        >
+          {clip.jugadorNombre}
+        </a>
+      ) : (
+        <span className="truncate text-[12px] font-medium text-white/80">
+          {clip.jugadorNombre}
+        </span>
+      )}
 
       {clip.estado === "revisar" && (
         <span className="shrink-0 rounded-full bg-amber-400/15 px-1.5 text-[9px] uppercase tracking-[0.12em] text-amber-300">
@@ -1067,9 +1082,14 @@ function Miniatura({
       } ${className}`}
       style={{ background: `linear-gradient(135deg, ${color}88, #08121D)` }}
     >
-      {imagen && (
+      {imagen ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        /* 17/11/2026 (ronda 20, análisis y marketing): sin fotograma (vídeo aún sin abrir o que no deja sacarlo), el bloque dice dónde empieza el corte en vez de quedarse oscuro y mudo. */
+        <span aria-hidden className="absolute inset-0 flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums" style={{ color: "#fff" }}>
+          {`${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`}
+        </span>
       )}
       <span aria-hidden className="absolute inset-x-0 bottom-0 h-1" style={{ backgroundColor: color }} />
       {activo && (

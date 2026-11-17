@@ -534,6 +534,7 @@ export function MarcadorCoding({
   resultado,
   detalle,
   total,
+  aparte = 0,
   porEtiqueta,
   onElegir,
 }: {
@@ -542,6 +543,8 @@ export function MarcadorCoding({
   resultado: string;
   detalle: string;
   total: number;
+  /** Los clips de jugador (vídeo completo de un jugador), que no son cortes del partido. */
+  aparte?: number;
   porEtiqueta: { id: string; nombre: string; color: string; cuenta: number }[];
   onElegir?: (id: string) => void;
 }) {
@@ -591,15 +594,21 @@ export function MarcadorCoding({
       </div>
 
       {/* 10/11/2026: sin cortes no hay resumen por etiqueta que enseñar. */}
-      {total > 0 ? (
+      {total + aparte > 0 ? (
       <div className="min-w-0">
         <div className="flex items-baseline justify-between gap-3">
           <span className="truncate text-[10px] uppercase tracking-[0.18em] text-white/45">
             {detalle}
           </span>
-          <span className="shrink-0 text-[11px] text-white/55">
-            <b className="font-mono text-base tabular-nums text-white">{total}</b>{" "}
-            {total === 1 ? "corte" : "cortes"}
+          {/* 17/11/2026 (ronda 20, análisis): el mismo recuento que «N cortes guardados»: los del partido y, aparte, los clips de jugador. */}
+          <span className="shrink-0 text-right text-[11px] text-white/55">
+            <b className="font-mono text-base tabular-nums text-white">{total + aparte}</b>{" "}
+            {total + aparte === 1 ? "corte guardado" : "cortes guardados"}
+            {aparte > 0 ? (
+              <span className="block text-[11px] text-white/55">
+                {total} del partido · {aparte} {aparte === 1 ? "clip" : "clips"} de jugador
+              </span>
+            ) : null}
           </span>
         </div>
 
