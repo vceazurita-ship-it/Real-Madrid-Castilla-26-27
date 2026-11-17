@@ -265,9 +265,23 @@ export function PartidoDeLaSemana({
           />
         </div>
 
+        {/* 17/11/2026 (jueces, ronda 19): el reparto atacando/defendiendo también en barra, no sólo en texto. */}
         {ladoTotal > 0 && (
-          <p className="mt-2 text-[11px] tabular-nums text-white/50">
-            Atacando {fmtMin(Math.round(porLado.ofensivo))} ({pctOf} %) · defendiendo{" "}
+          <div
+            className="mt-2 flex h-2.5 w-full overflow-hidden rounded-full"
+            role="img"
+            aria-label={`Atacando ${pctOf} %, defendiendo ${100 - pctOf} %`}
+          >
+            <span style={{ width: `${pctOf}%`, background: "var(--rmcf-gold-ink)" }} />
+            <span style={{ width: `${100 - pctOf}%`, background: "#4F8FE8" }} />
+          </div>
+        )}
+        {ladoTotal > 0 && (
+          <p className="mt-2 text-[11px] tabular-nums text-white/60">
+            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: "var(--rmcf-gold-ink)" }} aria-hidden />
+            Atacando {fmtMin(Math.round(porLado.ofensivo))} ({pctOf} %) ·{" "}
+            <span className="mr-1 inline-block h-2 w-2 rounded-full align-middle" style={{ background: "#4F8FE8" }} aria-hidden />
+            defendiendo{" "}
             {fmtMin(Math.round(porLado.defensivo))} ({100 - pctOf} %)
             {/* Cómo cuenta una tarea de los dos lados, para que el reparto cuadre con el total (30/10/2026). */}
             <span className="block text-white/40">Las tareas que atacan y defienden a la vez cuentan mitad y mitad.</span>

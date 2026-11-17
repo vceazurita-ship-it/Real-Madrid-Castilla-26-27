@@ -126,20 +126,40 @@ export function RevisionSemana({
 
                 {(abre || punto.falta || punto.tareas?.length || punto.enlaces?.length) && (
                   <div className="flex shrink-0 flex-wrap gap-1.5 pl-6 md:max-w-[45%] md:justify-end md:pl-0">
-                    {/* 16/11/2026 (jueces, ronda 18): un botón por tarea, no sólo la primera. */}
-                    {punto.tareas && punto.tareas.length > 1
-                      ? punto.tareas.map(({ dia, trabajo }) => (
-                          <button
-                            key={trabajo.id}
-                            type="button"
-                            onClick={() => onAbrir(dia, trabajo)}
-                            title={`Abrir «${etiquetaTrabajo(trabajo)}»`}
-                            className="rounded-lg border border-white/12 px-2 py-1 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-9"
-                          >
-                            {`Abrir la del ${(DIAS.find((uno) => uno.key === dia)?.label ?? "día").toLowerCase()} · ${etiquetaTrabajo(trabajo, true)}`}
-                          </button>
-                        ))
-                      : null}
+                    {/*
+                    | 17/11/2026 (jueces, ronda 19): tres «Abrir la del miércoles ·
+                    | Córner directo + 4» casi iguales no se entendían. Un botón
+                    | que empieza por la primera tarea y, plegadas, las demás con
+                    | su día y su nombre entero.
+                    */}
+                    {punto.tareas && punto.tareas.length > 1 ? (
+                      <div className="flex min-w-0 flex-col items-stretch gap-1.5 md:items-end">
+                        <button
+                          type="button"
+                          onClick={() => onAbrir(punto.tareas![0].dia, punto.tareas![0].trabajo)}
+                          title={`Abrir «${etiquetaTrabajo(punto.tareas[0].trabajo)}»`}
+                          className="rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 py-1 text-[12px] font-semibold text-white/85 transition hover:bg-[#C8A96B]/20 max-sm:min-h-9"
+                        >
+                          {`Elegir el criterio en las ${punto.tareas.length} tareas · empezar por la del ${(DIAS.find((uno) => uno.key === punto.tareas![0].dia)?.label ?? "día").toLowerCase()}`}
+                        </button>
+                        <details className="min-w-0 text-[12px] text-white/70">
+                          <summary className="cursor-pointer list-none text-right underline underline-offset-2 marker:hidden">Ver las {punto.tareas.length} tareas</summary>
+                          <ul className="mt-1 space-y-1">
+                            {punto.tareas.map(({ dia, trabajo }) => (
+                              <li key={trabajo.id}>
+                                <button
+                                  type="button"
+                                  onClick={() => onAbrir(dia, trabajo)}
+                                  className="w-full rounded-lg border border-white/12 px-2 py-1 text-left text-[12px] text-white/75 transition hover:border-white/25 hover:text-white max-sm:min-h-9"
+                                >
+                                  {`${DIAS.find((uno) => uno.key === dia)?.label ?? "Día"}: ${etiquetaTrabajo(trabajo)}`}
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                        </details>
+                      </div>
+                    ) : null}
 
                     {punto.enlaces?.map((enlace) => (
                       <Link
@@ -155,7 +175,7 @@ export function RevisionSemana({
                       <button
                         type="button"
                         onClick={abre}
-                        className="rounded-lg border border-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
+                        className="rounded-lg border border-white/12 px-2 py-0.5 text-[11px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
                       >
                         {/* 29/10/2026: el botón nombra la tarea y el día que abre; tres «Abrir el viernes» seguidos no se distinguían. */}
                         {`Abrir «${punto.trabajo ? etiquetaTrabajo(punto.trabajo as Trabajo) : "la tarea"}»${
@@ -168,7 +188,7 @@ export function RevisionSemana({
                       <button
                         type="button"
                         onClick={() => onPlanificar(punto.falta as NonNullable<PuntoRevision["falta"]>)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-2 py-0.5 text-[10.5px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
+                        className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-2 py-0.5 text-[11px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
                       >
                         <Plus size={10} aria-hidden />
                         Añadir a la semana

@@ -203,25 +203,28 @@ export const ASPECTOS: Aspecto[] = [
   | charla. La zona va desde el que saca (throwInModel: 1 = su propio tercio,
   | 3 = el último), así que se nombra por el campo del que saca: atacando, el
   | último tercio es el suyo; defendiendo, el nuestro. Las claves no cambian.
+  | 17/11/2026 (jueces, ronda 19): un solo nombre en toda la app, desde
+  | nuestra portería: nuestro tercio / el medio / su tercio. Sin lado se dice
+  | de quién es el tercio («de quien saca»); con lado, `aspectoLabelLado`.
   */
   {
     key: "banda-z1",
-    label: "Saque de banda en el primer tercio",
-    short: "Banda 1.er tercio",
+    label: "Saque de banda en el tercio de quien saca",
+    short: "Banda · tercio de quien saca",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 1 },
   },
   {
     key: "banda-z2",
     label: "Saque de banda en el medio",
-    short: "Banda medio",
+    short: "Banda · medio",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 2 },
   },
   {
     key: "banda-z3",
-    label: "Saque de banda en el último tercio",
-    short: "Banda últ. tercio",
+    label: "Saque de banda en el tercio de quien defiende",
+    short: "Banda · tercio de quien defiende",
     grupo: "banda",
     reconocimiento: { family: "banda", zonaSaque: 3 },
   },
@@ -256,6 +259,18 @@ export const ASPECTO_BY_KEY = new Map<AspectoKey, Aspecto>(
 
 export function aspectoLabel(key: AspectoKey) {
   return ASPECTO_BY_KEY.get(key)?.label ?? key;
+}
+
+/**
+ * El nombre con el lado ya sabido (17/11/2026, ronda 19). El saque de banda
+ * se nombra desde nuestra portería, como en las pantallas de banda: atacando,
+ * la zona 1 es nuestro tercio y la 3 su tercio; defendiendo, al revés.
+ */
+export function aspectoLabelLado(aspecto: Pick<Aspecto, "key" | "label">, lado: AbpLado) {
+  const of = lado === "ofensivo";
+  if (aspecto.key === "banda-z1") return `Saque de banda en ${of ? "nuestro" : "su"} tercio`;
+  if (aspecto.key === "banda-z3") return `Saque de banda en ${of ? "su" : "nuestro"} tercio`;
+  return aspecto.label;
 }
 
 export const GRUPO_LABEL: Record<Aspecto["grupo"], string> = {
@@ -532,8 +547,10 @@ export function etiquetaTrabajo(trabajo: Trabajo, corto = false) {
 
   /* En las fichas de la semana no cabe la lista entera: el primero y cuántos
      más. En el diálogo, donde hay ancho, van todos. */
+  /* 17/11/2026 (jueces, ronda 19): «Córner directo + 4» no se entendía. */
+  const mas = aspectos.length - 1;
   return corto
-    ? `${aspectos[0].label} + ${aspectos.length - 1}`
+    ? `${aspectos[0].label} y ${mas} ${mas === 1 ? "acción" : "acciones"} más`
     : aspectos.map((aspecto) => aspecto.label).join(" · ");
 }
 
@@ -785,7 +802,8 @@ export function fmtMin(minutos: number) {
   const horas = Math.floor(total / 60);
   const resto = total % 60;
 
-  return horas > 0 ? `${horas} h ${resto}′` : `${total}′`;
+  /* 17/11/2026 (ronda 19): «1 h 0′» → «1 h». */
+  return horas > 0 ? (resto ? `${horas} h ${resto}′` : `${horas} h`) : `${total}′`;
 }
 
 export function fmtPct(valor: number) {

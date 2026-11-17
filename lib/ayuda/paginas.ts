@@ -650,7 +650,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Qué se trabaja de balón parado cada día de la semana, con cuánto desgaste, y si se nota en el partido.",
     origen:
       "El plan se guarda en la app (doc «abp-microciclo», Supabase). La lista de micros y las cargas medidas, de la hoja de registro de tareas; lo que pasa en los partidos, de las cuatro hojas de ABP y banda; el partido, de nuestro calendario de BeSoccer.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Arriba",
@@ -661,7 +661,7 @@ export const AYUDAS: AyudaDePagina[] = [
           {
             que: "Balón parado de la semana",
             es: "Minutos planificados frente al objetivo del cuerpo técnico, y el reparto atacando/defendiendo",
-            cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad",
+            cuenta: "90-100′ por cada 6 días de sesión, prorrateado hacia abajo (tope 6). Las tareas de los dos lados cuentan mitad y mitad. El reparto va también en una barra (oro atacando, azul defendiendo); una hora justa se escribe «1 h»",
           },
           { que: "Pizarra ABP · ABP del rival · Sus goles en vídeo · Cómo le marcan · Plan de partido", es: "Atajos del partido de la semana, con el rival ya elegido; «Informe post» si ya se jugó y «Vídeo de ABP» si la pieza está subida" },
           { que: "Proponer boceto", es: "Propone la semana entera (días, aspectos y minutos) con el próximo partido, nuestro rendimiento y el del rival" },
@@ -675,7 +675,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Lo que dejó el partido", es: "Ya jugado: cada aspecto trabajado con sus acciones, peligro y goles en ese partido, y su veredicto", cuenta: "Con menos de 5 acciones va en gris: «pocos casos»" },
           {
             que: "Revisión de la semana",
-            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un botón por tarea; cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
+            es: "El aviso más grave entero, con su acción; debajo, «También:» con los títulos de los demás, que se despliegan junto con lo que ya está bien. Con varias tareas sin criterio, un solo botón «Elegir el criterio en las N tareas» que empieza por la primera, y «Ver las N tareas» con el día y el nombre entero de cada una («Córner directo y 4 acciones más»); cada carencia lleva a la pantalla donde se ven sus acciones (ABP o saque de banda, ofensivo o defensivo)",
             cuenta:
               "Con menos de 15 acciones una carencia se escribe como tendencia, no como urgencia. Si todo lo que falta es de un lado y ese lado tiene menos del 40 % de los minutos, sale «El reparto va contra lo que falta». Mira minutos, tareas sin tiempo, sin intensidad o sin criterio de éxito, tareas en día libre o de partido (en el día del partido el vídeo o la charla del plan valen: es la activación previa, ni se avisa ni cuenta como «vídeo después del campo»), el MD-1, el pico de carga, los lados y lo más urgente de la competición que no entra (dos a la vez se juntan en «Dos carencias sin tarea»)",
           },
@@ -692,6 +692,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Reparto y competición",
         filas: [
           { que: "Reparto", es: "Minutos por lado, por momento de la sesión y por rol (un trabajo puede sumar en varios)" },
+          { que: "Saque de banda: los tercios", es: "Como en las pantallas de banda, desde nuestra portería: atacando, «en nuestro tercio» (zona 1 de la hoja) y «en su tercio» (zona 3); defendiendo, al revés; «en el medio» es la zona 2. Sin lado, «en el tercio de quien saca» o «de quien defiende»" },
           { que: "Lo más urgente ahora mismo", es: "Los aspectos que más piden trabajo, con acciones, remates, goles y minutos de la temporada; pulsar lo planifica" },
           {
             que: "Urgencia",
@@ -716,7 +717,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
     origen:
       "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Montar la jornada",
@@ -729,7 +730,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Consignas de una pizarra sin empezar", es: "Son las guardadas «para las siguientes» y pueden nombrar a jugadores de otra jornada; al copiar llegan las de la jornada anterior con el once cambiado" },
           { que: "Nombre subrayado en punteado", es: "En las consignas, un jugador que no está en esa lámina. Con la lámina vacía no se marca nada" },
           { que: "Colocar", es: "Rellena los huecos con quien suele hacer ese puesto", cuenta: "La memoria es por puesto: se anota sola cada vez que se asigna a alguien" },
-          { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva" },
+          { que: "0/10 colocados", es: "En la tira, lo que falta en cada diapositiva, cuando la pizarra ya está empezada. Sin empezar no sale: la acción es «Copiar de J.. y poner el once» del aviso, que va antes del once; los botones de exportar salen cuando ya hay pizarra" },
+          { que: "7 versiones guardadas", es: "En la lista de partidos, cuántas versiones de esa pizarra se han congelado" },
           { que: "Soltar una cara sobre otra", es: "Las intercambia: cada sitio conserva su puesto y sus carreras" },
         ],
       },
@@ -2223,7 +2225,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Lo que hacen los mejores en balón parado, las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-16",
+    revisada: "2026-11-17",
     bloques: [
       {
         titulo: "Las pestañas",
@@ -2279,7 +2281,8 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Cada evento de Opta (saque, remate, penalti, acción) se pincha y abre su vídeo en Opta ProVision: el Event Log del partido filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después). Hace falta la sesión de Opta abierta; si Opta no tiene el vídeo de ese partido, ProVision lo dice (16/11/2026).",
       "Sólo con la sesión de administrador: sin ella, la dirección enseña la puerta del laboratorio y el contenido no llega al navegador. Vale también para «Datos».",
-      "La puerta (sin sesión): la ventana «No tienes acceso» con la vuelta a ABP Ofensivo y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta rotulada «Ejemplo» con su fuente: la rutina «Pared delante del portero» del Arsenal (web de la Premier League, datos de Opta) en la pizarra viva, con la leyenda de sus letras (L lanzador, P pared delante del portero, R rematador, S señuelo, 2ª segunda jugada, V vigilancia); esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar (estimación, no medición); y una pregunta del banco de retos (The Analyst, córners de la Premier 2022/23, toda la temporada). El título y el «Próximo rival: … · su ABP» llevan el nombre del próximo rival, del calendario de BeSoccer, y abren su ABP. Nada de la plantilla ni de nuestras rutinas (16/11/2026).",
+      "La puerta (17/11/2026): con la ventana abierta la página no pasa del alto de la pantalla, así el velo lo cubre todo; «Volver» lleva a la pantalla de la que se vino (si se entró directo, a ABP Ofensivo); «Ver la muestra» la abre a lo ancho, sin el formulario, con «Volver» y «Soy yo» arriba. El título dice qué es (la rutina de córner, de la pizarra al proyector, con un ejemplo público) y la lámina del encaje lleva su conclusión («contra hombre vale casi el doble que contra mixta») y su base: un remate de la rutina estimado por el modelo, no una media.",
+      "La puerta (sin sesión): la ventana «No tienes acceso» con «Volver» y «Soy yo: poner la contraseña», que lleva al único formulario de entrada. Detrás, una muestra de cada herramienta rotulada «Ejemplo» con su fuente: la rutina «Pared delante del portero» del Arsenal (web de la Premier League, datos de Opta) en la pizarra viva, con la leyenda de sus letras (L lanzador, P pared delante del portero, R rematador, S señuelo, 2ª segunda jugada, V vigilancia); esa misma rutina contra zona, mixta y hombre con el modelo de xG del laboratorio sin calibrar (estimación, no medición); y una pregunta del banco de retos (The Analyst, córners de la Premier 2022/23, toda la temporada). El «Próximo rival: … · su ABP» lleva el nombre del próximo rival, del calendario de BeSoccer, y abren su ABP. Nada de la plantilla ni de nuestras rutinas (16/11/2026).",
       "Un reto de preguntas cuenta como jugado para quien se marca al empezar, aunque no acierte ninguna.",
       "El interruptor «Marcar para abrir» sólo deja apuntado que se abrirá a la plantilla: hoy la pantalla sigue siendo del administrador.",
     ],
