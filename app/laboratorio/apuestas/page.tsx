@@ -721,7 +721,8 @@ export default function ApuestasPage() {
                   <div role="group" aria-label="Filtrar el resto de apuestas" className="mb-3 flex flex-wrap gap-2">
                     {(
                       [
-                        { id: "todas", texto: `Todas · ${resto.length}` },
+                        /* «Las N que quedan» (18/11/2026, tres jueces): «Todas · 17» chocaba con «13 de las 19» del titular; las otras van arriba. */
+                        { id: "todas", texto: `Las ${resto.length} que quedan` },
                         ...(yo ? [{ id: "mias", texto: `Las mías · ${resto.filter((a) => esMia(a, yo)).length}` }] : []),
                         { id: "sin-contrario", texto: `Nadie se ha opuesto · ${sinContrario}` },
                       ] as { id: Filtro; texto: string }[]
