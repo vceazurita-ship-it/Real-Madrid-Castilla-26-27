@@ -17,6 +17,7 @@
 import { useMemo, useState } from "react";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { fechaCorta } from "@/lib/opta-analisis";
 import {
   alturaAccion,
@@ -184,6 +185,8 @@ type Tipo = "progresivos" | "tercio";
 
 function Progresion({ acciones, todas, partidos, jugador, alElegir }: { acciones: AccionCastilla[]; todas: AccionCastilla[]; partidos: number; jugador: string; alElegir: (j: string) => void }) {
   const [tipo, setTipo] = useState<Tipo>("progresivos");
+  /* 18/11/2026: cada pase abre su vídeo (nuestro corte de B2 o ProVision en ese segundo). */
+  const clip = useEnlaceClipOpta();
   const filtro = tipo === "progresivos" ? esProgresivo : esAlUltimoTercio;
   const pases = acciones.filter(filtro);
   const totalPases = acciones.filter((a) => a.tipo === "Pass").length;
@@ -240,17 +243,18 @@ function Progresion({ acciones, todas, partidos, jugador, alElegir }: { acciones
                 const [x1, y1] = p(a.x, a.y);
                 const [x2, y2] = p(a.finX!, a.finY!);
                 return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    markerEnd={`url(#punta-${tipo})`}
-                    style={{ stroke: a.ocasion ? "#FFFFFF" : SOBRE_CESPED.nuestro, strokeOpacity: pases.length > 150 ? 0.35 : 0.6, strokeWidth: a.ocasion ? 4 : 2.5 }}
-                  >
-                    <title>{`${a.minuto}′ · ${a.jugador}${a.receptor ? ` → ${a.receptor}` : ""}${a.ocasion ? " · acaba en ocasión" : ""} · ${fechaCorta(a.fecha)} contra ${a.rival}`}</title>
-                  </line>
+                  <a key={i} href={clip(a, "passes")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                    <line
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      markerEnd={`url(#punta-${tipo})`}
+                      style={{ stroke: a.ocasion ? "#FFFFFF" : SOBRE_CESPED.nuestro, strokeOpacity: pases.length > 150 ? 0.35 : 0.6, strokeWidth: a.ocasion ? 4 : 2.5 }}
+                    >
+                      <title>{`${a.minuto}′ · ${a.jugador}${a.receptor ? ` → ${a.receptor}` : ""}${a.ocasion ? " · acaba en ocasión" : ""} · ${fechaCorta(a.fecha)} contra ${a.rival} · pincha: vídeo`}</title>
+                    </line>
+                  </a>
                 );
               })}
             </>
@@ -279,6 +283,7 @@ const ALTURAS: { clave: Altura3; nombre: string; detalle: string }[] = [
 
 function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }: { acciones: AccionCastilla[]; todas: AccionCastilla[]; partidos: number; jugador: string; alElegir: (j: string) => void }) {
   const [modo, setModo] = useState<Modo>("recuperaciones");
+  const clip = useEnlaceClipOpta();
   const filtro = modo === "recuperaciones" ? esRecuperacion : esPerdida;
   const lista = acciones.filter(filtro);
   const cuenta = (h: Altura3) => lista.filter((a) => alturaAccion(a.x) === h).length;
@@ -346,9 +351,11 @@ function RecuperacionesPerdidas({ acciones, todas, partidos, jugador, alElegir }
                 const [cx, cy] = p(a.x, a.y);
                 const color = modo === "recuperaciones" ? SOBRE_CESPED.verde : SOBRE_CESPED.rival;
                 return (
-                  <circle key={i} cx={cx} cy={cy} r={lista.length > 200 ? 7 : 10} style={{ fill: color, fillOpacity: lista.length > 200 ? 0.5 : 0.75, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}>
-                    <title>{`${a.minuto}′ · ${a.jugador || "Castilla"} · ${NOMBRE_ACCION[a.tipo] ?? a.tipo}${a.tipo === "Pass" ? " fallado" : ""} · ${fechaCorta(a.fecha)} contra ${a.rival}`}</title>
-                  </circle>
+                  <a key={i} href={clip(a)} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                    <circle cx={cx} cy={cy} r={lista.length > 200 ? 7 : 10} style={{ fill: color, fillOpacity: lista.length > 200 ? 0.5 : 0.75, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}>
+                      <title>{`${a.minuto}′ · ${a.jugador || "Castilla"} · ${NOMBRE_ACCION[a.tipo] ?? a.tipo}${a.tipo === "Pass" ? " fallado" : ""} · ${fechaCorta(a.fecha)} contra ${a.rival} · pincha: vídeo`}</title>
+                    </circle>
+                  </a>
                 );
               })}
             </>

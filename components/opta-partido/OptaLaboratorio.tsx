@@ -21,7 +21,7 @@
  */
 
 import { useMemo, useState } from "react";
-import { urlVideoOpta } from "@/lib/opta-video";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { Database, Map as MapIcon } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -458,6 +458,8 @@ const TIPOS: Record<"robos" | "perdidas", { clave: string; nombre: string; color
 
 function MapaOpta({ modo, partidoOpta }: { modo: "robos" | "perdidas"; partidoOpta: string }) {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.castillaEventos, DOCS_OPTA.castilla, DOCS_OPTA.castillaPartidos);
+  /* 18/11/2026: nuestro corte de B2 si está; si no, ProVision en ese segundo. */
+  const clip = useEnlaceClipOpta();
   const [eventos, plantilla, porPartido] = docs;
   const nuestros = useMemo(
     () => new Set([...aObjetos(plantilla), ...aObjetos(porPartido)].map((f) => String(f.playerId ?? "")).filter(Boolean)),
@@ -499,7 +501,7 @@ function MapaOpta({ modo, partidoOpta }: { modo: "robos" | "perdidas"; partidoOp
               {lista.map((a, i) => {
                 const [cx, cy] = p(a.x, a.y);
                 return (
-                  <a key={i} href={urlVideoOpta(a) ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                  <a key={i} href={clip(a)} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                     <circle cx={cx} cy={cy} r={11} style={{ fill: colorDe(a), fillOpacity: 0.8, stroke: "rgba(0,0,0,0.45)", strokeWidth: 1.5 }}>
                       <title>{`${a.minuto}′ · ${a.jugador || "Castilla"} · ${TIPOS[modo].find((t) => t.es(a))?.nombre ?? a.tipo} · pincha: vídeo en Opta`}</title>
                     </circle>

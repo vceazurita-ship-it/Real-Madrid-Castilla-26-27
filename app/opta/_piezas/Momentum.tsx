@@ -17,6 +17,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 
 import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { fechaCorta, partidosDe } from "@/lib/opta-analisis";
 import { curvaMomento, segundoEnEje, type MedidaMomento, type Remate } from "@/lib/opta-eventos";
@@ -55,6 +56,7 @@ export function Momentum({
 }) {
   const { momento, cargando } = useMomento();
   const { remates } = useRemates(datos);
+  const clip = useEnlaceClipOpta();
   const [medida, setMedida] = useState<MedidaMomento>("mezcla");
   const [encima, setEncima] = useState<number | null>(null);
 
@@ -169,9 +171,12 @@ export function Momentum({
           return (
             <g key={i}>
               <line x1={x} y1={cero} x2={x} y2={arriba ? M.arriba - 4 : H - M.abajo + 4} style={{ stroke: arriba ? ORO : COMPARADO, strokeWidth: 1.5, strokeDasharray: "2 3" }} />
-              <circle cx={x} cy={cero} r={6} style={{ fill: arriba ? ORO : COMPARADO, stroke: tinta(0.9), strokeWidth: 1.5 }}>
-                <title>{`Gol · ${g.minuto}′ · ${g.tirador}${g.tipo === "PenaltyGoal" ? " (penalti)" : ""}`}</title>
-              </circle>
+              {/* 18/11/2026: el gol abre su vídeo (nuestro corte de B2 o ProVision en ese segundo). */}
+              <a href={clip(g, "shots")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                <circle cx={x} cy={cero} r={7} style={{ fill: arriba ? ORO : COMPARADO, stroke: tinta(0.9), strokeWidth: 1.5 }}>
+                  <title>{`Gol · ${g.minuto}′ · ${g.tirador}${g.tipo === "PenaltyGoal" ? " (penalti)" : ""} · pincha: vídeo`}</title>
+                </circle>
+              </a>
               {/* 17/11/2026 (ronda 21, marketing): el goleador del Castilla lleva a su ficha. */}
               {g.teamId === CASTILLA_OPTA && g.tirador ? (
                 <a href={fichaDe(g.tirador)} aria-label={`Ficha de ${g.tirador}`}>

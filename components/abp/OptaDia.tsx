@@ -20,7 +20,7 @@
 */
 
 import Link from "next/link";
-import { urlVideoOpta } from "@/lib/opta-video";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, Database, FlaskConical, Map as MapaIcono } from "lucide-react";
 
@@ -364,6 +364,8 @@ type TipoAbp = "corner" | "falta";
 
 function SaquesAbp({ lado }: { lado: LadoDia }) {
   const { saques, remates, equipos, cargando } = useSaquesOpta();
+  /* 18/11/2026: nuestro corte de B2 si está; si no, ProVision en ese segundo. */
+  const clip = useEnlaceClipOpta();
   const [tipo, setTipo] = useState<TipoAbp>("corner");
 
   if (cargando) return <Cargando texto="Leyendo cada córner y falta de la categoría…" alto="h-64" />;
@@ -424,7 +426,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
                     const conRemate = s.remates.length > 0;
                     const color = gol ? SOBRE_CESPED.gol : conRemate ? SOBRE_CESPED.verde : s.completo ? "rgba(255,255,255,0.75)" : SOBRE_CESPED.rival;
                     return (
-                      <a key={i} href={urlVideoOpta(s, "passes") ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                      <a key={i} href={clip(s, "passes")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                         <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: color, strokeOpacity: 0.16, strokeWidth: 2 }} />
                         <circle cx={x2} cy={y2} r={conRemate ? 10 : 7} style={{ fill: color, fillOpacity: conRemate ? 0.95 : 0.55, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}>
                           <title>{`${fechaCorta(s.fecha)} ${s.minuto}′ · ${s.lanzador}${s.receptor ? ` a ${s.receptor}` : ""} · ${favor ? `contra ${s.rival}` : s.equipo} · pincha: vídeo en Opta`}</title>
@@ -487,7 +489,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
                   const [cx, cy] = p(x.x, x.y);
                   const color = x.gol ? SOBRE_CESPED.gol : x.aPuerta ? SOBRE_CESPED.puerta : SOBRE_CESPED.fuera;
                   return (
-                    <a key={i} href={urlVideoOpta(x, "shots") ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                    <a key={i} href={clip(x, "shots")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                     <circle cx={cx} cy={cy} r={6 + Math.sqrt(x.xG) * 22} style={{ fill: color, fillOpacity: 0.8, stroke: "rgba(0,0,0,0.45)", strokeWidth: 1.5 }}>
                       <title>{`${fechaCorta(x.fecha)} ${x.minuto}′ · ${x.tirador} · xG ${coma(x.xG, 2)}${x.gol ? " · GOL" : ""} · pincha: vídeo en Opta`}</title>
                     </circle>
@@ -551,6 +553,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
 
 function SaquesBanda({ lado }: { lado: LadoDia }) {
   const { saques, equipos, cargando } = useSaquesOpta();
+  const clip = useEnlaceClipOpta();
 
   if (cargando) return <Cargando texto="Leyendo cada saque de banda de la categoría…" alto="h-64" />;
   if (!saques.length) return null;
@@ -599,7 +602,7 @@ function SaquesBanda({ lado }: { lado: LadoDia }) {
                 const conRemate = s.remates.length > 0;
                 const color = conRemate ? SOBRE_CESPED.verde : s.completo ? "rgba(255,255,255,0.75)" : SOBRE_CESPED.rival;
                 return (
-                  <a key={i} href={urlVideoOpta(s, "passes") ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                  <a key={i} href={clip(s, "passes")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                     <line x1={x1} y1={y1} x2={x2} y2={y2} style={{ stroke: color, strokeOpacity: conRemate ? 0.6 : 0.14, strokeWidth: 2 }} />
                     <circle cx={x1} cy={y1} r={conRemate ? 10 : 6} style={{ fill: color, fillOpacity: conRemate ? 0.95 : 0.6, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}>
                       <title>{`${fechaCorta(s.fecha)} ${s.minuto}′ · ${s.lanzador}${s.receptor ? ` a ${s.receptor}` : ""} · ${favor ? `contra ${s.rival}` : s.equipo} · pincha: vídeo en Opta`}</title>

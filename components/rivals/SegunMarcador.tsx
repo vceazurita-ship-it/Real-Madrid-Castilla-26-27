@@ -18,6 +18,7 @@ import { useAsoma } from "@/hooks/useAsoma";
 
 import { MEJOR, PEOR, tinta } from "@/components/data/graficas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { fechaCorta } from "@/lib/opta-analisis";
@@ -171,8 +172,9 @@ function Bloque({ equipo }: { equipo: string }) {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.remates, DOCS_OPTA.momento, DOCS_OPTA.jugadoresPartidos);
   const [remates, momento, jugadores] = docs;
   const [verTodos, setVerTodos] = useState(false);
+  const clip = useEnlaceClipOpta();
 
-  const pista = useMemo(() => pistaDe(aObjetos(jugadores)), [jugadores]);
+  const pista =useMemo(() => pistaDe(aObjetos(jugadores)), [jugadores]);
 
   const datos = useMemo(() => {
     /* Hasta que lleguen los tres: `rematesDe` guarda la primera cuenta y, sin la pista de los jugadores, atribuiría mal los remates. */
@@ -317,16 +319,30 @@ function Bloque({ equipo }: { equipo: string }) {
               ))}
               {/* El descanso. */}
               <div aria-hidden className="absolute top-0 h-full w-px" style={{ left: `${(2700 / finEje) * 100}%`, background: tinta(0.5) }} />
-              {l.goles.map((g, i) => (
-                <span
-                  key={i}
-                  aria-hidden
-                  className="absolute -translate-x-1/2 text-[11px] leading-none text-white"
-                  style={{ left: `${(g.segundo / finEje) * 100}%`, top: g.suyo ? "-10px" : "13px" }}
-                >
-                  {g.suyo ? "▲" : "▼"}
-                </span>
-              ))}
+              {/* 18/11/2026: cada gol abre su vídeo (nuestro corte de B2 o ProVision en ese segundo). */}
+              {l.goles.map((g, i) => {
+                const url = clip({ partido: l.partido, fecha: l.fecha, parte: g.parte, segundo: g.reloj }, "shots");
+                const marca = g.suyo ? "▲" : "▼";
+                const sitio = { left: `${(g.segundo / finEje) * 100}%`, top: g.suyo ? "-10px" : "13px" };
+                return url ? (
+                  <a
+                    key={i}
+                    href={url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={`Vídeo del ${g.suyo ? "gol suyo" : "gol en contra"} en el ${g.minuto} contra ${l.rival}`}
+                    title={`${g.suyo ? "Gol suyo" : "Gol en contra"}, ${g.minuto} (${g.marcador}): pincha para ver el vídeo`}
+                    className="absolute -translate-x-1/2 text-[12px] leading-none text-white hover:text-[#C8A96B]"
+                    style={sitio}
+                  >
+                    {marca}
+                  </a>
+                ) : (
+                  <span key={i} aria-hidden className="absolute -translate-x-1/2 text-[12px] leading-none text-white" style={sitio}>
+                    {marca}
+                  </span>
+                );
+              })}
             </div>
             <div className="h-2" />
           </li>
