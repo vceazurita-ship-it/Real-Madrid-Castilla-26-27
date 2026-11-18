@@ -140,7 +140,7 @@ export function OptaPortada() {
   const hasta = hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = nuestro[0]?.pos.deCuantos ?? 0;
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
-  const conclusiones = rival ? lecturas(nuestro, suyo, rival, baseAbp(filaSuya, jugadosSuyos).texto) : [];
+  const conclusiones = rival ? lecturas(nuestro, suyo, rival, baseAbp(filaSuya, jugadosSuyos).texto, jugados, jugadosSuyos) : [];
   const poblacion = grupoDe(deCuantos);
 
   /*
@@ -211,6 +211,11 @@ export function OptaPortada() {
           </span>
           <span className="ml-auto font-semibold text-white/60">a la derecha, mejor →</span>
         </div>
+        {/* 18/11/2026 (ronda 23, fútbol): de dónde sale cada cifra, para que no choque con la media «de los otros 11» del post del partido. */}
+        <p className="mt-1.5 text-[12px] leading-snug text-white/60">
+          Cifras: media por partido de la temporada, con todos sus partidos de Opta · Castilla, {jugados} {jugados === 1 ? "partido" : "partidos"}
+          {rival && jugadosSuyos ? ` · ${rival}, ${jugadosSuyos} ${jugadosSuyos === 1 ? "partido" : "partidos"}` : ""}
+        </p>
 
         <ul className="mt-3 divide-y divide-white/[0.06]">
           {nuestro.map((x) => {
@@ -244,7 +249,7 @@ export function OptaPortada() {
                   <span className="block min-w-0">
                     <Pista nuestro={x} suyo={rival ? r : undefined} hueca={tendencia} />
                     {SENTIDO[x.a] ? (
-                      <span className="mt-0.5 flex justify-between text-[11px] font-semibold leading-none text-white/55">
+                      <span className="mt-0.5 flex justify-between text-[12px] font-semibold leading-none text-white/60">
                         <span>peor</span>
                         <span>{SENTIDO[x.a]} · mejor →</span>
                       </span>
@@ -408,7 +413,7 @@ const FRASES: Record<string, { fuerte: string; flojo: string; ordenFuerte: strin
  * las más extremas, con la nuestra al lado. Si ninguna se sale de la media,
  * no se dice nada (la tabla ya lo cuenta).
  */
-function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTendencia: string): Lectura[] {
+function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTendencia: string, jugados: number, jugadosSuyos: number): Lectura[] {
   const salen: Lectura[] = [];
 
   for (const r of suyo) {
@@ -425,13 +430,14 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTenden
     const n = nuestro.find((x) => x.a === r.a);
     const decimales = 1;
     const unidad = r.a === "PPDA" ? "pases por acción defensiva" : "xG por partido";
-    const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · el nuestro, ${coma(n.pos.valor, decimales)} (${n.pos.puesto}.º)` : "";
+    /* 18/11/2026 (ronda 23): cada media con su base («nuestra media, 11,9 en 12 partidos»). */
+    const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · nuestra media, ${coma(n.pos.valor, decimales)} en ${jugados} ${jugados === 1 ? "partido" : "partidos"} (${n.pos.puesto}.º)` : "";
 
     salen.push({
       a: r.a,
       /* 17/11/2026 (ronda 21, análisis): la población con la misma fórmula que el subtítulo y la leyenda. */
       titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º del ${grupoDe(deCuantos)}`,
-      base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
+      base: `${rival}, ${coma(valor, decimales)} ${unidad}${jugadosSuyos ? ` en ${jugadosSuyos} ${jugadosSuyos === 1 ? "partido" : "partidos"}` : ""}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
       orden: fuerte ? frase.ordenFuerte : frase.ordenFlojo,
       tendencia: ES_TENDENCIA.has(r.a),
       /* Lo que es una amenaza del rival, en naranja; por donde se le puede hacer daño, en verde. */

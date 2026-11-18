@@ -229,7 +229,8 @@ export function EnlacesSeccion({ className = "" }: { className?: string }) {
   return (
     <details ref={caja} className={`group relative shrink-0 ${className}`}>
       <summary
-        className="inline-flex min-h-[40px] cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 text-[12px] font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white [&::-webkit-details-marker]:hidden"
+        /* 18/11/2026 (ronda 23): el rótulo entero siempre («s de Análisis» salía cortado a 1440 px). */
+        className="inline-flex min-h-[40px] shrink-0 cursor-pointer list-none items-center gap-1.5 whitespace-nowrap rounded-xl border border-white/10 px-3 text-[12px] font-semibold text-white/70 transition hover:border-[#C8A96B]/50 hover:text-white [&::-webkit-details-marker]:hidden"
         title={`Las otras pantallas de ${seccion.titulo}`}
       >
         Más de {seccion.titulo}

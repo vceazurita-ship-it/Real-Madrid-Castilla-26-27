@@ -22,6 +22,7 @@ import { esPretemporada } from "@/components/faltas/FiltrosCruzados";
 import { anterioresPorFecha } from "@/lib/abp/ultimo-partido";
 import { mismoJugador } from "@/lib/fichajes";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
+import { titularPartido } from "@/lib/partido-frases";
 import { partidoEnlazado } from "@/lib/partido-enlazado";
 import { enlaceConPartido, type PartidoPost } from "@/lib/post-partido";
 import type { Robo } from "@/lib/transiciones/datos";
@@ -192,19 +193,21 @@ export function ClavesDelPartido({
   const x1 = nos("ExpG");
   const x2 = ellos("ExpG");
   if (visto.opta && x1 != null && x2 != null && visto.gf != null && visto.gc != null) {
-    const res = visto.gf > visto.gc ? "Ganamos" : visto.gf < visto.gc ? "Perdimos" : "Empatamos";
-    const parejo = Math.abs(x1 - x2) < 0.15;
-    const titular = parejo
-      ? `${res} ${visto.gf}-${visto.gc} con las ocasiones igualadas`
-      : x1 > x2
-        ? `${res} ${visto.gf}-${visto.gc} creando más que ${rival}`
-        : `${res} ${visto.gf}-${visto.gc} creando menos que ${rival}`;
+    /* 18/11/2026 (ronda 23, guionista): el mismo titular que la portada (lib/partido-frases). */
+    const titular = titularPartido(visto.gf, visto.gc, x1, x2);
+    const r1 = nos("ShtIncBl");
+    const r2 = ellos("ShtIncBl");
+    const p1 = nos("SOG");
+    const p2 = ellos("SOG");
     claves.push({
       id: "ocasiones",
       rotulo: "Ocasiones",
       titular,
-      /* 18/11/2026 (ronda 22): concordancia («1 gol nuestro», no «1 gol nuestros»). */
-      detalle: `Goles esperados ${coma(x1)} – ${coma(x2)}: ${visto.gf} ${visto.gf === 1 ? "gol nuestro" : "goles nuestros"} y ${visto.gc} ${visto.gc === 1 ? "suyo" : "suyos"}.`,
+      /* Ronda 23: el titular ya dice resultado y goles esperados; el detalle, los remates que los sostienen. */
+      detalle:
+        r1 != null && r2 != null
+          ? `Remates ${r1} – ${r2}${p1 != null && p2 != null ? `, a puerta ${p1} – ${p2}` : ""} (Castilla – ${rival}).`
+          : undefined,
       tono: visto.gf > visto.gc ? "bien" : visto.gf < visto.gc ? "mal" : "neutro",
       dibujo: <DosBarras a={x1} b={x2} rotA="Castilla" rotB={rival} texto={(v) => coma(v)} />,
       ir: { texto: "Ver nuestros remates", area: "remates" },
@@ -226,7 +229,8 @@ export function ClavesDelPartido({
       tono: r.media == null ? "neutro" : mejor ? "bien" : r.clave < r.media ? "mal" : "neutro",
       dibujo: <BarraZonas z={r.zonas} destaca="rival" />,
       ir: { texto: "Robos y transiciones", href: enlaceConPartido("/laboratorio/transiciones", visto) },
-      jugador: r.lider ? { nombre: r.lider.nombre, texto: `el que más roba (${r.lider.n} de ${r.total}${enMinutos(r.lider.nombre)})` } : undefined,
+      /* 18/11/2026 (ronda 23, guionista): «Diego Aguado: 7 de los 40 robos del equipo, en 90′» (no se confunde con los 7 en campo rival). */
+      jugador: r.lider ? { nombre: r.lider.nombre, texto: `${r.lider.n} de los ${r.total} robos del equipo${enMinutos(r.lider.nombre)}` } : undefined,
     });
   }
 
@@ -245,7 +249,7 @@ export function ClavesDelPartido({
       tono: p.media == null ? "neutro" : peor ? "mal" : p.clave < p.media ? "bien" : "neutro",
       dibujo: <BarraZonas z={p.zonas} destaca="propio" />,
       ir: { texto: "Pérdidas y transiciones", href: enlaceConPartido("/laboratorio/perdidas", visto) },
-      jugador: p.lider ? { nombre: p.lider.nombre, texto: `el que más pierde (${p.lider.n} de ${p.total}${enMinutos(p.lider.nombre)})` } : undefined,
+      jugador: p.lider ? { nombre: p.lider.nombre, texto: `${p.lider.n} de las ${p.total} pérdidas del equipo${enMinutos(p.lider.nombre)}` } : undefined,
     });
   }
 
@@ -284,7 +288,7 @@ export function ClavesDelPartido({
                 <Link href={fichaJugador(c.jugador.nombre)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
                   {c.jugador.nombre}
                 </Link>
-                , {c.jugador.texto} ·{" "}
+                : {c.jugador.texto} ·{" "}
                 <Link href={`${fichaJugador(c.jugador.nombre)}&pestana=seguimiento`} className="underline underline-offset-2 hover:text-white">
                   su seguimiento
                 </Link>

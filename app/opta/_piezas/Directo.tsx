@@ -28,6 +28,7 @@ import { indiceVivo, useDirectoOpta } from "@/hooks/useDirectoOpta";
 import { Elegir, fmt, Panel } from "./comun";
 import { DirectoMapas } from "./DirectoMapas";
 import { RelievePartido } from "@/components/data/RelievePartido";
+import { titularPartido } from "@/lib/partido-frases";
 import { DirectoPlan } from "./DirectoPlan";
 import type { DatosOpta } from "./useOpta";
 
@@ -493,11 +494,9 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
                   const g2 = num(nos ? ellos.Goal : vis.Goal) ?? 0;
                   const x1 = num(nos?.ExpG ?? loc.ExpG) ?? 0;
                   const x2 = num(nos ? ellos.ExpG : vis.ExpG) ?? 0;
-                  const xg = `xG ${x1.toFixed(2).replace(".", ",")} – ${x2.toFixed(2).replace(".", ",")}`;
-                  const oc = x1 - x2 >= 0.15 ? "con más ocasiones" : x2 - x1 >= 0.15 ? "con menos ocasiones" : "con ocasiones parejas";
-                  const texto = nos
-                    ? `${g1 > g2 ? "Ganamos" : g1 < g2 ? "Perdimos" : "Empatamos"} ${oc} (${xg})`
-                    : `${g1 > g2 ? `Gana ${nombre(loc)}` : g1 < g2 ? `Gana ${nombre(vis)}` : "Empate"} (${xg})`;
+                  const xg = `xG ${x1.toFixed(1).replace(".", ",")} – ${x2.toFixed(1).replace(".", ",")}`;
+                  /* 18/11/2026 (ronda 23): el mismo titular que la portada y el post del partido. */
+                  const texto = nos ? titularPartido(g1, g2, x1, x2) : `${g1 > g2 ? `Gana ${nombre(loc)}` : g1 < g2 ? `Gana ${nombre(vis)}` : "Empate"} (${xg})`;
                   return <p className="mt-2 text-sm font-bold sm:text-base" style={{ color: "#E3C27E" }}>{texto}</p>;
                 })()}
                 <p className="mt-1 text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>
