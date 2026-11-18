@@ -190,6 +190,14 @@ type Grupo = {
 
 const mayuscula = (t: string) => `${t.charAt(0).toUpperCase()}${t.slice(1)}`;
 
+/*
+| 18/11/2026 (análisis, ronda 22): «lo vivo» son las que se deciden en los
+| próximos 60 días (o ya esperan veredicto) y la más disputada; van en
+| tarjeta abierta. El resto se pliega por fecha de cierre, una fila por apuesta.
+| 18/11/2026 (ronda 23): el mismo corte en la línea de tiempo («60 días»).
+*/
+const VIVO_DIAS = 60;
+
 /**
  * El grupo de una apuesta viva según cuándo se decide; la clave ordena.
  * 17/11/2026 (guionista, ronda 21): mayo es el fin de liga y junio, el final
@@ -199,8 +207,8 @@ function grupoDe(a: Apuesta, hoy: string): Grupo {
   if (a.comprobar <= hoy) {
     return { clave: "0", titulo: "Toca dar el veredicto", corto: "Ya", pie: "veredicto", frase: "ya, toca dar el veredicto" };
   }
-  if (diasHasta(a.comprobar, hoy) <= 30) {
-    return { clave: "1", titulo: "En los próximos 30 días", corto: "30 días", pie: "próximos", frase: "en los próximos 30 días" };
+  if (diasHasta(a.comprobar, hoy) <= VIVO_DIAS) {
+    return { clave: "1", titulo: `En los próximos ${VIVO_DIAS} días`, corto: `${VIVO_DIAS} días`, pie: "próximos", frase: `en los próximos ${VIVO_DIAS} días` };
   }
 
   const [anio, mes] = a.comprobar.split("-").map(Number);
@@ -258,13 +266,6 @@ function diaDe(iso: string) {
 
   return `${fecha.getDate()} ${["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"][fecha.getMonth()]}`;
 }
-
-/*
-| 18/11/2026 (análisis, ronda 22): «lo vivo» son las que se deciden en los
-| próximos 60 días (o ya esperan veredicto) y la más disputada; van en
-| tarjeta abierta. El resto se pliega por fecha de cierre, una fila por apuesta.
-*/
-const VIVO_DIAS = 60;
 
 /** La de bandos más igualados (el autor cuenta a favor); a igualdad, más gente y luego la que antes se decide. */
 function masDisputada(vivas: Apuesta[]) {
@@ -346,20 +347,19 @@ export default function ApuestasPage() {
 
   const disputada = useMemo(() => masDisputada(vivas), [vivas]);
 
-  const sinContrario = useMemo(() => vivas.filter((a) => bandos(a).contra.length === 0).length, [vivas]);
-
   const esViva = (a: Apuesta) => diasHasta(a.comprobar, hoy) <= VIVO_DIAS || a.id === disputada?.id;
 
   const pasaFiltro = (a: Apuesta) =>
     filtro === "mias" ? esMia(a, yo) : filtro === "sin-contrario" ? bandos(a).contra.length === 0 : true;
 
-  const loVivo = vivas.filter((a) => esViva(a) && pasaFiltro(a));
-  const grupos = agrupa(
-    vivas.filter((a) => !esViva(a) && pasaFiltro(a)),
-    hoy,
-  );
+  /* 18/11/2026 (ronda 23): el filtro va encima de «El resto» y sólo vale para él. */
+  const loVivo = vivas.filter((a) => esViva(a));
+  const resto = vivas.filter((a) => !esViva(a));
+  const grupos = agrupa(resto.filter(pasaFiltro), hoy);
 
   /* La línea de tiempo va con TODAS las vivas, sin el filtro. */
+  const sinContrario = resto.filter((a) => bandos(a).contra.length === 0).length;
+
   const paradas = useMemo(() => agrupa(vivas, hoy), [vivas, hoy]);
 
   /* Saltar desde la línea de tiempo: abre el bloque plegado o baja a lo vivo. */
@@ -452,7 +452,6 @@ export default function ApuestasPage() {
       pide={pide}
       plantilla={plantilla}
       rivales={rivales}
-      onEntrar={abreAcceso}
       {...extra}
     />
   );
@@ -496,7 +495,15 @@ export default function ApuestasPage() {
               title="Apuestas del staff"
               lead={titular}
               aside={
-                sesion.cargando ? null : sesion.yo ? (
+                <span className="flex flex-wrap items-center justify-end gap-2">
+                  {/* 18/11/2026 (ronda 23): la quiniela, con la misma cuenta, a un toque. */}
+                  <Link
+                    href="/quiniela"
+                    className="inline-flex min-h-9 items-center rounded-full border border-white/15 px-3 text-[13px] font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+                  >
+                    Quiniela de la semana →
+                  </Link>
+                {sesion.cargando ? null : sesion.yo ? (
                   <span className="inline-flex min-h-9 items-center gap-2 rounded-full border border-white/10 px-3 text-[12px] text-white/75">
                     <Avatar slug={sesion.yo.slug} lado={20} /> {sesion.yo.nombre}
                   </span>
@@ -508,7 +515,8 @@ export default function ApuestasPage() {
                   >
                     <KeyRound size={14} aria-hidden /> Entrar para apostar
                   </button>
-                )
+                )}
+                </span>
               }
             />
 
@@ -624,48 +632,12 @@ export default function ApuestasPage() {
                     </p>
                   </div>
 
-                  {vivas.length > 1 && (
-                    <div role="group" aria-label="Filtrar apuestas" className="flex flex-wrap gap-2">
-                      {(
-                        [
-                          { id: "todas", texto: `Todas · ${vivas.length}` },
-                          ...(yo ? [{ id: "mias", texto: `Las mías · ${vivas.filter((a) => esMia(a, yo)).length}` }] : []),
-                          { id: "sin-contrario", texto: `Sin nadie en contra · ${sinContrario}` },
-                        ] as { id: Filtro; texto: string }[]
-                      ).map((f) => (
-                        <button
-                          key={f.id}
-                          type="button"
-                          aria-pressed={filtro === f.id}
-                          onClick={() => setFiltro(f.id)}
-                          className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold tabular-nums transition ${
-                            filtro === f.id
-                              ? "border-[#C8A96B] bg-[#C8A96B] text-black"
-                              : "border-white/15 text-white/80 hover:border-[#C8A96B]/60"
-                          }`}
-                        >
-                          {f.texto}
-                        </button>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                 <Leyenda juegan={quienesJuegan.length} />
 
-                {loVivo.length === 0 && grupos.length === 0 && (
-                  <p className="mt-3 text-[13px] text-white/65">
-                    Ninguna con este filtro.{" "}
-                    <button type="button" onClick={() => setFiltro("todas")} className="font-semibold text-[#C8A96B] hover:underline">
-                      Ver todas
-                    </button>
-                  </p>
-                )}
-
-                {loVivo.length === 0 && grupos.length > 0 && (
-                  <p className="mt-3 text-[13px] text-white/65">
-                    {filtro === "todas" ? "Ninguna" : "Con este filtro, ninguna"} se decide en los próximos {VIVO_DIAS} días.
-                  </p>
+                {loVivo.length === 0 && (
+                  <p className="mt-3 text-[13px] text-white/65">Ninguna se decide en los próximos {VIVO_DIAS} días.</p>
                 )}
 
                 {loVivo.length > 0 && (
@@ -743,12 +715,46 @@ export default function ApuestasPage() {
 
             {/* ------------------------ EL RESTO, PLEGADO -------------- */}
 
-            {cargadas && grupos.length > 0 && (
+            {cargadas && resto.length > 0 && (
               <section aria-labelledby="resto-titulo" className="mt-6">
+                {resto.length > 1 && (
+                  <div role="group" aria-label="Filtrar el resto de apuestas" className="mb-3 flex flex-wrap gap-2">
+                    {(
+                      [
+                        { id: "todas", texto: `Todas · ${resto.length}` },
+                        ...(yo ? [{ id: "mias", texto: `Las mías · ${resto.filter((a) => esMia(a, yo)).length}` }] : []),
+                        { id: "sin-contrario", texto: `Nadie se ha opuesto · ${sinContrario}` },
+                      ] as { id: Filtro; texto: string }[]
+                    ).map((f) => (
+                      <button
+                        key={f.id}
+                        type="button"
+                        aria-pressed={filtro === f.id}
+                        onClick={() => setFiltro(f.id)}
+                        className={`min-h-9 rounded-full border px-3 text-[13px] font-semibold tabular-nums transition ${
+                          filtro === f.id
+                            ? "border-[#C8A96B] bg-[#C8A96B] text-black"
+                            : "border-white/15 text-white/80 hover:border-[#C8A96B]/60"
+                        }`}
+                      >
+                        {f.texto}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <h2 id="resto-titulo" className="fuente-club text-[20px] font-bold leading-tight text-white">
                   El resto, por fecha de cierre
                 </h2>
                 <p className="mt-0.5 text-[13px] text-white/65">Pulsa un bloque para ver sus apuestas; cada fila se abre para apostar</p>
+
+                {grupos.length === 0 && (
+                  <p className="mt-3 text-[13px] text-white/65">
+                    Ninguna con este filtro.{" "}
+                    <button type="button" onClick={() => setFiltro("todas")} className="font-semibold text-[#C8A96B] hover:underline">
+                      Ver todas
+                    </button>
+                  </p>
+                )}
 
                 <div className="mt-3 space-y-2">
                   {grupos.map((g) => {
@@ -762,7 +768,7 @@ export default function ApuestasPage() {
                           type="button"
                           aria-expanded={abierto}
                           onClick={() => alterna(g.clave)}
-                          className="flex min-h-12 w-full items-center justify-between gap-3 px-3.5 py-2.5 text-left"
+                          className="flex min-h-12 w-full items-center justify-between gap-3 py-2.5 pl-3.5 pr-10 text-left sm:pr-3.5"
                         >
                           <span className="min-w-0">
                             <span className="block text-[13px] font-semibold uppercase tracking-[0.12em] text-[#C8A96B]">{g.titulo}</span>
@@ -770,6 +776,9 @@ export default function ApuestasPage() {
                               {g.apuestas.length === 1 ? "1 apuesta" : `${g.apuestas.length} apuestas`}
                               {dias > 0 ? ` · la primera, en ${dias === 1 ? "1 día" : `${dias} días`}` : ""}
                             </span>
+                            {primera && (
+                              <span className="mt-1 line-clamp-2 block text-[13px] font-semibold leading-snug text-white/85">«{primera.prediccion}»</span>
+                            )}
                           </span>
                           <ChevronDown size={18} aria-hidden className={`shrink-0 text-[#C8A96B] transition-transform ${abierto ? "rotate-180" : ""}`} />
                         </button>
@@ -789,9 +798,6 @@ export default function ApuestasPage() {
                   <h2 id="decididas-titulo" className="fuente-club text-[20px] font-bold leading-tight text-white">
                     Ya decididas
                   </h2>
-                  <Link href="/quiniela" className="text-[13px] font-semibold text-[#C8A96B] hover:underline">
-                    Ranking de la quiniela →
-                  </Link>
                 </div>
                 <p className="mt-0.5 text-[13px] text-white/65">De la última a la primera</p>
                 <div className="mt-3 space-y-2">{resueltas.map((a) => fila(a))}</div>
@@ -996,27 +1002,43 @@ function EnlacesEquipo({ nombre, rivales, hoy }: { nombre: string; rivales: Jorn
 
 /**
  * 18/11/2026 (análisis y marketing, ronda 22): un solo recuento por apuesta.
- * La barra grande con el porcentaje a cada lado y debajo la base («3 de 11
- * han apostado»). Las caras, sólo al abrir la fila.
+ * 18/11/2026 (ronda 23): con menos de 6 votos manda la cuenta («1 a favor ·
+ * 2 en contra · faltan 8») y no se dan porcentajes; desde 6, el porcentaje
+ * con su base debajo. La barra, siempre.
  */
-function Recuento({ favor, contra, juegan }: { favor: number; contra: number; juegan: number }) {
+const MINIMO_PORCENTAJE = 6;
+
+function Recuento({ favor, contra, juegan, faltan }: { favor: number; contra: number; juegan: number; faltan: number }) {
   const total = favor + contra;
   const pFavor = total > 0 ? Math.round((favor / total) * 100) : 0;
   const pContra = total > 0 ? 100 - pFavor : 0;
+  const conPorcentaje = total >= MINIMO_PORCENTAJE;
+  const cuenta = `${favor} a favor · ${contra} en contra${faltan > 0 ? ` · ${faltan === 1 ? "falta 1" : `faltan ${faltan}`}` : ""}`;
 
   return (
-    <div aria-label={`${pFavor} % a favor y ${pContra} % en contra; ${favor} a favor y ${contra} en contra`}>
-      <div className="flex items-baseline justify-between gap-2 text-[13px] font-semibold tabular-nums">
-        <span className="text-emerald-300">{pFavor} % a favor</span>
-        <span className="text-rose-300">{pContra} % en contra</span>
-      </div>
+    <div aria-label={conPorcentaje ? `${pFavor} % a favor y ${pContra} % en contra; ${cuenta}` : cuenta}>
+      {conPorcentaje ? (
+        <div className="flex items-baseline justify-between gap-2 text-[13px] font-semibold tabular-nums">
+          <span className="text-emerald-300">{pFavor} % a favor</span>
+          <span className="text-rose-300">{pContra} % en contra</span>
+        </div>
+      ) : (
+        <p className="text-[14px] font-semibold tabular-nums">
+          <span className="text-emerald-300">{favor} a favor</span>
+          <span className="text-white/50"> · </span>
+          <span className="text-rose-300">{contra} en contra</span>
+          {faltan > 0 && <span className="text-white/70"> · {faltan === 1 ? "falta 1" : `faltan ${faltan}`}</span>}
+        </p>
+      )}
       <div className="mt-1 flex h-3 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
         <span className="h-full bg-emerald-400" style={{ width: `${pFavor}%` }} />
         <span className="h-full bg-rose-400" style={{ width: `${pContra}%` }} />
       </div>
-      <p className="mt-1 text-[12px] tabular-nums text-white/65">
-        {juegan > 0 ? `${total} de ${juegan} ${total === 1 ? "ha" : "han"} apostado` : `${total === 1 ? "1 ha" : `${total} han`} apostado`}
-      </p>
+      {conPorcentaje && (
+        <p className="mt-1 text-[12px] tabular-nums text-white/65">
+          {favor} a favor y {contra} en contra · {juegan > 0 ? `${total} de ${juegan} ${total === 1 ? "ha" : "han"} apostado` : `${total} han apostado`}
+        </p>
+      )}
     </div>
   );
 }
@@ -1030,7 +1052,6 @@ function Tarjeta({
   pide,
   plantilla = [],
   rivales = [],
-  onEntrar,
   desplegada = false,
   sello,
   sinEquipo = "",
@@ -1045,8 +1066,6 @@ function Tarjeta({
   hoy: string;
   ocupado: boolean;
   pide: (cuerpo: Record<string, unknown>, exito: string) => Promise<void>;
-  /** Sin sesión, «Apostar a favor / en contra» abre el acceso de la cabecera. */
-  onEntrar: () => void;
   /** Abierta de entrada (lo vivo). */
   desplegada?: boolean;
   /** Por qué está arriba («Se decide pronto», «La más disputada»). */
@@ -1098,11 +1117,10 @@ function Tarjeta({
 
   const apostados = new Set([apuesta.autor, ...favor, ...contra]);
   const faltan = juegan.filter((slug) => !apostados.has(slug));
-  const sinSesionPuede = !yo && estado === "abierta";
 
   return (
     <article
-      className={`flex flex-col gap-2.5 rounded-2xl border p-3 sm:p-3.5 ${
+      className={`mr-8 flex flex-col gap-2.5 rounded-2xl border p-3 sm:mr-0 sm:p-3.5 ${
         estado === "acertada"
           ? "border-emerald-300/20 bg-emerald-300/[0.04]"
           : estado === "fallada"
@@ -1137,7 +1155,7 @@ function Tarjeta({
         <ChevronDown size={18} aria-hidden className={`mt-0.5 shrink-0 text-[#C8A96B] transition-transform ${abierta ? "rotate-180" : ""}`} />
       </button>
 
-      <Recuento favor={ladoFavor.length} contra={contra.length} juegan={juegan.length} />
+      <Recuento favor={ladoFavor.length} contra={contra.length} juegan={juegan.length} faltan={estado === "abierta" ? faltan.length : 0} />
 
       {/* Los enlaces: el jugador nuestro que nombra y el equipo de la liga, con el rival ya elegido. */}
       {(jugadores.length > 0 || equipos.length > 0) && (
@@ -1168,16 +1186,6 @@ function Tarjeta({
         </div>
       )}
 
-      {/* Sin sesión, una sola acción que se entiende a la primera. */}
-      {sinSesionPuede && (
-        <button
-          type="button"
-          onClick={onEntrar}
-          className="inline-flex min-h-10 w-fit items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[13px] font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/15"
-        >
-          <KeyRound size={14} aria-hidden /> Entra para apostar a favor o en contra
-        </button>
-      )}
 
       {/* Con sesión, los dos botones a la vista. */}
       {puedoPosicionarme && (
@@ -1234,21 +1242,16 @@ function Tarjeta({
             <Lado gente={contra} tono="contra" yo={yo} />
           </div>
 
+          {/* 18/11/2026 (ronda 23): quién falta, como contador; los nombres, plegados. */}
           {estado === "abierta" && faltan.length > 0 && (
-            <div>
-              <p className="text-[12px] font-semibold text-white/70">
-                {faltan.length === 1 ? "Falta 1" : `Faltan ${faltan.length}`}
-                {yo && faltan.includes(yo) ? ", tú entre ellos" : ""}
-              </p>
-              <ul aria-label="Quién falta por apostar" className="mt-1 flex flex-wrap gap-x-3 gap-y-1.5">
-                {faltan.map((slug) => (
-                  <li key={slug} className="inline-flex items-center gap-1.5 text-[12px] text-white/75">
-                    <Avatar slug={slug} lado={20} />
-                    {cortoDe(slug)}
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <details className="group">
+              <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 text-[13px] font-semibold text-white/80 hover:text-white">
+                <ChevronDown size={15} aria-hidden className="text-[#C8A96B] transition-transform group-open:rotate-180" />
+                {faltan.length === 1 ? "Falta 1 por apostar" : `Faltan ${faltan.length} por apostar`}
+                {yo && faltan.includes(yo) ? (faltan.length === 1 ? ": tú" : ", tú entre ellos") : ""}
+              </summary>
+              <p className="mt-1 text-[13px] leading-snug text-white/75">{faltan.map((slug) => (slug === yo ? "tú" : cortoDe(slug))).join(" · ")}</p>
+            </details>
           )}
         </div>
       )}
@@ -1274,9 +1277,7 @@ function Tarjeta({
           {puedoResolver ? (
             <span className="text-[12px] text-white/60">¿Qué ha pasado?</span>
           ) : (
-            <button type="button" onClick={onEntrar} className="text-[12px] font-semibold text-[#C8A96B] hover:underline">
-              Entra para dar el veredicto
-            </button>
+            <span className="text-[12px] text-white/60">Espera veredicto</span>
           )}
 
           {puedoResolver && (
@@ -1388,7 +1389,8 @@ function LineaDeTiempo({
       >
         {paradas.map((p, i) => {
           const cuantas = p.apuestas.length;
-          const alto = 10 + Math.round((cuantas / maximo) * 46);
+          /* 18/11/2026 (ronda 23): raíz y mínimo visible, para que 1 y 3 no queden aplastados al lado de 13. */
+          const alto = 14 + Math.round(Math.sqrt(cuantas / maximo) * 42);
           const esMayor = p.clave === mayor.clave;
           const esYa = p.clave === "0";
           const tramo = paradas.length === 1 ? "hidden" : i === 0 ? "left-1/2 right-0" : i === paradas.length - 1 ? "left-0 right-1/2" : "inset-x-0";
