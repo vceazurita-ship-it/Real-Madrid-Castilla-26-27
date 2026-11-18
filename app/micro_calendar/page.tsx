@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { AlertTriangle, Brain, CalendarDays, ClipboardCheck, Clock3, Dumbbell, FileText, Users } from "lucide-react";
 import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import {
   CalendarShell,
@@ -1601,11 +1602,18 @@ function EnlacesRivalCasilla({
 
   return (
     <span className="flex flex-wrap gap-x-2 gap-y-0.5">
-      {enlaces.map((e) => (
-        <Link key={e.texto} href={e.href} title={e.title} onClick={onClick} className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
-          {e.texto === "Su ABP" ? "Su ABP" : "Sus goles"}
-        </Link>
-      ))}
+      {enlaces.map((e) =>
+        /* 18/11/2026: «Sus goles» abre el pop-up de la portada, sin salir del calendario. */
+        e.golesEnVideo ? (
+          <BotonGolesEnVideo key={e.texto} {...e.golesEnVideo} title={e.title} className="text-left text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+            ▶ Sus goles
+          </BotonGolesEnVideo>
+        ) : (
+          <Link key={e.texto} href={e.href} title={e.title} onClick={onClick} className="text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+            {e.texto}
+          </Link>
+        ),
+      )}
     </span>
   );
 }

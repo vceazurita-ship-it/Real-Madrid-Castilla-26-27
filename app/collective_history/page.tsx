@@ -674,8 +674,10 @@ useEffect(() => {
                   enlaces={[
                     /* 17/11/2026 (ronda 19): el plan con el rival puesto, cómo le marcan y su coding. */
                     { href: conRivalEnUrl("/match-preparation", { equipo: proximo.rival }), texto: "Plan de partido", icono: ClipboardList },
-                    { href: urlGolesDelEquipo(proximo.rival), texto: "Sus goles en vídeo", icono: Video },
-                    { href: urlGolesDelEquipo(proximo.rival, "contra"), texto: "Cómo le marcan", icono: Video },
+                    /* 18/11/2026: los dos vídeos, en el pop-up de la portada; aparte, «Cómo son sus goles» en Análisis de goles. */
+                    { golesEnVideo: { equipo: proximo.rival, lado: "favor" as const }, texto: "Sus goles en vídeo", icono: Video },
+                    { golesEnVideo: { equipo: proximo.rival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
+                    { href: urlGolesDelEquipo(proximo.rival), texto: "Cómo son sus goles", title: `Todos los goles de ${proximo.rival}, en el campo (Análisis de goles)` },
                     { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su ABP", icono: Trophy },
                     { href: `/rivals?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su plantilla", icono: Users },
                     { href: `/coding?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su coding", icono: Clapperboard },

@@ -15,7 +15,7 @@ import Link from "next/link";
 import { ArrowRight, CalendarClock, ClipboardList, Film, Flag, LayoutTemplate, Play, Sparkles, Swords } from "lucide-react";
 
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo, EnlaceComoSonSusGoles } from "@/components/rivals/BotonGolesEnVideo";
 import type { PartidoNuestro } from "@/lib/castilla/calendario";
 import { esSinPartido } from "@/lib/abp/ventana";
 
@@ -307,20 +307,23 @@ export function PartidoDeLaSemana({
           </Link>
         )}
 
-        {/* 16/11/2026 (jueces, ronda 18): sus goles y los que encaja, en vídeo, con el rival puesto. */}
+        {/* 16/11/2026 (jueces, ronda 18): sus goles y los que encaja, en vídeo, con el rival puesto.
+            18/11/2026: en el pop-up de la portada; aparte, «Cómo son sus goles ›». */}
         {nombre && (
-          <Link href={urlGolesDelEquipo(nombre, "favor")} className={enlaceClase}>
+          <BotonGolesEnVideo equipo={nombre} lado="favor" className={enlaceClase}>
             <Film size={13} aria-hidden />
             Sus goles en vídeo
-          </Link>
+          </BotonGolesEnVideo>
         )}
 
         {nombre && (
-          <Link href={urlGolesDelEquipo(nombre, "contra")} className={enlaceClase}>
+          <BotonGolesEnVideo equipo={nombre} lado="contra" className={enlaceClase}>
             <Film size={13} aria-hidden />
             Cómo le marcan
-          </Link>
+          </BotonGolesEnVideo>
         )}
+
+        {nombre && <EnlaceComoSonSusGoles equipo={nombre} />}
 
         {enlaces.plan && (
           <Link href={enlaces.plan} className={enlaceClase}>

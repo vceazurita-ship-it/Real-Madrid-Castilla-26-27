@@ -61,7 +61,6 @@ import {
 } from "lucide-react";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1535,7 +1534,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     masDeTodos ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
     masDeTodos ? { href: `/data-analisis?area=individual&jugador=${encodeURIComponent(masDeTodos[0])}`, texto: "Sus percentiles", icono: BarChart3 } : { texto: "" },
     /* El próximo rival, en su ficha de goles: cómo le marcan (17/11/2026). */
-    proximoRivalLab ? { href: urlGolesDelEquipo(proximoRivalLab, modo === "robos" ? "contra" : "favor"), texto: modo === "robos" ? `Cómo le marcan al ${proximoRivalLab}` : `Cómo marca el ${proximoRivalLab}`, icono: Video } : { texto: "" },
+    /* 18/11/2026: en el pop-up de la portada, sin salir del laboratorio. */
+    proximoRivalLab ? { golesEnVideo: { equipo: proximoRivalLab, lado: modo === "robos" ? ("contra" as const) : ("favor" as const) }, texto: modo === "robos" ? `Cómo le marcan al ${proximoRivalLab}` : `Cómo marca el ${proximoRivalLab}`, icono: Video } : { texto: "" },
   ];
 
   /*

@@ -26,7 +26,7 @@ import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { useEtiquetadoEnVideo, type Etiquetado } from "@/hooks/useEtiquetadoEnVideo";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import Link from "next/link";
 
 import {
@@ -1327,9 +1327,10 @@ function MatchCard({
           <Link href={urlPostDelPartido(dia, match.opponent)} className={`${BOTON_TARJETA} border-[#C8A96B]/50 text-[#C8A96B]`} title="Las estadísticas del partido, en Análisis de datos">
             Estadísticas
           </Link>
-          <Link href={urlGolesDelEquipo("Real Madrid Castilla")} className={BOTON_TARJETA} title="Nuestros goles en vídeo, en Análisis de goles">
-            Goles
-          </Link>
+          {/* 18/11/2026: los goles de ESE partido (los dos equipos), en el pop-up de la portada. */}
+          <BotonGolesEnVideo equipo={match.opponent} fecha={dia} className={BOTON_TARJETA} title="Los goles de este partido en vídeo, de los dos equipos">
+            ▶ Goles
+          </BotonGolesEnVideo>
           {etiquetado?.robos({ fecha: dia, rival: match.opponent }) ? (
             <Link href={enlaceConPartido("/laboratorio/transiciones", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
               Robos

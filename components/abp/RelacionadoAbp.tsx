@@ -27,6 +27,7 @@ import { CalendarClock, ChevronRight, Film, ShieldHalf, Target } from "lucide-re
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
 import { buscaJornada, cargaJornadas, enlaceAbpRival, enlacePlanDePartido, mismoEquipo, type JornadaRival } from "@/lib/abp/jornada";
+import { BotonGolesEnVideo, type GolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
 export type PantallaAbp = "setpieces" | "setpieces_def" | "throw-ins" | "throw-ins-def";
@@ -50,18 +51,24 @@ function fechaCorta(cuando: string) {
   return `${dia} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
-type Atajo = { href: string; texto: string; title: string; icono?: "video" | "abp" | "plan" };
+/** Con `goles`, el atajo abre el pop-up de los goles en vídeo (18/11/2026) en vez de ir a Análisis de goles. */
+type Atajo = { href: string; texto: string; title: string; icono?: "video" | "abp" | "plan"; goles?: GolesEnVideo };
+
+const CLASE_ATAJO =
+  "inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]";
 
 function Atajos({ atajos, color }: { atajos: Atajo[]; color: string }) {
   return (
     <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
       {atajos.map((a) => (
         <li key={a.href + a.texto} className="min-w-0">
-          <Link
-            href={a.href}
-            title={a.title}
-            className="inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]"
-          >
+          {a.goles ? (
+            <BotonGolesEnVideo {...a.goles} title={a.title} className={CLASE_ATAJO}>
+              <Film size={13} aria-hidden style={{ color }} />
+              <span className="truncate">{a.texto}</span>
+            </BotonGolesEnVideo>
+          ) : (
+          <Link href={a.href} title={a.title} className={CLASE_ATAJO}>
             {a.icono === "video" ? (
               <Film size={13} aria-hidden style={{ color }} />
             ) : a.icono === "abp" ? (
@@ -73,6 +80,7 @@ function Atajos({ atajos, color }: { atajos: Atajo[]; color: string }) {
             )}
             <span className="truncate">{a.texto}</span>
           </Link>
+          )}
         </li>
       ))}
     </ul>
@@ -136,6 +144,7 @@ export function RelacionadoAbp({
           texto: of ? "▶ Cómo le marcan" : "▶ Sus goles en vídeo",
           title: of ? `Los goles que encaja ${rival}, en vídeo` : `Los goles que marca ${rival}, en vídeo`,
           icono: "video",
+          goles: { equipo: rival, lado: of ? "contra" : "favor" },
         },
         { href: enlaceAbpRival(rival), texto: "Su ABP", title: `El balón parado de ${rival}: cómo ataca y cómo defiende`, icono: "abp" },
         ...(filaRival?.id
@@ -160,6 +169,7 @@ export function RelacionadoAbp({
           texto: of ? "▶ Cómo le marcan" : "▶ Sus goles en vídeo",
           title: of ? `Los goles que encaja ${proximo.rival}, en vídeo` : `Los goles que marca ${proximo.rival}, en vídeo`,
           icono: "video",
+          goles: { equipo: proximo.rival, lado: of ? "contra" : "favor" },
         },
         { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado contra ${proximo.rival}` },
         /* 17/11/2026 (jueces, ronda 20): también desde el próximo rival, la otra mitad (ataque ↔ defensa). */

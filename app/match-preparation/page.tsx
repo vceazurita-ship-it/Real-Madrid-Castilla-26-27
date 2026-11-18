@@ -43,6 +43,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { DUELOS, UMBRAL_DUELO, fraseRecuentoPartes } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 
@@ -64,6 +65,7 @@ import {
   MapPin,
   Pencil,
   PlayCircle,
+  Goal,
   Printer,
   RotateCcw,
   Ruler,
@@ -2618,15 +2620,25 @@ export default function MatchPreparation() {
                         Scout Colectivo
                       </Link>
 
-                      {/* 16/11/2026: sus goles en vídeo, en Análisis de goles con el rival y «En el campo» ya puestos. */}
+                      {/* 18/11/2026: sus goles en vídeo, en el pop-up de la portada (sin salir del plan); aparte, «Cómo son sus goles», en Análisis de goles. */}
                       {rivalActivo?.EQUIPO && (
-                        <Link
-                          href={urlGolesDelEquipo(String(rivalActivo.EQUIPO))}
-                          title={`Los goles de ${rivalActivo.EQUIPO} en vídeo, de seguido, y en el campo`}
-                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                        <BotonGolesEnVideo
+                          equipo={String(rivalActivo.EQUIPO)}
+                          title={`Los goles de ${rivalActivo.EQUIPO} en vídeo, de seguido o uno a uno`}
+                          className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm text-white/75 transition hover:bg-white/[0.06] hover:text-white"
                         >
                           <PlayCircle size={14} />
                           Sus goles en vídeo
+                        </BotonGolesEnVideo>
+                      )}
+                      {rivalActivo?.EQUIPO && (
+                        <Link
+                          href={urlGolesDelEquipo(String(rivalActivo.EQUIPO))}
+                          title={`Todos los goles de ${rivalActivo.EQUIPO}, en el campo (Análisis de goles)`}
+                          className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-white/60 transition hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Goal size={14} />
+                          Cómo son sus goles ›
                         </Link>
                       )}
 

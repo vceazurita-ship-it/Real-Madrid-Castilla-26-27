@@ -33,6 +33,7 @@ import {
 import { traeJson } from "@/lib/hojaCsv";
 import { esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import { diasPlanificados, mdALaVista, mdDelCalendario, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
 import { contenidoUnificado } from "@/lib/microciclo/contenidos";
@@ -1367,17 +1368,29 @@ export default function CalendarGeneralPage() {
                       <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                         {enlacesDelRival(jornadasRivales, auto.rival, auto.fecha)
                           .filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo")
-                          .map((e) => (
-                            <Link
-                              key={e.texto}
-                              href={e.href}
-                              title={e.title}
-                              onClick={(ev) => ev.stopPropagation()}
-                              className="text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
-                            >
-                              {e.texto === "Su ABP" ? "Su ABP" : "Sus goles"}
-                            </Link>
-                          ))}
+                          .map((e) =>
+                            /* 18/11/2026: «Sus goles» abre el pop-up de la portada, sin salir del calendario. */
+                            e.golesEnVideo ? (
+                              <BotonGolesEnVideo
+                                key={e.texto}
+                                {...e.golesEnVideo}
+                                title={e.title}
+                                className="text-left text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                              >
+                                ▶ Sus goles
+                              </BotonGolesEnVideo>
+                            ) : (
+                              <Link
+                                key={e.texto}
+                                href={e.href}
+                                title={e.title}
+                                onClick={(ev) => ev.stopPropagation()}
+                                className="text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                              >
+                                {e.texto}
+                              </Link>
+                            ),
+                          )}
                       </span>
                     </div>
                   ) : (

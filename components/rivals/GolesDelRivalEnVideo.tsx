@@ -31,6 +31,8 @@ import { urlGolesDelEquipo, type LadoGoles } from "@/lib/rivals/goles-en-video";
 
 export type { LadoGoles };
 export type Tipo = "todos" | "jugada" | "abp";
+/** Con `partido`, además «los dos»: todos los goles de ese partido. */
+type LadoVisto = LadoGoles | "ambos";
 type Ultimos = "todos" | "3" | "5";
 
 /** Situaciones de Opta que son juego (el resto —córner, faltas, banda, penalti— es balón parado). */
@@ -53,9 +55,15 @@ export function GolesDelRivalEnVideo({
   ladoInicial = "favor",
   tipoInicial = "todos",
   enMarco = false,
+  partido: partidoPedido,
+  fecha,
   alVacio,
 }: {
   equipo: string;
+  /** Id de Opta de un partido (18/11/2026, Análisis de datos → «El partido»): sólo sus goles, los de los dos equipos. */
+  partido?: string;
+  /** O el día (AAAA-MM-DD) de ese partido contra este equipo, si no se sabe su id de Opta: el suyo más cercano, a 4 días como mucho. */
+  fecha?: string;
   ladoInicial?: LadoGoles;
   /** «abp»: abre con el filtro de balón parado puesto (desde ABP del rival, 16/11/2026). */
   tipoInicial?: Tipo;
@@ -66,7 +74,8 @@ export function GolesDelRivalEnVideo({
 }) {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.jugadoresPartidos, DOCS_OPTA.remates);
   const [tEquipos, tJugPartidos, tRemates] = docs;
-  const [lado, setLado] = useState<LadoGoles>(ladoInicial);
+  const dePartido = Boolean(partidoPedido || fecha);
+  const [lado, setLado] = useState<LadoVisto>(dePartido ? "ambos" : ladoInicial);
   const [tipoPedido, setTipo] = useState<Tipo>(tipoInicial);
   const [ultimos, setUltimos] = useState<Ultimos>("todos");
 
@@ -79,7 +88,27 @@ export function GolesDelRivalEnVideo({
 
     if (!id || id === CASTILLA_OPTA) return { id: "", nombre: equipo, remates: [] as Remate[], partidos: [] as string[] };
 
-    const remates = rematesDe(tRemates, pistaDe(aObjetos(tJugPartidos))).filter((r) => r.teamId === id || r.rivalId === id);
+    const todos = rematesDe(tRemates, pistaDe(aObjetos(tJugPartidos))).filter((r) => r.teamId === id || r.rivalId === id);
+    /* Con el día y sin el id: el partido suyo más cercano a ese día (≤ 4 días, como lib/post-partido.ts). */
+    let partido = partidoPedido ?? "";
+
+    if (!partido && fecha) {
+      const dia = Date.parse(`${fecha.slice(0, 10)}T12:00:00Z`);
+      let mejor = Infinity;
+
+      for (const r of todos) {
+        const d = Math.abs(Date.parse(`${r.fecha.slice(0, 10)}T12:00:00Z`) - dia);
+
+        if (d < mejor) {
+          mejor = d;
+          partido = r.partido;
+        }
+      }
+
+      if (!(mejor <= 4 * 86_400_000)) partido = "ninguno"; /* ninguno de sus partidos cae cerca: no hay goles que enseñar */
+    }
+
+    const remates = partido ? todos.filter((r) => r.partido === partido) : todos;
     /* Sus partidos, del más reciente al más antiguo (por los remates de los dos lados: un 0-0 también cuenta). */
     const fechaDe = new Map<string, string>();
 
@@ -88,15 +117,20 @@ export function GolesDelRivalEnVideo({
     const partidos = [...fechaDe.entries()].sort((a, b) => b[1].localeCompare(a[1])).map(([p]) => p);
 
     return { id, nombre: equipos.find((e) => e.teamId === id)?.equipo || equipo, remates, partidos };
-  }, [tEquipos, tJugPartidos, tRemates, cargando, equipo]);
+  }, [tEquipos, tJugPartidos, tRemates, cargando, equipo, partidoPedido, fecha]);
 
   const golesDe = useMemo(() => {
-    if (!base?.id) return { favor: [] as Remate[], contra: [] as Remate[] };
+    if (!base?.id) return { favor: [] as Remate[], contra: [] as Remate[], ambos: [] as Remate[] };
 
     const recientes = ultimos === "todos" ? null : new Set(base.partidos.slice(0, Number(ultimos)));
     const goles = base.remates.filter((r) => r.gol && (!recientes || recientes.has(r.partido)));
 
-    return { favor: goles.filter((r) => r.teamId === base.id), contra: goles.filter((r) => r.rivalId === base.id) };
+    return {
+      favor: goles.filter((r) => r.teamId === base.id),
+      contra: goles.filter((r) => r.rivalId === base.id),
+      /* Los del partido, en el orden en que llegaron. */
+      ambos: [...goles].sort((a, b) => a.minuto - b.minuto),
+    };
   }, [base, ultimos]);
 
   const delLado = golesDe[lado];
@@ -121,8 +155,8 @@ export function GolesDelRivalEnVideo({
 
   const nombre = base.nombre;
   const nPartidos = base.partidos.length;
-  const textoUltimos = ultimos === "todos" ? `en ${nPartidos} partidos` : `en sus últimos ${Math.min(Number(ultimos), nPartidos)} partidos`;
-  const quien = lado === "favor" ? `Goles de ${nombre}` : `Goles que encaja ${nombre}`;
+  const textoUltimos = dePartido ? "en este partido" : ultimos === "todos" ? `en ${nPartidos} partidos` : `en sus últimos ${Math.min(Number(ultimos), nPartidos)} partidos`;
+  const quien = lado === "ambos" ? "Goles" : lado === "favor" ? `Goles de ${nombre}` : dePartido ? `Goles contra ${nombre}` : `Goles que encaja ${nombre}`;
   const tituloTipo = tipo === "jugada" ? " en jugada" : tipo === "abp" ? " a balón parado" : "";
 
   const cuerpo = (
@@ -132,10 +166,18 @@ export function GolesDelRivalEnVideo({
           etiqueta="Los que marca o los que encaja"
           valor={lado}
           alCambiar={(v) => (setLado(v), setTipo("todos"))}
-          opciones={[
-            { clave: "favor", nombre: `Sus goles (${golesDe.favor.length})` },
-            { clave: "contra", nombre: `Los que encaja (${golesDe.contra.length})` },
-          ]}
+          opciones={
+            dePartido
+              ? [
+                  { clave: "ambos" as const, nombre: `Los dos (${golesDe.ambos.length})` },
+                  { clave: "favor" as const, nombre: `De ${nombre} (${golesDe.favor.length})` },
+                  { clave: "contra" as const, nombre: `Contra ${nombre} (${golesDe.contra.length})` },
+                ]
+              : [
+                  { clave: "favor" as const, nombre: `Sus goles (${golesDe.favor.length})` },
+                  { clave: "contra" as const, nombre: `Los que encaja (${golesDe.contra.length})` },
+                ]
+          }
         />
         {enJugada > 0 && aBalonParado > 0 && (
           <Botonera
@@ -149,7 +191,7 @@ export function GolesDelRivalEnVideo({
             ]}
           />
         )}
-        {nPartidos > 3 && (
+        {!dePartido && nPartidos > 3 && (
           <Botonera
             etiqueta="Qué partidos"
             valor={ultimos}
@@ -167,16 +209,19 @@ export function GolesDelRivalEnVideo({
         <GolesDeSeguido key={`${base.id}-${lado}-${tipo}-${ultimos}`} goles={goles} titulo={`${quien}${tituloTipo} ${textoUltimos}`} conLista />
       ) : (
         <p className="text-[13px] text-white/60">
-          {lado === "favor" ? `${nombre} no ha marcado` : `A ${nombre} no le han marcado`}
+          {lado === "ambos" ? "No hubo goles" : lado === "favor" ? `${nombre} no ha marcado` : `A ${nombre} no le han marcado`}
           {tituloTipo} {textoUltimos}.
         </p>
       )}
 
-      <p className="mt-3 text-[12px] text-white/55">
-        <Link href={urlGolesDelEquipo(nombre, lado)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
-          Verlos en el campo, en Análisis de goles ›
-        </Link>
-      </p>
+      {/* En el pop-up, la ida a Análisis de goles va en su cabecera (components/rivals/BotonGolesEnVideo.tsx). */}
+      {enMarco && (
+        <p className="mt-3 text-[12px] text-white/55">
+          <Link href={urlGolesDelEquipo(nombre, lado === "contra" ? "contra" : "favor")} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+            Cómo son sus goles, en el campo ›
+          </Link>
+        </p>
+      )}
     </div>
   );
 
