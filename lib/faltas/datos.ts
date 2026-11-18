@@ -5,7 +5,7 @@
  * scripts/faltas-datos.mjs a partir de los CSV de
  * Downloads/RMCF CASTILLA/ANALISIS FALTAS.
  *
- * Generado: 2026-11-10
+ * Generado: 2026-11-18
  */
 
 export type LadoFalta = "ofensivo" | "defensivo";
@@ -4130,6 +4130,660 @@ export const PARTIDOS: PartidoFaltas[] = [
         },
         "jugador": "Álvaro Leiva",
         "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j11-hercules-def-5772.mp4"
+      }
+    ]
+  },
+  {
+    "jornada": "J12",
+    "rival": "Gimnàstic Tarragona",
+    "local": false,
+    "fecha": "2026-11-13",
+    "resultado": "0-1",
+    "clips": "Hudl · Castilla · «2026-11-13 Gimnàstic Tarragona - Real Madrid Castilla 0 - 1» (timeline de Sportscode) y la cámara táctica J 12 - NASTIC - RM CASTILLA.mov",
+    "notas": [
+      "Sale del timeline de Sportscode subido a Hudl —minuto, quién la hace, sobre quién y la tarjeta— y cada falta se mira después en la retransmisión y en la cámara táctica del club: zona, carril, distancia, defensores y la nota salen de la imagen.",
+      "El campo se cuenta siempre hacia la portería que ataca quien saca la falta."
+    ],
+    "id": "j12-gimnastic-tarragona",
+    "faltas": [
+      {
+        "clip": "of-c01",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "Sin TV (tramo de Hudl roto) y vista sólo en la táctica. Se ve a Fortea (2) jugar en largo por la derecha y un duelo junto a la banda derecha hacia el 297-300 y luego el juego se concentra cerca de la línea de medio campo en el centro-derecha donde parece pararse hacia el 309-320 pero no se reconoce con seguridad el instante de la falta de Francisco Gil (4) sobre Fortea. Se deja la propuesta de Hudl (medio campo derecha lejana) sin poder comprobarla y entre sin contar. (Táctica: no se encontró la jugada en la cámara táctica.)",
+        "minuto": "4'59\" (táctica 5:08)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 297
+        },
+        "jugador": "Jesús Fortea"
+      },
+      {
+        "clip": "def-c01",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "TV 8:46: tras perder el Castilla el balón en ataque Carvajal (19) derriba por detrás a un jugador del Gimnàstic (Valderrama según Hudl, dorsal no legible) en el centro a media distancia entre la línea de medio campo y el área del Gimnàstic y el árbitro pita y señala. En la táctica (533-534) el jugador queda en el suelo en el carril central del campo del Gimnàstic con el Castilla muy adelantado y sólo 3 jugadores del Castilla más Mestre por detrás del balón. Coincide con la propuesta de Hudl.",
+        "minuto": "8'44\" (táctica 8:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 522
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-522.mp4"
+      },
+      {
+        "clip": "of-c02",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 12:26: tras la salida de Mestre y el pase de Aguado (3) Van Rijn (5) derriba a Fortuny (10) justo sobre la línea de medio campo en el carril izquierdo y Fortuny queda en el suelo. En la táctica (753-755) se ve el duelo y a Fortuny caído en la línea de medio campo a la izquierda con 8 jugadores del Gimnàstic a la altura o por delante del balón más el portero y sólo 2 por detrás (entre = 8 con el criterio común, sin contar al infractor que está a la altura del balón con él serían 9). Coincide con la propuesta de Hudl.",
+        "minuto": "12'23\" (táctica 12:32)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 741
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-741.mp4"
+      },
+      {
+        "clip": "of-c03",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 16:02-16:03: Almansa (17) entra a Cestero (6) junto a la banda derecha del ataque del Castilla unos metros dentro de su propio campo y los dos quedan en el suelo y el árbitro pita. En la táctica (969-970) se ve el choque pegado a la banda derecha entre la línea de medio campo y el área del Castilla con 7 jugadores del Gimnàstic por delante del balón más el portero y el infractor a la altura del balón. Coincide con la propuesta de Hudl.",
+        "minuto": "16'01\" (táctica 16:09)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 959
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-959.mp4"
+      },
+      {
+        "clip": "of-c04",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 17:23: Fortea (2) conduce y Almansa (17) lo derriba justo fuera del círculo central unos metros dentro del campo del Castilla algo escorado a la izquierda del ataque y Fortea cae rodando. En la táctica (1050-1051) el duelo está en el borde del círculo con 7 jugadores del Gimnàstic por delante del balón más el portero y el infractor a su altura. Coincide con la propuesta de Hudl.",
+        "minuto": "17'21\" (táctica 17:30)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1039
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1039.mp4"
+      },
+      {
+        "clip": "def-c02",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "TV 18:59: tras un saque de banda del Gimnàstic el 9 Peré Marco cae al chocar con un jugador del Castilla (Mario Rivas según Hudl, dorsal no legible) junto a la banda cercana a unos 40 m de la portería del Gimnàstic y el árbitro deja seguir hasta parar el juego hacia 19:04 y la saca el Gimnàstic. En la táctica (1146-1147) el jugador queda en el suelo pegado a la banda y por detrás del balón sólo hay 3 del Castilla (uno junto al círculo central y dos algo más atrás en la banda) más Mestre (dudoso alguno de los de la banda que está casi a la altura del balón). Coincide con la propuesta de Hudl.",
+        "minuto": "18'58\" (táctica 19:06)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1136
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-1136.mp4"
+      },
+      {
+        "clip": "of-c05",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "TV 22:03-22:04: tras un ataque del Gimnàstic Menargues (22) derriba a Leiva (11) cuando éste sale conduciendo pegado al lateral izquierdo del área del Castilla y Leiva queda sentado en el suelo fuera del área. En la táctica (1329-1330) el choque está junto a la línea lateral del área propia del Castilla a media altura entre el borde del área y la línea de fondo con 8 jugadores del Gimnàstic más el portero por delante del balón y 2 a su altura (el infractor incluido). Coincide con la propuesta de Hudl.",
+        "minuto": "22'02\" (táctica 22:10)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1320
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1320.mp4"
+      },
+      {
+        "clip": "of-c06",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 22:46-22:47: tras el saque en largo de Mestre Montalvo (8) derriba a Fortuny (10) unos 30 m por delante de la portería del Castilla en el carril central y Fortuny queda en el suelo. En la táctica (1373-1374) se ve el duelo y a Fortuny caído con 7 jugadores del Gimnàstic por delante del balón más el portero (Montalvo queda a la altura del balón y no se cuenta: serían 9 contándolo) y 2 por detrás. Coincide con la propuesta de Hudl.",
+        "minuto": "22'44\" (táctica 22:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1362
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1362.mp4"
+      },
+      {
+        "clip": "of-c07",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "TV 24:14-24:15: Fortea (2) conduce pegado a la banda derecha del Castilla y es derribado (Hudl: Almansa 17 con amarilla) un par de metros dentro del campo del Castilla junto a la línea de medio campo. En la táctica (1461-1463) se ve el choque y a Fortea en el suelo junto a la banda derecha con 6 jugadores del Gimnàstic por delante del balón más el portero y otros 2 a la altura del balón (con ellos serían 9) y 2 por detrás. Coincide con la propuesta de Hudl.",
+        "minuto": "24'13\" (táctica 24:22)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1451
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1451.mp4"
+      },
+      {
+        "clip": "of-c08",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 10,
+        "nota": "TV 27:35-27:36: tras un balón largo de Almansa al área del Castilla Montalvo (8) carga por detrás a Leiva (11) dentro del área propia del Castilla junto al vértice del área pequeña del lado izquierdo y Leiva queda en el suelo y el árbitro pita falta en ataque. En la táctica (1664-1665) se ve el choque y a Leiva caído junto al área pequeña con todo el Gimnàstic por delante del balón: 9 jugadores de campo más el portero (Montalvo a la altura del balón no se cuenta: serían 11). Coincide con la propuesta de Hudl (la falta es dentro del área propia).",
+        "minuto": "27'34\" (táctica 27:42)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1652
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1652.mp4"
+      },
+      {
+        "clip": "of-c09",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "TV 28:52-28:53: Montalvo (8) derriba por detrás a un jugador del Castilla (Hudl: Fortuny 10, dorsal no legible) que recibía junto a la línea de medio campo unos metros dentro del campo del Castilla y el jugador queda en el suelo. En la táctica (1739-1740) se ve el choque y al jugador caído justo por debajo de la línea de medio campo fuera del círculo central en el carril izquierdo cerca del límite con el centro con 5 jugadores del Gimnàstic por delante del balón más el portero (Montalvo y otro a la altura del balón no se cuentan) y 3 por detrás. Coincide con la propuesta de Hudl (Hudl anota el saque de Mario +18 s).",
+        "minuto": "28'51\" (táctica 28:59)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1729
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1729.mp4"
+      },
+      {
+        "clip": "of-c10",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 29:32: falta de Francisco Gil (4) sobre Carvajal (19) en la banda derecha del Castilla (banda lejana de la TV) justo en la línea de medio campo, el árbitro la marca y la saca Yáñez (7) según Hudl. En la táctica el dron aterriza y vuelve a despegar entre los segundos 1751 y 1755 (justo el instante de la falta) y no se puede fijar ni contar los entre. (Táctica: no se encontró la jugada en la cámara táctica.)",
+        "minuto": "29'31\" (táctica 29:21)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1769
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1769.mp4"
+      },
+      {
+        "clip": "of-c11",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 30:11: Van Rijn (5) derriba a Leiva (11) en el borde cercano del círculo central justo en campo del Castilla (más centro que banda izquierda como dice Hudl) y el árbitro le saca amarilla a las 30:14. En la táctica el grupo está en el borde izquierdo del círculo sobre la línea de medio campo (seg ~1794) pero los jugadores se ven muy pequeños: los entre se cuentan apoyados en la TV (7 de campo + portero) sin contar a uno de rojo a la altura del balón ni a otro que presionaba por detrás.",
+        "minuto": "30'10\" (táctica 30:00)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1808
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-1808.mp4"
+      },
+      {
+        "clip": "def-c03",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV 31:29-31:30: el 22 Menargues conduce pegado a la banda cercana y la da a Joan Prohens (19) que cae ante Martínez (16) junto a la banda a la altura del área del Gimnàstic. El árbitro deja seguir un par de segundos con el balón para el Castilla y pita hacia 31:34 con protestas de Martínez y la saca el Gimnàstic. En la táctica la caída es en 1856-1857 (desfase ≈ -34 y no -19 como dice la ventana) y por detrás del balón quedan 4 del Castilla más Mestre (dos de ellos casi en la línea de medio campo y alguno dudoso por la distancia del dron).",
+        "minuto": "31'29\" (táctica 30:58)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1887
+        },
+        "jugador": "Martínez",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-1887.mp4"
+      },
+      {
+        "clip": "def-c04",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "TV 32:40: tras perder el Castilla el balón junto a la banda lejana en su campo un jugador del Gimnàstic (Manel Royo según Hudl) cae al conducir ante un jugador del Castilla (Yáñez según Hudl, dorsales no legibles) pegado a la banda lejana unos 10 m dentro del campo del Castilla y el árbitro pita y la saca el Gimnàstic. En la táctica la caída es en 1925-1926 (desfase ≈ -35 y no -19 como dice la ventana, la ventana estimada 1939 cae en otra jugada en el área del Castilla) y por detrás del balón quedan 6 del Castilla más Mestre (uno de ellos casi a la altura del balón, dudoso).",
+        "minuto": "32'38\" (táctica 32:07)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 1956
+        },
+        "jugador": "Daniel Yáñez",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-1956.mp4"
+      },
+      {
+        "clip": "def-c05",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV 34:21: tras perder el Castilla el balón en el campo del Gimnàstic un jugador del Castilla (Fortuny según Hudl, dorsal no legible) derriba a Carlos Segura (20) en el carril central algo cargado a la banda lejana a unos 12 m de la línea de medio campo y el árbitro pita y le enseña amarilla (34:24) y la saca el Gimnàstic. En la táctica la falta es en 2027 y las protestas en 2028 (desfase ≈ -35 y no -19 como dice la ventana) y por detrás del balón quedan 4 del Castilla más Mestre.",
+        "minuto": "34'20\" (táctica 33:50)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2058
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-2058.mp4"
+      },
+      {
+        "clip": "def-c06",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "TV 35:15-35:16: tras el pase de cabeza de Fortuny a Carvajal (19) éste choca con un jugador del Gimnàstic (Van Rijn según Hudl, dorsal no legible) que cae a unos 15-20 m de la línea de medio campo en el campo del Gimnàstic cerca de la banda lejana y el juego sigue un par de segundos hasta que el balón sale hacia el campo del Castilla y se para con protestas de Fran Gil (4) Eugeni (10) y Royo (23) al árbitro. En la táctica la caída es en 2082-2083 (desfase ≈ -35 y no -19 como dice la ventana) con el jugador en el suelo hasta 2092 y por detrás del balón quedan unos 6 del Castilla más Mestre (uno junto al círculo central casi a la altura del balón, dudoso por la distancia del dron).",
+        "minuto": "35'14\" (táctica 34:43)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2112
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-2112.mp4"
+      },
+      {
+        "clip": "of-c12",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "TV 36:36: Menargues (22) derriba por detrás a Leiva (11) pegado a la banda izquierda del Castilla unos 10 m dentro de su campo, con Mestre bajo palos, y el Castilla la saca rápido y sigue jugando desde atrás. En la táctica casa en el seg 2167 (Leiva cae en 2168-2169, desfase ~-27 y no -19) y se cuentan 5 de rojo claramente más arriba que el balón + portero, con duda de uno junto al árbitro y 4 a la altura o por detrás presionando.",
+        "minuto": "36'35\" (táctica 36:04)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2193
+        },
+        "jugador": "Álvaro Leiva",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-2193.mp4"
+      },
+      {
+        "clip": "of-c13",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "TV 37:15: Carlos Segura (20) derriba a Joan Martínez (5) pegado a la banda derecha del Castilla unos 10 m dentro de su campo (banda lejana de la TV) y el Castilla la saca desde ahí. En la táctica casa en el seg 2207 (Joan en el suelo en 2208-2210, desfase ~-28) con 5 de rojo claramente más cerca de su portería que el balón + portero, 2 casi a la altura que no se cuentan y uno por detrás.",
+        "minuto": "37'14\" (táctica 36:43)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2232
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-2232.mp4"
+      },
+      {
+        "clip": "of-c14",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "TV 40:52: Montalvo (8) derriba a Aguado (3) pegado a la banda izquierda del Castilla a la altura de la frontal del área del Gimnàstic (no en medio campo como dice Hudl) y el árbitro la señala a las 40:54. En la táctica casa en el seg 2422 (Aguado en el suelo 2423-2425, desfase ~-30) pero es en la portería de arriba y los de rojo junto al área se ven demasiado pequeños para contar los entre.",
+        "minuto": "40'50\" (táctica 40:20)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2448
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-2448.mp4"
+      },
+      {
+        "clip": "of-c15",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV 42:48: tras un ataque del Gimnàstic por la banda derecha del Castilla, Royo (23) derriba a Fortea (2) pegado a la banda a la altura de la frontal del área del Castilla (banda lejana de la TV) y Mestre pide la falta con el brazo. En la táctica casa en el seg 2535 (Fortea en el suelo en 2536-2538, desfase ~-34) con 4 de rojo claramente más cerca de su portería que el balón + portero, 2 casi a la altura que no se cuentan y 3 que se habían quedado dentro del área del Castilla.",
+        "minuto": "42'46\" (táctica 42:16)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2564
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-2564.mp4"
+      },
+      {
+        "clip": "def-c07",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "media",
+        "entre": null,
+        "nota": "TV 45:29-45:30: Manel Royo (23) encara a un jugador del Castilla (Fortea según Hudl, dorsal no legible) pegado a la banda cercana junto al córner de la portería del Castilla y cae a pocos metros de la línea de fondo fuera del área y el juego se para hacia 45:33-45:35 con el balón en pies del Castilla y Mestre pidiendo calma. En la táctica la jugada está en la esquina izquierda de la portería de arriba (caída hacia 2812-2813 y brazos en alto de los del Gimnàstic en 2817-2820 con desfase ≈ +12) pero los jugadores se ven tan pequeños que no se pueden contar los «entre» (en la TV sólo se ve claro a Mestre más cerca de la línea de fondo que el balón).",
+        "minuto": "45'29\" (táctica 46:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2795
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-2795.mp4"
+      },
+      {
+        "clip": "of-c16",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "centro",
+        "distancia": "frontal",
+        "entre": 4,
+        "nota": "Min 49 (TV 48:21-22): Menargues (22) derriba a Mario Rivas (4) en conducción justo por encima de la media luna, algo escorado a la izquierda del ataque, a unos 22-24 m. En la táctica (desfase ≈ +15, la falta en 2986 y Mario en el suelo en 2987) quedan tres del Gimnàstic sobre la línea del área más el portero, el resto a la altura del balón. No se ve el lanzamiento en la ventana (en 2999 aún se forma la barrera).",
+        "minuto": "48'19\" (táctica 49:48)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 2965
+        },
+        "jugador": "Mario Rivas",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-2965.mp4"
+      },
+      {
+        "clip": "of-c17",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "Min 52 (TV 51:42-43): Montalvo (8) derriba a Cestero (6) dentro del círculo central, apenas pasada la línea de medio campo, y Cestero queda en el suelo (en la táctica tendido en 3189). Su línea de cuatro está sólo 3-5 m por detrás del balón: cuento 4 más el portero, con un quinto defensor casi a la altura del balón que no cuento (duda), y hacia 3201-3204 ya se juega de nuevo desde el centro del campo (no se ve bien el saque).",
+        "minuto": "51'41\" (táctica 53:10)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 3167
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-3167.mp4"
+      },
+      {
+        "clip": "of-c18",
+        "lado": "ofensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "frontal",
+        "entre": 0,
+        "nota": "Min 55 (TV 54:10-11): Carvajal (19) se va solo hacia portería tras el pase largo de Mestre y Van Rijn (5) lo derriba desde atrás justo en el borde del área, entre la media luna y el vértice derecho del ataque (Hudl dice centro, la imagen lo pone algo escorado a la derecha, en el límite del carril central). En la táctica (3336, Carvajal en el suelo en 3337) no queda ningún rival más cerca de la portería: el portero Ayesa había salido de su área y está a la altura del balón y más abierto hacia la banda, por eso entre=0 (si se le cuenta, 1). El juego sigue unos segundos (balón despejado hacia el centro del campo) antes de pararse para la roja a Van Rijn.",
+        "minuto": "54'09\" (táctica 55:38)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 3315
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-3315.mp4"
+      },
+      {
+        "clip": "of-c19",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "Min 63 (TV 62:13-14): Segura (20) derriba a Cestero (6) por detrás cuando conducía, unos 10-15 m pasada la línea de medio campo en el carril derecho del ataque. En la táctica (3820, el grupo junto a la banda izquierda de la imagen, por debajo de la línea de medio campo) cuento tres del Gimnàstic claramente más cerca de su portería más el portero, y un cuarto en el lado contrario casi a la altura del balón que no cuento (duda). Según Hudl la saca Martínez (16) unos 14 s después para seguir jugando con Cestero (no se ve en las imágenes).",
+        "minuto": "62'12\" (táctica 63:41)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 3798
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-3798.mp4"
+      },
+      {
+        "clip": "def-c08",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "TV 63:15-63:16: tras una recuperación del Gimnàstic Carvajal (19) presiona y derriba a Marc Montalvo (8) junto a la banda lejana en el campo del Gimnàstic a unos 30 m de su portería y el Gimnàstic la saca rápido en corto (63:19-63:20 ya conduce Francisco Gil). En la táctica el choque es en 3881-3882 y en 3883-3884 el balón está parado con brazos en alto de los del Gimnàstic (desfase ≈ +18) y con el Castilla presionando arriba quedan 6 claros entre el balón y su portería más Mestre (otros dos casi a la altura del balón no contados, dudosos).",
+        "minuto": "63'15\" (táctica 64:43)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 3861
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-3861.mp4"
+      },
+      {
+        "clip": "def-c09",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 6,
+        "nota": "TV 63:29-63:30: Alex Almansa (17) conduce pegado a la banda cercana tras el pase de Francisco Gil y Fortea (2 según Hudl, amarilla según Hudl) le entra y caen los dos a unos 30 m de la portería del Castilla ya dentro de su campo (no en medio campo como propone Hudl). En la táctica la entrada es en 3896 y los dos siguen en el suelo en 3897-3899 con Mestre levantando los brazos (desfase ≈ +18) y entre el balón y la portería del Castilla quedan 5 más Mestre (uno o dos casi a la altura del balón, dudosos).",
+        "minuto": "63'28\" (táctica 64:57)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 3874
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-3874.mp4"
+      },
+      {
+        "clip": "def-c10",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "TV 66:36-66:37: Eugeni Valderrama (10) conduce pegado a la banda cercana a unos 30 m de la portería del Gimnàstic y Fortea (2 según Hudl, dorsal no legible) le entra por detrás y lo derriba con el asistente levantando la bandera y el Gimnàstic la saca rápido en corto. En la táctica la caída junto a la banda izquierda es en 4082-4083 (desfase ≈ +20) y el saque en 4087-4088 y todo el Castilla salvo Fortea queda por detrás del balón: 8 claros más Mestre (uno casi a la altura del balón no contado, dudoso por los colores a esa distancia).",
+        "minuto": "66'34\" (táctica 68:03)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4060
+        },
+        "jugador": "Jesús Fortea",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-4060.mp4"
+      },
+      {
+        "clip": "of-c20",
+        "lado": "ofensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "Min 70 (TV 69:44): tras la salida de Mestre y Fortea un jugador del Castilla (Fortuny según Hudl, dorsal no legible en el suelo) conduce pegado a la banda cercana de la TV unos 35-40 m por delante de su portería y cae con Borja Sánchez (7) y Valderrama (10) encima, en el límite entre su campo y el medio campo. En la táctica (desfase ≈ +15, caída en 4269 y en el suelo en 4270-4277) quedan 4 del Gimnàstic claramente más cerca de su portería que el balón (en torno al círculo central) más Ayesa, con otro casi a la altura del balón que no cuento (duda).",
+        "minuto": "69'42\" (táctica 71:11)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4248
+        },
+        "jugador": "Pol Fortuny",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-4248.mp4"
+      },
+      {
+        "clip": "def-c11",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV 71:17-71:18: con el Castilla atacando Martínez (16) pierde el balón en el centro a unos 15 m de la línea de medio campo ya en campo del Gimnàstic y choca con Eugeni Valderrama (10) y caen los dos (71:19-71:20) y el Gimnàstic saca la falta (Montalvo según Hudl). En la táctica el choque es en 4364 y los dos en el suelo en 4365-4366 (desfase ≈ +20) y con el Castilla adelantado sólo quedan 4 claros por detrás del balón más Mestre (Fortea y otros dos abiertos en las bandas casi a la altura del balón no contados, dudosos).",
+        "minuto": "71'15\" (táctica 72:44)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4341
+        },
+        "jugador": "Martínez",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-4341.mp4"
+      },
+      {
+        "clip": "def-c12",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "TV 74:00-74:01: tras el pase de Eugeni Valderrama (10) un jugador del Castilla (Carvajal 19 según Hudl, dorsal no legible) se queda el balón en la disputa con Borja Sánchez (7) a unos 35-40 m de la portería del Gimnàstic y los del Gimnàstic levantan los brazos pidiendo mano (74:02) con el portero señalando y el árbitro la pita (Francisco Gil la saca según Hudl). En la táctica el control es en 4526 y el portero del Gimnàstic levanta el brazo en 4527-4528 (desfase ≈ +20) y con el Castilla presionando arriba quedan por detrás del balón unos 8 más Mestre (otro casi a la altura del balón no contado y colores dudosos a esa distancia).",
+        "minuto": "73'59\" (táctica 75:28)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4505
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-4505.mp4"
+      },
+      {
+        "clip": "def-c13",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": null,
+        "nota": "TV 78:40-78:47: tras el pase de Liberto (30) a Carvajal (19 según Hudl) hay un forcejeo pegado a la banda lejana a unos 10-15 m de la línea de medio campo ya en campo del Gimnàstic y un jugador del Gimnàstic (Darío Ramírez según Hudl, dorsal no legible) queda en el suelo en 78:47-78:48 y el juego se para (78:51-78:53 primer plano del jugador del Castilla con la mano vendada junto a Liberto). No está en la táctica: el dron se corta con planos fuera del campo (suelo y puerta GOL SUD) en 4779-4781 y vuelve a despegar en 4782-4783 y ni antes del corte (desfase ≈ +20) ni después (4784-4831) se reconoce el forcejeo ni la parada junto a la banda derecha. (Táctica: no se encontró la jugada en la cámara táctica.)",
+        "minuto": "78'44\" (táctica 80:00)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4790
+        },
+        "jugador": "Ángel Carvajal",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-4790.mp4"
+      },
+      {
+        "clip": "def-c14",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "derecha",
+        "distancia": "media",
+        "entre": null,
+        "nota": "TV 82:02-82:03: Darío Ramírez (24 según Hudl) conduce pegado a la banda lejana hacia la portería del Castilla y cae ante un jugador del Castilla (Aguado según Hudl, dorsal no legible) a unos 16-20 m de la línea de fondo junto a la banda con Menargues (22) pidiendo la falta y el juego parado. En la táctica es en la esquina derecha de la portería de arriba (caída hacia 4966-4967 y brazos en alto en 4968, desfase ≈ -24) pero los jugadores se ven tan pequeños que no se pueden contar los «entre» (en la TV se ven al menos Mestre y 3-4 del Castilla más cerca de su línea de fondo que el balón).",
+        "minuto": "82'01\" (táctica 82:48)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 4987
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-4987.mp4"
+      },
+      {
+        "clip": "of-c21",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "derecha",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "Min 87 (TV 86:53-54): tras la salida de Mestre, Martínez y Mario Rivas un jugador del Castilla (Cestero según Hudl, dorsal no legible) recibe junto a la banda cercana de la TV a unos 30 m de su portería y lo derriban entre dos del Gimnàstic (Francisco Gil según Hudl), con el banquillo del Castilla pidiendo la falta. En la táctica (desfase ≈ -25, caída en 5259 y en el suelo en 5260-5261) cuento 4 del Gimnàstic claramente más cerca de su portería que el balón (en la línea de medio campo) más Ayesa, y otro en el lado contrario casi a la altura del balón que no cuento. Hudl la pone en medio campo, la imagen la deja todavía en campo propio.",
+        "minuto": "86'52\" (táctica 87:40)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5278
+        },
+        "jugador": "Jorge Cestero",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-5278.mp4"
+      },
+      {
+        "clip": "def-c15",
+        "lado": "defensivo",
+        "zona": "medio campo",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 5,
+        "nota": "TV 89:43-89:44: tras un saque largo de Gaizka Ayesa Peré Marco (9) cae en el duelo aéreo con Fati Joao (23) dentro del círculo central unos 5-8 m en el campo del Castilla y el árbitro pita y señala la falta (la saca después el Gimnàstic en largo al área). En la táctica el saque de Ayesa es en 5425 y el duelo en 5429 con el 9 en el suelo en 5430-5432 (desfase ≈ -23/-24) y por detrás del balón quedan 4 del Castilla más Mestre (otro del Castilla junto a la jugada casi a la altura del balón no contado y los colores en la zona de arriba se ven pequeños: algo dudoso).",
+        "minuto": "89'42\" (táctica 90:29)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5448
+        },
+        "jugador": "Fati Joao",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-5448.mp4"
+      },
+      {
+        "clip": "of-c22",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 4,
+        "nota": "Min 91 (TV 90:31): tras recuperar el Castilla el balón largo del Gimnàstic, un jugador del Castilla (Aguado según Hudl, dorsal no legible) sale conduciendo pegado a la banda lejana de la TV y lo derriban a unos 33-38 m de su portería, en el límite con el medio campo, y el árbitro enseña amarilla (Montalvo según Hudl) en 90:34. En la táctica (desfase ≈ -25, caída en 5476 y en el suelo en 5477-5479) quedan 3 del Gimnàstic claramente más cerca de su portería que el balón más Ayesa, y uno junto al balón casi a su altura que no cuento (duda).",
+        "minuto": "90+0'29\" (táctica 91:17)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5495
+        },
+        "jugador": "Diego Aguado",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-5495.mp4"
+      },
+      {
+        "clip": "def-c16",
+        "lado": "defensivo",
+        "zona": "campo propio",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 8,
+        "nota": "TV 91:44-91:45: tras el pase de Ayesa a Francisco Gil éste abre a Alex Almansa (17) pegado a la banda cercana a la altura del borde del área del Gimnàstic y Dani Meso (22) le entra y caen los dos y el juego se para y la saca el Gimnàstic. En la táctica el pase de Ayesa es en 5545 y la entrada en 5548-5549 con los dos en el suelo junto a la banda izquierda en 5549-5550 (desfase ≈ -24) y con el Castilla presionando arriba quedan unos 7 del Castilla más Mestre entre el balón y su portería (uno dentro del área del Gimnàstic y otro junto a la jugada casi a la altura del balón no contados: dudoso).",
+        "minuto": "90+1'43\" (táctica 92:30)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5569
+        },
+        "jugador": "Dani Meso",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-5569.mp4"
+      },
+      {
+        "clip": "of-c23",
+        "lado": "ofensivo",
+        "zona": "campo propio",
+        "carril": "centro",
+        "distancia": "lejana",
+        "entre": 7,
+        "nota": "Min 93 (TV 92:07-08): saque de puerta largo de Ayesa y en el duelo aéreo en la frontal del área del Castilla un jugador del Gimnàstic (Bakış según Hudl, amarilla según Hudl) carga sobre un defensor del Castilla (Joan Martínez según Hudl, dorsal no legible), que queda tendido justo fuera del área, y el árbitro la pita en 92:10. En la táctica (desfase ≈ -24/-25, saque de puerta en 5569 y caída en 5572-5573) quedan 6 del Gimnàstic claramente más cerca de su portería que el balón más Ayesa (fuera de plano en ese instante tras sacar, contado), con otro casi a la altura del balón que no cuento (duda).",
+        "minuto": "90+2'06\" (táctica 92:53)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5592
+        },
+        "jugador": "Joan Martínez",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-of-5592.mp4"
+      },
+      {
+        "clip": "def-c17",
+        "lado": "defensivo",
+        "zona": "campo rival",
+        "carril": "izquierda",
+        "distancia": "lejana",
+        "entre": 9,
+        "nota": "TV 96:54-96:55: Alex Almansa (17) conduce pegado a la banda cercana y Dani Meso (22) le derriba por detrás a unos 30-35 m de la portería del Castilla ya dentro de su campo (no en medio campo como propone Hudl) y el árbitro le enseña amarilla (96:59) y el Gimnàstic la cuelga después al área. En la táctica la entrada es en 5859-5860 junto a la banda izquierda con los dos en el suelo en 5861 y Ayesa levantando los brazos en 5862 (desfase ≈ -24) y entre el balón y la portería del Castilla quedan unos 8 del Castilla más Mestre (sólo uno junto al círculo central por delante del balón y alguno de la banda lejana casi a la altura del balón dudoso).",
+        "minuto": "90+6'53\" (táctica 97:41)",
+        "hudl": {
+          "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+          "seg": 5879
+        },
+        "jugador": "Dani Meso",
+        "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j12-gimnastic-tarragona-def-5879.mp4"
       }
     ]
   }
