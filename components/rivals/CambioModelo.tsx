@@ -241,7 +241,7 @@ function Curva({ titulo, nota, serie, k, decimales }: { titulo: string; nota: st
         <span className="text-[13px] font-semibold text-white">{titulo}</span>
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{nota}</span>
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={`${titulo} jornada a jornada y su media de los últimos ${VENTANA}`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe block h-auto w-full" role="img" aria-label={`${titulo} jornada a jornada y su media de los últimos ${VENTANA}`}>
         <rect x={xIni} y={M.arriba} width={W - M.der - xIni} height={alto} style={{ fill: tinta(0.06) }} />
         {marcas.map((m, i) => (
           <g key={i}>

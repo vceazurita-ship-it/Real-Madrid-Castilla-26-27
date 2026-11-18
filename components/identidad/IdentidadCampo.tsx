@@ -245,7 +245,7 @@ function Cruce({ bloques }: { bloques: BloqueMedido[] }) {
   );
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" role="img" aria-label="Lo que entrenamos frente a lo que sale en el partido">
+    <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe-alto w-full" role="img" aria-label="Lo que entrenamos frente a lo que sale en el partido">
       <line x1={x(mediaCuota)} x2={x(mediaCuota)} y1={M.t} y2={H - M.b} stroke={TINTA(0.2)} strokeDasharray="3 4" />
       <line x1={M.l} x2={W - M.r} y1={y(50)} y2={y(50)} stroke={TINTA(0.2)} strokeDasharray="3 4" />
       <line x1={M.l} x2={W - M.r} y1={H - M.b} y2={H - M.b} stroke={TINTA(0.25)} />

@@ -2541,3 +2541,64 @@ html[data-pizarra-abierta] [data-menu-flotante] {
     transform: none;
   }
 }
+/* GRÁFICOS QUE CABEN EN LA PANTALLA (18/11/2026, el analista: «hay gráficos
+   que no se ven sin hacer scroll, son demasiado grandes»). Un SVG con viewBox
+   y `w-full h-auto` crece con el ancho: en una pantalla de 1440 una gráfica de
+   560 × 260 medía 1.200 × 560 y, con su título, no cabía. Con esta clase el
+   alto se queda en lo que deja ver el título encima y el dibujo se centra
+   (preserveAspectRatio por defecto); en el móvil no cambia nada porque no
+   llega al tope. */
+.grafico-cabe {
+  max-height: min(52vh, 460px);
+  margin-inline: auto;
+}
+
+.grafico-cabe-alto {
+  max-height: min(64vh, 580px);
+  margin-inline: auto;
+}
+
+/* PANTALLA COMPLETA DE UN GRÁFICO (components/ui/HerramientasGrafico.tsx).
+   La tarjeta sola, centrada y con el gráfico a todo el alto que deja el
+   título. `-css` es el respaldo del iPhone, que no pone en pantalla completa
+   nada que no sea un vídeo. */
+.grafico-en-pantalla {
+  background: var(--grafico-fondo, #0b0f14) !important;
+  overflow: auto !important;
+  padding: 28px clamp(16px, 4vw, 56px) !important;
+  display: flex !important;
+  flex-direction: column;
+  justify-content: center;
+  border-radius: 0 !important;
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.grafico-en-pantalla-css {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147482000 !important;
+  margin: 0 !important;
+  width: 100vw !important;
+  height: 100dvh !important;
+}
+
+.grafico-en-pantalla svg[viewBox],
+.grafico-en-pantalla canvas {
+  max-height: calc(100dvh - 200px) !important;
+  margin-inline: auto;
+}
+
+.grafico-pantalla-cierre {
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 2147482001;
+  border-radius: 999px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(18, 24, 32, 0.92);
+  color: #fff;
+  font: 600 12px/1 system-ui, sans-serif;
+  padding: 9px 14px;
+  cursor: pointer;
+}

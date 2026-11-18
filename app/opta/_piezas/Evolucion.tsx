@@ -261,7 +261,7 @@ export function MiniEvolucion({
           </button>
         )}
       </figcaption>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label={`${nombre}: ${equipo}, sus rivales y la media de la liga por jornada`}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe block h-auto w-full" role="img" aria-label={`${nombre}: ${equipo}, sus rivales y la media de la liga por jornada`}>
         {/* Las jornadas. */}
         {serie.map((p, i) =>
           rotula(i) ? (

@@ -946,7 +946,7 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Todas, sub-21, sub-23, su edad ±2 o un rango a mano",
             cuenta: "Se vuelve a ordenar sólo entre los de esa edad; él entra siempre. Hacen falta 5 además de él",
           },
-          { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía" },
+          { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía. Dos buscadores: «Añadir: nombre o equipo», entre los de su puesto y edad (la vara), y al lado «Cualquier jugador de Primera o Premier», por nombre, de cualquier puesto y edad", cuenta: "El del buscador libre se mide igual que los demás: con las métricas del puesto de nuestro jugador y contra la misma vara; si es de otro puesto lo dice su chapa («otro puesto»). Entran los que llevan 180′ o más en la descarga de Wyscout de esa liga" },
           { que: "Tendencia", es: "Nota partido a partido, Wyscout semana a semana y 26/27 frente a 25/26" },
         ],
       },
@@ -2650,6 +2650,8 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "«Datos de las HH:MM» en la cabecera (17/11/2026)", es: "En cuanto llega lo primero de la pantalla, la cabecera dice la hora de lo que se ve; el icono gira mientras llega lo demás. Si una parte tarda más de 20 s (el seguimiento, con la hoja de Google en frío), sigue diciendo la hora y al pulsar se baja todo de nuevo. Antes se quedaba girando sin hora en la portada", cuenta: "La hora es la de la última bajada terminada en esta pestaña" },
           { que: "En el móvil", es: "Las tarjetas dejan libre a la derecha el carril del botón ⋮ de herramientas, para que no tape su canto" },
           { que: "Descargar un gráfico o una zona en HD (todas las pantallas)", es: "Herramientas → Exportar → «Elegir una zona · PNG HD»: al pasar el ratón se resalta la tarjeta o el gráfico de debajo y al pinchar se fija (en el móvil, tocándola). «Más grande» y «Más pequeña» (o ↑ ↓) pasan de la gráfica a su tarjeta o a la sección entera; «Descargar PNG HD» la baja y «Copiar» la deja para pegarla en PowerPoint, el correo o WhatsApp. Intro descarga, Esc sale. Mientras se elige, pinchar no abre nada de la página", cuenta: "La foto sale con el lado largo de unos 3.000 px (de ×3 a ×6 según el tamaño, recortado a lo que pinta el aparato), con un margen del color del fondo; la etiqueta dorada dice el tamaño final. Si la zona tiene scroll propio, sale entera. Lo de las herramientas no sale nunca" },
+          { que: "Botones de cada gráfico (todas las pantallas)", es: "Al pasar el ratón por una tarjeta con un gráfico sale arriba a la derecha «PNG HD» (la tarjeta en alta resolución), «Pantalla completa» (la tarjeta sola, con el gráfico a todo el alto; Esc o «Salir» vuelve) y, si la tarjeta tiene un selector de jornada, «Vídeo por jornadas»: un MP4 que pasa el selector de la primera jornada a la última y enseña cómo cambia el gráfico, con la jornada rotulada. En el móvil salen al tocar la tarjeta", cuenta: "El vídeo es el mismo gráfico de la pantalla: mientras se monta, el selector se mueve solo y al acabar vuelve a donde estaba (los enlaces esperan a que termine). 0,75 s por jornada con un fundido corto y la última, 2,5 s. No salen en las pizarras ni en los editores" },
+          { que: "Gráficos que caben en la pantalla (18/11/2026)", es: "Los gráficos que crecían con el ancho (en 1440 px, alguno pasaba de 550 px de alto y con su título no se veía sin bajar) tienen un tope de alto y se centran: «Si le dejamos tocar», «¿Se le rompe la salida?», nuestra salida contra la presión, cambio de modelo, evolución comparada, por dónde ataca, los mapas de dos ejes, la red de parecidos, el campo de saques de banda, la radiografía de percentiles y la tendencia de la ficha, entre otros" },
           { que: "Preparar el partido · lo de hoy (MD-n), primero", es: "UNA sola botonera bajo el botón azul (18/11/2026: antes los botones del partido y «Del rival» iban aparte y repetían destinos). Primero, con una raya dorada a la izquierda, lo que toca hoy: MD y MD-1, En directo (el día de partido), PDF y vídeo ABP por jugador, Plan de partido, Duelos; MD+1 y MD+2, Informe post, Análisis de datos, Histórico; MD-2 a MD-4, Scout colectivo, ABP rival y Microciclo ABP. Después, lo demás con el rival puesto: Plan de partido, Microciclo ABP, Pizarra táctica (a pantalla completa con los dos onces), Desplazamiento (sólo fuera), Scout colectivo, ABP rival, Pizarra ABP, Duelos, Sus jugadores (los vídeos de sus jugadores) y Coding (admin). Cada destino sale una sola vez", cuenta: "Duelos y Sus jugadores llevan las dos llaves del rival: ?rival=ID de la hoja RIVALES y ?equipo=nombre" },
           {
             que: "<Rival> en vídeo: Sus goles · Cómo le marcan · Su último partido (16/11/2026)",
@@ -3036,7 +3038,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "En pérdidas, remates en contra, juego largo y PPDA, menos es mejor: el percentil ya lo tiene en cuenta.",
       "Si un principio deja de estar en la hoja del modelo, desaparece de la pantalla.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-18",
   },
 
   /* ==================== IDENTIDAD Y CULTURA (12/11/2026) ==================== */

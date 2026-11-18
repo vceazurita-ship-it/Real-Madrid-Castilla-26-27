@@ -97,7 +97,7 @@ function GraficoNotas({ puntos, mediaCurso }: { puntos: PuntoNota[]; mediaCurso:
   const cadaCuanto = Math.max(1, Math.ceil(puntos.length / 6));
 
   return (
-    <svg viewBox={`0 0 ${an} ${al}`} className="h-auto w-full" role="img" aria-label="Nota por partido, media móvil de tres y media del curso">
+    <svg viewBox={`0 0 ${an} ${al}`} className="grafico-cabe h-auto w-full" role="img" aria-label="Nota por partido, media móvil de tres y media del curso">
       {marcas.map((v) => (
         <g key={v}>
           <line x1={24} x2={an - 12} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.1} />
@@ -143,7 +143,7 @@ function Chispa({ valores, referencia, debiles, color = ORO, alto = 56 }: { valo
   if (actual.length) tramos.push(actual.join(" "));
 
   return (
-    <svg viewBox={`0 0 ${an} ${alto}`} className="h-auto w-full" aria-hidden>
+    <svg viewBox={`0 0 ${an} ${alto}`} className="grafico-cabe h-auto w-full" aria-hidden>
       {referencia !== null && <line x1={0} x2={an} y1={y(referencia)} y2={y(referencia)} stroke="currentColor" strokeOpacity={0.4} strokeDasharray="3 3" />}
       {tramos.map((t, k) => (
         <polyline key={k} points={t} fill="none" stroke={color} strokeOpacity={0.7} strokeWidth={2} strokeLinejoin="round" />

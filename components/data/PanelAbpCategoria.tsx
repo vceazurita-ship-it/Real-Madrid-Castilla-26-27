@@ -162,7 +162,7 @@ function MediaCampo({
   const arco = Math.sqrt(9.15 ** 2 - (16.5 - 11) ** 2);
 
   return (
-    <svg viewBox={`-2 -3 ${AN + 4} ${AL + 5}`} className="block h-auto w-full" role="img" aria-label="Media parte del campo con la portería arriba">
+    <svg viewBox={`-2 -3 ${AN + 4} ${AL + 5}`} className="grafico-cabe-alto block h-auto w-full" role="img" aria-label="Media parte del campo con la portería arriba">
       <rect x={0} y={0} width={AN} height={AL} fill={tinta(0.03)} stroke={linea} strokeWidth={0.25} />
       <rect x={30.34} y={-1.6} width={7.32} height={1.6} fill="none" stroke={linea} strokeWidth={0.25} />
       <rect x={13.84} y={0} width={40.32} height={16.5} fill="none" stroke={linea} strokeWidth={0.25} />

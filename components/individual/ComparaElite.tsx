@@ -92,6 +92,7 @@ export function ComparaElite({
   puesto,
   nombreCorto,
   elite,
+  todos = [],
   sugeridos,
   actualizado,
 }: {
@@ -99,12 +100,15 @@ export function ComparaElite({
   puesto: Puesto;
   nombreCorto: string;
   elite: JugadorElite[];
+  /** Todos los de Primera y Premier, de cualquier edad y puesto (el buscador libre). */
+  todos?: JugadorElite[];
   /** Los que más se le parecen (ids «jugador|equipo»), para empezar con algo. */
   sugeridos: string[];
   actualizado?: string | null;
 }) {
   const [elegidos, setElegidos] = useState<string[] | null>(null);
   const [busca, setBusca] = useState("");
+  const [buscaLibre, setBuscaLibre] = useState("");
 
   /* La vara: élite de su puesto y edad; si son pocos, todas las edades. */
   const vara = useMemo(() => {
@@ -114,7 +118,10 @@ export function ComparaElite({
   }, [elite, puesto, fila.edad]);
 
   const ids = (elegidos ?? sugeridos.filter((id) => vara.lista.some((j) => idDe(j) === id))).slice(0, MAX);
-  const comparados = ids.map((id) => vara.lista.find((j) => idDe(j) === id)).filter((j): j is JugadorElite => Boolean(j));
+  /* Los del buscador libre pueden ser de otro puesto o edad: se miden igual, contra la misma vara y con las métricas del puesto de él. */
+  const comparados = ids
+    .map((id) => vara.lista.find((j) => idDe(j) === id) ?? todos.find((j) => idDe(j) === id))
+    .filter((j): j is JugadorElite => Boolean(j));
 
   /* Sin memorizar: son unas decenas de jugadores y se recalcula sólo al elegir. */
   const calculo = (() => {
@@ -161,6 +168,17 @@ export function ComparaElite({
     .sort((a, b) => a.jugador.localeCompare(b.jugador, "es"))
     .slice(0, busca.trim() ? 12 : 0);
 
+  const libres = (() => {
+    const q = buscaLibre.trim().toLowerCase();
+    if (q.length < 2) return [];
+    const sinTildes = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const qq = sinTildes(q);
+    return todos
+      .filter((j) => !ids.includes(idDe(j)) && sinTildes(`${j.jugador} ${j.equipo}`).includes(qq))
+      .sort((a, b) => b.minutos - a.minutos)
+      .slice(0, 15);
+  })();
+
   const pon = (lista: string[]) => setElegidos(lista.slice(0, MAX));
 
   return (
@@ -185,7 +203,7 @@ export function ComparaElite({
           <span key={idDe(j)} className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-1 text-[12px]">
             <span style={{ color: COLORES[k] }}>●</span>
             <span className="font-semibold text-white/90">{j.jugador}</span>
-            <span className="text-white/50">· {j.equipo} · {j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
+            <span className="text-white/50">· {j.equipo} · {j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′{puestoDe(j.posicion) !== puesto && j.posicion ? ` · ${j.posicion.split(",")[0].trim()} (otro puesto)` : ""}</span>
             {calculo.indices[k] != null && <span className="text-white/70" title="Nota de perfil contra la misma vara">· nota {calculo.indices[k]}</span>}
             <button type="button" aria-label={`Quitar a ${j.jugador}`} onClick={() => pon(ids.filter((x) => x !== idDe(j)))} className="ml-0.5 rounded-full p-0.5 text-white/50 hover:bg-white/10 hover:text-white">
               <X size={12} />
@@ -221,6 +239,43 @@ export function ComparaElite({
                     >
                       <span className="min-w-0 truncate text-white/90">{j.jugador} <span className="text-white/45">· {j.equipo}</span></span>
                       <span className="shrink-0 text-white/45">{j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        {ids.length < MAX && todos.length > 0 && (
+          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+            <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" aria-hidden />
+            <input
+              value={buscaLibre}
+              onChange={(e) => setBuscaLibre(e.target.value)}
+              placeholder="Cualquier jugador de Primera o Premier"
+              aria-label="Buscar por nombre a cualquier jugador de Primera o Premier, sea cual sea su puesto"
+              title="Cualquier puesto y edad con 180′ o más. Se mide con las métricas del puesto de este jugador y contra la misma vara"
+              className="w-full rounded-lg border border-white/10 bg-white/[0.04] py-1.5 pl-7 pr-2 text-[12px] text-white placeholder:text-white/35"
+            />
+            {buscaLibre.trim().length >= 3 && libres.length === 0 && (
+              <p className="absolute left-0 right-0 top-full z-20 mt-1 rounded-lg border border-white/10 bg-[#11161C] px-3 py-2 text-[12px] text-white/70 shadow-xl">
+                Nadie con ese nombre entre los {todos.length} de Primera y Premier con 180′ o más.
+              </p>
+            )}
+            {libres.length > 0 && (
+              <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-lg border border-white/10 bg-[#11161C] py-1 shadow-xl">
+                {libres.map((j) => (
+                  <li key={idDe(j)}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        pon([...ids, idDe(j)]);
+                        setBuscaLibre("");
+                      }}
+                      className="flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-white/[0.06]"
+                    >
+                      <span className="min-w-0 truncate text-white/90">{j.jugador} <span className="text-white/45">· {j.equipo}</span></span>
+                      <span className="shrink-0 text-white/45">{j.posicion ? `${j.posicion.split(",")[0].trim()} · ` : ""}{j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
                     </button>
                   </li>
                 ))}

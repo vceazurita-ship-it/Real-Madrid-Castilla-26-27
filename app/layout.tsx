@@ -11,6 +11,7 @@ import { PageExportButton } from "@/components/page-export-button";
 import { ThemeProvider } from "@/components/theme-provider";
 import { DEFAULT_THEME, THEME_COLOR, THEME_STORAGE_KEY } from "@/lib/theme";
 import { MenuFlotante } from "@/components/ui/MenuFlotante";
+import { HerramientasGrafico } from "@/components/ui/HerramientasGrafico";
 import { Paleta } from "@/components/ui/Paleta";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { ThemedToaster } from "@/components/themed-toaster";
@@ -133,6 +134,9 @@ export default function RootLayout({
               <ThemeToggle />
               <PageExportButton />
             </MenuFlotante>
+
+            {/* PNG HD, pantalla completa y vídeo por jornadas en la esquina de cada gráfico (18/11/2026). */}
+            <HerramientasGrafico />
 
             {/* Ctrl+K: ir a cualquier pantalla tecleando. Una vez para toda la app. */}
             <Paleta />

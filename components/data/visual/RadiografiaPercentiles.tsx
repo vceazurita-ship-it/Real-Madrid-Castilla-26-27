@@ -70,7 +70,7 @@ export function RadiografiaPercentiles({ cunas, acento = "#EC4899", centro = "/9
   if (colocadas.length < 4) return null;
 
   return (
-    <svg viewBox={`-40 100 ${ANCHO + 80} ${ALTO - 180}`} className="h-auto w-full" role="img" aria-label={`Radiografía de percentiles: ${cunas.map((c) => `${c.nombre} p${Math.round(c.percentil)}`).join(", ")}`}>
+    <svg viewBox={`-40 100 ${ANCHO + 80} ${ALTO - 180}`} className="grafico-cabe-alto h-auto w-full" role="img" aria-label={`Radiografía de percentiles: ${cunas.map((c) => `${c.nombre} p${Math.round(c.percentil)}`).join(", ")}`}>
       <defs>
         <radialGradient id="rp-halo">
           <stop offset="55%" stopColor={acento} stopOpacity="0.10" />

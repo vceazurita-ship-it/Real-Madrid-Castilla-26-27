@@ -137,7 +137,7 @@ function Cifra({ valor, que, oro = false }: { valor: string; que: string; oro?: 
   );
 }
 
-const W = 560;
+const W = 720;
 const H = 260;
 const M = { izq: 36, der: 14, arriba: 14, abajo: 36 };
 
@@ -164,7 +164,7 @@ function Grafica({ datos }: { datos: NonNullable<ReturnType<typeof presionSalida
 
   return (
     <figure className="portada-celda m-0 mt-3 min-w-0 p-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label="PPDA del oponente contra pérdidas en campo propio, un punto por partido">
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe block h-auto w-full" role="img" aria-label="PPDA del oponente contra pérdidas en campo propio, un punto por partido">
         {nuestroPpda != null && (
           <rect
             x={xDe(Math.max(xLo, nuestroPpda - MARGEN_PPDA))}

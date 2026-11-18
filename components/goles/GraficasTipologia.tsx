@@ -281,7 +281,7 @@ function LineaGoles({ goles, resaltado, onResalta, onGol }: { goles: GolConTipo[
   const marcas = [1, 15, 30, 45, 60, 75, 90];
 
   return (
-    <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} className="h-auto w-full" role="img" aria-label="Los goles en su minuto, con su tipo">
+    <svg viewBox={`0 0 ${ANCHO} ${ALTO}`} className="grafico-cabe h-auto w-full" role="img" aria-label="Los goles en su minuto, con su tipo">
       {/* Fondos: cada parte y los descuentos. */}
       <rect x={MARGEN} y={EJE - 100} width={X_DESC1 - MARGEN - 6} height={200} rx={8} fill="currentColor" opacity={0.03} />
       <rect x={X_DESC1 - 4} y={EJE - 100} width={X_P2 - X_DESC1 - 6} height={200} rx={8} fill="#C8A96B" opacity={0.08} />

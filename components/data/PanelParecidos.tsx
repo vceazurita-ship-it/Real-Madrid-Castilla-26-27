@@ -311,7 +311,7 @@ export function PanelParecidos({ partidos }: { partidos: FilaPartido[] }) {
           <div className={`grid gap-4 xl:grid-cols-[minmax(0,1fr)_340px] ${tipoRed === "lista" ? "hidden" : ""}`}>
             {/* ---------------- la red (en el móvil se desliza en vez de encogerse hasta no leerse) ---------------- */}
             <div className="parecidos-red overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-              <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full min-w-[680px]" role="group" aria-label={`Red de ${modo} parecidos`}>
+              <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe h-auto w-full min-w-[680px]" role="group" aria-label={`Red de ${modo} parecidos`}>
                 {red.aristas.map(({ a, b, peso }) => {
                   const marcada = a === iActual || b === iActual;
                   const apagada = focoValido !== null && (red.elementos[a].comunidad !== focoValido || red.elementos[b].comunidad !== focoValido);

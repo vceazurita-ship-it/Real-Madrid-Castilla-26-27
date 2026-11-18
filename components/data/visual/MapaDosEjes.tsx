@@ -160,7 +160,7 @@ export function MapaDosEjes({
 
   return (
     <div ref={caja} className="space-y-2">
-      <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto h-auto w-full max-w-[860px]" role="img" aria-label={`${ejeY} frente a ${ejeX}`} onMouseLeave={() => setEncima(null)}>
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe-alto mx-auto h-auto w-full max-w-[860px]" role="img" aria-label={`${ejeY} frente a ${ejeX}`} onMouseLeave={() => setEncima(null)}>
         <polygon points={`${px(umbral - 100)},${py(100)} ${px(100)},${py(100)} ${px(100)},${py(umbral - 100)}`} fill={acento} fillOpacity={0.14} />
         <line {...diagonal(umbral)} stroke={acento} strokeWidth={2} />
 

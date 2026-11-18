@@ -146,7 +146,7 @@ function Cifra({ valor, que, color }: { valor: string; que: string; color?: stri
   );
 }
 
-const W = 560;
+const W = 720;
 const H = 260;
 const M = { izq: 36, der: 14, arriba: 14, abajo: 36 };
 
@@ -176,7 +176,7 @@ function Grafica({ datos }: { datos: Datos }) {
 
   return (
     <figure className="portada-celda m-0 mt-3 min-w-0 p-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label="PPDA del oponente contra pases por posesión del rival, un punto por partido, con la recta y nuestros dos escenarios">
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe block h-auto w-full" role="img" aria-label="PPDA del oponente contra pases por posesión del rival, un punto por partido, con la recta y nuestros dos escenarios">
         {marcasY.map((m, i) => (
           <g key={`y${i}`}>
             <line x1={M.izq} x2={W - M.der} y1={yDe(m)} y2={yDe(m)} style={{ stroke: tinta(0.08), strokeWidth: 1 }} />

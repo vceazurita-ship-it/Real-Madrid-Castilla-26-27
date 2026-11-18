@@ -162,7 +162,7 @@ function Cifra({ valor, que, azul = false }: { valor: string; que: string; azul?
   );
 }
 
-const W = 560;
+const W = 720;
 const H = 260;
 const M = { izq: 36, der: 14, arriba: 14, abajo: 36 };
 
@@ -193,7 +193,7 @@ function Grafica({ datos, nombre }: { datos: SalidaPropia; nombre: string }) {
 
   return (
     <figure className="portada-celda m-0 mt-3 min-w-0 p-3">
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label="PPDA del rival contra nuestras pérdidas en campo propio, un punto por partido">
+      <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe block h-auto w-full" role="img" aria-label="PPDA del rival contra nuestras pérdidas en campo propio, un punto por partido">
         {ppdaRival != null && (
           <rect x={xDe(tramoIzq)} y={M.arriba} width={Math.max(0, xDe(tramoDer) - xDe(tramoIzq))} height={alto} style={{ fill: ORO, opacity: 0.1 }} />
         )}

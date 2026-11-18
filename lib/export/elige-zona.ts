@@ -46,7 +46,7 @@ function transparente(color: string) {
 }
 
 /** ¿Parece una tarjeta? Fondo propio, borde, sombra, o marcada a mano. */
-function esCaja(el: HTMLElement) {
+export function esCaja(el: HTMLElement) {
   if (el.hasAttribute("data-export-zona") || el.hasAttribute("data-export-panel")) return true;
 
   const r = el.getBoundingClientRect();
@@ -102,7 +102,7 @@ function propuesta(cadena: HTMLElement[]) {
   return grafico >= 0 ? grafico : 0;
 }
 
-function nombreDe(el: Element) {
+export function nombreDe(el: Element) {
   const titulo =
     el.getAttribute("data-export-zona") ||
     el.getAttribute("aria-label") ||
@@ -122,7 +122,7 @@ function slug(texto: string) {
     .slice(0, 40);
 }
 
-function fondoDe(el: Element) {
+export function fondoDe(el: Element) {
   for (let n: Element | null = el; n; n = n.parentElement) {
     const bg = getComputedStyle(n).backgroundColor;
     if (!transparente(bg)) return bg;
@@ -147,7 +147,7 @@ function hayFotosDeFuera(root: Element) {
   });
 }
 
-async function fotografia(el: HTMLElement): Promise<Blob> {
+export async function fotografia(el: HTMLElement, lado = LADO_OBJETIVO, margen = MARGEN): Promise<Blob> {
   await fuentesListas();
 
   const r = el.getBoundingClientRect();
@@ -181,7 +181,7 @@ async function fotografia(el: HTMLElement): Promise<Blob> {
     await conLimite(toSvg(el, conTope(opciones))).catch(() => undefined);
   }
 
-  const deseada = Math.min(6, Math.max(3, LADO_OBJETIVO / Math.max(ancho, alto, 1)));
+  const deseada = Math.min(6, Math.max(lado >= LADO_OBJETIVO ? 3 : 1, lado / Math.max(ancho, alto, 1)));
   const foto = await capturaNodo(el, { ...opciones, pixelRatio: deseada });
 
   /* Margen alrededor, del mismo fondo: se pega mejor en una diapositiva. */
@@ -192,7 +192,7 @@ async function fotografia(el: HTMLElement): Promise<Blob> {
     img.src = foto.dataUrl;
   });
 
-  const m = Math.round(MARGEN * foto.nitidez);
+  const m = Math.round(margen * foto.nitidez);
   const lienzo = document.createElement("canvas");
   lienzo.width = img.naturalWidth + m * 2;
   lienzo.height = img.naturalHeight + m * 2;
@@ -210,12 +210,12 @@ async function fotografia(el: HTMLElement): Promise<Blob> {
   return blob;
 }
 
-function nombreFichero(el: Element) {
+export function nombreFichero(el: Element, extension = "png") {
   const ruta = location.pathname.split("/").filter(Boolean).join("-") || "portada";
   const hoy = new Date();
   const fecha = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, "0")}-${String(hoy.getDate()).padStart(2, "0")}`;
 
-  return [ruta.slice(0, 40), slug(nombreDe(el)) || "zona", fecha].join("_") + ".png";
+  return [ruta.slice(0, 40), slug(nombreDe(el)) || "zona", fecha].join("_") + `.${extension}`;
 }
 
 /* ------------------------------------------------------------------ */
@@ -461,4 +461,26 @@ export function eligeZona() {
   }
 
   activo = cierra;
+}
+
+/** Baja una zona ya elegida en PNG HD, en segundo plano (la usan los botones de cada gráfico). */
+export function descargaZona(el: HTMLElement) {
+  const titulo = `PNG HD · ${nombreDe(el) || "gráfico"}`;
+  if (descargaEnMarcha(titulo)) return;
+
+  const nombre = nombreFichero(el);
+
+  encargaDescarga({
+    titulo,
+    vuelta: location.pathname + location.search,
+    pantalla: true,
+    tarea: async ({ avanza, sueltaPantalla }) => {
+      avanza("Fotografiando el gráfico…", 0.2);
+      try {
+        return { blob: await fotografia(el), nombre };
+      } finally {
+        sueltaPantalla();
+      }
+    },
+  });
 }

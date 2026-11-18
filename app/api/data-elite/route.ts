@@ -14,6 +14,11 @@ export const dynamic = "force-dynamic";
 | mes `scripts/wyscout-elite.cmd` a public/data/wys-elite/<liga>/. Se leen con
 | el mismo lector que la categoría y se quedan en memoria hasta que cambia la
 | carpeta. Sólo van los que pueden servir de espejo: menores de 28 con 450′.
+|
+| Con `?todos=1` (18/11/2026, el analista: «un buscador por nombre de cualquier
+| jugador de las dos ligas con independencia de la posición») va además
+| `todos`: cualquier edad y puesto con 180′ o más, para el buscador libre del
+| cara a cara de la ficha individual.
 */
 
 const LIGAS = [
@@ -23,12 +28,16 @@ const LIGAS = [
 
 const EDAD_MAXIMA = 28;
 const MINUTOS = 450;
+/** El buscador libre: cualquiera que haya jugado algo de verdad. */
+const MINUTOS_TODOS = 180;
 
-type Respuesta = { actualizado: string | null; ligas: { liga: string; jugadores: FilaJugador[] }[] };
+type Liga = { liga: string; jugadores: FilaJugador[] };
+type Respuesta = { actualizado: string | null; ligas: Liga[]; todos: Liga[] };
 
 let cache: { firma: string; datos: Respuesta } | null = null;
 
-export async function GET() {
+export async function GET(req: Request) {
+  const conTodos = new URL(req.url).searchParams.get("todos") === "1";
   const raiz = path.join(process.cwd(), "public", "data", "wys-elite");
   const ficheros: { liga: string; ruta: string; mtime: number }[] = [];
 
@@ -46,12 +55,19 @@ export async function GET() {
 
   if (cache?.firma !== firma) {
     const porLiga = new Map<string, Map<string, FilaJugador>>();
+    const todosPorLiga = new Map<string, Map<string, FilaJugador>>();
 
     for (const f of ficheros) {
       const filas = jugadoresDeXlsx(await fs.readFile(f.ruta));
       const mapa = porLiga.get(f.liga) ?? new Map<string, FilaJugador>();
+      const todos = todosPorLiga.get(f.liga) ?? new Map<string, FilaJugador>();
 
       for (const j of filas) {
+        if (j.minutos >= MINUTOS_TODOS) {
+          const clave = `${j.jugador}|${j.equipo}`;
+          const hay = todos.get(clave);
+          if (!hay || j.minutos > hay.minutos) todos.set(clave, { ...j, temporada: "actual" });
+        }
         if (j.minutos < MINUTOS || !j.edad || j.edad > EDAD_MAXIMA) continue;
         const clave = `${j.jugador}|${j.equipo}`;
         const hay = mapa.get(clave);
@@ -60,6 +76,7 @@ export async function GET() {
       }
 
       porLiga.set(f.liga, mapa);
+      todosPorLiga.set(f.liga, todos);
     }
 
     cache = {
@@ -67,9 +84,12 @@ export async function GET() {
       datos: {
         actualizado: ficheros.length ? new Date(Math.max(...ficheros.map((f) => f.mtime))).toISOString().slice(0, 10) : null,
         ligas: [...porLiga].map(([liga, mapa]) => ({ liga, jugadores: [...mapa.values()] })),
+        todos: [...todosPorLiga].map(([liga, mapa]) => ({ liga, jugadores: [...mapa.values()] })),
       },
     };
   }
 
-  return NextResponse.json(cache.datos, { headers: { "Cache-Control": "public, max-age=3600" } });
+  const { todos, ...base } = cache.datos;
+
+  return NextResponse.json(conTodos ? { ...base, todos } : base, { headers: { "Cache-Control": "public, max-age=3600" } });
 }

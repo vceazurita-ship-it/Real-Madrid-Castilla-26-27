@@ -149,7 +149,7 @@ function GraficaPuesto({
     const x = (i: number) => m.izq + (i / (serie.length - 1)) * (ancho - m.izq - m.der);
     const y = (p: number) => m.arr + ((p - 1) / Math.max(1, tope - 1)) * (alto - m.arr - m.abj);
     return (
-      <svg viewBox={`0 0 ${ancho} ${alto}`} className={`h-auto w-full ${clase}`} role="img" aria-label={`Puesto tras cada jornada: del ${serie[0].p}º al ${serie[serie.length - 1].p}º`}>
+      <svg viewBox={`0 0 ${ancho} ${alto}`} className={`grafico-cabe h-auto w-full ${clase}`} role="img" aria-label={`Puesto tras cada jornada: del ${serie[0].p}º al ${serie[serie.length - 1].p}º`}>
         {Array.from({ length: tope }, (_, k) => k + 1).map((v) => (
           <line key={v} x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={marcas.includes(v) ? 0.16 : 0.05} />
         ))}
@@ -239,7 +239,7 @@ function GraficaPuntos({
     const puntosLiga = jugados.flatMap((u, i) => (liga.has(u.jornada) ? [`${x(i)},${y(liga.get(u.jornada)!)}`] : []));
 
     return (
-      <svg viewBox={`0 0 ${W} ${H}`} className={`mt-3 h-auto w-full ${clase}`} role="img" aria-label="Puntos acumulados del Castilla frente a la media de la liga">
+      <svg viewBox={`0 0 ${W} ${H}`} className={`grafico-cabe mt-3 h-auto w-full ${clase}`} role="img" aria-label="Puntos acumulados del Castilla frente a la media de la liga">
         {Array.from({ length: tope / paso + 1 }, (_, k) => k * paso).map((v) => (
           <g key={v}>
             <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />

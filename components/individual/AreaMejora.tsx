@@ -68,7 +68,7 @@ const VERDE = "#1B9E77";
 const COLOR_LIGA = ["#A78BFA", "#22D3EE"];
 
 /** /api/data-elite: los «Search results» de Primera y Premier, menores de 28 con 450′. */
-type Elite = { actualizado: string | null; ligas: { liga: string; jugadores: FilaJugador[] }[] };
+type Elite = { actualizado: string | null; ligas: { liga: string; jugadores: FilaJugador[] }[]; todos?: { liga: string; jugadores: FilaJugador[] }[] };
 
 /*
 | «Se parece a»: el estilo, no el nivel. Cada métrica del puesto se pasa a
@@ -200,7 +200,7 @@ export function AreaMejora({
       setJugadores(lista ?? []);
       setSinDatos(!lista);
     });
-    fetch("/api/data-elite")
+    fetch("/api/data-elite?todos=1")
       .then((r) => (r.ok ? r.json() : null))
       .then((e: Elite | null) => vivo && e?.ligas?.length && setElite(e))
       .catch(() => {});
@@ -370,6 +370,8 @@ export function AreaMejora({
   }, [elite, analisis]);
 
   const eliteJugadores = useMemo<JugadorElite[]>(() => (elite ? elite.ligas.flatMap((l) => l.jugadores.map((j) => ({ ...j, liga: l.liga }))) : []), [elite]);
+  /* El buscador libre del cara a cara: cualquier edad y puesto de las dos ligas (18/11/2026). */
+  const eliteTodos = useMemo<JugadorElite[]>(() => (elite?.todos ? elite.todos.flatMap((l) => l.jugadores.map((j) => ({ ...j, liga: l.liga }))) : []), [elite]);
 
   if (jugadores === null) {
     return (
@@ -661,6 +663,7 @@ export function AreaMejora({
               puesto={analisis.puesto}
               nombreCorto={apodo || nombre}
               elite={eliteJugadores}
+              todos={eliteTodos}
               sugeridos={contraElite.flatMap((e) => e.parecidos.filter((x) => x.sim >= 0.4).slice(0, 1).map((x) => `${x.j.jugador}|${x.j.equipo}`))}
               actualizado={elite?.actualizado}
             />

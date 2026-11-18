@@ -311,7 +311,7 @@ function CampoCarriles({
   return (
     <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
       <figure className="m-0 w-full max-w-[15rem] shrink-0">
-        <svg viewBox="-2 -2 80 60" className="block w-full" role="img" aria-label={`Reparto de sus acciones de ataque por carril: ${partes.map((p) => `${p.label} ${Math.round((p.suma / total) * 100)} %`).join(", ")}`}>
+        <svg viewBox="-2 -2 80 60" className="grafico-cabe-alto block w-full" role="img" aria-label={`Reparto de sus acciones de ataque por carril: ${partes.map((p) => `${p.label} ${Math.round((p.suma / total) * 100)} %`).join(", ")}`}>
           {partes.map((p, i) => {
             const k = p.suma / max;
             return (

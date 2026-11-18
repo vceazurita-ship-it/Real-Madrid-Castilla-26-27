@@ -228,11 +228,11 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
       </div>
 
       {/* 17/11/2026 (jueces, ronda 20): la dirección del ataque, en grande y encima del campo. */}
-      <p className="mx-auto mb-2 flex w-full max-w-[1200px] items-center justify-between text-[12px] font-semibold uppercase tracking-[0.14em] text-white/70">
+      <p className="mx-auto mb-2 flex w-full max-w-[min(1200px,calc((100dvh-300px)*1.6))] items-center justify-between text-[12px] font-semibold uppercase tracking-[0.14em] text-white/70">
         <span>{isOffensive ? "Nuestra portería" : "← El rival ataca hacia aquí"}</span>
         <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Su portería"}</span>
       </p>
-      <div className="relative mx-auto aspect-[16/10] w-full max-w-[1200px] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
+      <div className="relative mx-auto aspect-[16/10] w-full max-w-[min(1200px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
         <BoardViewport className="absolute inset-0" label="Mapa de saques de banda">
         {/*
           El césped viaja dentro del visor: si se quedara en el marco, al

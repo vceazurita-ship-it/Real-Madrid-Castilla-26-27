@@ -58,7 +58,7 @@ export function PlanoRegate({ r }: { r: RegateDelDuelo }) {
       </div>
 
       <div className="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,1fr)_minmax(0,11rem)]">
-        <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label={`Regates intentados contra completados por 90 de los extremos de la categoría; ${quien} resaltado`}>
+        <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe h-auto w-full" role="img" aria-label={`Regates intentados contra completados por 90 de los extremos de la categoría; ${quien} resaltado`}>
           {/* Rejilla y ejes, recesivos. */}
           {marcasX.map((v) => (
             <g key={`x${v}`}>
