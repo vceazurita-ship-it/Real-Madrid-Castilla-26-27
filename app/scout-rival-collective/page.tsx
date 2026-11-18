@@ -42,6 +42,7 @@ import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { AmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { CambioModelo } from "@/components/rivals/CambioModelo";
+import { PresionSalida } from "@/components/rivals/PresionSalida";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -1975,6 +1976,9 @@ export default function ScoutRivalCollective() {
 
           {/* ¿Ha cambiado su modelo? (17/11/2026): PPDA y pases por partido, media móvil de 5 y últimos 5 contra el resto. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <CambioModelo equipo={rivalActivo.EQUIPO} />}
+
+          {/* Cómo sale · ¿se le rompe la salida si le presionamos? (18/11/2026): PPDA de su oponente contra sus pérdidas en campo propio, partido a partido. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <PresionSalida equipo={rivalActivo.EQUIPO} />}
 
           {/*
             Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.
