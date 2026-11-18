@@ -11,6 +11,8 @@ import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 
 import { colorPercentil, Evolucion, LeyendaPercentil, tinta } from "@/components/data/graficas";
+import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
+import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { CASTILLA_OPTA, num, PUESTO_OPTA } from "@/lib/opta";
 import { CLAVES_JUGADOR, enAmbito, familiaDe, fechaCorta, posicionEn, valorJugador, valorPartido, type Ambito, type Fila } from "@/lib/opta-analisis";
 import { cortoMetrica, defMetrica, METRICAS_OPTA, nombreMetrica, PERFIL_FAMILIA } from "@/lib/opta-nombres";
@@ -20,6 +22,9 @@ import { PerfilRemate } from "./PerfilRemate";
 import { RematesJugador } from "./Remates";
 import { TemporadasJugador } from "./Temporadas";
 import type { DatosOpta } from "./useOpta";
+
+/** Lo que se hace sin balón (va a la izquierda de la radiografía); el resto, con balón. */
+const SIN_BALON = new Set(["Int", "Clrnce", "Recovery", "PosWonM3rd", "PosWonA3rd", "Duel%", "Aerial%", "AerialWon", "Tackle%", "FoulCom", "Saves", "SvInBox", "GABA", "GAg", "ExpGAg", "CrossClaim"]);
 
 const PERFIL_GENERAL = ["Goal", "ExpG", "Chance", "xA", "Pass%", "Recovery", "Duel%", "PossLost"];
 
@@ -68,6 +73,7 @@ export function FichaJugador({
 }) {
   const { jugadores, castilla, castillaPartidos, grupos, catalogo } = datos;
   const [ambito, setAmbito] = useState<Ambito>("todos");
+  const [vistaPerfil, setVistaPerfil] = useTipoGrafico<"pizza" | "barras">("opta-ficha-perfil", "pizza", ["pizza", "barras"]);
   const familia = familiaDe(jugador);
   const perfil = PERFIL_FAMILIA[familia] ?? PERFIL_GENERAL;
 
@@ -102,6 +108,24 @@ export function FichaJugador({
 
   const completa = esNuestro ? castilla.find((f) => f.playerId === jugador.playerId) : undefined;
 
+  const filasPerfil = perfil.flatMap((a) => {
+    const def = defMetrica(a, catalogo);
+    const valor = valorJugador(jugador, a, 1, catalogo);
+    if (valor == null) return [];
+    const pos = posicionEn(valor, pares.map((f) => valorJugador(f, a, minimo, catalogo)), def.mejor);
+    return [{ clave: a, nombre: nombreMetrica(a, catalogo), sufijo: def.tasa ? "" : "por 90", valor: fmt(valor, def.unidad), pos, mejor: def.mejor }];
+  });
+  const cunas: CunaPercentil[] = filasPerfil
+    .filter((x) => x.mejor !== null && x.pos.percentil != null)
+    .map((x) => ({
+      nombre: `${cortoMetrica(x.clave, catalogo)}${x.mejor === false ? " ↓" : ""}`,
+      valor: x.valor,
+      percentil: x.pos.percentil!,
+      lado: SIN_BALON.has(x.clave) ? "sin" : "con",
+      ayuda: `${x.nombre}${x.sufijo ? ` ${x.sufijo}` : ""} · ${x.pos.puesto}º de ${x.pos.deCuantos}`,
+      clave: x.clave,
+    }));
+
   const quien = familia ? familia.toLowerCase() : "jugadores";
   const ambitoTexto = ambito === "grupo" ? "del grupo del Castilla" : ambito === "otro" ? "del otro grupo" : "de la categoría";
 
@@ -134,30 +158,20 @@ export function FichaJugador({
         </p>
       )}
 
-      <div className="grid gap-x-6 md:grid-cols-2">
-        {perfil.map((a) => {
-          const def = defMetrica(a, catalogo);
-          const valor = valorJugador(jugador, a, 1, catalogo);
-          if (valor == null) return null;
-          const pos = posicionEn(
-            valor,
-            pares.map((f) => valorJugador(f, a, minimo, catalogo)),
-            def.mejor,
-          );
-          return (
-            <FilaBarra
-              key={a}
-              nombre={nombreMetrica(a, catalogo)}
-              sufijo={def.tasa ? "" : "por 90"}
-              valor={fmt(valor, def.unidad)}
-              p={pos.percentil}
-              puesto={pos.puesto}
-              de={pos.deCuantos}
-              mejor={def.mejor}
-            />
-          );
-        })}
-      </div>
+      <MarcoGrafico tipos={[{ clave: "pizza", nombre: "Radiografía" }, { clave: "barras", nombre: "Barras" }]} tipo={vistaPerfil} onTipo={(t) => setVistaPerfil(t as "pizza" | "barras")}>
+        {vistaPerfil === "pizza" && cunas.length >= 6 ? (
+          /* La radiografía de percentiles (18/11/2026): la misma de Área de mejora; en el móvil, la compacta. Las de estilo no entran: ahí más no es mejor. */
+          <div className="mx-auto max-w-[900px]">
+            <RadiografiaPercentiles cunas={cunas} acento="#D8B45A" />
+          </div>
+        ) : (
+          <div className="grid gap-x-6 md:grid-cols-2">
+            {filasPerfil.map((x) => (
+              <FilaBarra key={x.clave} nombre={x.nombre} sufijo={x.sufijo} valor={x.valor} p={x.pos.percentil} puesto={x.pos.puesto} de={x.pos.deCuantos} mejor={x.mejor} />
+            ))}
+          </div>
+        )}
+      </MarcoGrafico>
 
       {completa && <PerfilRemate fila={completa} />}
 

@@ -31,7 +31,7 @@
  * Se usa en el navegador.
  */
 
-import { cargaSvg, conLimite, conTope, fuentesListas, oSigue, respira } from "@/lib/export/captura";
+import { cargaSvg, conLimite, conTope, fuentesListas, oSigue, respira, sinAnimar } from "@/lib/export/captura";
 import { PIXEL_VACIO, pdfDeLienzos } from "@/lib/export/lienzos";
 
 const FONDO = "#EEEAE0";
@@ -204,7 +204,7 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
 
     /* Con los topes de `lib/export/captura.ts` (03/11/2026): cada foto se
        corta a los 20 s (sale en blanco) y el documento entero, a los 90 s. */
-    const svg = await conLimite(
+    const svg = await sinAnimar(caja, () => conLimite(
       toSvg(
         caja,
         conTope({
@@ -217,7 +217,7 @@ export async function completoEnHojas(html: string, alPaso?: (hoja: number, tota
         }),
       ),
       90_000,
-    );
+    ));
 
     /* `cargaSvg` (y no la carga de siempre): en WebKit la imagen se da por
        cargada antes de tener dentro las fotos, y sale el respiro que falta. */

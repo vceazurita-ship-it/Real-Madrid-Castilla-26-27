@@ -239,6 +239,27 @@ export function conTope<T extends Options>(opciones: T): T {
   return { ...opciones, fetchRequestInit: { ...opciones.fetchRequestInit, signal: corte.signal } };
 }
 
+/**
+ * LAS ANIMACIONES, YA TERMINADAS EN LA FOTO (18/11/2026, «algunos salen sin
+ * datos»). `html-to-image` copia el estilo calculado, animaciones incluidas, y
+ * la imagen se pinta en el instante 0 de cada una: las cuñas de la radiografía,
+ * las barras y los puntos que «entran» desde `opacity:0` salían vacíos. Con
+ * `data-capturando` en el nodo, globals.css adelanta cada animación hasta su
+ * final (retraso de -60 s, una vuelta) y quita las transiciones mientras se
+ * copia el estilo. Se cuenta por si hay dos fotos del mismo nodo a la vez.
+ */
+export async function sinAnimar<T>(nodo: Element, hazlo: () => Promise<T>): Promise<T> {
+  const antes = Number(nodo.getAttribute("data-capturando") || 0);
+  nodo.setAttribute("data-capturando", String(antes + 1));
+  try {
+    return await hazlo();
+  } finally {
+    const ahora = Number(nodo.getAttribute("data-capturando") || 1) - 1;
+    if (ahora > 0) nodo.setAttribute("data-capturando", String(ahora));
+    else nodo.removeAttribute("data-capturando");
+  }
+}
+
 /** La promesa, o un error claro si pasa de `ms`: nada de girar sin fin. */
 export function conLimite<T>(promesa: Promise<T>, ms = TOPE_CAPTURA): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -362,7 +383,7 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
 
   const { toSvg } = await import("html-to-image");
 
-  const svg = await conLimite(toSvg(nodo, conTope({ ...resto, width: ancho, height: alto })));
+  const svg = await sinAnimar(nodo, () => conLimite(toSvg(nodo, conTope({ ...resto, width: ancho, height: alto }))));
   const imagen = await conLimite(cargaSvg(svg), 30_000);
 
   const tipo = formato === "jpeg" ? "image/jpeg" : "image/png";
@@ -409,7 +430,7 @@ export async function capturaNodo(nodo: HTMLElement, opciones: OpcionesCapturaNo
 export async function fotoRapida(nodo: HTMLElement, opciones: Options): Promise<HTMLImageElement> {
   const { toSvg } = await import("html-to-image");
   const { ancho, alto } = medidaDe(nodo, opciones);
-  const svg = await conLimite(toSvg(nodo, conTope({ ...opciones, width: ancho, height: alto })));
+  const svg = await sinAnimar(nodo, () => conLimite(toSvg(nodo, conTope({ ...opciones, width: ancho, height: alto }))));
 
   const img = await new Promise<HTMLImageElement>((resolve, reject) => {
     const imagen = new Image();

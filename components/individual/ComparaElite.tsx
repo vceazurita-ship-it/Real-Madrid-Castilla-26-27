@@ -294,37 +294,10 @@ export function ComparaElite({
         «Nota»: percentil medio en las métricas de su puesto frente a estos {vara.lista.length} de élite. No coincide con la de arriba, que le compara con los de su categoría y su edad.
       </p>
 
-      {/* En escritorio, la radiografía con los superpuestos */}
-      <div className="mt-2 hidden sm:block">
+      {/* La radiografía con los superpuestos en todos los aparatos (18/11/2026): en el móvil sale la compacta, con leyenda. */}
+      <div className="mt-2">
         <RadiografiaPercentiles cunas={calculo.cunas} superpuestos={superpuestos} />
       </div>
-
-      {/* En el móvil la pizza no se lee: barras con una marca por jugador */}
-      <ul className="mt-3 space-y-2 sm:hidden">
-        {calculo.cunas.map((c, i) => (
-          <li key={c.nombre} className="text-[13px]">
-            <div className="flex items-baseline justify-between gap-2">
-              <span className="min-w-0 truncate text-white/80">{c.nombre}</span>
-              <span className="shrink-0 tabular-nums">
-                <b style={{ color: ROSA }}>{Math.round(c.percentil)}</b>
-                {superpuestos.map((s) =>
-                  s.percentiles[i] == null ? null : (
-                    <span key={s.nombre} className="ml-2 font-semibold" style={{ color: s.color }}>{Math.round(s.percentiles[i]!)}</span>
-                  ),
-                )}
-              </span>
-            </div>
-            <span className="relative mt-0.5 block h-2 rounded-full bg-white/10">
-              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${c.percentil}%`, background: ROSA }} />
-              {superpuestos.map((s) =>
-                s.percentiles[i] == null ? null : (
-                  <span key={s.nombre} className="absolute -top-0.5 h-3 w-1 -translate-x-1/2 rounded-sm" style={{ left: `${s.percentiles[i]}%`, background: s.color }} />
-                ),
-              )}
-            </span>
-          </li>
-        ))}
-      </ul>
 
       {/* Dónde está la diferencia con el primero elegido */}
       {primero && (leSaca.length > 0 || leGana.length > 0) && (

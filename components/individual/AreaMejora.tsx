@@ -523,13 +523,10 @@ export function AreaMejora({
                 <p className="mt-1">La cuña rosa llega hasta su percentil (la discontinua es P50); a la derecha con balón, a la izquierda sin balón. En las marcadas con ↓ (menos es mejor) ya está dado la vuelta.</p>
               </details>
               <MarcoGrafico tipos={[{ clave: "pizza", nombre: "Radiografía" }, { clave: "barras", nombre: "Barras" }]} tipo={tipoRadiografia} onTipo={(t) => setTipoRadiografia(t as "pizza" | "barras")}>
-              {tipoRadiografia === "pizza" && (
-                <div className="hidden sm:block">
-                  <RadiografiaPercentiles cunas={analisis.cunas} />
-                </div>
-              )}
-              {/* En el móvil la pizza no se lee: la misma información en barras. */}
-              <ul className={`mt-3 space-y-2 ${tipoRadiografia === "pizza" ? "sm:hidden" : "sm:grid sm:grid-cols-2 sm:gap-x-8 sm:space-y-0"}`}>
+              {/* La radiografía también en el móvil y la tablet (18/11/2026): por debajo de 620 px se dibuja la compacta. */}
+              {tipoRadiografia === "pizza" && <RadiografiaPercentiles cunas={analisis.cunas} />}
+              {tipoRadiografia === "barras" && (
+              <ul className="mt-3 space-y-2 sm:grid sm:grid-cols-2 sm:gap-x-8 sm:space-y-0">
                 {(["con", "sin"] as const).map((lado) => (
                   <li key={lado}>
                     <p className="mb-1 text-[11px] font-bold uppercase tracking-[0.16em] text-white/50">{lado === "con" ? "Con balón" : "Sin balón"}</p>
@@ -547,6 +544,7 @@ export function AreaMejora({
                   </li>
                 ))}
               </ul>
+              )}
               </MarcoGrafico>
             </div>
           )}

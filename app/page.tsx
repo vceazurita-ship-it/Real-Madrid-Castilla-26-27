@@ -864,14 +864,18 @@ export default function Home() {
                     className="absolute inset-0 rounded-[20px]"
                   />
                   {/* 09/11/2026: de fondo, el Alfredo Di Stéfano de noche (petición del analista). */}
-                  <Image
-                    src="/stadium-bg.png"
-                    alt=""
-                    fill
-                    sizes="(max-width: 1279px) 100vw, 440px"
-                    priority
-                    className="pointer-events-none object-cover object-[50%_45%] transition-transform duration-[4000ms] group-hover:scale-105"
-                  />
+                  {/* 18/11/2026 (noche): en escritorio la tarjeta es alta y estrecha, y el tercio de arriba de la foto (cielo negro) dejaba
+                      media tarjeta vacía. La foto se agranda por arriba (−45 %) para que el cielo quede fuera y la grada suba. */}
+                  <div aria-hidden className="pointer-events-none absolute inset-x-0 bottom-0 top-0 xl:-top-[45%]">
+                    <Image
+                      src="/stadium-bg.png"
+                      alt=""
+                      fill
+                      sizes="(max-width: 1279px) 100vw, 900px"
+                      priority
+                      className="pointer-events-none object-cover object-[50%_45%] transition-transform duration-[4000ms] group-hover:scale-105"
+                    />
+                  </div>
 
                   {/* Velo: oscurece abajo para leer las cifras (más parejo en tableta y móvil, donde el texto ocupa casi todo). */}
                   <div
