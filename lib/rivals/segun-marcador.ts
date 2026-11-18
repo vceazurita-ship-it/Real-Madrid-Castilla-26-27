@@ -54,7 +54,8 @@ export type ValorEstado = { valor: number | null; desvio: number | null };
 export type ColumnaEstado = { estado: Estado; minutos: number; valores: Record<ClaveMetrica, ValorEstado> };
 
 export type Tramo = { desde: number; hasta: number; estado: Estado };
-export type Gol = { segundo: number; minuto: string; suyo: boolean; marcador: string };
+/** `segundo` es el del eje (descuento de la 1.ª parte en el 45′); `parte` y `reloj`, los de Opta, para el vídeo del gol (18/11/2026). */
+export type Gol = { segundo: number; minuto: string; suyo: boolean; marcador: string; parte: number; reloj: number };
 export type LineaPartido = {
   partido: string;
   fecha: string;
@@ -148,7 +149,7 @@ export function segunMarcador(partidos: Fila[], remates: TablaOpta | null, momen
       const suyo = g.teamId === rivalId;
       if (suyo) gf++;
       else gc++;
-      goles.push({ segundo: t, minuto: minutoTexto(g), suyo, marcador: `${gf}-${gc}` });
+      goles.push({ segundo: t, minuto: minutoTexto(g), suyo, marcador: `${gf}-${gc}`, parte: g.parte, reloj: g.segundo });
     }
     tramos.push({ desde, hasta: fin, estado: estadoDe(gf, gc) });
 

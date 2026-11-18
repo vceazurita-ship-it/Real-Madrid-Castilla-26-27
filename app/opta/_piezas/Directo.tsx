@@ -564,6 +564,7 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
                 jugadores={doc.jugadores}
                 a={{ teamId: String(a.teamId ?? ""), nombre: nombre(a), color: String(a.color ?? ""), campo: String(a.campo ?? "") }}
                 partido={visto}
+                fecha={doc.fecha}
                 b={{ teamId: String(b.teamId ?? ""), nombre: nombre(b), color: String(b.color ?? ""), campo: String(b.campo ?? "") }}
               />
             </div>

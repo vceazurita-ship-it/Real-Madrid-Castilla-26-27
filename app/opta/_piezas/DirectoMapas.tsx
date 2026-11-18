@@ -57,6 +57,7 @@ import {
 
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { useFotosOpta } from "@/hooks/useFotosOpta";
+import { VideoOpta } from "@/components/opta/VideoOpta";
 import { FotoRedonda } from "@/components/ui/FotoRedonda";
 
 import { Botonera } from "./comun";
@@ -250,7 +251,7 @@ function Red({
 
 /* ------------------------------ remates y xG ------------------------------ */
 
-function Remates({ ts, a, b, jugadores }: { ts: Tiro[]; a: Equipo; b: Equipo; jugadores: Map<string, JugadorDirecto> }) {
+function Remates({ ts, a, b, jugadores, partido, fecha }: { ts: Tiro[]; a: Equipo; b: Equipo; jugadores: Map<string, JugadorDirecto>; partido?: string; fecha?: string }) {
   const [sel, setSel] = useState(-1);
   const t0 = ts[sel] ?? null;
   const quien = (id: string) => jugadores.get(id)?.nombre ?? "";
@@ -291,8 +292,12 @@ function Remates({ ts, a, b, jugadores }: { ts: Tiro[]; a: Equipo; b: Equipo; ju
       <p className="mt-1 min-h-[2.5em] text-xs text-white/70">
         {t0
           ? `${t0.minuto}′ ${quien(t0.jugadorId)} (${t0.teamId === a.teamId ? a.nombre : b.nombre}): ${t0.gol ? "GOL" : t0.aPuerta ? "a puerta" : "fuera o tapado"}, xG ${dec(t0.xG ?? 0)}. ${t0.origen ? `Le llega de ${quien(t0.origen.jugadorId)} desde ${carril(t0.origen.y)} (línea blanca).` : "Sin pase previo: jugada individual, rechace o balón parado directo."}`
-          : "Pincha un remate para ver quién lo tira, su xG y de dónde le llega el pase."}
+          : "Pincha un remate para ver quién lo tira, su xG, de dónde le llega el pase y su vídeo."}
       </p>
+      {/* 18/11/2026: el vídeo del remate elegido (nuestro corte de B2 o ProVision en ese segundo). */}
+      {t0 && partido && (
+        <VideoOpta evento={{ partido, fecha: fecha ?? "", parte: t0.parte, segundo: t0.segundo }} tipo="shots" etiqueta={t0.gol ? "▶ Vídeo del gol en Opta" : "▶ Vídeo en Opta"} descripcion={`${t0.gol ? "Gol" : "Remate"} de ${quien(t0.jugadorId) || (t0.teamId === a.teamId ? a.nombre : b.nombre)}, ${t0.minuto}′`} />
+      )}
     </div>
   );
 }
@@ -688,8 +693,11 @@ export function DirectoMapas({
   parte = "colectivo",
   temporada = [],
   partido,
+  fecha,
 }: {
   partido?: string;
+  /** AAAA-MM-DD del partido: para el enlace del vídeo de cada remate en ProVision. */
+  fecha?: string;
   eventos: TablaOpta | null | undefined;
   jugadores: TablaOpta | null | undefined;
   a: Equipo;
@@ -876,7 +884,7 @@ export function DirectoMapas({
         )}
         <Conclusion>{fraseRemates(ts, a, b, porId)}</Conclusion>
         <div className="grid gap-3 lg:grid-cols-[1.2fr_1fr]">
-          <Remates ts={ts} a={a} b={b} jugadores={porId} />
+          <Remates ts={ts} a={a} b={b} jugadores={porId} partido={partido} fecha={fecha} />
           <div className="min-w-0">
             <p className="mb-1 text-xs text-white/60">
               xG acumulado: <span style={{ color: a.teamId === CASTILLA_OPTA ? ORO : "#4F8FE8" }}>{a.nombre}</span> y <span style={{ color: "#E8484D" }}>{b.nombre}</span>

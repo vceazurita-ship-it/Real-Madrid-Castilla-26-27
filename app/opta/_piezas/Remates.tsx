@@ -17,6 +17,7 @@ import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
 import { urlVideoOpta } from "@/lib/opta-video";
+import { VideoOpta } from "@/components/opta/VideoOpta";
 import { cargaResumenesRfef, resumenDelPartido, urlResumen } from "@/lib/rivals/resumen-de-partido";
 import type { ResumenRfef } from "@/lib/rivals/resumenes-rfef";
 import { casaEquipo, CUERPO, MARCADOR, PRESION, resumenRemates, SITUACION, TIPO_REMATE, type Remate } from "@/lib/opta-eventos";
@@ -478,6 +479,8 @@ function EnlacesVideo({ remate, enContra }: { remate: Remate; enContra: boolean 
 
   return (
     <div className="flex flex-wrap items-center gap-2" aria-label={`Vídeo del remate contra ${local}`}>
+      {/* 18/11/2026: nuestro corte de B2, si el ordenador del club ya lo bajó (se ve aquí, sin sesión de Opta). */}
+      <VideoOpta soloCorte evento={remate} tipo="shots" etiqueta={remate.gol ? "▶ Ver el gol" : "▶ Ver el remate"} descripcion={`${remate.gol ? "Gol" : "Remate"} de ${remate.tirador}, ${remate.minuto}′`} />
       {resumen && (
         <a
           href={urlResumen(resumen)}

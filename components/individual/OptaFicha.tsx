@@ -28,6 +28,7 @@ import { TemporadasJugador } from "@/app/opta/_piezas/Temporadas";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { CASTILLA_OPTA, DOCS_OPTA, PUESTO_OPTA, aObjetos, num, type MetaOpta, type TablaOpta } from "@/lib/opta";
 import { catalogoDe, familiaDe, fechaCorta, type Fila } from "@/lib/opta-analisis";
 import { casaOpta } from "@/lib/opta-ficha";
@@ -192,6 +193,8 @@ function PartidoAPartido({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
 
 function EnElCampo({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
   const { acciones, cargando } = useAcciones(datos);
+  /* 18/11/2026: cada acción abre su vídeo (nuestro corte de B2 o ProVision en ese segundo). */
+  const clip = useEnlaceClipOpta();
   const id = String(yo.playerId ?? "");
   const [elegido, setElegido] = useState<ModoCampo>("progresivos");
   const porModo = useMemo(() => MODOS_CAMPO.map((m) => ({ ...m, c: campoJugador(acciones, id, m.clave) })), [acciones, id]);
@@ -250,30 +253,32 @@ function EnElCampo({ datos, yo }: { datos: DatosOpta; yo: Fila }) {
                 const [x1, y1] = p(a.x, a.y);
                 const [x2, y2] = p(a.finX, a.finY);
                 return (
-                  <line
-                    key={i}
-                    x1={x1}
-                    y1={y1}
-                    x2={x2}
-                    y2={y2}
-                    markerEnd="url(#punta-ficha)"
-                    style={{ stroke: a.ocasion ? "#FFFFFF" : SOBRE_CESPED.nuestro, strokeOpacity: 0.7, strokeWidth: a.ocasion ? 4 : 3 }}
-                  >
-                    <title>{`${titulo}${a.ocasion ? " · acaba en ocasión" : ""}`}</title>
-                  </line>
+                  <a key={i} href={clip(a, "passes")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                    <line
+                      x1={x1}
+                      y1={y1}
+                      x2={x2}
+                      y2={y2}
+                      markerEnd="url(#punta-ficha)"
+                      style={{ stroke: a.ocasion ? "#FFFFFF" : SOBRE_CESPED.nuestro, strokeOpacity: 0.7, strokeWidth: a.ocasion ? 4 : 3 }}
+                    >
+                      <title>{`${titulo}${a.ocasion ? " · acaba en ocasión" : ""} · pincha: vídeo`}</title>
+                    </line>
+                  </a>
                 );
               }
               const [cx, cy] = p(a.x, a.y);
               return (
-                <circle
-                  key={i}
-                  cx={cx}
-                  cy={cy}
-                  r={11}
-                  style={{ fill: visto.clave === "defensivas" ? SOBRE_CESPED.verde : SOBRE_CESPED.rival, fillOpacity: 0.75, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}
-                >
-                  <title>{titulo}</title>
-                </circle>
+                <a key={i} href={clip(a)} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                  <circle
+                    cx={cx}
+                    cy={cy}
+                    r={11}
+                    style={{ fill: visto.clave === "defensivas" ? SOBRE_CESPED.verde : SOBRE_CESPED.rival, fillOpacity: 0.75, stroke: "rgba(0,0,0,0.4)", strokeWidth: 1.5 }}
+                  >
+                    <title>{`${titulo} · pincha: vídeo`}</title>
+                  </circle>
+                </a>
               );
             })}
           </>

@@ -12,7 +12,7 @@
  */
 
 import { useMemo } from "react";
-import { urlVideoOpta } from "@/lib/opta-video";
+import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { CircleDot } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -31,6 +31,8 @@ const H = 110;
 
 /** La portería en seis zonas vista desde el punto de penalti (izquierda = la del lanzador). */
 function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: string }) {
+  /* 18/11/2026: nuestro corte de B2 si está; si no, ProVision en ese segundo. */
+  const clip = useEnlaceClipOpta();
   const celdas = new Map<string, Penalti[]>();
   for (const p of penaltis) {
     const z = zonaDe(p);
@@ -67,7 +69,7 @@ function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: strin
                 const cx = x0 + 18 + (i % 4) * 20;
                 const cy = y0 + 18 + Math.floor(i / 4) * 18;
                 return (
-                  <a key={i} href={urlVideoOpta(p, "shots") ?? undefined} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
+                  <a key={i} href={clip(p, "shots")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                   <circle
                     cx={cx}
                     cy={Math.min(cy, y0 + ch - 8)}
