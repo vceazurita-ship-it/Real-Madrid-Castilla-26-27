@@ -15,8 +15,9 @@
 #
 # Cómo publica: si existe el secreto RENDER_DEPLOY_HOOK (Render → el servicio →
 # Settings → Deploy Hook), lo llama; es lo recomendado, con el Auto-Deploy de
-# Render apagado. Si no, sube un commit vacío sin «[skip render]» y lo publica
-# el Auto-Deploy.
+# Render apagado. Si no, sube un commit sin «[skip render]» que reescribe
+# public/publicado.txt (un commit vacío no basta: el buildFilter lo ignora) y
+# lo publica el Auto-Deploy.
 
 name: Publicar en Render
 
@@ -92,9 +93,14 @@ jobs:
             curl -fsS -X POST "$HOOK" > /dev/null
             echo "Publicado por el Deploy Hook."
           else
-            git commit --allow-empty -q -m "Publicar en Render (lote de cambios)"
+            # NO un commit vacío (18/11/2026): con el buildFilter de render.yaml,
+            # Render sólo compila si el push trae algún fichero de la web, y un
+            # push con sólo un commit vacío no trae ninguno (no publicó nada).
+            date -u +%Y-%m-%dT%H:%MZ > public/publicado.txt
+            git add public/publicado.txt
+            git commit -q -m "Publicar en Render (lote de cambios)"
             git push -q origin HEAD:main
-            echo "Publicado con un commit vacío (Auto-Deploy)."
+            echo "Publicado con un commit que toca public/publicado.txt (Auto-Deploy)."
           fi
           ETIQUETA="render-$(date -u +%Y%m%d-%H%M)"
           git tag "$ETIQUETA"
