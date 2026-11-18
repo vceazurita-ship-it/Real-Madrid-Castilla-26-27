@@ -9,10 +9,12 @@ import {
   IdCard,
   Loader2,
   Presentation,
+  SquareDashedMousePointer,
 } from "lucide-react";
 import { toast } from "sonner";
 
-import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
+import { ItemMenuFlotante, useCierraMenu } from "@/components/ui/MenuFlotante";
+import { eligeZona } from "@/lib/export/elige-zona";
 import { capturaNodo, conLimite, conTope, fotograma, fuentesListas } from "@/lib/export/captura";
 import { usePortadaOfrecida } from "@/lib/rivals/portada-slot";
 import { descargaEnMarcha, descargas, encargaDescarga, type ResultadoDescarga } from "@/lib/trabajos/descargas";
@@ -945,6 +947,7 @@ export function PageExportButton() {
   const [onDialog, setOnDialog] = useState(false);
 
   const containerRef = useRef<HTMLDivElement | null>(null);
+  const cierraMenu = useCierraMenu();
 
   useEffect(() => {
     if (!open) return;
@@ -1110,7 +1113,7 @@ export function PageExportButton() {
             ? "Un momento"
             : onDialog
               ? "Sólo el pop-up que está abierto · PDF o PNG"
-              : "La página entera · PDF o PNG"
+              : "La página entera o un gráfico suelto · PDF o PNG HD"
         }
         onClick={() => {
           if (busy) return;
@@ -1132,6 +1135,30 @@ export function PageExportButton() {
           <p className="border-b border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
             {onDialog ? "Exportar solo la ficha" : "Exportar página completa"}
           </p>
+
+          {/* UNA ZONA EN HD (18/11/2026): se elige con el ratón o el dedo; lib/export/elige-zona.ts */}
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false);
+              cierraMenu();
+              /* Después de que el clic termine: si no, ese mismo clic fijaría la zona de debajo. */
+              window.setTimeout(eligeZona, 0);
+            }}
+            className="flex w-full items-start gap-3 border-b border-white/10 bg-[#C8A96B]/[0.08] px-4 py-3 text-left transition hover:bg-white/10"
+          >
+            <SquareDashedMousePointer className="mt-0.5 h-4 w-4 shrink-0 text-[#C8A96B]" />
+
+            <span>
+              <span className="block text-sm font-medium text-white">
+                Elegir una zona · PNG HD
+              </span>
+
+              <span className="block text-[11px] text-white/45">
+                Un gráfico, una tarjeta o lo que marques; también se copia
+              </span>
+            </span>
+          </button>
 
           <button
             type="button"

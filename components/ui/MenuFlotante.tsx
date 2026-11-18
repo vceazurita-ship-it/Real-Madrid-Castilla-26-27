@@ -191,4 +191,9 @@ export function ItemMenuFlotante({
   );
 }
 
+/** Cerrar el menú desde dentro de un panel (el de exportar, al pasar a elegir una zona). */
+export function useCierraMenu() {
+  return useContext(CierraMenu);
+}
+
 export default MenuFlotante;
