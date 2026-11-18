@@ -87,6 +87,20 @@ export function cunasDe(ps: Percentil[]): CunaPercentil[] {
 
 export type JugadorElite = FilaJugador & { liga: string };
 
+/** Una fila del desplegable: el nombre, entero y en grande; debajo, equipo, puesto, liga, edad y minutos (18/11/2026). */
+function ResultadoElite({ j, conPuesto = false }: { j: JugadorElite; conPuesto?: boolean }) {
+  const puestoTxt = conPuesto && j.posicion ? j.posicion.split(",")[0].trim() : "";
+  return (
+    <>
+      <span className="block break-words text-[13px] font-semibold leading-snug text-white">{j.jugador}</span>
+      <span className="mt-0.5 block text-[11px] leading-snug text-white/50">
+        {j.equipo} · {j.liga === "Premier" ? "Premier" : "Primera"}
+        {puestoTxt ? ` · ${puestoTxt}` : ""} · {j.edad} años · {j.minutos}′
+      </span>
+    </>
+  );
+}
+
 export function ComparaElite({
   fila,
   puesto,
@@ -211,7 +225,7 @@ export function ComparaElite({
           </span>
         ))}
         {ids.length < MAX && (
-          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
             <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" aria-hidden />
             <input
               value={busca}
@@ -226,7 +240,7 @@ export function ComparaElite({
               </p>
             )}
             {candidatos.length > 0 && (
-              <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-lg border border-white/10 bg-[#11161C] py-1 shadow-xl">
+              <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-white/10 bg-[#11161C] py-1 shadow-xl">
                 {candidatos.map((j) => (
                   <li key={idDe(j)}>
                     <button
@@ -235,10 +249,9 @@ export function ComparaElite({
                         pon([...ids, idDe(j)]);
                         setBusca("");
                       }}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-white/[0.06]"
+                      className="block w-full px-3 py-2 text-left hover:bg-white/[0.06]"
                     >
-                      <span className="min-w-0 truncate text-white/90">{j.jugador} <span className="text-white/45">· {j.equipo}</span></span>
-                      <span className="shrink-0 text-white/45">{j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
+                      <ResultadoElite j={j} />
                     </button>
                   </li>
                 ))}
@@ -247,7 +260,7 @@ export function ComparaElite({
           </div>
         )}
         {ids.length < MAX && todos.length > 0 && (
-          <div className="relative min-w-[200px] flex-1 sm:max-w-xs">
+          <div className="relative min-w-[220px] flex-1 sm:max-w-sm">
             <Search size={13} className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-white/40" aria-hidden />
             <input
               value={buscaLibre}
@@ -263,7 +276,7 @@ export function ComparaElite({
               </p>
             )}
             {libres.length > 0 && (
-              <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-64 overflow-auto rounded-lg border border-white/10 bg-[#11161C] py-1 shadow-xl">
+              <ul className="absolute left-0 right-0 top-full z-20 mt-1 max-h-80 overflow-auto rounded-lg border border-white/10 bg-[#11161C] py-1 shadow-xl">
                 {libres.map((j) => (
                   <li key={idDe(j)}>
                     <button
@@ -272,10 +285,9 @@ export function ComparaElite({
                         pon([...ids, idDe(j)]);
                         setBuscaLibre("");
                       }}
-                      className="flex w-full items-baseline justify-between gap-2 px-3 py-1.5 text-left text-[12px] hover:bg-white/[0.06]"
+                      className="block w-full px-3 py-2 text-left hover:bg-white/[0.06]"
                     >
-                      <span className="min-w-0 truncate text-white/90">{j.jugador} <span className="text-white/45">· {j.equipo}</span></span>
-                      <span className="shrink-0 text-white/45">{j.posicion ? `${j.posicion.split(",")[0].trim()} · ` : ""}{j.liga === "Premier" ? "Premier" : "Primera"} · {j.edad} años · {j.minutos}′</span>
+                      <ResultadoElite j={j} conPuesto />
                     </button>
                   </li>
                 ))}

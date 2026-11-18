@@ -4102,7 +4102,7 @@ export default function IndividualPage() {
       {selected &&
         createPortal(
           <div
-            className="modal-veil fixed inset-0 z-[99999] flex items-center justify-center p-2 backdrop-blur-sm sm:p-4 md:p-6"
+            className="modal-veil fixed inset-0 z-[99999] flex items-center justify-center p-0 backdrop-blur-sm sm:p-3 lg:p-4"
             onClick={closePlayer}
           >
             <div
@@ -4127,7 +4127,7 @@ export default function IndividualPage() {
 
                 setTouchStart(null);
               }}
-              className="relative flex h-[95dvh] w-full min-w-0 max-w-6xl flex-col overflow-hidden rounded-3xl border border-white/10 bg-[#11161D] shadow-2xl"
+              className="relative flex h-dvh w-full min-w-0 max-w-[1560px] flex-col overflow-hidden border-white/10 bg-[#11161D] shadow-2xl sm:h-[96dvh] sm:rounded-3xl sm:border"
             >
               {/* CABECERA */}
 

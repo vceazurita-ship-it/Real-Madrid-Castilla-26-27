@@ -932,6 +932,10 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Mientras no se elige, lista en el móvil y fichas en el resto, y el selector marca la que se ve; la elección se recuerda en el aparato",
           },
           {
+            que: "Tamaño de la ficha (18/11/2026)",
+            es: "La ficha que se abre al pinchar a un jugador ocupa la pantalla entera en el móvil y llega hasta 1560 px de ancho en pantallas grandes (antes 1150 px), para que la radiografía y los gráficos salgan en grande",
+          },
+          {
             que: "Seguir con él",
             es: "Bajo las pestañas de la ficha: Registrar seguimiento, su Data análisis, su Comparativa con la categoría y su Calendario de seguimiento, con el jugador ya elegido",
             cuenta: "Desde otras pantallas se llega con /individual?player=ID (o ?nombre=), &pestana=seguimiento|valoraciones|videos y &nuevo=seguimiento para abrir el formulario",
@@ -948,7 +952,7 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Todas, sub-21, sub-23, su edad ±2 o un rango a mano",
             cuenta: "Se vuelve a ordenar sólo entre los de esa edad; él entra siempre. Hacen falta 5 además de él",
           },
-          { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía. Dos buscadores: «Añadir: nombre o equipo», entre los de su puesto y edad (la vara), y al lado «Cualquier jugador de Primera o Premier», por nombre, de cualquier puesto y edad", cuenta: "El del buscador libre se mide igual que los demás: con las métricas del puesto de nuestro jugador y contra la misma vara; si es de otro puesto lo dice su chapa («otro puesto»). Entran los que llevan 180′ o más en la descarga de Wyscout de esa liga" },
+          { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía. Dos buscadores: «Añadir: nombre o equipo», entre los de su puesto y edad (la vara), y al lado «Cualquier jugador de Primera o Premier», por nombre, de cualquier puesto y edad. En la lista, el nombre va entero y en grande; debajo, equipo, liga, puesto, edad y minutos (18/11/2026)", cuenta: "El del buscador libre se mide igual que los demás: con las métricas del puesto de nuestro jugador y contra la misma vara; si es de otro puesto lo dice su chapa («otro puesto»). Entran los que llevan 180′ o más en la descarga de Wyscout de esa liga" },
           { que: "Tendencia", es: "Nota partido a partido, Wyscout semana a semana y 26/27 frente a 25/26" },
         ],
       },
