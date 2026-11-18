@@ -162,6 +162,11 @@ export function AlturaCentrales({ datos }: { datos: DatosOpta }) {
         titulo="¿A qué altura tocan el balón los centrales?"
         subtitulo={`Posición media de los toques de cada central del Castilla (${MIN_TOQUES} o más en el partido), atacando hacia arriba. Altura en metros desde nuestra portería; anchura, la distancia lateral entre ellos. Borde verde en casa, naranja fuera.`}
       >
+        {difCasaFuera != null && Math.abs(difCasaFuera) >= 0.5 && (
+          <p className="fuente-club mb-3 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">
+            Fuera tocan {metros(Math.abs(difCasaFuera))} más {difCasaFuera < 0 ? "abajo" : "arriba"} que en casa
+          </p>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           {resumen.casa.altura != null && (
             <Cifra rotulo="Media en casa" valor={metros(resumen.casa.altura)} detalle={detalle(resumen.casa)} color={CASA} />
@@ -184,23 +189,28 @@ export function AlturaCentrales({ datos }: { datos: DatosOpta }) {
         )}
 
         <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-          {partidos.map((p) => (
+          {partidos.map((p, i) => (
             <article
               key={p.partido}
-              className={`min-w-0 rounded-xl border-2 bg-white/[0.03] p-2 ${p.enCasa == null ? "border-white/10" : ""}`}
-              style={p.enCasa == null ? undefined : { borderColor: p.enCasa ? CASA : FUERA }}
+              className={`portada-entra min-w-0 rounded-2xl border-2 p-2 shadow-[var(--portada-sombra)] ${p.enCasa == null ? "border-white/10" : ""}`}
+              style={{
+                ...(p.enCasa == null ? {} : { borderColor: p.enCasa ? CASA : FUERA }),
+                background: "var(--portada-sup)",
+                animationDelay: `${Math.min(i, 12) * 40}ms`,
+              }}
             >
               <header className="mb-1 flex items-start justify-between gap-1">
                 <div className="min-w-0">
-                  <p className="truncate text-[12px] font-semibold text-white" title={p.rival}>
+                  <p className="fuente-club truncate text-[16px] font-bold uppercase leading-tight text-white" title={p.rival}>
+                    {p.enCasa === false ? "en " : "vs "}
                     {p.rival}
                   </p>
-                  <p className="text-[10px] text-white/55">
+                  <p className="text-[11px] text-white/55">
                     {fechaCorta(p.fecha)} · {p.enCasa == null ? "sin calendario" : p.enCasa ? "casa" : "fuera"}
                   </p>
                 </div>
                 {p.filial && (
-                  <span className="shrink-0 rounded-full border border-white/20 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-white/70">
+                  <span className="shrink-0 rounded-full border border-white/20 px-1.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-white/70">
                     Filial
                   </span>
                 )}
@@ -236,15 +246,17 @@ export function AlturaCentrales({ datos }: { datos: DatosOpta }) {
                 }}
               </CampoOpta>
 
-              <p className="mt-1 text-[11px] tabular-nums text-white/75">
-                Altura <span className="font-semibold text-white">{metros(p.altura)}</span>
+              <p className="mt-1 flex flex-wrap items-baseline gap-x-2 text-[11px] tabular-nums text-white/60">
+                <span>
+                  Altura <span className="fuente-club text-[18px] font-bold text-white">{metros(p.altura)}</span>
+                </span>
                 {p.anchura != null && (
-                  <>
-                    {" · "}Anchura <span className="font-semibold text-white">{metros(p.anchura)}</span>
-                  </>
+                  <span>
+                    Anchura <span className="font-semibold text-white">{metros(p.anchura)}</span>
+                  </span>
                 )}
               </p>
-              <p className="truncate text-[10px] text-white/50" title={p.centrales.map((c) => `${c.nombre} (${c.toques})`).join(", ")}>
+              <p className="truncate text-[11px] text-white/50" title={p.centrales.map((c) => `${c.nombre} (${c.toques})`).join(", ")}>
                 {p.centrales.map((c) => c.corto).join(" · ")}
               </p>
             </article>

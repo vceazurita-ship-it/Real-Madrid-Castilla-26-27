@@ -67,7 +67,7 @@ export function QuienLoEjecutaVista({
         <p className="mt-3 break-words border-l-2 border-amber-400/70 pl-3 text-sm text-gray-200">
           {porEncima.length > 0 ? (
             <>
-              <span className="font-semibold text-white">
+              <span className="fuente-club block text-[22px] font-bold uppercase leading-[1.1] text-white sm:text-[26px]">
                 {porEncima.length === 1 ? "Uno de otro puesto" : `${porEncima.length} de otro puesto`} por encima del mejor especialista
               </span>{" "}
               ({nombreDe(especialista.nombre).corto}, {especialista.encaje}):{" "}
@@ -75,7 +75,7 @@ export function QuienLoEjecutaVista({
             </>
           ) : (
             <>
-              <span className="font-semibold text-white">Nadie de otro puesto supera al mejor especialista</span> (
+              <span className="fuente-club block text-[22px] font-bold uppercase leading-[1.1] text-white sm:text-[26px]">Nadie de otro puesto supera al mejor especialista</span> (
               {nombreDe(especialista.nombre).corto}, {especialista.encaje}).
             </>
           )}
@@ -88,9 +88,9 @@ export function QuienLoEjecutaVista({
           const esElMejor = especialista && f.natural && f.nombre === especialista.nombre;
 
           return (
-            <li key={f.nombre} className="rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+            <li key={f.nombre} className="portada-celda portada-entra px-3 py-2.5" style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
               <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                <span className="w-6 shrink-0 text-right text-xs tabular-nums text-gray-500">{i + 1}.</span>
+                <span className="fuente-club w-6 shrink-0 text-right text-[18px] font-bold tabular-nums text-gray-500">{i + 1}</span>
                 <Link
                   href={`/individual?nombre=${encodeURIComponent(n.nombre)}&pestana=mejora`}
                   className={cn("min-w-0 break-words text-sm font-semibold text-white hover:underline", focusRing)}
@@ -122,13 +122,13 @@ export function QuienLoEjecutaVista({
                   >
                     {esElMejor ? "mejor especialista" : f.diferencia === null ? "sin especialista" : `${signo(f.diferencia)} vs el mejor especialista`}
                   </span>
-                  <span className="w-8 text-right text-lg font-bold tabular-nums text-white">{f.encaje}</span>
+                  <span className="fuente-club w-9 text-right text-[24px] font-bold leading-none tabular-nums text-white">{f.encaje}</span>
                 </span>
               </div>
 
               <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
                 <div
-                  className={cn("h-full rounded-full", f.natural ? "bg-[#C8A96B]" : "bg-sky-400")}
+                  className={cn("portada-llena h-full rounded-full", f.natural ? "bg-[#C8A96B]" : "bg-sky-400")}
                   style={{ width: `${Math.max(2, f.encaje)}%` }}
                 />
               </div>

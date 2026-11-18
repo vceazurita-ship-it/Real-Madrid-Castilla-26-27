@@ -63,11 +63,11 @@ function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const escala = Math.max(...r.jugadores.map((j) => Math.max(j.xg, j.esperado)), 0.01);
 
   return (
-    <section aria-label="Reparto del xG" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
+    <section aria-label="Reparto del xG" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-          Reparto del xG
-          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+          Reparto del xG · {nombre}
+          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
             dato · Opta, {r.sinPenaltis ? "xG sin penaltis" : "xG total (con penaltis)"}
           </span>
         </p>
@@ -88,11 +88,14 @@ function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
       </div>
 
       {primero && (
-        <p className="mt-2 text-sm leading-6 text-white/75">
-          <span className="text-2xl font-bold tabular-nums text-white">{coma(r.pctPrimero, 0)} %</span>{" "}
-          del xG de {nombre} es de <strong className="text-white">{nombreVisto(primero.jugador)}</strong>; los tres primeros suman el {coma(r.pctTres, 0)} %. Gol{" "}
-          {lecturaConcentracion(r)} ({r.conXg} jugadores con xG, {coma(r.total, 1)} xG en total).
-        </p>
+        <>
+          <h3 className="fuente-club mt-1.5 text-[26px] font-bold uppercase leading-[1.05] text-white sm:text-[32px]">
+            El {coma(r.pctPrimero, 0)} % lo hace {nombreVisto(primero.jugador)}
+          </h3>
+          <p className="mt-1 text-sm leading-6 text-white/70">
+            Los tres primeros suman el {coma(r.pctTres, 0)} %. Gol {lecturaConcentracion(r)} ({r.conXg} jugadores con xG, {coma(r.total, 1)} xG en total).
+          </p>
+        </>
       )}
 
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
@@ -106,42 +109,40 @@ function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
         </span>
       </p>
 
-      <ol className="mt-3 space-y-2.5">
+      {/* Como el original de X: rango grande, nombre con su ficha corta, barra con la raya de la media y el % grande a la derecha. */}
+      <ol className="portada-celda mt-3 divide-y divide-white/[0.06] px-2 sm:px-3">
         {r.jugadores.map((j, i) => {
           const sobre = j.veces != null && j.veces >= 1.5;
           return (
-            <li key={j.playerId} className="min-w-0">
-              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[12px]">
-                <span className="min-w-0 truncate font-semibold text-white">
-                  <span className="mr-1.5 tabular-nums text-white/40">{i + 1}</span>
-                  {nombreVisto(j.jugador)}
-                </span>
-                <span className="shrink-0 tabular-nums text-white/60">
-                  <strong className="text-white">{coma(j.pct, 0)} %</strong> · {coma(j.xg)} xG · {miles(j.minutos)}′
-                  {j.xg90 != null && <> · {coma(j.xg90)}/90</>}
-                </span>
+            <li key={j.playerId} className="grid min-w-0 grid-cols-[1.75rem_minmax(0,1fr)_auto] items-center gap-x-2 py-2 sm:grid-cols-[2.25rem_minmax(0,13rem)_minmax(0,1fr)_auto] sm:gap-x-3">
+              <span className={`fuente-club text-center text-[22px] font-bold tabular-nums leading-none sm:text-[26px] ${i < 3 ? "text-white" : "text-white/40"}`}>{i + 1}</span>
+              <div className="min-w-0">
+                <p className="truncate text-[14px] font-bold text-white">{nombreVisto(j.jugador)}</p>
+                <p className="truncate text-[12px] tabular-nums text-white/55">
+                  {miles(j.minutos)}′{j.xg90 != null && <> · {coma(j.xg90)} xG/90</>}
+                  {j.veces != null && <span className={sobre ? "font-bold text-white" : ""}> · ×{coma(j.veces, 1)} la media</span>}
+                </p>
               </div>
-              <div className="mt-1 flex items-center gap-2">
+              <div
+                className="relative col-span-3 col-start-1 row-start-2 mt-1 h-3 min-w-0 rounded-full sm:col-span-1 sm:col-start-3 sm:row-start-1 sm:mt-0 sm:h-3.5"
+                style={{ background: tinta(0.07) }}
+                role="img"
+                aria-label={`${j.jugador}: ${coma(j.xg)} xG; con la media del equipo haría ${coma(j.esperado)}`}
+              >
                 <div
-                  className="relative h-3 min-w-0 flex-1 rounded-sm"
-                  style={{ background: tinta(0.06) }}
-                  role="img"
-                  aria-label={`${j.jugador}: ${coma(j.xg)} xG; con la media del equipo haría ${coma(j.esperado)}`}
-                >
-                  <div className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${(j.xg / escala) * 100}%`, background: color }} />
-                  <div
-                    className="absolute -inset-y-0.5 w-0.5"
-                    style={{ left: `calc(${Math.min(100, (j.esperado / escala) * 100)}% - 1px)`, background: tinta(0.85) }}
-                    title={`Con la media del equipo por minuto: ${coma(j.esperado)} xG`}
-                  />
-                </div>
-                <span
-                  className={`w-[4.5rem] shrink-0 text-right text-[11px] tabular-nums ${sobre ? "font-bold text-white" : "text-white/55"}`}
-                  title="Su xG entre lo que haría con la media del equipo por minuto"
-                >
-                  {j.veces != null ? `×${coma(j.veces, 1)} media` : ""}
-                </span>
+                  className="portada-llena absolute inset-y-0 left-0 rounded-full"
+                  style={{ width: `${(j.xg / escala) * 100}%`, background: color, animationDelay: `${i * 45}ms` }}
+                />
+                <div
+                  className="absolute -inset-y-1 w-[3px] rounded-full"
+                  style={{ left: `calc(${Math.min(100, (j.esperado / escala) * 100)}% - 1.5px)`, background: tinta(0.85) }}
+                  title={`Con la media del equipo por minuto: ${coma(j.esperado)} xG`}
+                />
               </div>
+              <p className="col-start-3 row-start-1 text-right leading-none sm:col-start-4">
+                <span className="fuente-club block text-[22px] font-bold tabular-nums text-white sm:text-[26px]">{coma(j.pct, 1)} %</span>
+                <span className="text-[12px] font-semibold tabular-nums text-white/55">{coma(j.xg)} xG</span>
+              </p>
             </li>
           );
         })}

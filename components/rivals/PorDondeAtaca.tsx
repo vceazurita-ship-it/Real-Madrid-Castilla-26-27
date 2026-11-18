@@ -204,13 +204,18 @@ export function PorDondeAtaca({
   }
 
   return (
-    <section aria-label="Por dónde ataca" className="mb-6 rounded-2xl border border-sky-400/25 bg-sky-400/[0.05] px-5 py-4">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-sky-300">
-        Por dónde ataca
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Wyscout, temporada</span>
+    <section aria-label="Por dónde ataca" className="portada-tarjeta portada-entra mb-6 px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+        Por dónde ataca · sus tres carriles
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">dato · Wyscout, temporada</span>
       </p>
+      {carga && (
+        <h3 className="fuente-club mt-1.5 text-[24px] font-bold uppercase leading-[1.05] text-white sm:text-[30px]">
+          {dominante ? `Carga la banda ${dominante}` : `El ${carga.parte} % ${carga.tipo.deQue} es de ${carga.lider!.jugador}`}
+        </h3>
+      )}
 
-      <p className="mt-1 text-sm leading-6 text-white/85">
+      <p className="mt-1 text-sm leading-6 text-white/80">
         {reparto}
         {porFuera}
         {carga && (
