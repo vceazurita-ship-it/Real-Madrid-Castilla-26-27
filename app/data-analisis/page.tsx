@@ -141,6 +141,7 @@ import { SelloFuente } from "@/components/ui/SelloFuente";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { ClasificacionJusta } from "@/components/data/ClasificacionJusta";
+import { SalidaContraPresion } from "@/components/data/SalidaContraPresion";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
@@ -2381,6 +2382,9 @@ export default function DataAnalisisPage() {
 
                     {/* Y lo que sólo tiene Opta: cien partidos, casa y fuera. */}
                     <PanelOpta historico={datos.historico ?? []} />
+
+                    {/* Nuestra salida contra la presión (18/11/2026): PPDA del rival contra nuestras pérdidas en campo propio, con el próximo rival sobre la recta. */}
+                    <SalidaContraPresion />
                   </>
                 )}
 
