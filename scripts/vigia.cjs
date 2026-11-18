@@ -1624,8 +1624,13 @@ async function ronda() {
     }
   }
 
-  /* Programar una idea lleva un `next build`: no a la vez que el análisis del partido, que ya pesa. */
-  if (estados["x-idea"] === "pedido" && !enMarcha.has("x-idea") && !enMarcha.has("partido")) {
+  /* Programar una idea lleva un `next build`. Antes esperaba a que acabase el
+     análisis del partido, y con un partido de tres horas las ideas se quedaban
+     toda la mañana en cola (18/11/2026, el analista: «no me gusta que sea así»).
+     Ahora sólo espera si, con el partido en marcha, queda poca memoria libre. */
+  const memoriaParaIdea = !enMarcha.has("partido") || os.freemem() > 2.5 * 1024 ** 3;
+
+  if (estados["x-idea"] === "pedido" && !enMarcha.has("x-idea") && memoriaParaIdea) {
     arranca("x-idea", haceXIdea);
   }
 
