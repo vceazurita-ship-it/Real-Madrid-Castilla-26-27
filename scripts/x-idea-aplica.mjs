@@ -192,7 +192,8 @@ async function comprueba(tocados, pantalla) {
   }
 
   if (pantalla) {
-    const ayuda = await corre("ayuda", [path.join(OBRA, "scripts/ayuda-al-dia.mjs")], 5 * 60_000);
+    /* 15 minutos (18/11/2026): con el disco ocupado por el partido, 5 no llegaban y la idea no salía por el plazo, no por la ayuda. */
+    const ayuda = await corre("ayuda", [path.join(OBRA, "scripts/ayuda-al-dia.mjs")], 15 * 60_000);
     const atrasada = ayuda.split(/\r?\n/).some((l) => l.trim().split(/\s+/)[0] === pantalla && /revisada/.test(l));
 
     if (atrasada) throw new NoSale(`la ayuda de ${pantalla} no está al día (lib/ayuda/paginas.ts, revisada "${HOY}")`);

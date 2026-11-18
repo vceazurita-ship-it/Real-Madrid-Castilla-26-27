@@ -28,13 +28,28 @@ const entradas = trozos.map((t) => ({
   revisada: t.match(/\n\s+revisada:\s*"(\d{4}-\d{2}-\d{2})"/)?.[1] ?? "",
 }));
 
-const ultimoCambio = (carpeta) => {
-  try {
-    return execFileSync("git", ["log", "-1", "--format=%cs", "--", ...[carpeta].flat()], { cwd: RAIZ, encoding: "utf8" }).trim();
-  } catch {
-    return "";
+/*
+| Una sola pasada de git (18/11/2026). Antes era un `git log -1` por pantalla
+| sobre toda la historia: con el ordenador del club ocupado pasaba de los
+| cinco minutos y las ideas de X salían «ayuda no pasa: (plazo agotado)».
+| Sólo importa lo cambiado después de la `revisada` más antigua, así que se
+| lee desde ahí y se mira fichero a fichero (lo más nuevo primero).
+*/
+const fechas = entradas.map((e) => e.revisada).filter(Boolean).sort();
+const desde = entradas.some((e) => !e.revisada) || !fechas.length ? null : fechas[0];
+const cambios = []; /* [fecha, fichero] del más nuevo al más viejo */
+
+try {
+  const salida = execFileSync("git", ["log", "--format=@%cs", "--name-only", ...(desde ? [`--since=${desde}T00:00:00`] : []), "--", "app"], { cwd: RAIZ, encoding: "utf8", maxBuffer: 256 * 1024 * 1024 });
+  let fecha = "";
+
+  for (const linea of salida.split(/\r?\n/)) {
+    if (linea.startsWith("@")) fecha = linea.slice(1);
+    else if (linea.trim()) cambios.push([fecha, linea.trim()]);
   }
-};
+} catch {
+  /* Sin git, nada sale atrasado por cambio (sí las que no tienen `revisada`). */
+}
 
 const atrasadas = [];
 
@@ -45,8 +60,9 @@ for (const { ruta, revisada } of entradas) {
   if (!fs.existsSync(path.join(RAIZ, fichero))) continue;
 
   /* Las subpantallas con ayuda propia (/laboratorio/microciclo) no cuentan como cambio de la madre (16/11/2026). */
-  const hijas = ruta === "/" ? [] : entradas.filter((e) => e.ruta.startsWith(`${ruta}/`)).map((e) => `:(exclude)app${e.ruta}`);
-  const cambio = ruta === "/" ? ultimoCambio(fichero) : ultimoCambio([fichero, ...hijas]);
+  const hijas = ruta === "/" ? [] : entradas.filter((e) => e.ruta.startsWith(`${ruta}/`)).map((e) => `app${e.ruta}/`);
+  const esSuyo = (f) => (ruta === "/" ? f === "app/page.tsx" : f.startsWith(`app${ruta}/`) && !hijas.some((h) => f.startsWith(h)));
+  const cambio = cambios.find(([, f]) => esSuyo(f))?.[0] ?? "";
 
   if (!revisada || (cambio && cambio > revisada)) atrasadas.push({ ruta, revisada: revisada || "nunca", cambio });
 }
