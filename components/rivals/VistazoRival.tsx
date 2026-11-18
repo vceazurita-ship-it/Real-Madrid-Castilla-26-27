@@ -241,6 +241,16 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
           </span>
         )}
       </div>
+      {/*
+        18/11/2026 (ronda 23, fútbol): «+20 / −33» sin decir qué es. La cifra se
+        explica en el propio rótulo: puntos de percentil, los nuestros del duelo
+        menos los suyos, cada uno frente a los de su puesto en la categoría.
+      */}
+      {d && (d.conBalon != null || d.sinBalon != null) && (
+        <p className="mt-0.5 text-[12px] text-white/55">
+          Duelo «{d.titulo.toLowerCase()}»: los + y − son puntos de percentil de los nuestros del duelo frente a los suyos de {equipo}, cada uno contra su puesto en la categoría (Wyscout); + es ventaja nuestra.
+        </p>
+      )}
 
       {/* La orden, en una línea y la primera (17/11/2026, jueces de marketing). */}
       {accion && <p className="mt-1 font-medium text-white">{accion}.</p>}
@@ -552,7 +562,8 @@ export function VistazoRival({
       {aspectos.length > 0 && (
         <div className="mt-3 min-w-0">
           <p className="mb-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-white/50">
-            Lo que le hace distinto · Wyscout, contra {equipos > 0 ? `los ${equipos} de` : ""} la categoría
+            {/* Una sola fórmula de población, como la portada (18/11/2026, ronda 23): «grupo de 20 equipos». */}
+            Lo que le hace distinto · frente a su {equipos > 0 ? `grupo de ${equipos} equipos` : "grupo"}
           </p>
 
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
@@ -563,17 +574,28 @@ export function VistazoRival({
             y con la base de las cifras («por partido» en cuántos partidos de Wyscout).
           */}
           {equipos > 0 && (
-            <p className="mb-2 text-[13px] text-white/60">
-              En cada barra, el punto es el rival y la raya, la mediana de los {equipos}: a la derecha, mejor. Junto a cada cifra, su puesto entre los {equipos}: el 1.º es el mejor de la categoría; el {equipos}.º, el peor.
-              {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
-              {(() => {
-                /* Una sola cifra de presión y su porqué, en una línea (16/11/2026, jueces). */
-                const ppda = aspectos.flatMap((x) => x.filas).find((f) => f.proveedor === "Opta" && /ppda/i.test(f.nombre));
-                return ppda
-                  ? ` El PPDA es el de Opta (la temporada: pases que deja dar entre acciones defensivas, sumados), el proveedor que manda en presión; Wyscout lo cuenta con otra definición${ppda.segunda ? ` y le da ${cifraAspecto(ppda.segunda.valor, ppda.unidad)}` : ""}.`
-                  : "";
-              })()}
-            </p>
+            /*
+              18/11/2026 (ronda 23, fútbol y marketing): una línea a la vista y la
+              metodología (medias, el PPDA de Opta frente al de Wyscout) en «Ver base».
+            */
+            <div className="mb-2 text-[13px] text-white/60">
+              <p>
+                El punto es el rival y la raya, la mediana del grupo: a la derecha, mejor. «1.º de {equipos}», el mejor del grupo.
+              </p>
+              <details className="mt-0.5 min-w-0">
+                <summary className="cursor-pointer text-[12px] font-semibold text-white/55 hover:text-white">Ver base</summary>
+                <p className="mt-0.5 text-[12px] text-white/55">
+                  Wyscout, esta temporada, frente a los {equipos} equipos del grupo.
+                  {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
+                  {(() => {
+                    const ppda = aspectos.flatMap((x) => x.filas).find((f) => f.proveedor === "Opta" && /ppda/i.test(f.nombre));
+                    return ppda
+                      ? ` El PPDA es el de Opta: pases que deja dar al rival entre acciones defensivas, sumados en la temporada (menos es más presión); es el proveedor que manda en presión. Wyscout lo cuenta con otra definición${ppda.segunda ? ` y le da ${cifraAspecto(ppda.segunda.valor, ppda.unidad)}` : ""}.`
+                      : "";
+                  })()}
+                </p>
+              </details>
+            </div>
           )}
 
           {/*
@@ -645,15 +667,16 @@ export function VistazoRival({
                         */}
                         {a.filas.map((f) => (
                           <span key={f.nombre} className="text-[13px] leading-snug tabular-nums text-white/70">
-                            {nombreDeFila(a.aspecto, f.nombre)}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
+                            {nombreDeFila(a.aspecto, f.nombre)}
+                            {/ppda/i.test(f.nombre) && f.proveedor === "Opta" ? " de Opta" : ""}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
                             {porPartido(f.nombre, f.unidad)}
                             {/* El sentido, si menos es mejor (17/11/2026, jueces de análisis: «pérdidas 120,5» no decía hacia dónde). */}
                             {(f.valor > f.mediana && f.percentil < 50) || (f.valor < f.mediana && f.percentil > 50) ? " (menos es mejor)" : ""} · mediana {cifraAspecto(f.mediana, f.unidad)}
                             {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/* La base y el proveedor (16/11/2026, jueces de fútbol): «25 de 56 en 12 partidos», «Opta». */}
                             {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : partidosWyscout > 0 && porPartido(f.nombre, f.unidad) ? ` · ${partidosWyscout} partidos` : ""}
-                            {f.proveedor === "Opta" ? " · Opta" : ""}
-                            {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar: menos es más presión)" : ""}
+                            {/* 18/11/2026 (ronda 23, fútbol): en la fila basta «PPDA de Opta»; el porqué va en «Ver base». */}
+                            {f.proveedor === "Opta" && !/ppda/i.test(f.nombre) ? " · Opta" : ""}
                           </span>
                         ))}
                       </li>

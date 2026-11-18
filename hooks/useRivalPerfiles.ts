@@ -38,7 +38,7 @@ export function useRivalPerfiles(equipo: string) {
     let cancelado = false;
 
     traeJson<{ ok?: boolean } & Partial<PerfilesRival>>(
-      `/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=3`,
+      `/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=4`,
     )
       .then((r) => {
         if (cancelado) return;

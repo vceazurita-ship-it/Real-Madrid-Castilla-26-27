@@ -8,10 +8,12 @@
 | Un minicampo con los once titulares del once probable, cada uno en su hueco
 | del dibujo y con LAS MISMAS LÍNEAS que el campograma (`lineasDelDibujo`: en
 | un 4-2-3-1, 4 defensas, 2 medios, 3 por detrás del punta y 1 delantero).
-| Cada ficha lleva UN veredicto (nunca «Peligro» y «Explotable» a la vez):
-|   rojo  = peligro (lo mejor de Wyscout contra su puesto, sus goles o las
-|           etiquetas del analista);
-|   verde = explotable (lo peor de Wyscout o sus etiquetas de debilidad).
+| Cada ficha lleva como mucho UN veredicto (nunca «Peligro» y «Explotable» a
+| la vez), y desde el 18/11/2026 (ronda 23) con jerarquía: como mucho 3 de
+| cada lado, los más extremos frente a su puesto en una métrica clave
+| (`lib/rivals/metricas-del-puesto.ts`, la misma lista que Scout individual):
+|   rojo  = peligro (mejor que 8 de cada 10 de su puesto);
+|   verde = explotable (peor que 8 de cada 10).
 | Debajo, una frase con los nombres; el porqué con su cifra y su base, al
 | pinchar la ficha. Las órdenes viven en «Dónde hacerles daño» y «Dónde nos
 | hacen daño»: aquí no se repiten. Quien juega en un hueco que no es el suyo
@@ -20,6 +22,10 @@
 */
 
 import { useState } from "react";
+
+import { LEYENDA_JERARQUIA } from "@/lib/rivals/metricas-del-puesto";
+
+const capital = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 
 export type Veredicto = {
   tipo: "peligro" | "explotable";
@@ -49,9 +55,43 @@ export type LineaResumen = {
   fichas: FichaResumen[];
 };
 
-const lista = (nombres: string[]) => nombres.join(", ").replace(/, ([^,]*)$/, " y $1");
+/** Frases con comas dentro: «A (…); B (…) y C (…)». */
+const lista = (frases: string[]) => (frases.length < 2 ? frases.join("") : `${frases.slice(0, -1).join("; ")} y ${frases[frases.length - 1]}`);
 
-function Ficha({ ficha, activa, onClick }: { ficha: FichaResumen; activa: boolean; onClick: () => void }) {
+/*
+| EL NOMBRE BAJO LA FICHA (18/11/2026, ronda 23, guionista): «Mier» salía dos
+| veces (Javi y Jorge). Si el apellido se repite en el once, va con la inicial
+| («J. Mier»); si también la inicial, con las tres primeras letras («Jav. Mier»
+| y «Jor. Mier»), como el campograma, que pone la inicial delante.
+*/
+function rotulosDelOnce(fichas: FichaResumen[]): Map<string, string> {
+  const partes = (n: string) => n.trim().split(/\s+/);
+  const apellido = (n: string) => partes(n).slice(-1)[0] ?? n;
+  const cuantos = new Map<string, number>();
+
+  for (const f of fichas) cuantos.set(apellido(f.nombre).toLowerCase(), (cuantos.get(apellido(f.nombre).toLowerCase()) ?? 0) + 1);
+
+  const rotulos = new Map<string, string>();
+
+  for (const f of fichas) {
+    const ap = apellido(f.nombre);
+    const nombre = partes(f.nombre)[0] ?? "";
+
+    if ((cuantos.get(ap.toLowerCase()) ?? 0) < 2 || partes(f.nombre).length < 2) {
+      rotulos.set(f.clave, ap);
+      continue;
+    }
+
+    const iguales = fichas.filter((o) => o.clave !== f.clave && apellido(o.nombre).toLowerCase() === ap.toLowerCase());
+    const mismaInicial = iguales.some((o) => (partes(o.nombre)[0] ?? "").charAt(0).toLowerCase() === nombre.charAt(0).toLowerCase());
+
+    rotulos.set(f.clave, `${mismaInicial ? nombre.slice(0, 3) : nombre.charAt(0)}. ${ap}`);
+  }
+
+  return rotulos;
+}
+
+function Ficha({ ficha, rotulo, activa, onClick }: { ficha: FichaResumen; rotulo: string; activa: boolean; onClick: () => void }) {
   const anillo =
     ficha.veredicto?.tipo === "peligro" ? "border-red-400" : ficha.veredicto?.tipo === "explotable" ? "border-emerald-400" : "border-white/25";
 
@@ -68,7 +108,7 @@ function Ficha({ ficha, activa, onClick }: { ficha: FichaResumen; activa: boolea
       >
         {ficha.dorsal || ficha.hueco.slice(0, 2)}
       </span>
-      <span className="block w-full truncate text-center text-[11px] leading-tight text-white/80">{ficha.nombre.split(" ").slice(-1)[0]}</span>
+      <span className="block w-full truncate text-center text-[11px] leading-tight text-white/80">{rotulo}</span>
     </button>
   );
 }
@@ -92,8 +132,11 @@ export function ResumenDelOnce({
   if (conGente.length === 0) return null;
 
   const fichas = conGente.flatMap((linea) => linea.fichas);
-  const peligros = fichas.filter((f) => f.veredicto?.tipo === "peligro").map((f) => f.nombre);
-  const explotables = fichas.filter((f) => f.veredicto?.tipo === "explotable").map((f) => f.nombre);
+  const rotulos = rotulosDelOnce(fichas);
+  /* Con su cifra (18/11/2026, ronda 23): «Flakus (xG 0,6 por 90′, mejor que 9 de cada 10 delanteros)». */
+  const conCifra = (f: FichaResumen) => `${f.nombre} (${f.veredicto?.porque ?? ""})`;
+  const peligros = fichas.filter((f) => f.veredicto?.tipo === "peligro").map(conCifra);
+  const explotables = fichas.filter((f) => f.veredicto?.tipo === "explotable").map(conCifra);
   const fuera = fichas.filter((f) => f.fuera);
   const activa = fichas.find((f) => f.clave === elegida) ?? null;
 
@@ -113,7 +156,7 @@ export function ResumenDelOnce({
           {[...conGente].reverse().map((linea) => (
             <li key={linea.clave} className="flex min-w-0 items-start justify-around" aria-label={`${linea.titulo}: ${linea.fichas.map((f) => f.nombre).join(", ")}`}>
               {linea.fichas.map((ficha) => (
-                <Ficha key={ficha.clave} ficha={ficha} activa={ficha.clave === elegida} onClick={() => setElegida((cual) => (cual === ficha.clave ? null : ficha.clave))} />
+                <Ficha key={ficha.clave} ficha={ficha} rotulo={rotulos.get(ficha.clave) ?? ficha.nombre} activa={ficha.clave === elegida} onClick={() => setElegida((cual) => (cual === ficha.clave ? null : ficha.clave))} />
               ))}
             </li>
           ))}
@@ -135,6 +178,8 @@ export function ResumenDelOnce({
             </span>
           )}
         </p>
+        {/* El criterio, en la leyenda (18/11/2026, ronda 23). */}
+        <p className="mt-0.5 text-[11px] leading-snug text-white/50">{capital(LEYENDA_JERARQUIA)}.</p>
       </div>
 
       <div className="space-y-1.5 px-4 pb-3 pt-2 text-[12px] leading-snug text-white/75">

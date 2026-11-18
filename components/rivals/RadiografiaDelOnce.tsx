@@ -20,7 +20,8 @@ import { useMemo } from "react";
 import { useCuentaHudl } from "@/components/rivals/ClipsDeHudl";
 import { LINEAS, anclaDe, rangoDePuesto } from "@/components/rivals/VideosDelCanal";
 import { MEJOR, PEOR } from "@/components/data/graficas";
-import { esEtiquetaDebil, type JugadorPlantilla, type RasgoCorto } from "@/lib/rivals/youtube-listas";
+import type { JugadorPlantilla, RasgoCorto } from "@/lib/rivals/youtube-listas";
+import { LEYENDA_JERARQUIA, MINUTOS_TENDENCIA, jerarquiaDelOnce } from "@/lib/rivals/metricas-del-puesto";
 import { dibujoDeCampo } from "@/lib/rivals/campograma-motor";
 import { dibujoDeLasClaves, lineasDelDibujo, puestoDelBloque } from "@/lib/rivals/colocacion-once";
 
@@ -28,7 +29,8 @@ const CORTO = ["POR", "DEF", "MED", "DEL", ""] as const;
 
 const capital = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 
-const lista = (nombres: string[]) => nombres.join(", ").replace(/, ([^,]*)$/, " y $1");
+/** Frases con comas dentro: «A (…); B (…) y C (…)». */
+const lista = (frases: string[]) => (frases.length < 2 ? frases.join("") : `${frases.slice(0, -1).join("; ")} y ${frases[frases.length - 1]}`);
 
 /** La pista de percentil: 0 a la izquierda, 100 a la derecha, la mediana en medio. */
 function Pista({ fuerte, flojo }: { fuerte?: RasgoCorto; flojo?: RasgoCorto }) {
@@ -122,7 +124,31 @@ export function RadiografiaDelOnce({
   const clipsDelOnce = conCorte.reduce((s, j) => s + (cortes?.[j.nombre] ?? 0), 0);
   const deOtros = cortes ? Object.values(cortes).reduce((s, n) => s + n, 0) - clipsDelOnce : 0;
   const soloHudl = ordenados.filter((j) => !(cortes?.[j.nombre] ?? 0) && (hudl[j.hoja ?? j.nombre] ?? 0) > 0).length;
-  const explotables = ordenados.filter((j) => (j.etiquetas ?? []).some(esEtiquetaDebil) || (j.rasgos ?? []).some((r) => r.signo === "▼" && r.percentil <= 30)).map((j) => j.nombre);
+  /*
+  | PELIGRO Y EXPLOTABLE CON JERARQUÍA (18/11/2026, ronda 23, fútbol y
+  | guionista): «Algo que explotar en … y 7 más» nombraba a 10 de 11. Ahora,
+  | como mucho 3 de cada lado, los más extremos frente a su puesto en una
+  | métrica clave (`jerarquiaDelOnce`, la misma cuenta que /rivals), y con su
+  | cifra: «Explotables: Palmberg por alto (duelos aéreos ganados 27,8 %, peor
+  | que 9 de cada 10)». Un jugador, un veredicto.
+  */
+  const veredictos = jerarquiaDelOnce(
+    ordenados.map((j) => ({
+      id: j.hoja ?? j.nombre,
+      fuerte: j.rasgos?.find((r) => r.signo === "▲"),
+      flojo: j.rasgos?.find((r) => r.signo === "▼"),
+    })),
+  );
+  const nombrados = (tipo: "peligro" | "explotable") =>
+    ordenados
+      .filter((j) => veredictos.get(j.hoja ?? j.nombre) === tipo)
+      .map((j) => ({ j, r: j.rasgos?.find((x) => x.signo === (tipo === "peligro" ? "▲" : "▼")) }))
+      .filter((x): x is { j: JugadorPlantilla; r: RasgoCorto } => Boolean(x.r))
+      .sort((a, b) => (tipo === "peligro" ? b.r.percentil - a.r.percentil : a.r.percentil - b.r.percentil));
+  const frase = ({ j, r }: { j: JugadorPlantilla; r: RasgoCorto }) =>
+    `${j.nombre}${r.enQue ? ` ${r.enQue}` : ""} (${r.nombre ?? r.corta} ${r.cifra ?? ""}${r.marca.replace(/^·/, ",")}${(j.minutosWyscout ?? MINUTOS_TENDENCIA) < MINUTOS_TENDENCIA ? ", tendencia" : ""})`.replace(/\s+,/g, ",");
+  const peligros = nombrados("peligro");
+  const explotables = nombrados("explotable");
 
   const titular =
     cortes && conCorte.length > 0
@@ -138,16 +164,24 @@ export function RadiografiaDelOnce({
       <h2 className="text-lg font-semibold text-white sm:text-xl">
         {titular}
         {detalle.length > 0 && <span className="font-normal text-white/70">; {detalle.join(" y ")}</span>}
-        {explotables.length > 0 && (
-          <span className="font-normal text-white/70">
-            . Algo que explotar en {lista(explotables.slice(0, 3))}
-            {explotables.length > 3 ? ` y ${explotables.length - 3} más` : ""}
-          </span>
-        )}
         .
       </h2>
+      {(peligros.length > 0 || explotables.length > 0) && (
+        <div className="mt-1.5 space-y-0.5 text-[15px] leading-snug text-white/85">
+          {peligros.length > 0 && (
+            <p>
+              <b style={{ color: MEJOR }}>▲ {peligros.length === 1 ? "Peligro" : "Peligros"}:</b> {lista(peligros.map(frase))}.
+            </p>
+          )}
+          {explotables.length > 0 && (
+            <p>
+              <b style={{ color: PEOR }}>▼ {explotables.length === 1 ? "Explotable" : "Explotables"}:</b> {lista(explotables.map(frase))}.
+            </p>
+          )}
+        </div>
+      )}
       <p className="mt-1 text-[12px] leading-relaxed text-white/55">
-        {fuente}. En cada fila, <span style={{ color: MEJOR }}>● su mejor cifra</span> y <span style={{ color: PEOR }}>● la peor</span> contra los de su puesto en la categoría (Wyscout, esta temporada): a la derecha, mejor; la raya es la mediana.
+        {fuente}. En cada fila, <span style={{ color: MEJOR }}>● su mejor cifra</span> y <span style={{ color: PEOR }}>● la peor</span> entre las métricas clave de su puesto, contra los de su puesto en la categoría (Wyscout, esta temporada): a la derecha, mejor; la raya es la mediana. Peligro y explotable: {LEYENDA_JERARQUIA}.
       </p>
 
       {/* Por líneas del dibujo (18/11/2026): las mismas filas del campograma de /rivals. */}
@@ -165,6 +199,7 @@ export function RadiografiaDelOnce({
           const deHudl = hudl[j.hoja ?? j.nombre] ?? 0;
           /* El puesto de su once (Palmberg, pivote), el mismo de /rivals; con el de origen si es otro. */
           const puesto = j.rol || hueco || j.puesto;
+          const veredicto = veredictos.get(j.hoja ?? j.nombre);
 
           return (
             <li key={j.hoja ?? j.nombre} className="min-w-0 border-t border-white/[0.06] py-2">
@@ -191,7 +226,16 @@ export function RadiografiaDelOnce({
                   {deHudl > 0 && <span title="Clips suyos de Hudl para ver o bajar">⬇ {deHudl} Hudl</span>}
                 </span>
               </div>
-              <p className="ml-10 text-[12px] leading-snug text-white/55">{capital([puesto, j.poblacion].filter(Boolean).join(" · "))}</p>
+              {/* Una sola frase (18/11/2026, ronda 23): «Pivote en su once; se le compara con 123 medios · 683′ en Wyscout». */}
+              <p className="ml-10 text-[12px] leading-snug text-white/55">
+                {veredicto && (
+                  <b className="mr-1.5 font-semibold" style={{ color: veredicto === "peligro" ? MEJOR : PEOR }}>
+                    {veredicto === "peligro" ? "▲ Peligro" : "▼ Explotable"}
+                  </b>
+                )}
+                {capital([puesto, j.poblacion].filter(Boolean).join("; "))}
+                {!j.poblacion && (j.minutosWyscout ?? MINUTOS_TENDENCIA) < MINUTOS_TENDENCIA ? ` · ${j.minutosWyscout}′ en Wyscout · tendencia` : ""}
+              </p>
               {(fuerte || flojo) && (
                 <div className="ml-10 min-w-0">
                   <Pista fuerte={fuerte} flojo={flojo} />

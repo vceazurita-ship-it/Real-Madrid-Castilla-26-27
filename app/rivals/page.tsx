@@ -111,7 +111,8 @@ import {
 import type { InformeData } from "@/lib/rivals/informe-ppt";
 import { traeDestacadosRival } from "@/lib/rivals/destacados-rival";
 import { fraseDelVistazo, vistazoDe } from "@/lib/rivals/vistazo";
-import { asignaPerfiles, type PerfilWyscout } from "@/lib/rivals/perfil-wyscout";
+import { asignaPerfiles, type PerfilWyscout, type RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
+import { MINUTOS_TENDENCIA, cifraConUnidad, deCadaDiez, jerarquiaDelOnce, lecturaDelPuesto, nombreDelRasgo } from "@/lib/rivals/metricas-del-puesto";
 import { conTildes } from "@/lib/rivals/tildes";
 import { fraseDeDano, nombrePropio, ordenDelDuelo } from "@/lib/rivals/dano";
 import { conRivalEnUrl, mismoNombreRival } from "@/lib/rivals/rival-en-curso";
@@ -3262,11 +3263,6 @@ export default function RivalPlayersPage() {
     const suyos = plantillaCampo.filter((player) => titulares.has(playerKey(player)));
     const fuera = new Set(titularesEnSuHueco.fuera.map((uno) => uno.clave));
 
-    const temporadaDeUno = (player: RivalPlayer) =>
-      statsDoc ? highlightSeason(findStats(statsDoc, player)?.temporadas ?? [], statsDoc.temporada) : null;
-
-    const deCada = (n: number) => Math.min(9, Math.max(1, Math.round(n / 10)));
-
     const nombreDe = (player: RivalPlayer) => conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim()));
 
     const fichas = suyos.flatMap((player) => {
@@ -3275,39 +3271,27 @@ export default function RivalPlayersPage() {
 
       if (!bloque || !linea) return [];
 
+      /*
+      | 18/11/2026 (ronda 23, fútbol y guionista): «Peligro» marcaba a 10 de 11.
+      | El veredicto sale ahora sólo de las métricas clave de su puesto
+      | (`lecturaDelPuesto`, la misma lista que Scout individual) y con
+      | jerarquía (`jerarquiaDelOnce`): como mucho 3 de cada lado, los que pasan
+      | de 8 de cada 10 o bajan de 2, los más extremos. Ni goles sueltos ni
+      | etiquetas: esas viven en su ficha y en «Dónde hacerles daño».
+      */
       const perfil = perfilesPorFicha.get(idDeJugador(player));
-      const vale = perfil && !perfil.muestraCorta;
-      const temporada = temporadaDeUno(player);
-      const { tags } = parseTags(player.IMPACTO);
-      const fortaleza = tags.find((tag) => tag.tone === "fortaleza");
-      const debilidad = tags.find((tag) => tag.tone === "debilidad");
-      const goles = linea.color === "ataque" || linea.color === "medio" ? (temporada?.goles ?? 0) : 0;
-      const fuerte = vale ? perfil.fuertes[0] : undefined;
-      const flojo = vale ? perfil.flojos[0] : undefined;
-      const baseWyscout = vale ? `${perfil.partidos} ${perfil.partidos === 1 ? "partido" : "partidos"} · Wyscout` : "";
-      const baseEtiqueta = [baseDeEtiquetas(temporada), "etiqueta del analista"].filter(Boolean).join(" · ");
-
-      /* UN veredicto por jugador: gana la lectura más extrema (sus goles, o el percentil más lejos de la mediana). */
-      const peligro =
-        goles >= 3
-          ? { fuerza: 100, porque: `${goles} goles esta temporada`, base: `${temporada?.partidos ?? 0} PJ · BeSoccer` }
-          : fuerte
-            ? { fuerza: fuerte.percentil, porque: `${fuerte.nombre.replace(/\s*%$/, "")}: mejor que ${deCada(fuerte.percentil)} de cada 10 de su puesto`, base: baseWyscout }
-            : fortaleza
-              ? { fuerza: 60, porque: fortaleza.label.toLowerCase(), base: baseEtiqueta }
-              : null;
-      const explotable = flojo
-        ? { fuerza: 100 - flojo.percentil, porque: `${flojo.nombre.replace(/\s*%$/, "")}: peor que ${deCada(100 - flojo.percentil)} de cada 10 de su puesto`, base: baseWyscout }
-        : debilidad
-          ? { fuerza: 60, porque: debilidad.label.toLowerCase(), base: baseEtiqueta }
-          : null;
-      const gana = peligro && (!explotable || peligro.fuerza >= explotable.fuerza) ? "peligro" : explotable ? "explotable" : null;
-      const elegido = gana === "peligro" ? peligro : gana === "explotable" ? explotable : null;
+      const { fuerte, flojo } = lecturaDelPuesto(perfil);
+      const contra = perfil ? perfil.puestoLabel.toLowerCase() : "";
+      const tendencia = perfil && perfil.minutos < MINUTOS_TENDENCIA ? " · tendencia" : "";
+      const base = perfil ? `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout${tendencia}` : "";
+      const porque = (r: RasgoWyscout) => `${nombreDelRasgo(r)} ${cifraConUnidad(r)}, ${deCadaDiez(r.percentil)} ${contra}`;
 
       return [
         {
           linea: linea.clave,
           x: bloque.anchorX,
+          fuerte,
+          flojo,
           ficha: {
             clave: playerKey(player),
             nombre: nombreDe(player),
@@ -3315,11 +3299,22 @@ export default function RivalPlayersPage() {
             hueco: bloque.code,
             puesto: puestoDelRival(String(player["POSICIÓN"] ?? ""), bloque).enElOnce ?? puestoDelBloque(bloque),
             fuera: fuera.has(playerKey(player)),
-            veredicto: gana && elegido ? { tipo: gana, porque: elegido.porque, base: elegido.base } : null,
-          } satisfies FichaResumen,
+            veredicto: null,
+          } as FichaResumen,
+          porque,
+          base,
         },
       ];
     });
+
+    const jerarquia = jerarquiaDelOnce(fichas.map((uno) => ({ id: uno.ficha.clave, fuerte: uno.fuerte, flojo: uno.flojo })));
+
+    for (const uno of fichas) {
+      const tipo = jerarquia.get(uno.ficha.clave);
+      const rasgo = tipo === "peligro" ? uno.fuerte : tipo === "explotable" ? uno.flojo : undefined;
+
+      if (tipo && rasgo) uno.ficha.veredicto = { tipo, porque: uno.porque(rasgo), base: uno.base };
+    }
 
     const COLORES = Object.fromEntries(LINE_DEFINITIONS.map((linea) => [linea.key, linea.color])) as Record<string, string>;
 
@@ -3332,7 +3327,7 @@ export default function RivalPlayersPage() {
         .sort((a, b) => a.x - b.x)
         .map((uno) => uno.ficha),
     }));
-  }, [pitchTeam, selectedTeam, once.doc.titulares, dibujoDelEquipo, plantillaCampo, statsDoc, titularesEnSuHueco, perfilesPorFicha]);
+  }, [pitchTeam, selectedTeam, once.doc.titulares, dibujoDelEquipo, plantillaCampo, titularesEnSuHueco, perfilesPorFicha]);
 
   /* Del resumen a la ficha: la clave del once → su fila de la plantilla. */
   const abreDelOnce = useCallback(
@@ -8606,7 +8601,13 @@ function layoutPitch(
   | primeros, si el hueco no tiene titular— y el resto va a un desplegable
   | «+N» junto a la chapa. La chapa sigue contando a todos.
   */
-  const AMONTONADO_DESDE = 4;
+  /*
+  | 18/11/2026 (ronda 23, móvil): a 390 px un hueco con tres fichas ya era una
+  | pila («EI 5 +4» tapaba los nombres). En el móvil se amontona desde tres y
+  | se ve sólo una ficha (el titular, o el de dorsal más bajo); el resto, en la
+  | lista que se abre al tocar «+N».
+  */
+  const AMONTONADO_DESDE = compact ? 3 : 4;
   const ocultosDe = new Map<string, RivalPlayer[]>();
   const totalDe = new Map<string, number>();
 
@@ -8623,7 +8624,7 @@ function layoutPitch(
     if (todos.length >= AMONTONADO_DESDE) {
       const titular = todos.filter((player) => asignados[playerKey(player)] === bloque.key);
       const porDorsal = [...todos].sort((a, b) => (Number(a.DORSAL) || 999) - (Number(b.DORSAL) || 999));
-      const vistos = titular.length > 0 ? titular : porDorsal.slice(0, 2);
+      const vistos = titular.length > 0 ? titular : porDorsal.slice(0, compact ? 1 : 2);
 
       gente = vistos;
       ocultosDe.set(
@@ -9330,10 +9331,11 @@ function TacticalPitch({
               onClick={() => setMasAbierto((cual) => (cual === cluster.key ? null : cluster.key))}
               aria-expanded={masAbierto === cluster.key}
               title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
-              className="rounded-full border border-black/30 px-1.5 py-[1px] text-[11px] font-bold tabular-nums"
+              aria-label={`Ver los otros ${cluster.ocultos.length} de ${cluster.code}`}
+              className="rounded-full border border-black/30 px-2 py-0.5 text-[12px] font-bold tabular-nums shadow"
               style={{ background: cluster.color, color: "#0B0F14" }}
             >
-              +{cluster.ocultos.length}
+              +{cluster.ocultos.length} ▾
             </button>
 
             {masAbierto === cluster.key && (
@@ -9605,22 +9607,30 @@ function TacticalPitch({
 
             {/* NOMBRE */}
 
-            <span
-              className={`mt-1 truncate rounded bg-black/75 py-0.5 font-semibold leading-tight text-white ${
-                compact ? "px-1" : "px-1.5"
-              }`}
-              style={{
-                fontSize: cuerpoQueCabe(
-                  nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12),
-                  nameWidth,
-                  nameFont,
-                  compact ? 8 : 12,
-                ),
-                maxWidth: nameWidth,
-              }}
-            >
-              {nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12)}
-            </span>
+            {/*
+              18/11/2026 (ronda 23, móvil): «ORTUÑ…», «PALMB…». En el móvil el
+              apellido no se corta: si no cabe en un renglón, va en dos (con
+              guion donde el navegador sepa partirlo) y la letra no baja de 8 px.
+            */}
+            {(() => {
+              const texto = nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12);
+              const enDos = compact && cuerpoQueCabe(texto, nameWidth, nameFont, 8) < nameFont;
+              const cuerpo = enDos
+                ? Math.max(8, cuerpoQueCabe(texto.slice(0, Math.ceil(texto.length / 2) + 1), nameWidth, nameFont, 8))
+                : cuerpoQueCabe(texto, nameWidth, nameFont, compact ? 8 : 12);
+
+              return (
+                <span
+                  lang="es"
+                  className={`mt-1 rounded bg-black/75 py-0.5 font-semibold text-white ${compact ? "px-1" : "px-1.5"} ${
+                    enDos ? "line-clamp-2 break-words text-center leading-[1.05] [overflow-wrap:anywhere]" : "truncate leading-tight"
+                  }`}
+                  style={{ fontSize: cuerpo, maxWidth: nameWidth, hyphens: enDos ? "auto" : undefined }}
+                >
+                  {texto}
+                </span>
+              );
+            })()}
 
             {/* ETIQUETAS */}
 

@@ -1414,7 +1414,7 @@ export function VideosDelCanal({
                       clips={grupo.videos[0].clips}
                       conCifras={!grupo.titular}
                     />
-                    <BotonesDelJugador equipo={equipo} clave={grupo.videos[0].clave} nombre={grupo.jugador} etiquetas={grupo.videos[0].etiquetas} className="mt-1.5" />
+                    <BotonesDelJugador equipo={equipo} clave={grupo.videos[0].clave} nombre={grupo.jugador} etiquetas={grupo.videos[0].etiquetas} puesto={grupo.videos[0].puesto} className="mt-1.5" />
                   </div>
                 )}
 
@@ -1795,7 +1795,7 @@ function Rejilla({
             | arriba; aquí, la lectura del analista y «Ver base». A los de fuera
             | del once, que no salen arriba, sí su ▲/▼.
             */}
-            {conJugador && primera && <LecturaDelJugador enCaseta={enCaseta} rasgos={rasgos} poblacion={poblacion} clips={clips} conCifras={!titular} />}
+            {conJugador && primera && <LecturaDelJugador enCaseta={enCaseta} rasgos={rasgos} poblacion={poblacion} clips={clips} conCifras={!titular || enCaseta.length === 0} />}
 
             {/* El título original del vídeo, en pequeño: lo que manda es quién es. */}
             {/* «Corte 14», el nombre del equipo o un título que sólo repite al jugador
@@ -1813,7 +1813,7 @@ function Rejilla({
             })()}
 
             {/* Del vídeo a la consigna: Su ficha y Su duelo con el mismo peso, y Su ABP si toca. */}
-            {conJugador && primera && equipo && <BotonesDelJugador equipo={equipo} clave={clave} nombre={jugador} etiquetas={etiquetas} className="mt-1.5" />}
+            {conJugador && primera && equipo && <BotonesDelJugador equipo={equipo} clave={clave} nombre={jugador} etiquetas={etiquetas} puesto={puesto} className="mt-1.5" />}
 
             {/* El pie (16/11/2026, jueces): «J13 · 63′ · 0:42», la jornada, el minuto si
                 el título lo dice y lo que dura; ya no «corte 4». Las vistas, sólo al analista. */}
@@ -1986,12 +1986,17 @@ export function LecturaDelJugador({
         </p>
       )}
 
-      {conCifras &&
-        rasgos.map((r) => (
-          <p key={r.signo} className="mb-0.5 text-[12px] leading-snug tabular-nums" style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>
-            {r.signo} {r.corta} <b>{r.marca}</b>
-          </p>
-        ))}
+      {/* Su ▲/▼ en una línea de 12 px (18/11/2026, ronda 23): ninguna tarjeta sin conclusión. */}
+      {conCifras && rasgos.length > 0 && (
+        <p className="mb-0.5 text-[12px] leading-snug tabular-nums">
+          {rasgos.map((r, i) => (
+            <span key={r.signo} style={{ color: r.signo === "▲" ? MEJOR : PEOR }}>
+              {i > 0 ? <span className="text-white/35"> · </span> : null}
+              {r.signo} {r.corta} <b>{r.marca}</b>
+            </span>
+          ))}
+        </p>
+      )}
 
       {rasgos.length > 0 && (
         <details className="mt-0.5 min-w-0">
@@ -2032,14 +2037,18 @@ export function BotonesDelJugador({
   clave,
   nombre,
   etiquetas = [],
+  puesto = "",
   className = "",
 }: {
   equipo: string;
   clave?: string;
   nombre: string;
   etiquetas?: string[];
+  /** Su puesto: al portero no se le ofrece «Su duelo» (no tiene duelo en /duelos; 18/11/2026, ronda 23). */
+  puesto?: string;
   className?: string;
 }) {
+  const portero = /portero|guardameta/i.test(puesto);
   const boton =
     "inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5";
 
@@ -2048,9 +2057,11 @@ export function BotonesDelJugador({
       <Link href={`/rivals?equipo=${encodeURIComponent(equipo)}${clave ? `&jugador=${encodeURIComponent(clave)}` : ""}`} className={boton}>
         Su ficha →
       </Link>
-      <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(nombre)}`} className={boton}>
-        Su duelo →
-      </Link>
+      {!portero && (
+        <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(nombre)}`} className={boton}>
+          Su duelo →
+        </Link>
+      )}
       <Link href={conRivalEnUrl("/match-preparation", { equipo })} className={boton} title={`El plan de partido contra ${equipo}`}>
         Plan de partido →
       </Link>
@@ -2107,7 +2118,7 @@ function RestoDelOnce({
               {puesto && <p className="mt-0.5 text-[12px] leading-snug text-white/60">{puesto}</p>}
               {resumen && <p className="mb-1 text-[12px] tabular-nums text-white/60">{resumen}</p>}
               <LecturaDelJugador enCaseta={enCaseta} rasgos={j.rasgos ?? []} poblacion={j.poblacion} clips={hudl[j.hoja ?? j.nombre] ?? 0} conCifras={!j.titular} />
-              <BotonesDelJugador equipo={equipo} clave={j.clave} nombre={j.nombre} etiquetas={j.etiquetas} className="mt-1.5" />
+              <BotonesDelJugador equipo={equipo} clave={j.clave} nombre={j.nombre} etiquetas={j.etiquetas} puesto={[j.rol, j.puesto].filter(Boolean).join(" ")} className="mt-1.5" />
               <ClipsHudlJugador
                 className="mt-2"
                 equipo={equipo}
