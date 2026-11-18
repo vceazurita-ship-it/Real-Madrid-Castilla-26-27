@@ -51,14 +51,14 @@ const motivoDe = (e) => String(e?.stderr || e?.stdout || e?.message || e).trim()
 class NoSale extends Error {}
 
 /** Ejecuta un `node <script>` en la copia y devuelve su salida; lanza NoSale si falla. */
-function corre(nombre, args, plazoMs) {
+function corre(nombre, args, plazoMs, envExtra = {}) {
   return new Promise((resolve, reject) => {
     /* Con poca RAM el build se queda colgado en «Creating an optimized production
        build» hasta el plazo (13/11/2026): el mismo tope de memoria que a mano. */
     const hijo = spawn(process.execPath, args, {
       cwd: OBRA,
       windowsHide: true,
-      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: [process.env.NODE_OPTIONS, "--max-old-space-size=3072"].filter(Boolean).join(" ") },
+      env: { ...process.env, NEXT_TELEMETRY_DISABLED: "1", NODE_OPTIONS: [process.env.NODE_OPTIONS, "--max-old-space-size=3072"].filter(Boolean).join(" "), ...envExtra },
     });
     let texto = "";
     const recoge = (t) => {
@@ -122,8 +122,50 @@ function quitaObra() {
   }
 }
 
+/** ¿La copia de la pasada anterior sigue siendo un worktree sano, con su enlace a node_modules? */
+/**
+ * Lo que la copia NO puede guardar entre pasadas: los secretos (.env.local, que
+ * se copia sólo para el build) y lo compilado (.next salvo su caché), para que
+ * Claude Code no los tenga a mano en la pasada siguiente.
+ */
+function limpiaSecretosObra() {
+  fs.rmSync(path.join(OBRA, ".env.local"), { force: true });
+  const next = path.join(OBRA, ".next");
+  if (!fs.existsSync(next)) return;
+  for (const e of fs.readdirSync(next)) if (e !== "cache") fs.rmSync(path.join(next, e), { recursive: true, force: true });
+}
+
+function obraReutilizable() {
+  try {
+    return fs.existsSync(path.join(OBRA, "node_modules", "next")) && git(["rev-parse", "--is-inside-work-tree"]) === "true";
+  } catch {
+    return false;
+  }
+}
+
 function preparaObra(rama) {
   git(["fetch", "-q", "origin", "main"], RAIZ);
+
+  /* MÁS RÁPIDO (18/11/2026): la copia se reutiliza de una pasada a otra. Se
+     pone en origin/main y se limpia lo no ignorado, pero se queda .next (la
+     caché del build, que así sale templado: minutos en vez de un build en
+     frío) y el enlace a node_modules. Sólo si está rota se rehace entera. */
+  if (obraReutilizable()) {
+    try {
+      try {
+        git(["rebase", "--abort"]);
+      } catch {
+        /* no había */
+      }
+      git(["checkout", "-q", "-f", "-B", rama, "origin/main"]);
+      git(["clean", "-fdq"]);
+      limpiaSecretosObra();
+      return;
+    } catch (e) {
+      console.log(`la copia no se deja reutilizar (${motivoDe(e)}): se rehace`);
+    }
+  }
+
   quitaObra();
   git(["worktree", "add", "-q", "-B", rama, OBRA, "origin/main"], RAIZ);
 
@@ -181,19 +223,18 @@ async function comprueba(tocados, pantalla) {
   const env = path.join(RAIZ, ".env.local");
   if (fs.existsSync(env)) fs.copyFileSync(env, path.join(OBRA, ".env.local"));
 
-  console.log("tsc…");
-  await corre("tsc", [path.join(OBRA, "node_modules/typescript/bin/tsc"), "--noEmit", "-p", "."], 15 * 60_000);
-
   const codigo = tocados.filter((f) => /\.(tsx?|jsx?|mjs|cjs)$/.test(f) && fs.existsSync(path.join(OBRA, f)));
 
-  if (codigo.length) {
-    console.log("eslint…");
-    await corre("eslint", [path.join(OBRA, "node_modules/eslint/bin/eslint.js"), ...codigo], 15 * 60_000);
-  }
+  /* MÁS RÁPIDO (18/11/2026): tsc, eslint y la ayuda a la vez (son ligeros y no se pisan). */
+  console.log("tsc, eslint y ayuda a la vez…");
+  const [, , ayuda] = await Promise.all([
+    corre("tsc", [path.join(OBRA, "node_modules/typescript/bin/tsc"), "--noEmit", "-p", "."], 15 * 60_000),
+    codigo.length ? corre("eslint", [path.join(OBRA, "node_modules/eslint/bin/eslint.js"), ...codigo], 15 * 60_000) : Promise.resolve(""),
+    /* 15 minutos (18/11/2026): con el disco ocupado por el partido, 5 no llegaban y la idea no salía por el plazo, no por la ayuda. */
+    pantalla ? corre("ayuda", [path.join(OBRA, "scripts/ayuda-al-dia.mjs")], 15 * 60_000) : Promise.resolve(""),
+  ]);
 
   if (pantalla) {
-    /* 15 minutos (18/11/2026): con el disco ocupado por el partido, 5 no llegaban y la idea no salía por el plazo, no por la ayuda. */
-    const ayuda = await corre("ayuda", [path.join(OBRA, "scripts/ayuda-al-dia.mjs")], 15 * 60_000);
     const atrasada = ayuda.split(/\r?\n/).some((l) => l.trim().split(/\s+/)[0] === pantalla && /revisada/.test(l));
 
     if (atrasada) throw new NoSale(`la ayuda de ${pantalla} no está al día (lib/ayuda/paginas.ts, revisada "${HOY}")`);
@@ -201,15 +242,18 @@ async function comprueba(tocados, pantalla) {
 
   console.log("next build…");
   const build = [path.join(OBRA, "node_modules/next/dist/bin/next"), "build"];
-
+  /* Los tipos ya los ha pasado tsc: el build no los repite. Y con la caché de
+     Turbopack en disco (sólo aquí, CACHE_BUILD=1) el build de la copia
+     reutilizada sale templado. Es sólo comprobación: lo que se publica lo
+     compila Render desde cero. */
   try {
-    await corre("build", build, 40 * 60_000);
+    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1", CACHE_BUILD: "1" });
   } catch (e) {
-    /* Un plazo agotado (falta de memoria del momento) o la red al bajar las
-       fuentes de Google no son culpa del cambio: una vez más. */
-    if (!/plazo agotado|internal\/font\/google|fonts\.g(oogleapis|static)|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|getaddrinfo/i.test(String(e?.message))) throw e;
-    console.log("next build… (otra vez: el primero agotó el plazo)");
-    await corre("build", build, 40 * 60_000);
+    /* Un plazo agotado (falta de memoria del momento), la red al bajar las
+       fuentes de Google o la caché no son culpa del cambio: una vez más, sin caché. */
+    if (!/plazo agotado|internal\/font\/google|fonts\.g(oogleapis|static)|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|getaddrinfo|turbo|cache/i.test(String(e?.message))) throw e;
+    console.log("next build… (otra vez, sin caché)");
+    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1" });
   }
 }
 
@@ -276,7 +320,7 @@ function encargoAnadir(idea) {
     "5. Nunca metas en el repo datos con licencia (Opta, Wyscout) ni secretos: el repositorio es público.",
     `6. Regla de la ayuda (AGENTS.md): actualiza en lib/ayuda/paginas.ts la entrada de ${idea.pantalla} (qué hay, de dónde sale, cómo se calcula) y su \`revisada: "${HOY}"\`; si no tiene entrada, créala.`,
     "7. Funciona en modo día y noche y en móvil, como el resto de la app.",
-    "8. Comprueba con `npx tsc --noEmit -p .` y `npx eslint <ficheros que toques>`. NO hagas git (ni commit, ni push) ni `next build`: lo hace el script que te llama.",
+    "8. Comprueba UNA vez, al final, con `npx tsc --noEmit -p .` y `npx eslint <ficheros que toques>` (en primer plano, sin esperas en bucle); si fallan, arregla y repite sólo lo que falló. NO hagas git (ni commit, ni push) ni `next build`: lo hace el script que te llama, que vuelve a comprobarlo todo.",
     "Al acabar, la última línea de tu respuesta: «RESUMEN: <qué has cambiado, en una o dos frases>».",
     "",
     "<<<IDEA",
@@ -450,7 +494,15 @@ async function principal() {
     codigo = e instanceof NoSale ? 2 : 1;
   } finally {
     try {
-      quitaObra();
+      /* La copia se QUEDA (con su .next) para que la próxima idea no empiece en frío;
+         se suelta de la rama para poder borrarla. Si no se deja, se quita entera. */
+      try {
+        git(["checkout", "-q", "-f", "--detach"]);
+        git(["clean", "-fdq"]);
+        limpiaSecretosObra();
+      } catch {
+        quitaObra();
+      }
       git(["branch", "-D", `x-idea/${accion === "añadir" ? "" : "deshacer-"}${idea.id}`], RAIZ);
     } catch {
       /* nada que limpiar */

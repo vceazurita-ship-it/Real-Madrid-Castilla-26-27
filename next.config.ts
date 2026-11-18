@@ -7,6 +7,11 @@ import type { NextConfig } from "next";
    node_modules/next/dist/docs/01-app/02-guides/memory-usage.md. */
 const enRender = Boolean(process.env.RENDER);
 
+/* CACHE_BUILD=1 sólo en la copia de las ideas de X (scripts/x-idea-aplica.mjs):
+   caché de Turbopack en disco para que su build de comprobación salga templado.
+   Experimental en build; nunca en Render ni en el build normal. */
+const cacheBuild = !enRender && process.env.CACHE_BUILD === "1";
+
 const nextConfig: NextConfig = {
   turbopack: {},
 
@@ -19,7 +24,9 @@ const nextConfig: NextConfig = {
           imgOptSequentialRead: true,
         },
       }
-    : {}),
+    : cacheBuild
+      ? { experimental: { turbopackFileSystemCacheForBuild: true } }
+      : {}),
 
   /*
   | Los binarios de vídeo no se empaquetan.
