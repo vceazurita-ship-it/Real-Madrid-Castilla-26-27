@@ -132,7 +132,10 @@ function siglaEquipo(nombre: string) {
 function FichaRival({
   ficha,
   empuja = true,
+  escudo,
 }: {
+  /** El escudo, nítido junto al nombre (18/11/2026: de marca de agua pisaba los vídeos). */
+  escudo?: string | null
   ficha: {
     nombre: string
     liga: { puesto: number; deCuantos: number; puntos: number; jugados: number } | null
@@ -144,19 +147,28 @@ function FichaRival({
   empuja?: boolean
 }) {
   return (
-    <div className={`relative px-3 pt-3 sm:px-4 sm:pt-4 ${empuja ? "mb-auto" : ""}`}>
+    <div className={`relative px-5 pt-5 sm:px-6 sm:pt-6 ${empuja ? "mb-auto" : ""}`}>
       {/*
-        18/11/2026 (ronda 23, análisis y marketing): un velo SÓLIDO detrás del
-        texto. El escudo y el estadio se pisaban con «Sus últimos 5» y con la
-        línea de puntos; ahora la ficha va en su caja opaca, sin desenfoque.
+        18/11/2026 (ronda 23) la ficha iba en una caja opaca centrada: dejaba un
+        hueco negro arriba y tapaba el estadio («se ve fea», el analista). Ahora
+        sin caja: el contenido va al pie de la tarjeta, sobre el velo oscuro del
+        panel (que ya lo hace legible), y la foto queda a la vista arriba.
       */}
-      <div className="rounded-2xl px-3 py-3 sm:px-3.5" style={{ background: "#070D1A", border: "1px solid rgba(255,255,255,.08)" }}>
-      <p className="text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: "#F7D98B" }}>
-        El rival · BeSoccer
-      </p>
-      <p className="fuente-club mt-1.5 text-[26px] font-bold uppercase leading-none" style={{ color: "#fff" }}>
-        {ficha.nombre}
-      </p>
+      <div style={{ textShadow: "0 1px 10px rgba(6,13,28,.65)" }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: "#F7D98B" }}>
+            El rival · BeSoccer
+          </p>
+          <p className="fuente-club mt-1.5 text-[30px] font-bold uppercase leading-none" style={{ color: "#fff" }}>
+            {ficha.nombre}
+          </p>
+        </div>
+        {escudo && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={escudo} alt="" aria-hidden className="h-14 w-14 shrink-0 object-contain sm:h-16 sm:w-16" style={{ filter: "drop-shadow(0 6px 16px rgba(0,0,0,.55))" }} />
+        )}
+      </div>
 
       {ficha.liga && (
         <p className="mt-3 flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[13px]" style={{ color: "rgba(255,255,255,.9)" }}>
@@ -827,8 +839,8 @@ export default function Home() {
                   con un enlace que la cubre por debajo del contenido.
                 */}
                 <div
-                  /* 18/11/2026 (ronda 22): en la semana del rival el contenido va centrado en la altura de la columna; con el pie empujado abajo quedaba un hueco grande de foto entre el vídeo y el pie. */
-                  className={`siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col ${rivalSemana ? "justify-center" : "justify-end"} overflow-hidden [&>div]:pointer-events-none [&>p]:pointer-events-none [&>span]:pointer-events-none`}
+                  /* 18/11/2026 (tarde, el analista: «se ve fea»): todo al pie, también en la semana del rival; arriba, la foto del estadio a la vista (centrado dejaba un hueco negro arriba y abajo). */
+                  className={`siempre-oscuro portada-viva group relative flex min-h-[240px] flex-col justify-end overflow-hidden [&>div]:pointer-events-none [&>p]:pointer-events-none [&>span]:pointer-events-none`}
                   style={{
                     borderRadius: 20,
                     background:
@@ -865,7 +877,7 @@ export default function Home() {
                   <div
                     aria-hidden
                     className="pointer-events-none absolute inset-0 hidden xl:block"
-                    style={{ background: "linear-gradient(180deg, rgba(6,13,28,.45) 0%, rgba(6,13,28,.25) 28%, rgba(11,24,51,.82) 58%, rgba(6,13,28,.97) 100%)" }}
+                    style={{ background: "linear-gradient(180deg, rgba(6,13,28,.30) 0%, rgba(6,13,28,.10) 22%, rgba(11,24,51,.78) 46%, rgba(6,13,28,.95) 68%, rgba(6,13,28,.98) 100%)" }}
                   />
                   <div
                     aria-hidden
@@ -873,22 +885,12 @@ export default function Home() {
                     style={{ background: "linear-gradient(180deg, rgba(6,13,28,.74) 0%, rgba(11,24,51,.86) 45%, rgba(6,13,28,.95) 100%)" }}
                   />
 
-                  {escudoRivalSemana && (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img
-                      src={escudoRivalSemana}
-                      alt=""
-                      aria-hidden
-                      /* 17/11/2026 (ronda 20, fútbol): pisaba sus últimos 5. Ahora va abajo a la derecha, detrás de todo y más tenue. */
-                      className="pointer-events-none absolute -bottom-10 -right-10 h-52 w-52 object-contain opacity-[0.12] transition-transform duration-700 group-hover:scale-105 xl:bottom-24 xl:h-64 xl:w-64"
-                      style={{ filter: "drop-shadow(0 10px 30px rgba(0,0,0,.55))" }}
-                    />
-                  )}
+                  {/* 18/11/2026: el escudo ya no va de marca de agua (se montaba sobre los vídeos): va nítido junto al nombre, en FichaRival. */}
 
                   <div aria-hidden className="pointer-events-none absolute inset-x-6 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(216,180,90,.8), transparent)" }} />
 
                   {/* 11/11/2026 (fútbol): arriba, la ficha del rival de BeSoccer. */}
-                  {fichaRival && <FichaRival ficha={fichaRival} empuja={!rivalSemana} />}
+                  {fichaRival && <FichaRival ficha={fichaRival} empuja={!rivalSemana} escudo={escudoRivalSemana} />}
 
                   {rivalSemana && !fichaRival && (
                     <p className="fuente-club relative px-5 pt-5 text-[28px] font-bold uppercase leading-none sm:px-6 sm:pt-6" style={{ color: "#fff" }}>
