@@ -25,6 +25,7 @@ import RecursosRival, {
 } from "@/components/rivals/RecursosRival";
 import { BocetoPlanDialog } from "@/components/match-preparation/BocetoPlanDialog";
 import { PanelProyeccion, enClaro, useProyeccionJuego } from "@/components/proyeccion/PanelProyeccion";
+import { PasesSegunPresion } from "@/components/proyeccion/PasesSegunPresion";
 import { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { PorQueDelBoceto } from "@/components/match-preparation/PorQueDelBoceto";
@@ -3186,6 +3187,8 @@ export default function MatchPreparation() {
               {rivalActivo.EQUIPO && (
                 <div id="proyeccion" className="mp-no-print scroll-mt-56 print:hidden">
                   <PanelProyeccion tipo="juego" equipo={String(rivalActivo.EQUIPO)} />
+                  {/* Si le dejamos tocar, ¿se nos va? (18/11/2026): pases por posesión según el PPDA. */}
+                  <PasesSegunPresion equipo={String(rivalActivo.EQUIPO)} />
                 </div>
               )}
 

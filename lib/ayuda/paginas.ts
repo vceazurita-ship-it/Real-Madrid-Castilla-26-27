@@ -1397,6 +1397,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
+          { que: "Proyección · Si le dejamos tocar, ¿se nos va? (18/11/2026)", es: "Un punto por partido del rival (Opta): en X el PPDA de su oponente, en Y sus pases por posesión (pases intentados entre secuencias). Recta de mínimos cuadrados y su r. Sobre la recta, dos escenarios nuestros: como venimos (nuestro PPDA medio de los últimos 5 partidos) y en bloque bajo (nuestro PPDA medio en el tercio de partidos de la temporada en que menos apretamos, mínimo 2); de cada uno, los pases por posesión que cabe esperarle. Si r ≥ 0,6: «su juego depende de que le dejen; presionar le acorta las posesiones»; si |r| < 0,3: mantiene su forma de jugar aprieten o no. Con menos de 5 partidos no hay recta" },
           { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
           { que: "Cómo saca el córner", es: "Las líneas de cada córner se dibujan desde el banderín al llegar; la zona que más repite va de titular" },
         ],
