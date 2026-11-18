@@ -18,7 +18,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useCallback, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { ChevronDown, ChevronUp, CircleDot, RotateCcw, Swords } from "lucide-react";
 
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
@@ -44,6 +44,7 @@ import { posesionesDe } from "@/lib/comparativa-posesion";
 import { aObjetos, DOCS_OPTA, traeOpta } from "@/lib/opta";
 import { planoDeExtremos, regateDelDuelo, type RegateDelDuelo } from "@/lib/duelos-regate";
 import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
+import { CarrilExtremo } from "@/components/duelos/carril-extremo";
 import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
@@ -498,6 +499,17 @@ export default function DuelosPage() {
   );
   const roboDe = useMemo(() => new Map(robadores.map((r) => [r.jugador.clave, r])), [robadores]);
 
+  /* El falso extremo (18/11/2026): si su extremo se va dentro, se lo encuentra nuestro pivote de ese lado. */
+  const pivoteDelLado = useCallback(
+    (d: ResultadoDuelo) => {
+      if (d.def.tipo !== "lateral-extremo") return null;
+      const hueco = d.def.nuestros.includes("lat-d") ? "piv-d" : "piv-i";
+      const j = onceNuestro[hueco];
+      return j ? { jugador: j, puesto: puestoNuestroEnHueco(j, hueco) } : null;
+    },
+    [onceNuestro],
+  );
+
   /* Sin el duelo cuyo hueco del rival lo ocupa alguien fuera de sitio (10/11/2026, jueces). */
   const { conPareja: duelos, fueraDeSitioEn } = useMemo(
     () => separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo),
@@ -923,7 +935,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
-                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} />
                         ))}
                     </div>
                   </div>
@@ -941,7 +953,7 @@ export default function DuelosPage() {
                       </summary>
                       <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                         {pocos.map((d) => (
-                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} />
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} />
                         ))}
                       </div>
                     </details>
@@ -1867,6 +1879,7 @@ function Tarjeta({
   roboDe,
   huecoDe,
   regate,
+  delLado,
 }: {
   d: ResultadoDuelo;
   activo: boolean;
@@ -1877,8 +1890,12 @@ function Tarjeta({
   huecoDe: Map<string, string>;
   /** Sólo en los duelos lateral–extremo: su extremo en el plano del regate (17/11/2026). */
   regate?: RegateDelDuelo | null;
+  /** Sólo en los duelos lateral–extremo: nuestro pivote de ese lado, por si su extremo se va dentro (18/11/2026). */
+  delLado?: { jugador: JugadorDuelo; puesto: string } | null;
 }) {
   const [verParejas, setVerParejas] = useState(false);
+  /* Lo que dice la franja del carril de su extremo: null hasta que hay dato. */
+  const [falsoExtremo, setFalsoExtremo] = useState<boolean | null>(null);
   const [pareja, setPareja] = useState<number | null>(null);
   /* Extremo desequilibrante contra un lateral por debajo de su media: el duelo, en rojo. */
   const color = regate?.alerta && modo !== "nuestro" ? ROJO_ALERTA : COLOR[d.veredicto];
@@ -1976,6 +1993,14 @@ function Tarjeta({
         <div className="min-w-0">
           <p className="text-sm font-semibold">{d.def.titulo}</p>
           <p className="text-xs text-white/40">{d.def.subtitulo}</p>
+          {d.def.tipo === "lateral-extremo" && falsoExtremo !== null && modo !== "nuestro" && (
+            <span
+              className="mt-1 inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold"
+              style={falsoExtremo ? { background: "#D95F0222", color: "#D95F02" } : { background: "#4F8FE822", color: "#4F8FE8" }}
+            >
+              {falsoExtremo ? `Falso extremo: se va hacia dentro${delLado ? ` · se lo encuentra ${apellidoDe(delLado.jugador)}` : ""}` : "Extremo de banda · 1c1 con el lateral"}
+            </span>
+          )}
         </div>
         <span className="shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold" style={{ background: `${color}22`, color: textoDe(color) }}>
           {/* 29/10/2026: «Parejo 0» con +47 y −47 debajo parecía un duelo sin nada;
@@ -2022,6 +2047,13 @@ function Tarjeta({
       <div className="mt-4">{bloquesDe(d, modo, equipo, roboDe)}</div>
 
       {regate && modo !== "nuestro" && <PlanoRegate r={regate} />}
+
+      {/* ¿Extremo de banda o falso extremo? (18/11/2026): el carril de sus toques en campo rival, de Opta. */}
+      {d.def.tipo === "lateral-extremo" && d.suyos[0] && (
+        <div className={modo === "nuestro" ? "hidden" : undefined}>
+          <CarrilExtremo equipo={equipo} extremo={d.suyos[0]} lateral={d.nuestros[0] ?? null} delLado={delLado ?? null} onLectura={setFalsoExtremo} />
+        </div>
+      )}
 
       {d.altura && (
         <p className="mt-3 text-xs text-white/45">
