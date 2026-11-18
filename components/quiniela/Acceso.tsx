@@ -108,6 +108,8 @@ export function Acceso({
   const [correo, setCorreo] = useState("");
   const [clave, setClave] = useState("");
   const [quien, setQuien] = useState("");
+  /* Darse de alta pide el código del cuerpo técnico desde que la plataforma pide entrar (18/11/2026). */
+  const [codigoStaff, setCodigoStaff] = useState("");
   const [enviando, setEnviando] = useState(false);
   const [cambiando, setCambiando] = useState(false);
   /* Compacto y sin sesión, el formulario arranca plegado (29/10/2026,
@@ -253,12 +255,14 @@ export function Acceso({
           evento.preventDefault();
 
           /* El botón ya no se apaga (beige sobre beige, 29/10/2026): si falta algo, lo dice al pulsar. */
-          if (!correo.trim() || (registrando ? !quien : !clave)) {
+          if (!correo.trim() || (registrando ? !quien || !codigoStaff.trim() : !clave)) {
             toast.error(
               registrando
                 ? !quien
                   ? "Elige tu nombre y escribe tu correo para registrarte."
-                  : "Escribe tu correo para registrarte."
+                  : !codigoStaff.trim()
+                    ? "Falta el código del cuerpo técnico (te lo da Víctor)."
+                    : "Escribe tu correo para registrarte."
                 : !correo.trim() && !clave
                   ? "Escribe tu correo y tu contraseña para entrar."
                   : !correo.trim()
@@ -271,7 +275,7 @@ export function Acceso({
 
           if (registrando) {
             void envia(
-              { accion: "registrar", slug: quien, correo },
+              { accion: "registrar", slug: quien, correo, codigoStaff },
               "Registrado. Ya puedes apostar",
             );
           } else {
@@ -303,6 +307,16 @@ export function Acceso({
           onChange={setCorreo}
           placeholder="nombre@dominio.com"
         />
+
+        {registrando && (
+          <Entrada
+            label="Código del cuerpo técnico"
+            type="password"
+            autoComplete="off"
+            value={codigoStaff}
+            onChange={setCodigoStaff}
+          />
+        )}
 
         {!registrando && (
           <Entrada

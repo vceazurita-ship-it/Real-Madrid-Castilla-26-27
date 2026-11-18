@@ -52,6 +52,7 @@ import { SesionYoutube } from "@/components/ajustes/SesionYoutube";
 import { planRecomendado, progresoDePaso } from "@/lib/progreso";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
+import { AccesoPlataforma } from "@/components/ajustes/AccesoPlataforma";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -387,15 +388,17 @@ export default function AjustesPage() {
   const vaAlLaboratorio = vuelta.startsWith("/laboratorio");
 
   /* Pestañas (09/11/2026): los encargos de siempre y «Actualizaciones», la lista de lo que se pone al día solo. */
-  const [pestana, setPestana] = useState<"encargos" | "actualizaciones">(() =>
-    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("pestana") === "actualizaciones" ? "actualizaciones" : "encargos",
+  const [pestana, setPestana] = useState<"encargos" | "actualizaciones" | "acceso">(() => {
+    const p = typeof window !== "undefined" ? new URLSearchParams(window.location.search).get("pestana") : null;
+    return p === "actualizaciones" || p === "acceso" ? p : "encargos";
+  },
   );
-  const cambiaPestana = (p: "encargos" | "actualizaciones") => {
+  const cambiaPestana = (p: "encargos" | "actualizaciones" | "acceso") => {
     setPestana(p);
 
     const url = new URL(window.location.href);
 
-    if (p === "actualizaciones") url.searchParams.set("pestana", p);
+    if (p === "actualizaciones" || p === "acceso") url.searchParams.set("pestana", p);
     else url.searchParams.delete("pestana");
 
     window.history.replaceState({}, "", url);
@@ -739,12 +742,14 @@ export default function AjustesPage() {
             <AbpHeader
               /* Quien llega desde el laboratorio sin sesión ve dónde va a entrar (07/11/2026). */
               area={vaAlLaboratorio && !yo ? "RMCF Castilla · Balón parado" : "RMCF Castilla · Ajustes"}
-              title={vaAlLaboratorio && !yo ? "Laboratorio de ABP" : yo && pestana === "actualizaciones" ? "Actualizaciones" : "Poner al día"}
+              title={vaAlLaboratorio && !yo ? "Laboratorio de ABP" : yo && pestana === "actualizaciones" ? "Actualizaciones" : yo && pestana === "acceso" ? "Acceso" : "Poner al día"}
               lead={
                 vaAlLaboratorio && !yo
                   ? undefined
                   : yo && pestana === "actualizaciones"
                     ? "Todo lo que se pone al día solo: cuándo se hace y de cuándo es el último dato."
+                    : yo && pestana === "acceso"
+                    ? "Los códigos para entrar en la plataforma: el de los jugadores y el que pide darse de alta al cuerpo técnico."
                     : "Lo que normalmente se actualiza solo, pedido a mano cuando no se quiere esperar."
               }
               aside={
@@ -770,6 +775,7 @@ export default function AjustesPage() {
                   [
                     ["encargos", "Poner al día"],
                     ["actualizaciones", "Actualizaciones"],
+                    ["acceso", "Acceso"],
                   ] as const
                 ).map(([clave, rotulo]) => (
                   <button
@@ -787,6 +793,8 @@ export default function AjustesPage() {
                 ))}
               </div>
             )}
+
+            {yo && pestana === "acceso" && <AccesoPlataforma />}
 
             {yo && pestana === "actualizaciones" && (
               <Actualizaciones

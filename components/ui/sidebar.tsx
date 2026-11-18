@@ -3,6 +3,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { usePathname, useRouter } from "next/navigation"
+import { pantallaDeJugador } from "@/lib/acceso/rutas"
+import { useEsJugador } from "@/hooks/useRolPlataforma"
 import {
   useCallback,
   useEffect,
@@ -299,7 +301,13 @@ export const AJUSTES: Seccion = {
 |
 | Lo usan el menú y la paleta, para que los dos enseñen exactamente lo mismo.
 */
-export function entradasDelMenu({ admin, ajustes }: { admin: boolean; ajustes: boolean }): Seccion[] {
+export function entradasDelMenu({ admin, ajustes, jugador = false }: { admin: boolean; ajustes: boolean; jugador?: boolean }): Seccion[] {
+  /* Acceso de jugadores (18/11/2026): sólo sus pantallas (lib/acceso/rutas.ts), con su inicio delante. */
+  if (jugador) {
+    const suyas = SECCIONES.map((seccion) => ({ ...seccion, entradas: seccion.entradas.filter((entrada) => !entrada.obras && !entrada.soloAdmin && pantallaDeJugador(entrada.href)) })).filter((seccion) => seccion.entradas.length)
+    return [{ titulo: "Inicio", entradas: [{ href: "/jugadores", label: "Real Madrid Castilla", icon: Home }] }, ...suyas]
+  }
+
   const visibles = admin
     ? SECCIONES
     : SECCIONES.map((seccion) => ({ ...seccion, entradas: seccion.entradas.filter((entrada) => !entrada.soloAdmin) })).filter(
@@ -387,7 +395,8 @@ export function Sidebar() {
   /* Ajustes sólo para Víctor: con la sesión de administrador o con su cuenta. */
   const { admin } = useAdmin()
   const { yo } = useQuinielaSesion()
-  const veAjustes = admin === true || yo?.slug === "victor-cea"
+  const esJugador = useEsJugador()
+  const veAjustes = !esJugador && (admin === true || yo?.slug === "victor-cea")
 
   /* En escritorio, desplegado = ratón encima o fijado. En móvil siempre. */
   const desplegado = encima || fijado
@@ -473,11 +482,12 @@ export function Sidebar() {
       .map((href) => porHref.get(href))
       .filter((entrada): entrada is Entrada => Boolean(entrada))
       .filter((entrada) => entrada.href !== "/ajustes" || veAjustes)
+      .filter((entrada) => !esJugador || pantallaDeJugador(entrada.href))
       .slice(0, 5)
-  }, [masVisitadas, veAjustes])
+  }, [masVisitadas, veAjustes, esJugador])
 
   const secciones = useMemo(() => {
-    const todas = entradasDelMenu({ admin: admin === true, ajustes: veAjustes })
+    const todas = entradasDelMenu({ admin: admin === true, ajustes: veAjustes, jugador: esJugador })
 
     const clave = foldText(busca.trim())
 
@@ -497,7 +507,7 @@ export function Sidebar() {
         ),
       }))
       .filter((seccion) => seccion.entradas.length > 0)
-  }, [busca, admin, veAjustes, recientes])
+  }, [busca, admin, veAjustes, recientes, esJugador])
 
   const seccionActiva = useMemo(
     () =>

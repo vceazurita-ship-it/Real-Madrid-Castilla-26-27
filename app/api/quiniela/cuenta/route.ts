@@ -27,6 +27,8 @@ import {
   type DocumentoCuentas,
 } from "@/lib/quiniela/cuentas";
 import { PERSONA_POR_SLUG } from "@/lib/quiniela/staff";
+import { aciertaCodigo, leeAcceso } from "@/lib/acceso/codigos";
+import { COOKIE_JUGADOR, COOKIE_ROL } from "@/lib/acceso/sesion";
 import { COOKIE, OPCIONES_COOKIE, creaSesion, leeSesion } from "@/lib/quiniela/sesion";
 
 export const dynamic = "force-dynamic";
@@ -138,6 +140,12 @@ export async function POST(request: NextRequest) {
 
     if (!correo) return mal("Ese correo no tiene buena pinta. Repásalo.");
 
+    /* Desde que la plataforma pide entrar (18/11/2026), una cuenta del staff lo
+       abre todo: darse de alta pide el código del cuerpo técnico (Ajustes). */
+    const acceso = await leeAcceso();
+    if (!acceso.staff) return mal("Para darte de alta, pide a Víctor que ponga el código del cuerpo técnico en Ajustes.", 403);
+    if (!aciertaCodigo(String(cuerpo.codigoStaff ?? ""), acceso.staff)) return mal("El código del cuerpo técnico no es ése.", 401);
+
     /* La contraseña inicial es lo que va antes de la arroba. */
     const { sal, hash } = cifra(claveInicialDe(correo));
 
@@ -171,6 +179,8 @@ export async function POST(request: NextRequest) {
     const respuesta = NextResponse.json({ ok: true, yo: suyo(cuenta) });
 
     respuesta.cookies.set(COOKIE, creaSesion(slug), OPCIONES_COOKIE);
+    respuesta.cookies.set(COOKIE_JUGADOR, "", { path: "/", maxAge: 0 });
+    respuesta.cookies.set(COOKIE_ROL, "", { path: "/", maxAge: 0 });
 
     return respuesta;
   }
@@ -197,6 +207,8 @@ export async function POST(request: NextRequest) {
     const respuesta = NextResponse.json({ ok: true, yo: suyo(cuenta) });
 
     respuesta.cookies.set(COOKIE, creaSesion(cuenta.slug), OPCIONES_COOKIE);
+    respuesta.cookies.set(COOKIE_JUGADOR, "", { path: "/", maxAge: 0 });
+    respuesta.cookies.set(COOKIE_ROL, "", { path: "/", maxAge: 0 });
 
     return respuesta;
   }

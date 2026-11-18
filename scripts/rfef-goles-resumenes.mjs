@@ -74,7 +74,10 @@ async function conReintento(fn) {
   }
 }
 
-const lista = await fetch(`${SITIO}/api/rivals/resumenes`)
+/* La web pide entrar desde el 18/11/2026: los scripts del club llevan la llave interna (lib/acceso/sesion.ts, firmaInterna). */
+const { createHmac } = await import("node:crypto");
+const interna = process.env.SUPABASE_SERVICE_ROLE_KEY ? createHmac("sha256", `interna:${process.env.SUPABASE_SERVICE_ROLE_KEY}`).update("plataforma").digest("base64url") : "";
+const lista = await fetch(`${SITIO}/api/rivals/resumenes`, { headers: interna ? { "x-plataforma-interna": interna } : {} })
   .then((r) => r.json())
   .catch(() => null);
 

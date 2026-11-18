@@ -5,6 +5,7 @@ import { AlarmClock, X } from "lucide-react";
 
 import { ItemMenuFlotante } from "@/components/ui/MenuFlotante";
 import { useBodyScrollLock } from "@/components/season/useBodyScrollLock";
+import { useEsJugador } from "@/hooks/useRolPlataforma";
 import GestorAlertas from "./GestorAlertas";
 
 /**
@@ -19,6 +20,7 @@ import GestorAlertas from "./GestorAlertas";
 
 export function BotonAlertas() {
   const [abierto, setAbierto] = useState(false);
+  const esJugador = useEsJugador();
 
   useBodyScrollLock(abierto);
 
@@ -33,6 +35,9 @@ export function BotonAlertas() {
 
     return () => window.removeEventListener("keydown", alPulsar);
   }, [abierto]);
+
+  /* Los jugadores no ven las alertas del cuerpo técnico (18/11/2026). */
+  if (esJugador) return null;
 
   return (
     <>

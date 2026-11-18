@@ -21,6 +21,7 @@
  */
 
 import { readDoc, writeDoc } from "@/lib/docStore";
+import { CABECERA_INTERNA, firmaInterna } from "@/lib/acceso/sesion";
 import { acabaGrande, borra, empiezaGrande, lee, subeEntero, subeTrozo } from "@/lib/almacen/b2-servidor";
 import {
   abreSubida,
@@ -180,7 +181,7 @@ const ORIGEN = (process.env.RENDER_EXTERNAL_URL || "https://rmcf-castilla.onrend
 
 /** El enlace en la ficha del jugador del rival, como hace el coding al subir. */
 async function ponEnFicha(ficha: NonNullable<Aplazada["ficha"]>, url: string) {
-  const fila = await fetch(`${ORIGEN}/api/rivals?action=rivalesPlantillas&jugador=${encodeURIComponent(ficha.jugadorId)}&fresco=1`, { cache: "no-store" }).then((r) =>
+  const fila = await fetch(`${ORIGEN}/api/rivals?action=rivalesPlantillas&jugador=${encodeURIComponent(ficha.jugadorId)}&fresco=1`, { cache: "no-store", headers: { [CABECERA_INTERNA]: firmaInterna() } }).then((r) =>
     r.ok ? r.json() : null,
   );
 
@@ -188,7 +189,8 @@ async function ponEnFicha(ficha: NonNullable<Aplazada["ficha"]>, url: string) {
 
   await fetch(`${ORIGEN}/api/rivals`, {
     method: "POST",
-    headers: { "Content-Type": "application/json" },
+    /* El servidor se llama a sí mismo: sin cookie, con la llave interna (proxy.ts, 18/11/2026). */
+    headers: { "Content-Type": "application/json", [CABECERA_INTERNA]: firmaInterna() },
     body: JSON.stringify({ action: "guardarRivalJugador", player: { ...fila, VIDEO: url } }),
   });
 }

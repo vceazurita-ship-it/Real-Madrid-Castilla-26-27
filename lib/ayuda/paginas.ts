@@ -2356,6 +2356,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se rellena",
         filas: [
+          { que: "Registrarme (18/11/2026)", es: "Darse de alta pide también el código del cuerpo técnico, que pone Víctor en Ajustes → Acceso: con la cuenta se entra en toda la plataforma" },
           { que: "Entrar", es: "Con tu correo. La primera vez, «Registrarme»: la contraseña es lo que va antes de la @, y conviene cambiarla. Cada uno pone sólo lo suyo" },
           { que: "Guardar mi apuesta", es: "Marcar un signo no guarda nada: se guarda con el botón, y se cambia las veces que haga falta hasta el cierre" },
           { que: "El cierre", es: "El viernes de la semana de la jornada a las 12:00, hora de Madrid; lo no guardado cuenta como fallo" },
@@ -2416,6 +2417,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se juega",
         filas: [
+          { que: "Registrarme (18/11/2026)", es: "Darse de alta pide también el código del cuerpo técnico, que pone Víctor en Ajustes → Acceso: con la cuenta se entra en toda la plataforma" },
           { que: "Entrar para apostar", es: "Un botón pequeño en la cabecera, el único sitio donde está (con sesión, tu nombre); al pulsarlo sale el acceso con la cuenta de la quiniela. Ver no necesita entrar; lanzar, apostar o dar el veredicto, sí. Cambiar contraseña y Salir, al pie" },
           { que: "Quiniela de la semana", es: "Enlace en la cabecera, junto al acceso: la misma cuenta sirve para las dos" },
           { que: "Lanzar apuesta", es: "La predicción (hasta 280 letras), qué te juegas (hasta 120) y el día en que se comprueba, mañana como pronto. Quien la lanza va a favor" },
@@ -2534,11 +2536,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
     bloques: [
       {
         titulo: "Antes de entrar",
         filas: [
+          { que: "Registrarme (18/11/2026)", es: "Darse de alta pide también el código del cuerpo técnico, que pone Víctor en Ajustes → Acceso" },
           { que: "Entra con tu cuenta del staff", es: "El correo, la contraseña y un solo botón «Entrar». Sólo puede registrarse el cuerpo técnico. Si el aparato ya tiene la cuenta del staff, el formulario no sale: se abre el análisis directamente" },
           { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
           { que: "Última sesión analizada", es: "Lo primero, con el acceso al lado: la fecha, el acierto del día, su base de acciones revisadas, cuántos objetivos se midieron y una barra por tarea (código, nombre de la tarea, acierto, correctas y, si la tiene, la raya de la meta con «cumple» o «no llega»; con menos de 15 acciones, puntos en vez de barra y sin meta). Debajo, las dos sesiones analizadas anteriores con su cifra y si la siguiente subió o bajó. Si aún no hay nada revisado, se cuenta la propuesta del análisis y se marca «provisional · sin revisar». Sólo lo agregado: sin jugadores, textos de objetivo ni clips, porque esta puerta es pública", cuenta: "La más reciente con acciones: lo revisado; si no hay nada revisado, la propuesta automática sin lo descartado, marcada provisional. Acierto = correctas ÷ revisadas; con menos de 15, la cuenta y «tendencia» (barra atenuada). Por tarea se suman los objetivos atados a esa tarea" },
@@ -2826,6 +2829,46 @@ export const AYUDAS: AyudaDePagina[] = [
 
   /* ==================== AJUSTES (12/11/2026) ==================== */
   {
+    ruta: "/entrar",
+    titulo: "Entrar en la plataforma",
+    resumen: "La puerta: desde el 18/11/2026 hay que entrar. El cuerpo técnico con su cuenta (la de la quiniela) y los jugadores con el código de jugadores.",
+    origen: "Las cuentas del staff son las de la quiniela (Supabase, secreto:quiniela-cuentas); los códigos, los de Ajustes → Acceso (secreto:acceso). Las sesiones son cookies firmadas: 30 días.",
+    revisada: "2026-11-18",
+    bloques: [
+      {
+        titulo: "Dos maneras de entrar",
+        filas: [
+          { que: "Cuerpo técnico", es: "Correo y contraseña. «Registrarme» pide además el código del cuerpo técnico (lo da Víctor). Lo ve todo" },
+          { que: "Jugadores", es: "Sólo el código de jugadores. Van a su inicio (/jugadores) y ven sólo sus pantallas" },
+          { que: "Volver a donde iba", es: "Quien abre un enlace sin haber entrado, al entrar llega a esa pantalla" },
+        ],
+      },
+      {
+        titulo: "Lo que no pide entrar",
+        filas: [
+          { que: "Enlaces que salen por WhatsApp o correo", es: "Los vídeos (/api/video) y los PDF de los informes (/pdf) se abren sin entrar, como hasta ahora" },
+        ],
+      },
+    ],
+  },
+  {
+    ruta: "/jugadores",
+    titulo: "Acceso de jugadores",
+    resumen: "El inicio de los jugadores: sus pantallas en tarjetas y el botón de salir.",
+    origen: "La lista de pantallas es lib/acceso/rutas.ts (PANTALLAS_JUGADOR), la misma que filtra su menú y la que hace cumplir el proxy.",
+    revisada: "2026-11-18",
+    bloques: [
+      {
+        titulo: "Qué hay",
+        filas: [
+          { que: "Sus pantallas", es: "Calendario operativo, desplazamiento, identidad y modelo de juego, plantillas y scout de rivales, ABP y saques de banda, análisis de goles e histórico de la competición" },
+          { que: "Lo que no", es: "Nada de lo que rellena el staff sobre ellos ni lo interno: seguimientos, valoraciones, pizarras, emocional, carga, planes, informes, coding, visionados, tareas, alertas, Data análisis, quiniela, apuestas, laboratorio y Ajustes" },
+          { que: "Salir", es: "Cierra la sesión en este aparato y vuelve a la puerta" },
+        ],
+      },
+    ],
+  },
+  {
     ruta: "/ajustes",
     titulo: "Ajustes",
     resumen: "Lo que normalmente se pone al día solo, pedido a mano cuando no se quiere esperar, y la lista de cuándo se actualizó cada dato.",
@@ -2866,6 +2909,14 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
       {
+        titulo: "Acceso (18/11/2026)",
+        filas: [
+          { que: "Código de jugadores", es: "El que se da al vestuario: entran sin cuenta, por /entrar → «Jugadores», y sólo ven sus pantallas (calendario operativo, desplazamiento, identidad y modelo de juego, rivales y scout, ABP y banda, análisis de goles e histórico). Cambiarlo, o «Sacar a todos los jugadores», cierra sus sesiones en 5 minutos", cuenta: "Guardado con scrypt en Supabase (secreto:acceso); cinco fallos seguidos cierran la puerta 15 minutos. La lista de pantallas y lo vetado está en lib/acceso/rutas.ts" },
+          { que: "Código del cuerpo técnico", es: "Lo pide «Registrarme» para crear una cuenta del staff. Quien ya tiene cuenta entra igual. Sin código puesto, nadie nuevo puede darse de alta" },
+          { que: "Qué NO ven los jugadores", es: "Seguimientos e Individual, valoraciones, emocional, carga física, pizarras (táctica, de sesión y de ABP), planes e informes, coding, visionados, tareas, alertas, quiniela, apuestas, laboratorio, Data análisis y Ajustes: ni en el menú, ni abriendo la dirección, ni pidiendo los datos a mano (la API dice 403)" },
+        ],
+      },
+      {
         titulo: "Actualizaciones",
         filas: [
           { que: "Los grupos", es: "Cada noche · la jornada, Cada mañana, Cada semana o cada mes, Durante el día y Cuando se pide" },
@@ -2895,7 +2946,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */

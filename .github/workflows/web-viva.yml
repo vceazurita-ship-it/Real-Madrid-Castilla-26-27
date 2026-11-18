@@ -36,15 +36,15 @@ jobs:
             /jugadores-sesion
             /microcycles
             /quiniela
+            /entrar
         run: |
           FALLOS=0
           for p in $PANTALLAS; do
-            ESTADO=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 --retry 2 --retry-delay 10 "$WEB$p" || echo "000")
-            if [ "$ESTADO" = "200" ]; then
-              echo "✓ $p"
-            else
-              echo "::error::$p contesta $ESTADO"
-              FALLOS=$((FALLOS + 1))
-            fi
+            # Desde el 18/11/2026 la web pide entrar: sin sesión, cada pantalla lleva a /entrar (307), y eso es estar viva.
+            ESTADO=$(curl -s -o /dev/null -w "%{http_code} %{redirect_url}" --max-time 60 --retry 2 --retry-delay 10 "$WEB$p" || echo "000")
+            case "$ESTADO" in
+              "200 "*|"307 "*/entrar*) echo "✓ $p" ;;
+              *) echo "::error::$p contesta $ESTADO"; FALLOS=$((FALLOS + 1)) ;;
+            esac
           done
           [ "$FALLOS" -eq 0 ] || exit 1

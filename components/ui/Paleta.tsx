@@ -1,5 +1,6 @@
 "use client"
 
+import { useEsJugador } from "@/hooks/useRolPlataforma"
 import { usePathname, useRouter } from "next/navigation"
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react"
 import { CornerDownLeft, History, Search, X } from "lucide-react"
@@ -87,7 +88,8 @@ export function Paleta() {
      módulo, así que esto no añade ninguna petición. */
   const { admin } = useAdmin()
   const { yo } = useQuinielaSesion()
-  const veAjustes = admin === true || yo?.slug === "victor-cea"
+  const esJugador = useEsJugador()
+  const veAjustes = !esJugador && (admin === true || yo?.slug === "victor-cea")
 
   useBodyScrollLock(abierta)
 
@@ -142,12 +144,12 @@ export function Paleta() {
 
   const todas = useMemo<Fila[]>(
     () =>
-      entradasDelMenu({ admin: admin === true, ajustes: veAjustes }).flatMap((seccion) =>
+      entradasDelMenu({ admin: admin === true, ajustes: veAjustes, jugador: esJugador }).flatMap((seccion) =>
         seccion.entradas
           .filter((entrada) => !entrada.obras)
           .map((entrada) => ({ seccion: seccion.titulo, entrada })),
       ),
-    [admin, veAjustes],
+    [admin, veAjustes, esJugador],
   )
 
   const masVisitadas = useRutasMasVisitadas(12, [pathname, "/"])
