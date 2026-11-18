@@ -64,7 +64,7 @@ import { JUEGAN_POR_DEFECTO, PERSONA_POR_SLUG, nombreCorto } from "@/lib/quiniel
 import { JORNADAS, partidosDe } from "@/lib/quiniela/modelo";
 import { confirmar } from "@/lib/avisos";
 import { usePlayers } from "@/hooks/usePlayers";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { filaDelEquipo } from "@/components/rivals/AccesosDelRival";
 import { aJornada, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
@@ -986,9 +986,10 @@ function EnlacesEquipo({ nombre, rivales, hoy }: { nombre: string; rivales: Jorn
       <Link href={`/rivals?equipo=${encodeURIComponent(nombre)}`} title={`La plantilla de ${nombre}`} className={CHIP_ENLACE}>
         Ficha
       </Link>
-      <Link href={urlGolesDelEquipo(nombre)} title={`Los goles de ${nombre} en vídeo`} className={CHIP_ENLACE}>
-        Sus goles
-      </Link>
+      {/* 18/11/2026: en el pop-up de la portada, sin salir de las apuestas. */}
+      <BotonGolesEnVideo equipo={nombre} title={`Los goles de ${nombre} en vídeo, de seguido o uno a uno`} className={CHIP_ENLACE}>
+        ▶ Sus goles
+      </BotonGolesEnVideo>
       <Link href={conRivalEnUrl("/scout-rival-abp", llaves)} title={`El balón parado de ${nombre}`} className={CHIP_ENLACE}>
         ABP
       </Link>

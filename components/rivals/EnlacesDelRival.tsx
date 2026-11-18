@@ -10,7 +10,9 @@
  * - `?rival=<ID de la hoja RIVALES>` para el Plan de partido (la fila se busca
  *   por la fecha antes que por el nombre: contra un equipo se juega dos veces);
  * - `?equipo=<NOMBRE>` para el ABP del rival y su plantilla;
- * - sus goles en vídeo (`urlGolesDelEquipo`).
+ * - sus goles en vídeo: abren el pop-up de la portada (`golesEnVideo`,
+ *   components/rivals/BotonGolesEnVideo.tsx, 18/11/2026); `href` sigue
+ *   llevando a Análisis de goles para quien pinte el enlace a mano.
  * Sin la hoja todavía, los enlaces van pelados y la pantalla de destino abre
  * en su próximo partido, como siempre.
  */
@@ -20,6 +22,7 @@ import { useEffect, useState } from "react";
 import { Clapperboard, Flag, Goal, ShieldHalf } from "lucide-react";
 
 import { aJornada, buscaJornada, mismoEquipo, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
+import { BotonGolesEnVideo, EnlaceComoSonSusGoles, type GolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { traeJson } from "@/lib/hojaCsv";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 
@@ -56,7 +59,15 @@ export function useJornadasRivales() {
   return jornadas;
 }
 
-export type EnlaceRival = { href: string; texto: string; title: string; Icono: typeof Flag; equipo: string };
+export type EnlaceRival = {
+  href: string;
+  texto: string;
+  title: string;
+  Icono: typeof Flag;
+  equipo: string;
+  /** Si lo trae, el enlace se pinta como botón que abre el pop-up de los goles (`BotonGolesEnVideo`); `href` es la ida a Análisis de goles. */
+  golesEnVideo?: GolesEnVideo;
+};
 
 /** Los enlaces de un rival; `fecha` en AAAA-MM-DD para dar con su fila. */
 export function enlacesDelRival(jornadas: JornadaRival[], rival: string, fecha?: string): EnlaceRival[] {
@@ -83,10 +94,13 @@ export function enlacesDelRival(jornadas: JornadaRival[], rival: string, fecha?:
   return [
     { href: plan, texto: "Plan de partido", title: `El plan contra ${equipo}`, Icono: Flag, equipo },
     { href: conEquipo("/scout-rival-abp"), texto: "Su ABP", title: `El balón parado de ${equipo}`, Icono: Goal, equipo },
-    { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", title: `Los goles de ${equipo}, en el campo y en vídeo`, Icono: Clapperboard, equipo },
+    { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", title: `Los goles de ${equipo}, de seguido o uno a uno`, Icono: Clapperboard, equipo, golesEnVideo: { equipo, lado: "favor" } },
     { href: conEquipo("/rivals"), texto: "Su plantilla", title: `La plantilla de ${equipo}`, Icono: ShieldHalf, equipo },
   ];
 }
+
+const CLASE_ENLACE =
+  "inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/[0.06] px-2.5 py-1 text-[12px] font-semibold text-sky-200 transition hover:bg-sky-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300";
 
 /** Fila de accesos; `solo` limita a los que se nombran (por su texto). */
 export function EnlacesDelRival({
@@ -110,17 +124,26 @@ export function EnlacesDelRival({
 
   return (
     <nav aria-label={`Accesos de ${rival}`} className={`flex min-w-0 flex-wrap gap-1.5 ${className}`}>
-      {enlaces.map(({ href, texto, title, Icono, equipo }) => (
-        <Link
-          key={texto}
-          href={href}
-          title={title}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-sky-400/35 bg-sky-500/[0.06] px-2.5 py-1 text-[12px] font-semibold text-sky-200 transition hover:bg-sky-500/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
-        >
-          <Icono size={13} className="shrink-0" aria-hidden />
-          {conNombre && texto.startsWith("Su") ? `${texto} · ${equipo}` : texto}
-        </Link>
-      ))}
+      {enlaces.map(({ href, texto, title, Icono, equipo, golesEnVideo }) => {
+        const contenido = (
+          <>
+            <Icono size={13} className="shrink-0" aria-hidden />
+            {conNombre && texto.startsWith("Su") ? `${texto} · ${equipo}` : texto}
+          </>
+        );
+
+        return golesEnVideo ? (
+          <BotonGolesEnVideo key={texto} {...golesEnVideo} title={title} className={CLASE_ENLACE}>
+            {contenido}
+          </BotonGolesEnVideo>
+        ) : (
+          <Link key={texto} href={href} title={title} className={CLASE_ENLACE}>
+            {contenido}
+          </Link>
+        );
+      })}
+      {/* 18/11/2026: aparte y secundaria, la ida a Análisis de goles (los vídeos, en el pop-up). */}
+      {enlaces.some((e) => e.golesEnVideo) && <EnlaceComoSonSusGoles equipo={enlaces[0].equipo} />}
     </nav>
   );
 }

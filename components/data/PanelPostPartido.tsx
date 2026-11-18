@@ -25,7 +25,7 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ChevronDown, ClipboardList, Film, Footprints, LayoutGrid, Mountain, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, ClipboardList, Film, Footprints, Goal, LayoutGrid, Mountain, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
 import { leeEventos } from "@/lib/opta-directo-mapas";
 import { retrato } from "@/lib/opta-retrato";
 import { fraseCampoPisado, nombreCorto } from "@/lib/partido-frases";
@@ -310,8 +310,14 @@ export function PanelPostPartido({
           { href: !(lab.robos && lab.robos.total > 0) && delVideo?.robos(visto) ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Robos y transiciones", icono: Swords, title: "Los robos de este partido, jugada a jugada" },
           { href: !(lab.perdidas && lab.perdidas.total > 0) && delVideo?.perdidas(visto) ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Pérdidas y transiciones", icono: ShieldAlert, title: "Las pérdidas de este partido y lo que hizo el rival con ellas" },
           { href: delVideo?.faltas(visto) ? enlaceConPartido("/laboratorio/faltas", visto) : null, texto: "Análisis de faltas", icono: Timer, title: "Las faltas de este partido, con cuánta gente detrás" },
-          { href: visto.opta ? "#goles-del-partido" : null, texto: "Los goles del partido en vídeo", icono: Video, title: "Más abajo, en esta misma pantalla" },
-          { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Análisis de goles", icono: Video, title: "Todos nuestros goles de la temporada, en el campo" },
+          /* 18/11/2026 (analista): el pop-up de la portada con los goles de ESTE partido, los de los dos equipos; aparte, la ida a Análisis de goles. */
+          {
+            golesEnVideo: visto.opta && nombreRival ? { equipo: nombreRival, partido: visto.clave } : null,
+            texto: "Los goles del partido en vídeo",
+            icono: Video,
+            title: "Los goles de este partido, de los dos equipos, de seguido o uno a uno",
+          },
+          { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Cómo son nuestros goles", icono: Goal, title: "Todos nuestros goles de la temporada, en el campo (Análisis de goles)" },
           { href: visto.rival ? `/scout-rival-abp?equipo=${encodeURIComponent(visto.rival)}` : null, texto: `ABP del Rival · ${cortoRival(nombreRival)}`, icono: Trophy },
           { href: "/match-plans", texto: "Vídeo Análisis Partidos", icono: Film },
           { href: "/match-preparation", texto: "Plan de Partido", icono: ClipboardList },

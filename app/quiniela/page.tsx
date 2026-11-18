@@ -28,7 +28,7 @@
 
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import {
   CalendarDays,
   Check,
@@ -2251,14 +2251,15 @@ function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boole
       </span>
     ) : null}
     {contexto && (
-      <Link
-        href={urlGolesDelEquipo(nombre)}
+      /* 18/11/2026: en el pop-up de la portada, sin salir de la quiniela. */
+      <BotonGolesEnVideo
+        equipo={nombre}
         title={`Goles de ${nombre} en vídeo`}
-        aria-label={`Goles de ${nombre} en vídeo`}
         className="ml-1 inline-flex align-middle text-white/45 hover:text-[#C8A96B]"
       >
         <Film size={13} aria-hidden />
-      </Link>
+        <span className="sr-only">Goles de {nombre} en vídeo</span>
+      </BotonGolesEnVideo>
     )}
     </>
   );

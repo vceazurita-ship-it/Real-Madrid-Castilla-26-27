@@ -33,7 +33,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo, EnlaceComoSonSusGoles } from "@/components/rivals/BotonGolesEnVideo";
 import {
   Binoculars,
   Clapperboard,
@@ -2690,9 +2690,16 @@ export default function DesplazamientoPage() {
                       <Button icon={Binoculars}>Informe del rival</Button>
                     </Link>
 
-                    <Link href={urlGolesDelEquipo(jornada?.equipo || partido.opponent)}>
-                      <Button icon={Clapperboard}>Sus goles en vídeo</Button>
-                    </Link>
+                    {/* 18/11/2026: sus goles, en el pop-up de la portada (sin salir del viaje); aparte, «Cómo son sus goles ›». */}
+                    <BotonGolesEnVideo
+                      equipo={jornada?.equipo || partido.opponent}
+                      /* Las mismas clases que el `Button` de components/abp/ui.tsx (los botones de al lado). */
+                      className="inline-flex shrink-0 items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px]"
+                    >
+                      <Clapperboard size={13} aria-hidden />
+                      Sus goles en vídeo
+                    </BotonGolesEnVideo>
+                    <EnlaceComoSonSusGoles equipo={jornada?.equipo || partido.opponent} />
 
                     {/* 17/11/2026 (r20, jueces): su ABP y su plantilla, como en Microciclos. */}
                     <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>

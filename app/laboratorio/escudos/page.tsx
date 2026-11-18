@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 
 /**
  * En obras · Escudos de la liga.
@@ -693,14 +693,13 @@ export default function EscudosPage() {
                                 ) : null}
                                 {/* 17/11/2026 (marketing): de su partido a su análisis, a un toque. */}
                                 {jornada.partidos.get(uno.equipo) && !esNuestro(uno.equipo) ? (
-                                  <Link
-                                    href={urlGolesDelEquipo(uno.equipo)}
-                                    title={`Goles de ${uno.equipo} en vídeo`}
-                                    style={{ color: "#E4CE9B" }}
-                                    className="text-center text-[11px] font-semibold underline-offset-2 hover:underline"
+                                  <BotonGolesEnVideo
+                                    equipo={uno.equipo}
+                                    title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}
+                                    className="text-center text-[11px] font-semibold text-[#E4CE9B] underline-offset-2 hover:underline"
                                   >
-                                    Sus goles en vídeo →
-                                  </Link>
+                                    ▶ Sus goles en vídeo
+                                  </BotonGolesEnVideo>
                                 ) : null}
                                 {/* El marco oro, explicado (10/11/2026). */}
                                 {esNuestro(uno.equipo) ? (

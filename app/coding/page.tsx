@@ -4072,8 +4072,10 @@ function Coding() {
     ambito === "rival"
       ? nombreRival
         ? [
-            { href: urlGolesDelEquipo(nombreRival), texto: "Sus goles en vídeo", icono: Video },
-            { href: urlGolesDelEquipo(nombreRival, "contra"), texto: "Cómo le marcan", icono: Video },
+            /* 18/11/2026: los dos vídeos, en el pop-up de la portada; aparte, «Cómo son sus goles» en Análisis de goles. */
+            { golesEnVideo: { equipo: nombreRival, lado: "favor" as const }, texto: "Sus goles en vídeo", icono: Video },
+            { golesEnVideo: { equipo: nombreRival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
+            { href: urlGolesDelEquipo(nombreRival), texto: "Cómo son sus goles", title: `Todos los goles de ${nombreRival}, en el campo (Análisis de goles)` },
             /* 17/11/2026 (ronda 19, los tres jueces): el plan siempre, con el rival puesto;
                su scout individual y, si ya jugamos contra él, el post de ese partido. */
             { href: conRivalEnUrl("/match-preparation", { equipo: nombreRival }), texto: esElDeLaSemana ? "Plan de partido" : "Su plan de partido", icono: ClipboardList },

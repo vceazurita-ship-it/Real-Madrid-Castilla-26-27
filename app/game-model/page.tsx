@@ -50,7 +50,7 @@ import { formatea } from "@/lib/data-analisis/metricas";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { urlPostDelPartido } from "@/lib/post-partido";
-import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 
 type Principio = {
   ID: number;
@@ -1361,15 +1361,16 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
         >
           Análisis del partido {x.jornada ? `J${x.jornada} ` : ""}ante {x.rival} →
         </Link>
-        <Link
-          href={urlGolesDelEquipo(x.rival)}
+        {/* 18/11/2026: en el pop-up de la portada, sin salir del modelo de juego. */}
+        <BotonGolesEnVideo
+          equipo={x.rival}
           className={cn(
             "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
             focusRing,
           )}
         >
-          Goles de {x.rival} en vídeo →
-        </Link>
+          ▶ Goles de {x.rival} en vídeo
+        </BotonGolesEnVideo>
         <Link
           href={`/rivals?equipo=${encodeURIComponent(x.rival)}`}
           className={cn(
