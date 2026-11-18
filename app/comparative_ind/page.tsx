@@ -89,6 +89,7 @@ import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEje
 import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { ComparativaOpta } from "./ComparativaOpta";
+import { PerfilExtremo } from "./PerfilExtremo";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import { mismoJugador } from "@/lib/fichajes";
@@ -1627,6 +1628,11 @@ function Graficos({
           </div>
         </aside>
       </div>
+
+      {/* Extremo conector o regateador (18/11/2026): con balón y con las bandas (o todos) arriba. */}
+      {fase === "con" && (puesto === "BAN" || puesto === "todos") && (
+        <PerfilExtremo jugadores={jugadores} refe={refe} refLabel={refLabel} elegido={elegido} nombreDe={nombreDe} />
+      )}
     </div>
   );
 }
