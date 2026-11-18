@@ -45,6 +45,15 @@ function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: strin
   return (
     <svg viewBox={`-8 -8 ${W + 16} ${H + 12}`} role="img" aria-label={rotulo} className="block h-auto w-full">
       <rect x={0} y={0} width={W} height={H} style={{ fill: tinta(0.04) }} />
+      {/* La red, fina, para que se lea como una portería y no como una tabla. */}
+      <g style={{ stroke: tinta(0.07), strokeWidth: 0.75 }} aria-hidden>
+        {Array.from({ length: Math.floor(W / 12) }, (_, i) => (
+          <line key={`v${i}`} x1={(i + 1) * 12} y1={0} x2={(i + 1) * 12} y2={H} />
+        ))}
+        {Array.from({ length: Math.floor(H / 12) }, (_, i) => (
+          <line key={`h${i}`} x1={0} y1={(i + 1) * 12} x2={W} y2={(i + 1) * 12} />
+        ))}
+      </g>
       <g style={{ stroke: tinta(0.22), strokeWidth: 1, strokeDasharray: "4 4" }}>
         <line x1={cw} y1={0} x2={cw} y2={H} />
         <line x1={cw * 2} y1={0} x2={cw * 2} y2={H} />
@@ -71,6 +80,7 @@ function PorteriaSeis({ penaltis, rotulo }: { penaltis: Penalti[]; rotulo: strin
                 return (
                   <a key={i} href={clip(p, "shots")} target="_blank" rel="noopener noreferrer" style={{ cursor: "pointer" }}>
                   <circle
+                    className="idea-aparece"
                     cx={cx}
                     cy={Math.min(cy, y0 + ch - 8)}
                     r={7}
@@ -115,13 +125,22 @@ function Bloque({ titulo, penaltis, quien }: { titulo: string; penaltis: Penalti
 
 function Tarjeta({ f }: { f: FichaLanzador }) {
   return (
-    <article className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+    <article className="portada-celda portada-entra min-w-0 p-3">
       <header className="mb-2">
-        <h4 className="truncate text-sm font-semibold text-white/90">
-          {f.tirador}
-          {f.pie && <span className="ml-2 text-xs font-normal text-white/50">{f.pie}</span>}
-        </h4>
-        <p className={`mt-1 text-[13px] leading-snug ${f.cambio ? "text-[color:var(--rmcf-gold-ink)]" : "text-white/75"}`}>{f.linea}</p>
+        <div className="flex min-w-0 items-end justify-between gap-2">
+          <h4 className="fuente-club min-w-0 truncate text-[22px] font-bold uppercase leading-none text-white">
+            {f.tirador}
+            {f.pie && <span className="ml-2 font-sans text-xs font-normal normal-case text-white/50">{f.pie}</span>}
+          </h4>
+          {/* La cifra del original de X: «cinco de cinco». */}
+          <p className="shrink-0 text-right leading-none" title="Goles de sus penaltis en Opta">
+            <span className="fuente-club text-[26px] font-bold tabular-nums text-white">
+              {[...f.esta, ...f.antes].filter((p) => p.gol).length}/{f.esta.length + f.antes.length}
+            </span>
+            <span className="block text-[11px] text-white/50">marcados</span>
+          </p>
+        </div>
+        <p className={`mt-1.5 text-[13px] font-semibold leading-snug ${f.cambio ? "text-[color:var(--rmcf-gold-ink)]" : "text-white/80"}`}>{f.linea}</p>
       </header>
       <div className="space-y-3">
         <Bloque titulo="Esta temporada" penaltis={f.esta} quien={f.tirador} />

@@ -98,14 +98,23 @@ function Bloque() {
   const resalte = (f: FilaJusta) => (f.teamId === CASTILLA_OPTA ? ORO : f.teamId === rivalId ? COMPARADO : null);
 
   return (
-    <section aria-label="Clasificación justa" className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
+    <section aria-label="Clasificación justa" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-            Clasificación justa
-            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Opta, modelo por xG</span>
+          <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+            Clasificación justa · puntos reales contra xPts
+            <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">dato · Opta, modelo por xG</span>
           </p>
-          <p className="mt-1 text-sm leading-6 text-white/75">
+          {nuestra && (
+            <h3 className="fuente-club mt-1.5 text-[24px] font-bold uppercase leading-[1.05] text-white sm:text-[30px]">
+              {Math.abs(nuestra.dif) < UMBRAL
+                ? `Castilla: ${nuestra.puntos} puntos, los que merece`
+                : nuestra.dif > 0
+                  ? `Castilla: ${nuestra.puntos} puntos, ${coma(nuestra.dif)} más de los que merece`
+                  : `Castilla: ${nuestra.puntos} puntos, merecería ${coma(nuestra.xPts)}`}
+            </h3>
+          )}
+          <p className="mt-1 text-sm leading-6 text-white/70">
             Los puntos que tiene cada equipo de nuestro grupo frente a los que le darían sus ocasiones y las del rival (xPts).
             {nuestra && (
               <>

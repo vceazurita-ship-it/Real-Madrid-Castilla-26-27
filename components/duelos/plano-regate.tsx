@@ -5,7 +5,7 @@
  * con el % de duelos defensivos de nuestro lateral al lado (17/11/2026).
  * La cuenta vive en lib/duelos-regate.ts.
  */
-import { tinta } from "@/components/data/graficas";
+import { ORO, tinta } from "@/components/data/graficas";
 import { LECTURA_CUADRANTE, ROTULO_CUADRANTE, type RegateDelDuelo } from "@/lib/duelos-regate";
 
 /* Rojo de alerta: se lee sobre la tarjeta clara (día) y sobre la oscura (noche). */
@@ -63,27 +63,40 @@ export function PlanoRegate({ r }: { r: RegateDelDuelo }) {
           {marcasX.map((v) => (
             <g key={`x${v}`}>
               <line x1={sx(v)} x2={sx(v)} y1={M.arr} y2={M.arr + alto} stroke={tinta(0.06)} />
-              <text x={sx(v)} y={H - M.aba + 12} textAnchor="middle" fontSize={9} fill={tinta(0.5)}>{v}</text>
+              <text x={sx(v)} y={H - M.aba + 12} textAnchor="middle" fontSize={10.5} fill={tinta(0.5)}>{v}</text>
             </g>
           ))}
           {marcasY.map((v) => (
             <g key={`y${v}`}>
               <line x1={M.izq} x2={W - M.der} y1={sy(v)} y2={sy(v)} stroke={tinta(0.06)} />
-              <text x={M.izq - 4} y={sy(v) + 3} textAnchor="end" fontSize={9} fill={tinta(0.5)}>{coma(v, pasoY < 1 ? 1 : 0)}</text>
+              <text x={M.izq - 4} y={sy(v) + 3} textAnchor="end" fontSize={10.5} fill={tinta(0.5)}>{coma(v, pasoY < 1 ? 1 : 0)}</text>
             </g>
           ))}
-          <text x={M.izq + ancho / 2} y={H - 4} textAnchor="middle" fontSize={9.5} fill={tinta(0.6)}>Regates intentados / 90</text>
-          <text x={10} y={M.arr + alto / 2} textAnchor="middle" fontSize={9.5} fill={tinta(0.6)} transform={`rotate(-90 10 ${M.arr + alto / 2})`}>Completados / 90</text>
+          <text x={M.izq + ancho / 2} y={H - 4} textAnchor="middle" fontSize={11} fill={tinta(0.6)}>Regates intentados / 90</text>
+          <text x={10} y={M.arr + alto / 2} textAnchor="middle" fontSize={11} fill={tinta(0.6)} transform={`rotate(-90 10 ${M.arr + alto / 2})`}>Completados / 90</text>
+
+          {/* Como el original de X: la zona buena del regate (a la derecha de la media y por encima del acierto medio), sombreada. */}
+          {plano.mediaIntentos * plano.acierto < yMax && plano.mediaIntentos < xMax && (
+            <polygon
+              points={(xFin < xMax
+                ? [[plano.mediaIntentos, plano.mediaIntentos * plano.acierto], [plano.mediaIntentos, yMax], [xFin, yMax]]
+                : [[plano.mediaIntentos, plano.mediaIntentos * plano.acierto], [plano.mediaIntentos, yMax], [xMax, yMax], [xMax, xMax * plano.acierto]]
+              )
+                .map(([x, y]) => `${sx(x).toFixed(1)},${sy(y).toFixed(1)}`)
+                .join(" ")}
+              style={{ fill: "rgba(200,169,107,0.16)", stroke: "rgba(200,169,107,0.55)", strokeWidth: 1 }}
+            />
+          )}
 
           {/* Las dos líneas de la liga. */}
           <line x1={sx(plano.mediaIntentos)} x2={sx(plano.mediaIntentos)} y1={M.arr} y2={M.arr + alto} stroke={tinta(0.35)} strokeDasharray="3 3" />
           <line x1={sx(0)} y1={sy(0)} x2={sx(xFin)} y2={sy(xFin * plano.acierto)} stroke={tinta(0.35)} strokeDasharray="5 3" />
 
           {/* Los cuatro cuadrantes, en las esquinas. */}
-          <text x={W - M.der - 2} y={M.arr + 10} textAnchor="end" fontSize={9} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE.desequilibrante}</text>
-          <text x={W - M.der - 2} y={M.arr + alto - 4} textAnchor="end" fontSize={9} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE.insistente}</text>
-          <text x={M.izq + 4} y={M.arr + 10} fontSize={9} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE.selectivo}</text>
-          <text x={sx(plano.mediaIntentos) - 4} y={M.arr + alto - 4} textAnchor="end" fontSize={9} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE["no-regatea"]}</text>
+          <text x={W - M.der - 2} y={M.arr + 10} textAnchor="end" fontSize={10.5} fontWeight={700} style={{ fill: ORO, letterSpacing: "0.06em" }}>{ROTULO_CUADRANTE.desequilibrante.toUpperCase()}</text>
+          <text x={W - M.der - 2} y={M.arr + alto - 4} textAnchor="end" fontSize={10.5} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE.insistente}</text>
+          <text x={M.izq + 4} y={M.arr + 10} fontSize={10.5} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE.selectivo}</text>
+          <text x={sx(plano.mediaIntentos) - 4} y={M.arr + alto - 4} textAnchor="end" fontSize={10.5} fontWeight={600} fill={tinta(0.55)}>{ROTULO_CUADRANTE["no-regatea"]}</text>
 
           {/* La nube: cada punto dice quién es al pasar por encima. */}
           {nube.map((p) => (
@@ -98,14 +111,17 @@ export function PlanoRegate({ r }: { r: RegateDelDuelo }) {
           {punto && (
             <g>
               <title>{`${r.extremo.nombre}: ${coma(punto.intentos)} intentados y ${coma(punto.completados)} completados por 90`}</title>
-              <circle cx={sx(punto.intentos)} cy={sy(punto.completados)} r={6.5} fill={alerta ? ROJO_ALERTA : "#D95F02"} stroke="var(--background)" strokeWidth={2} />
+              {/* El suyo como en el original de X: un aro grande con su nombre en la letra del club. */}
+              <circle className="idea-aparece" cx={sx(punto.intentos)} cy={sy(punto.completados)} r={11} style={{ fill: alerta ? `${ROJO_ALERTA}33` : "rgba(217,95,2,0.2)", stroke: alerta ? ROJO_ALERTA : "#D95F02", strokeWidth: 2 }} />
+              <circle cx={sx(punto.intentos)} cy={sy(punto.completados)} r={4.5} fill={alerta ? ROJO_ALERTA : "#D95F02"} />
               <text
-                x={sx(punto.intentos) + (sx(punto.intentos) > W - 90 ? -10 : 10)}
-                y={sy(punto.completados) + 3.5}
+                x={sx(punto.intentos) + (sx(punto.intentos) > W - 90 ? -15 : 15)}
+                y={sy(punto.completados) + 4.5}
                 textAnchor={sx(punto.intentos) > W - 90 ? "end" : "start"}
-                fontSize={10.5}
+                className="fuente-club"
+                fontSize={14}
                 fontWeight={700}
-                fill={tinta(0.9)}
+                style={{ fill: tinta(0.92), textTransform: "uppercase" }}
               >
                 {quien}
               </text>
@@ -118,7 +134,7 @@ export function PlanoRegate({ r }: { r: RegateDelDuelo }) {
             <p className="text-white/45">{quien}</p>
             {punto && cuadrante ? (
               <>
-                <p className="text-sm font-semibold text-white/90">{ROTULO_CUADRANTE[cuadrante]}</p>
+                <p className="fuente-club text-[22px] font-bold uppercase leading-tight text-white">{ROTULO_CUADRANTE[cuadrante]}</p>
                 <p className="tabular-nums text-white/55">
                   {coma(punto.intentos)} intentados y {coma(punto.completados)} completados por 90: {LECTURA_CUADRANTE[cuadrante]}.
                 </p>
@@ -130,9 +146,9 @@ export function PlanoRegate({ r }: { r: RegateDelDuelo }) {
           {r.lateral && defensa && (
             <div className="border-t border-white/[0.08] pt-2">
               <p className="text-white/45">{lateral} · duelos defensivos ganados</p>
-              <p className="text-sm font-semibold tabular-nums" style={{ color: defensa.valor < defensa.media ? (alerta ? ROJO_ALERTA : undefined) : undefined }}>
+              <p className="fuente-club text-[22px] font-bold tabular-nums leading-tight" style={{ color: defensa.valor < defensa.media ? (alerta ? ROJO_ALERTA : undefined) : undefined }}>
                 {Math.round(defensa.valor)} %{" "}
-                <span className="text-xs font-normal text-white/55">frente a {Math.round(defensa.media)} % de media de los {defensa.comparables} laterales</span>
+                <span className="font-sans text-xs font-normal text-white/55">frente a {Math.round(defensa.media)} % de media de los {defensa.comparables} laterales</span>
               </p>
               <p className="text-white/55">{defensa.valor < defensa.media ? "Por debajo de la media de su puesto." : "En la media de su puesto o por encima."}</p>
             </div>

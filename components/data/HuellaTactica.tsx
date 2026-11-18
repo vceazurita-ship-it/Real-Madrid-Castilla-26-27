@@ -29,6 +29,7 @@ import { CampoOpta } from "@/components/campo/CampoOpta";
 import { Cifra, Elegir, Panel } from "@/app/opta/_piezas/comun";
 import { useAcciones } from "@/app/opta/_piezas/eventos";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
+import { tinta } from "@/components/data/graficas";
 import { fechaCorta } from "@/lib/opta-analisis";
 import type { AccionCastilla } from "@/lib/opta-eventos";
 
@@ -190,6 +191,12 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
      ataque a la derecha. */
   const href = useMemo(() => (difFina.length ? imagenDe(difFina, tope, true, true) : ""), [difFina, tope]);
 
+  /* Como el original de X: todos los partidos en miniatura, con la misma escala, para ver la huella de un vistazo (18/11/2026). */
+  const miniaturas = useMemo(
+    () => partidos.map((p) => ({ p, href: imagenDe(p.densidad.map((v, i) => v - media.densidad[i]), tope, true, true) })),
+    [partidos, media, tope],
+  );
+
   if (cargando || partidos.length < 2 || !partido) return null;
   const dif = partido.reparto.map((v, i) => v - media.reparto[i]);
   const difRival = partido.rival50 - media.rival50;
@@ -220,6 +227,10 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
           />
         }
       >
+        <p className="fuente-club mb-2 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">
+          Contra {partido.rival}:{" "}
+          {difRival > 0.005 ? "más arriba que de costumbre" : difRival < -0.005 ? "más atrás que de costumbre" : "nuestra huella de siempre"} ({porcentaje(partido.rival50)} en campo rival)
+        </p>
         <CampoOpta ariaLabel={`Huella táctica del Castilla contra ${partido.rival}`} maxAlto={440}>
           {(p) => {
             const [ax, ay] = p(0, 100);
@@ -272,6 +283,50 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
             <span>más</span>
           </span>
         </div>
+
+        {miniaturas.length > 1 && (
+          <div className="mt-4">
+            <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Todos los partidos · pincha uno para verlo en grande</p>
+            <ul className="mt-2 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
+              {miniaturas.map(({ p, href: mini }, i) => {
+                const d = p.rival50 - media.rival50;
+                const activo = p.partido === partido.partido;
+                return (
+                  <li key={p.partido} className="portada-entra min-w-0" style={{ animationDelay: `${Math.min(i, 12) * 35}ms` }}>
+                    <button
+                      type="button"
+                      onClick={() => setElegido(p.partido)}
+                      aria-pressed={activo}
+                      className={`portada-celda portada-viva block w-full min-w-0 p-1.5 text-left ${activo ? "ring-2 ring-[#C8A96B]" : ""}`}
+                    >
+                      <span className="block truncate text-[12px] font-semibold text-white" title={p.rival}>
+                        {p.rival}
+                      </span>
+                      <span className="block text-[11px] tabular-nums text-white/55">
+                        {fechaCorta(p.fecha)} · <span style={{ color: d > 0.005 ? `rgb(${MAS})` : d < -0.005 ? `rgb(${MENOS})` : undefined }}>{porcentaje(p.rival50)} ({puntos(d)})</span>
+                      </span>
+                      <span className="relative mt-1 block aspect-[105/68] overflow-hidden rounded-md bg-[#2E7D32]/25">
+                        {mini && (
+                          // eslint-disable-next-line @next/next/no-img-element -- dibujo generado en el aparato (data:), no una imagen remota
+                          <img src={mini} alt="" className="absolute inset-0 h-full w-full" style={{ imageRendering: "auto" }} />
+                        )}
+                        <svg viewBox="0 0 105 68" className="absolute inset-0 h-full w-full" aria-hidden preserveAspectRatio="none">
+                          <g style={{ fill: "none", stroke: tinta(0.35), strokeWidth: 0.8 }}>
+                            <rect x={0.5} y={0.5} width={104} height={67} />
+                            <line x1={52.5} y1={0} x2={52.5} y2={68} />
+                            <circle cx={52.5} cy={34} r={9.15} />
+                            <rect x={0.5} y={13.85} width={16.5} height={40.3} />
+                            <rect x={88} y={13.85} width={16.5} height={40.3} />
+                          </g>
+                        </svg>
+                      </span>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-4 grid gap-3 sm:grid-cols-3">
           <Cifra rotulo="Toques en campo rival" valor={porcentaje(partido.rival50)} detalle={`${partido.toques} toques en el partido`} />

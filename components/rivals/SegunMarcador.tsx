@@ -125,27 +125,27 @@ function BarrasMarcador({ s }: { s: SegunMarcadorDatos }) {
           const tope = Math.max(...valores, media, 0.0001) * 1.08;
 
           return (
-            <div key={m.clave} className="min-w-0">
-              <p className="mb-1 text-[12px] font-semibold text-white" title={m.nota}>
-                {m.rotulo} <span className="font-normal text-white/55">por 90′</span>
+            <div key={m.clave} className="portada-celda min-w-0 px-3 py-2.5">
+              <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.08em] text-white/80" title={m.nota}>
+                {m.rotulo} <span className="font-normal normal-case tracking-normal text-white/50">por 90′</span>
               </p>
               <div className="relative space-y-1">
-                {s.columnas.map((c) => {
+                {s.columnas.map((c, i) => {
                   const v = c.valores[m.clave];
                   const poco = c.minutos < MINUTOS_MINIMOS;
 
                   return (
                     <div key={c.estado} className="flex min-w-0 items-center gap-2">
-                      <div className="relative h-4 min-w-0 flex-1 rounded-sm" style={{ background: tinta(0.06) }}>
+                      <div className="relative h-4 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.06) }}>
                         {v.valor != null && (
                           <div
-                            className="absolute inset-y-0 left-0 rounded-sm"
-                            style={{ width: `${(v.valor / tope) * 100}%`, background: COLOR_ESTADO[c.estado], opacity: poco ? 0.4 : 1 }}
+                            className="portada-llena absolute inset-y-0 left-0 rounded-full"
+                            style={{ width: `${(v.valor / tope) * 100}%`, background: COLOR_ESTADO[c.estado], opacity: poco ? 0.4 : 1, animationDelay: `${i * 80}ms` }}
                           />
                         )}
-                        <div aria-hidden className="absolute inset-y-[-2px] w-0.5" style={{ left: `${(media / tope) * 100}%`, background: tinta(0.7) }} />
+                        <div aria-hidden className="absolute inset-y-[-3px] w-[3px] rounded-full" style={{ left: `calc(${(media / tope) * 100}% - 1.5px)`, background: tinta(0.75) }} />
                       </div>
-                      <span className={`w-14 shrink-0 text-right text-[12px] tabular-nums ${marcado(v) && !poco ? "font-bold text-white" : "text-white/70"}`}>
+                      <span className={`fuente-club w-14 shrink-0 text-right text-[16px] tabular-nums ${marcado(v) && !poco ? "font-bold text-white" : "font-semibold text-white/70"}`}>
                         {valorTexto(v.valor, m.unidad, m.decimales)}
                       </span>
                     </div>
@@ -247,16 +247,16 @@ function Bloque({ equipo }: { equipo: string }) {
   const ordenes = ordenesDelMarcador(s, nombre);
 
   return (
-    <section aria-label="Según el marcador" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-        Según el marcador
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+    <section aria-label="Según el marcador" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+        Según el marcador · ganando, empatando, perdiendo
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
           dato · Opta, {s.partidos} {s.partidos === 1 ? "partido" : "partidos"}
         </span>
       </p>
-      <p className="mt-1 text-sm leading-6 text-white/75">
+      {frase && <h3 className="fuente-club mt-1.5 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">{frase}</h3>}
+      <p className="mt-1 text-sm leading-6 text-white/70">
         Lo que hace {nombre} por cada 90 minutos jugados yendo por delante, igualado o por detrás.
-        {frase && <> <strong className="text-white">{frase}</strong></>}
       </p>
 
       {/* La orden de vestuario que sale del dato (16/11/2026, ronda 18, fútbol). */}

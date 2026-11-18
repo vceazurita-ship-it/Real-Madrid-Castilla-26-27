@@ -510,10 +510,65 @@ scrollbar-width:none;
   animation: portada-llena 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Visuales de las ideas de X (18/11/2026): la línea se dibuja al llegar
+   (el <path> lleva pathLength="1") y lo que sube crece desde abajo. */
+@keyframes idea-trazo {
+  from {
+    stroke-dashoffset: 1;
+  }
+
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.idea-trazo {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 0;
+  animation: idea-trazo 1.1s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes idea-sube {
+  from {
+    transform: scaleY(0);
+  }
+
+  to {
+    transform: scaleY(1);
+  }
+}
+
+.idea-sube {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+  animation: idea-sube 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes idea-aparece {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.idea-aparece {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: idea-aparece 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 @media (prefers-reduced-motion: reduce) {
 
   .portada-entra,
-  .portada-llena {
+  .portada-llena,
+  .idea-trazo,
+  .idea-sube,
+  .idea-aparece {
     animation: none;
   }
 

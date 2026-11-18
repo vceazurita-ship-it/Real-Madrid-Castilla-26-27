@@ -16,7 +16,7 @@ import { useMemo, useState } from "react";
 
 import { useAsoma } from "@/hooks/useAsoma";
 
-import { COMPARADO, MEJOR, PEOR, tinta } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, PEOR } from "@/components/data/graficas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
@@ -56,11 +56,11 @@ function Bloque({ equipo }: { equipo: string }) {
   const frase = lecturaEmbudo(embudo, nombre);
 
   return (
-    <section aria-label="Embudo del ataque" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
+    <section aria-label="Embudo del ataque" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
+        <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
           Embudo del ataque
-          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+          <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
             dato · Opta, {embudo.partidos} {embudo.partidos === 1 ? "partido" : "partidos"}
           </span>
         </p>
@@ -79,11 +79,11 @@ function Bloque({ equipo }: { equipo: string }) {
         </div>
       </div>
 
-      <p className="mt-1 text-sm leading-6 text-white/75">
+      {frase && <h3 className="fuente-club mt-1.5 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">{frase}</h3>}
+      <p className="mt-1 text-sm leading-6 text-white/70">
         {enDefensa
           ? `Lo que hacen sus rivales contra ${nombre}, por partido: dónde se les corta y dónde no.`
           : `Lo que hace ${nombre} con el balón, por partido: cuánto llega y cuánto convierte cuando llega.`}
-        {frase && <> <strong className="text-white">{frase}</strong></>}
       </p>
 
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
@@ -94,38 +94,42 @@ function Bloque({ equipo }: { equipo: string }) {
         <span className="inline-flex items-center gap-1.5">Paso · <span className="text-white/45">media de nuestro grupo</span></span>
       </p>
 
-      <ol className="mt-3 space-y-2.5">
-        {embudo.escalones.map((e) => {
+      {/* Un embudo de verdad: cada escalón centrado y más estrecho que el anterior, con la cifra grande por partido (las fichas de cifras del
+          original de X) y su paso frente al grupo a la derecha. */}
+      <ol className="portada-celda mt-3 space-y-1.5 p-2.5 sm:p-3">
+        {embudo.escalones.map((e, i) => {
           const d = desvio(e);
           /* En ataque, pasar más es bueno para él; en defensa, malo. */
           const bueno = d == null || Math.abs(d) < UMBRAL_DESVIO ? null : enDefensa ? d < 0 : d > 0;
           const colorPaso = bueno == null ? undefined : bueno ? MEJOR : PEOR;
           return (
-            <li key={e.key} className="min-w-0">
-              <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 text-[12px]">
-                <span className="min-w-0 truncate font-semibold text-white">{e.rotulo}</span>
-                <span className="shrink-0 tabular-nums text-white/60">
-                  {coma(e.porPartido)}/partido
-                  {e.paso != null && (
-                    <>
-                      {" · "}
-                      <strong className="text-white" style={colorPaso ? { color: colorPaso } : undefined}>
-                        {valorPaso(e.paso, e.unidad)}
-                      </strong>
-                      {e.unidad === "por llegada" && " por llegada"}
-                      {e.pasoLiga != null && <span className="text-white/45"> · grupo {valorPaso(e.pasoLiga, e.unidad)}</span>}
-                    </>
-                  )}
-                </span>
+            <li key={e.key} className="grid min-w-0 grid-cols-[4.25rem_minmax(0,1fr)_5.5rem] items-center gap-2 sm:grid-cols-[5.5rem_minmax(0,1fr)_8rem] sm:gap-3">
+              <p className="min-w-0 leading-none">
+                <span className="fuente-club block text-[24px] font-bold tabular-nums text-white sm:text-[28px]">{coma(e.porPartido)}</span>
+                <span className="text-[11px] text-white/50">por partido</span>
+              </p>
+              <div className="min-w-0">
+                <p className="truncate text-center text-[12px] font-semibold text-white/80">{e.rotulo}</p>
+                <div
+                  className="portada-entra mx-auto mt-0.5 h-5 rounded-md sm:h-6"
+                  style={{ width: `${Math.max(6, e.ancho * 100)}%`, background: `linear-gradient(90deg, ${COMPARADO}b3, ${COMPARADO}, ${COMPARADO}b3)`, animationDelay: `${i * 90}ms` }}
+                  role="img"
+                  aria-label={`${e.rotulo}: ${coma(e.porPartido)} por partido${e.paso != null ? `, ${valorPaso(e.paso, e.unidad)}${e.unidad === "por llegada" ? " por llegada" : ""}` : ""}${e.pasoLiga != null ? `; media del grupo ${valorPaso(e.pasoLiga, e.unidad)}` : ""}`}
+                />
               </div>
-              <div
-                className="mt-1 h-3 min-w-0 rounded-sm"
-                style={{ background: tinta(0.06) }}
-                role="img"
-                aria-label={`${e.rotulo}: ${coma(e.porPartido)} por partido${e.paso != null ? `, ${valorPaso(e.paso, e.unidad)}${e.unidad === "por llegada" ? " por llegada" : ""}` : ""}${e.pasoLiga != null ? `; media del grupo ${valorPaso(e.pasoLiga, e.unidad)}` : ""}`}
-              >
-                <div className="h-full rounded-sm" style={{ width: `${Math.max(1, e.ancho * 100)}%`, background: COMPARADO }} />
-              </div>
+              <p className="min-w-0 text-right leading-tight">
+                {e.paso != null && (
+                  <>
+                    <span className="fuente-club block text-[20px] font-bold tabular-nums text-white sm:text-[22px]" style={colorPaso ? { color: colorPaso } : undefined}>
+                      {valorPaso(e.paso, e.unidad)}
+                    </span>
+                    <span className="block text-[11px] text-white/50">
+                      {e.unidad === "por llegada" ? "por llegada" : "pasan"}
+                      {e.pasoLiga != null && <> · grupo {valorPaso(e.pasoLiga, e.unidad)}</>}
+                    </span>
+                  </>
+                )}
+              </p>
             </li>
           );
         })}

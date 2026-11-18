@@ -400,8 +400,16 @@ function MapaCaidas({ l }: { l: EntregaLado }) {
           const fy = Math.min(alto - 0.6, Y(c.finX));
           return (
             <g key={i}>
-              <line x1={X(c.y)} y1={Y(c.x)} x2={fx} y2={fy} style={{ stroke: color, strokeWidth: c.remate ? 0.45 : 0.25, opacity: c.remate ? 0.9 : 0.4 }} />
-              <circle cx={fx} cy={fy} r={c.remate ? 0.9 : 0.7} style={{ fill: color }} />
+              <line
+                x1={X(c.y)}
+                y1={Y(c.x)}
+                x2={fx}
+                y2={fy}
+                pathLength={1}
+                className="idea-trazo"
+                style={{ stroke: color, strokeWidth: c.remate ? 0.45 : 0.25, opacity: c.remate ? 0.9 : 0.4, strokeLinecap: "round", animationDelay: `${Math.min(i, 40) * 20}ms` }}
+              />
+              <circle className="idea-aparece" cx={fx} cy={fy} r={c.remate ? 0.9 : 0.7} style={{ fill: color, animationDelay: `${300 + Math.min(i, 40) * 20}ms` }} />
               {c.gol && <circle cx={fx} cy={fy} r={1.3} style={{ fill: "#FFFFFF", stroke: "#111111", strokeWidth: 0.45 }} />}
             </g>
           );
@@ -434,10 +442,10 @@ function MapaCaidas({ l }: { l: EntregaLado }) {
 function LadoEntrega({ l, rival }: { l: EntregaLado; rival: string }) {
   const corto = l.n < MIN_CORNERS_LADO;
   return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
-      <p className="text-[12px] font-semibold text-white/85">
-        Desde su {l.lado}
-        <span className="ml-1.5 font-normal text-white/50">
+    <div className="portada-celda min-w-0 p-3">
+      <p className="flex flex-wrap items-baseline gap-x-1.5">
+        <span className="fuente-club text-[20px] font-bold uppercase leading-none text-white">Desde su {l.lado}</span>
+        <span className="text-[12px] text-white/50">
           {l.n} {l.n === 1 ? "córner" : "córners"}
         </span>
         {corto && <Tendencia />}
@@ -487,9 +495,14 @@ function ComoSacaElCorner({ e, rival }: { e: EntregaCorner; rival: string }) {
         Resaltado, lo que se separa 10 puntos o más{m ? "" : "; esta temporada no se separa en ninguna zona"}.
       </p>
       {m && (
-        <p className="mb-3 rounded-lg border border-[#C8A96B]/25 bg-[#C8A96B]/10 px-3 py-2 text-sm text-white/85">
-          Lo que más repite: <strong>{NOMBRE_ZONA_CORNER[m.zona.zona].toLowerCase()}</strong> desde su {m.lado}, {pct(m.zona.cuota)} frente a {pct(m.zona.cuotaGrupo)} del grupo ({puntos(m.zona.dif)}). Va a «Dónde más riesgo».
-        </p>
+        <div className="mb-3 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/10 px-3 py-2">
+          <p className="fuente-club text-[22px] font-bold uppercase leading-[1.1] text-white sm:text-[26px]">
+            {NOMBRE_ZONA_CORNER[m.zona.zona]} desde su {m.lado}: {pct(m.zona.cuota)}
+          </p>
+          <p className="text-sm text-white/80">
+            Lo que más repite, frente a {pct(m.zona.cuotaGrupo)} del grupo ({puntos(m.zona.dif)}). Va a «Dónde más riesgo».
+          </p>
+        </div>
       )}
       <div className="grid gap-3 md:grid-cols-2">
         {e.lados.filter((l) => l.n > 0).map((l) => (

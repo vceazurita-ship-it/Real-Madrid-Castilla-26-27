@@ -114,6 +114,15 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas («Clasificación justa», de opta:partidos). El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Clasificación justa", es: "Titular con lo nuestro (los puntos del Castilla y los que merecería por xPts) encima de las dos tablas enfrentadas" },
+          { que: "Huella táctica", es: "Titular con la lectura del partido y, como el original de X, todos los partidos en miniatura con la misma escala; pinchar uno lo abre en grande" },
+          { que: "¿A qué altura tocan el balón los centrales?", es: "Titular con la diferencia entre fuera y casa; cada partido con el rival en la letra del club, «vs» en casa y «en» fuera, y la altura en cifra grande" },
+        ],
+      },
+      {
         titulo: "Siete bloques: el partido, resumen, nuestro equipo, jugadores, rival y categoría, balón parado, entreno e identidad",
         filas: [
           { que: "Qué miro el lunes (directo, partido acabado)", es: "Tres pasos, con el último partido abierto en En directo. 1) El veredicto bajo el marcador y «Logramos X de Y objetivos que deciden». 2) Cada «No logrado» trae su línea para el vídeo y de qué minutos sacar los clips. 3) Colectivo → Balón parado: la línea «Entrenar» de cada equipo va a la tarea de ABP del micro." },
@@ -1162,6 +1171,14 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-18",
     bloques: [
       {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Su extremo en el regate", es: "Como el original de X: la zona buena del regate (más intentos que la media y por encima del acierto medio) sombreada en oro, su extremo con un aro grande y su nombre en la letra del club, y el cuadrante y el % de duelos de nuestro lateral en cifra grande" },
+          { que: "Quién nos roba el balón", es: "Como las fichas «Moneyball» de X: cada jugador en su tarjeta con su percentil ajustado grande arriba a la derecha (P en bruto debajo del nombre) y el titular con la conclusión" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (17/11/2026, ronda 21)",
         filas: [
           { que: "Su once, un titular por hueco", es: "Sus titulares se reparten entre los once puestos de su dibujo de uno en uno, con la misma cuenta que el campograma de Plantillas rivales: ya no salen dos en el mismo puesto con otro vacío (dos laterales derechos y nadie en el extremo izquierdo)", cuenta: "asignaTitulares en colocacionDelOnce (lib/rivals/colocacion-once.ts); el dibujo, el guardado con el once (al sugerirlo en Plantillas, el sistema más usado según Wyscout)" },
@@ -1376,6 +1393,13 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase.",
     revisada: "2026-11-18",
     bloques: [
+      {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Cómo saca el córner", es: "Las líneas de cada córner se dibujan desde el banderín al llegar; la zona que más repite va de titular" },
+        ],
+      },
       {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
@@ -1605,6 +1629,13 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-18",
     bloques: [
       {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Revulsivos", es: "Como la ficha de X de un suplente decisivo: una tarjeta por revulsivo con sus cifras en fila (veces que entra, G · A entrando, minuto medio, banda de sus remates) y dos barras, G+A/90 entrando frente a de titular («tendencia» si sale de menos de 90′). La tabla de todos los suplentes, al pedirla" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (18/11/2026, ronda 22): un solo once, once en once",
         filas: [
           { que: "El once guardado se respeta entero", es: "Los once titulares y el dibujo que se guardaron no se tocan. Si un titular no tiene hueco natural en el dibujo (dos laterales derechos en un 4-2-3-1), va al hueco libre más cercano a su zona y se dice «Fuera de su sitio: V. Olmedo en EI». Siempre hay 11 titulares en 11 huecos", cuenta: "asignaTitulares con rellena (lib/rivals/campograma-motor.ts): primero cada uno a su puesto (método húngaro); quien no se parece a ningún hueco libre, al libre más cercano por distancia entre anclas; «fuera de su sitio» = fueraDeSuHueco. La misma cuenta en colocacionDelOnce / colocaElOnce (lib/rivals/colocacion-once.ts), que leen Scout individual, Duelos, Plan y pizarra. Lo puesto a mano manda; dos a mano en el mismo bloque, el segundo se coloca solo" },
@@ -1752,6 +1783,18 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-18",
     bloques: [
       {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Reparto del xG", es: "Como el original de X: puesto grande a la izquierda, el jugador con sus minutos, xG/90 y «×N la media», la barra con la raya de la media del equipo y el % grande a la derecha con su xG debajo. El titular dice cuánto hace el primero" },
+          { que: "Evolución comparada", es: "Líneas que se dibujan al llegar y la última cifra de cada línea a su derecha, como en el original. El titular dice si en los últimos partidos genera o concede más o menos" },
+          { que: "¿Ha cambiado su modelo?", es: "Como «Tendencias del equipo» de X: el equipo, su etiqueta en una píldora y fichas «▲ PPDA 8,7 → 13,8» (el resto de la temporada → los últimos 5), en color sólo si el cambio pasa el umbral; en las curvas, la cifra de cada uno de los últimos 5 partidos. La tabla de bloques sigue debajo" },
+          { que: "Embudo del ataque", es: "Ahora es un embudo de verdad: cada escalón centrado y más estrecho, con la cifra por partido grande a la izquierda y el paso frente al grupo a la derecha (verde mejor, naranja peor). La frase de lectura es el titular" },
+          { que: "Según el marcador", es: "La lectura como titular; cada métrica en su tarjeta con las tres barras (ganando, empatando, perdiendo) y la raya de su media" },
+          { que: "Por dónde ataca", es: "Tarjeta de la app y titular: la banda que carga o, si no hay una, el jugador que más concentra un tipo de acción" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
           { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
@@ -1864,6 +1907,14 @@ export const AYUDAS: AyudaDePagina[] = [
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
     revisada: "2026-11-18",
     bloques: [
+      {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "Sus lanzadores de penalti", es: "Cada lanzador en su tarjeta con el nombre grande y «goles/penaltis marcados» arriba a la derecha (todos sus penaltis en Opta, esta temporada y las anteriores); la portería lleva red y los tiros aparecen uno a uno" },
+          { que: "Cómo saca el córner", es: "Las líneas de cada córner se dibujan desde el banderín al llegar; la zona que más repite va de titular (la zona, el lado y su %)" },
+        ],
+      },
       {
         titulo: "Arriba",
         filas: [
@@ -3864,6 +3915,13 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "La hoja de identidad posicional (una fila por contenido); la escribe el cuerpo técnico, aquí o en la hoja. Los jugadores del puesto, de la plantilla; las cifras, de Wyscout (liga).",
     bloques: [
       {
+        titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
+        filas: [
+          { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
+          { que: "¿Quién lo ejecuta mejor?", es: "La conclusión como titular, cada jugador en su tarjeta con el puesto y el encaje en cifra grande y la barra que se llena al llegar" },
+        ],
+      },
+      {
         titulo: "La pantalla",
         filas: [
           { que: "Posiciones", es: "Los puestos de la hoja; el buscador filtra los contenidos" },
@@ -3913,7 +3971,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
   },
 ];
 

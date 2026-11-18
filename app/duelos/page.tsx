@@ -1717,8 +1717,8 @@ function RoboEnDuelo({ lista }: { lista: RoboJugador[] }) {
 /** Una fila de «quién nos roba»: nombre (abre su ficha), cifra y una barra de percentil con la raya del robador. */
 function FilaRobador({ r, i, huecoDe, equipo }: { r: RoboJugador; i?: number; huecoDe: Map<string, string>; equipo: string }) {
   return (
-    <li className="flex min-w-0 items-start gap-2 text-xs">
-      <span className="w-4 shrink-0 text-right tabular-nums text-white/40">{i === undefined || r.tendencia ? "·" : i + 1}</span>
+    <li className="portada-celda flex min-w-0 items-start gap-2.5 p-2.5 text-xs">
+      <span className="fuente-club w-5 shrink-0 text-right text-[20px] font-bold leading-none tabular-nums text-white/40">{i === undefined || r.tendencia ? "·" : i + 1}</span>
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
           <Link href={fichaDe(r.jugador, false, equipo)} className="text-sm font-medium text-white/90 underline-offset-2 hover:underline">
@@ -1735,15 +1735,19 @@ function FilaRobador({ r, i, huecoDe, equipo }: { r: RoboJugador; i?: number; hu
         )}
         <div className="mt-0.5 flex flex-wrap items-baseline gap-x-2 text-white/60">
           <span className="tabular-nums">{cifraRobo(r)}</span>
-          {r.percentil !== null && (
-            <span className="tabular-nums font-semibold" style={{ color: r.robador ? PEOR : tinta(0.6) }}>
-              P{r.percentil}
-              {r.percentilBruto !== null && <span className="font-normal text-white/45"> (P{r.percentilBruto} en bruto)</span>}
-            </span>
-          )}
+          {r.percentil !== null && r.percentilBruto !== null && <span className="tabular-nums text-white/45">P{r.percentilBruto} en bruto</span>}
         </div>
         {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</p>}
       </div>
+      {/* La cifra grande arriba a la derecha, como las «señales» del original de X: su percentil ajustado. */}
+      {r.percentil !== null && (
+        <p className="shrink-0 text-right leading-none">
+          <span className="fuente-club block text-[26px] font-bold tabular-nums" style={{ color: r.robador ? PEOR : tinta(0.75) }}>
+            P{r.percentil}
+          </span>
+          <span className="text-[11px] uppercase tracking-[0.08em] text-white/45">ajustado</span>
+        </p>
+      )}
     </li>
   );
 }
@@ -1767,10 +1771,10 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
   /* El bloque acaba en una orden: no conducir hacia el que más roba (16/11/2026, ronda 17). */
   const primero = lista.find((r) => r.robador && r.ajustado != null);
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <p className="text-sm font-semibold">Dónde nos pueden hacer daño · quién nos roba el balón</p>
-        <p className="text-xs text-white/45">
+    <div className="portada-tarjeta portada-entra min-w-0 p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
+      <div className="min-w-0">
+        <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Dónde nos pueden hacer daño · quién nos roba el balón</p>
+        <p className="fuente-club mt-1 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">
           {primero
             ? `${apellidoDe(primero.jugador)}: P${primero.percentil} ajustado a la posesión${primero.percentilBruto != null ? ` (P${primero.percentilBruto} en bruto)` : ""}`
             : lista.some((r) => r.robador)

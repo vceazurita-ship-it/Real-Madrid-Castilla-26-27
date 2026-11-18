@@ -17,7 +17,8 @@ import { useAsoma } from "@/hooks/useAsoma";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo, pistaDe, rematesDe } from "@/lib/opta-eventos";
-import { lecturaRevulsivos, NOMBRE_BANDA, revulsivos } from "@/lib/rivals/revulsivos";
+import { tinta } from "@/components/data/graficas";
+import { lecturaRevulsivos, NOMBRE_BANDA, revulsivos, type Revulsivo } from "@/lib/rivals/revulsivos";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 
@@ -67,14 +68,23 @@ function Bloque({ equipo }: { equipo: string }) {
   const hayBanda = lista.some((j) => j.banda);
 
   return (
-    <section aria-label="Revulsivos" className="mt-6 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-        Revulsivos
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Opta, esta temporada</span>
+    <section aria-label="Revulsivos" className="portada-tarjeta portada-entra mt-6 min-w-0 px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+        Revulsivos · el banquillo de {nombre}
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">dato · Opta, esta temporada</span>
       </p>
-      {frase && <p className="mt-1 text-sm leading-6 text-white/75">{frase}</p>}
+      {frase && <h3 className="fuente-club mt-1.5 text-[20px] font-bold leading-[1.15] text-white sm:text-[24px]">{frase}</h3>}
 
-      {visibles.length > 0 && (
+      {/* Como el original de X (la ficha de Lidueña): nombre, fila de cifras grandes y, en barras, lo que da entrando frente a de titular. La tabla, al pedirla. */}
+      {!verTodos && conAlgo.length > 0 && (
+        <ul className="mt-3 grid min-w-0 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {conAlgo.map((j, i) => (
+            <FichaRevulsivo key={j.playerId} j={j} orden={i} />
+          ))}
+        </ul>
+      )}
+
+      {verTodos && visibles.length > 0 && (
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[34rem] border-collapse text-[12px] tabular-nums">
           <thead>
@@ -129,9 +139,9 @@ function Bloque({ equipo }: { equipo: string }) {
       </div>
       )}
 
-      {lista.length > conAlgo.length && (
+      {(lista.length > conAlgo.length || verTodos) && (
         <button type="button" onClick={() => setVerTodos((v) => !v)} className="mt-2 text-[12px] font-semibold text-white/60 underline-offset-2 hover:text-white hover:underline">
-          {verTodos ? "Ver sólo los que han hecho algo entrando" : `Ver la tabla de los ${lista.length} suplentes`}
+          {verTodos ? (conAlgo.length ? "Ver sólo los que han hecho algo entrando" : "Ocultar la tabla") : `Ver la tabla de los ${lista.length} suplentes`}
         </button>
       )}
 
@@ -139,5 +149,57 @@ function Bloque({ equipo }: { equipo: string }) {
         Sólo lo hecho con este equipo. «Revulsivo»: 90′ o más entrando, 0,3 G+A/90 o más y al menos 1,5 veces lo que da de titular. Los /90 salen con 45′ (suplente) o 90′ (titular). El minuto de entrada es aproximado (90 − minutos jugados) y la banda sale de sus remates tras entrar, con dos o más.
       </p>
     </section>
+  );
+}
+
+/** Una ficha por revulsivo: cifras en fila (como las del original de X) y dos barras, G+A/90 entrando y de titular. */
+function FichaRevulsivo({ j, orden }: { j: Revulsivo; orden: number }) {
+  const tope = Math.max(j.ga90Sup ?? 0, j.ga90Tit ?? 0, 0.01);
+  const barras = [
+    { k: "Entrando", v: j.ga90Sup, color: "var(--rmcf-gold-ink)", nota: j.ga90Sup != null && j.minSup < 90 ? "tendencia" : `${Math.round(j.minSup)}′` },
+    { k: "De titular", v: j.ga90Tit, color: tinta(0.35), nota: j.titularidades ? `${Math.round(j.minTit)}′` : "" },
+  ];
+  const cifras = [
+    { k: "Entra", v: `${j.entradas}`, sub: j.entradas === 1 ? "vez" : "veces" },
+    { k: "G · A", v: `${j.golesSup} · ${j.asistSup}`, sub: "entrando" },
+    ...(j.minutoEntrada != null ? [{ k: "Entra ≈", v: `${j.minutoEntrada}′`, sub: "minuto medio" }] : []),
+    ...(j.banda ? [{ k: "Banda", v: NOMBRE_BANDA[j.banda], sub: `${j.rematesSup} remates` }] : []),
+  ];
+
+  return (
+    <li className={`portada-celda portada-entra min-w-0 p-3 ${j.destacado ? "ring-1 ring-[#C8A96B]/50" : ""}`} style={{ animationDelay: `${orden * 80}ms` }}>
+      <p className="flex min-w-0 items-center gap-2">
+        <span className="fuente-club min-w-0 truncate text-[22px] font-bold uppercase leading-none text-white">{j.jugador}</span>
+        {j.destacado && (
+          <span className="shrink-0 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[11px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
+            revulsivo
+          </span>
+        )}
+      </p>
+      <dl className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+        {cifras.map((c) => (
+          <div key={c.k} className="min-w-0 rounded-lg px-2 py-1.5" style={{ background: tinta(0.05) }}>
+            <dt className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">{c.k}</dt>
+            <dd className="fuente-club truncate text-[18px] font-bold leading-tight tabular-nums text-white">{c.v}</dd>
+            <dd className="truncate text-[11px] text-white/45">{c.sub}</dd>
+          </div>
+        ))}
+      </dl>
+      <p className="mt-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50">G+A por 90′</p>
+      <div className="mt-1 flex h-24 items-end gap-3" role="img" aria-label={`G+A por 90: entrando ${j.ga90Sup != null ? coma(j.ga90Sup, 1) : "sin minutos"}, de titular ${j.ga90Tit != null ? coma(j.ga90Tit, 1) : "sin minutos"}`}>
+        {barras.map((b) =>
+          b.v == null ? null : (
+            <div key={b.k} className="flex h-full min-w-0 flex-1 flex-col justify-end text-center">
+              <span className="fuente-club text-[18px] font-bold leading-none tabular-nums text-white">{coma(b.v, 1)}</span>
+              <div className="portada-entra mx-auto mt-1 w-full max-w-[5rem] rounded-t-md" style={{ height: `${Math.max(4, (b.v / tope) * 60)}px`, background: b.color }} />
+              <span className="mt-1 truncate text-[11px] text-white/55">
+                {b.k}
+                {b.nota && ` · ${b.nota}`}
+              </span>
+            </div>
+          ),
+        )}
+      </div>
+    </li>
   );
 }

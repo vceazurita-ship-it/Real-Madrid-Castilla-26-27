@@ -63,22 +63,51 @@ function Contenido({ equipo }: { equipo: string }) {
   const color = etiqueta === "más reactivo" ? REACTIVO : PROTAGONISTA;
 
   return (
-    <section aria-label="¿Ha cambiado su modelo?" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-      <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-base font-bold text-white">
+    <section aria-label="¿Ha cambiado su modelo?" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         ¿Ha cambiado su modelo?
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
+          dato · Opta, {serie.length} {serie.length === 1 ? "partido" : "partidos"} suyos
+        </span>
+      </p>
+      {/* Como el original de X («Tendencias del equipo»): el equipo, su etiqueta en una píldora y cada cambio «antes → ahora» en una ficha con su flecha. */}
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <h3 className="fuente-club text-[26px] font-bold uppercase leading-[1.05] text-white sm:text-[32px]">
+          {!resto ? nombre : etiqueta ? `${nombre}, ${etiqueta}` : `${nombre} juega igual`}
+        </h3>
         {etiqueta && (
           <span
-            className="rounded-full border px-2 py-0.5 text-[11px] font-bold uppercase tracking-[0.08em]"
-            style={{ color: chipInk(color), borderColor: chipInk(color) }}
+            className="rounded-full border px-2.5 py-0.5 text-[12px] font-bold uppercase tracking-[0.08em]"
+            style={{ color: chipInk(color), borderColor: chipInk(color), background: `${color}1A` }}
           >
             {etiqueta}
           </span>
         )}
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
-          dato · Opta, {serie.length} {serie.length === 1 ? "partido" : "partidos"} suyos
-        </span>
-      </p>
-      <p className="mt-1 text-sm leading-6 text-white/75">{titular}</p>
+      </div>
+      <p className="mt-1 text-sm leading-6 text-white/70">{titular}</p>
+      {resto && (
+        <ul className="mt-2.5 flex flex-wrap gap-2" aria-label={`Últimos ${ultimos.partidos} frente al resto de la temporada`}>
+          <Ficha
+            nombre="PPDA (presión)"
+            antes={resto.ppda}
+            ahora={ultimos.ppda}
+            d={1}
+            marcado={difPpda != null && Math.abs(difPpda) > UMBRAL_PPDA}
+            color={difPpda != null && difPpda > 0 ? REACTIVO : PROTAGONISTA}
+          />
+          <Ficha
+            nombre="Pases"
+            antes={resto.pases}
+            ahora={ultimos.pases}
+            d={0}
+            marcado={difPases != null && Math.abs(difPases) > UMBRAL_PASES}
+            color={difPases != null && difPases < 0 ? REACTIVO : PROTAGONISTA}
+          />
+          {ultimos.conMarcador > 0 && resto.conMarcador > 0 && (
+            <Ficha nombre="Puntos por partido" antes={resto.puntos / resto.conMarcador} ahora={ultimos.puntos / ultimos.conMarcador} d={2} marcado={false} color={PROTAGONISTA} />
+          )}
+        </ul>
+      )}
 
       <p className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60">
         <span className="inline-flex items-center gap-1.5">
@@ -137,6 +166,24 @@ function Contenido({ equipo }: { equipo: string }) {
   );
 }
 
+/** Una ficha «▲ PPDA 8,7 → 13,8»: el resto de la temporada y los últimos partidos. Sin color si el cambio no pasa el umbral. */
+function Ficha({ nombre, antes, ahora, d, marcado, color }: { nombre: string; antes: number | null; ahora: number | null; d: number; marcado: boolean; color: string }) {
+  if (antes == null || ahora == null) return null;
+  const flecha = ahora > antes ? "▲" : ahora < antes ? "▼" : "=";
+  return (
+    <li
+      className="inline-flex items-baseline gap-1.5 rounded-full border px-3 py-1 text-[13px] tabular-nums"
+      style={marcado ? { color: chipInk(color), borderColor: chipInk(color), background: `${color}14` } : { color: tinta(0.75), borderColor: tinta(0.2) }}
+    >
+      <span aria-hidden>{flecha}</span>
+      <span className="font-semibold">{nombre}</span>
+      <span className="fuente-club text-[15px] font-bold">
+        {dec(antes, d)} → {dec(ahora, d)}
+      </span>
+    </li>
+  );
+}
+
 function FilaBloque({ nombre, b, fuerte = false }: { nombre: string; b: Bloque; fuerte?: boolean }) {
   return (
     <tr className="border-t border-white/10">
@@ -152,7 +199,7 @@ function FilaBloque({ nombre, b, fuerte = false }: { nombre: string; b: Bloque; 
 
 const W = 340;
 const H = 170;
-const M = { izq: 32, der: 10, arriba: 10, abajo: 22 };
+const M = { izq: 32, der: 12, arriba: 18, abajo: 22 };
 
 function Curva({ titulo, nota, serie, k, decimales }: { titulo: string; nota: string; serie: PartidoModelo[]; k: "ppda" | "pases"; decimales: number }) {
   const km = k === "ppda" ? "ppdaMovil" : "pasesMovil";
@@ -189,7 +236,7 @@ function Curva({ titulo, nota, serie, k, decimales }: { titulo: string; nota: st
   const xIni = n === 1 ? M.izq : desde === 0 ? M.izq : (xDe(desde - 1) + xDe(desde)) / 2;
 
   return (
-    <figure className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <figure className="portada-celda m-0 min-w-0 p-3">
       <figcaption className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-[13px] font-semibold text-white">{titulo}</span>
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{nota}</span>
@@ -199,25 +246,34 @@ function Curva({ titulo, nota, serie, k, decimales }: { titulo: string; nota: st
         {marcas.map((m, i) => (
           <g key={i}>
             <line x1={M.izq} x2={W - M.der} y1={yDe(m)} y2={yDe(m)} style={{ stroke: tinta(0.08), strokeWidth: 1 }} />
-            <text x={M.izq - 4} y={yDe(m) + 3} textAnchor="end" style={{ fill: tinta(0.5), fontSize: 9 }}>
+            <text x={M.izq - 4} y={yDe(m) + 3} textAnchor="end" style={{ fill: tinta(0.55), fontSize: 11 }}>
               {dec(m, decimales)}
             </text>
           </g>
         ))}
         {serie.map((p, i) =>
           i % cada === 0 || i === n - 1 ? (
-            <text key={`j${p.jornada}`} x={xDe(i)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.5), fontSize: 9 }}>
+            <text key={`j${p.jornada}`} x={xDe(i)} y={H - 6} textAnchor="middle" style={{ fill: tinta(0.55), fontSize: 11 }}>
               J{p.jornada}
             </text>
           ) : null,
         )}
-        {d && <path d={d.trim()} style={{ fill: "none", stroke: COMPARADO, strokeWidth: 2.5 }} />}
+        {d && <path d={d.trim()} pathLength={1} className="idea-trazo" style={{ fill: "none", stroke: COMPARADO, strokeWidth: 2.75, strokeLinejoin: "round", strokeLinecap: "round" }} />}
         {serie.map((p, i) => {
           const v = p[k];
+          const reciente = i >= desde;
           return v == null ? null : (
-            <circle key={`p${p.jornada}`} cx={xDe(i)} cy={yDe(v)} r={2.75} style={{ fill: tinta(0.45) }}>
-              <title>{`J${p.jornada} · ${fechaCorta(p.fecha)}${p.rival ? ` · ${p.rival}` : ""}: ${dec(v, decimales)}${p[km] != null ? ` (media de 5: ${dec(p[km]!, decimales)})` : ""}`}</title>
-            </circle>
+            <g key={`p${p.jornada}`}>
+              <circle cx={xDe(i)} cy={yDe(v)} r={reciente ? 3.25 : 2.75} style={{ fill: reciente ? tinta(0.8) : tinta(0.4), stroke: "var(--portada-sup)", strokeWidth: 1 }}>
+                <title>{`J${p.jornada} · ${fechaCorta(p.fecha)}${p.rival ? ` · ${p.rival}` : ""}: ${dec(v, decimales)}${p[km] != null ? ` (media de 5: ${dec(p[km]!, decimales)})` : ""}`}</title>
+              </circle>
+              {/* Como el original de X, la cifra de cada partido; aquí sólo en el bloque de los últimos, para que se lea. */}
+              {reciente && (
+                <text x={xDe(i)} y={yDe(v) - 6} textAnchor="middle" className="fuente-club" style={{ fill: tinta(0.85), fontSize: 11.5, fontWeight: 700 }}>
+                  {dec(v, decimales)}
+                </text>
+              )}
+            </g>
           );
         })}
       </svg>

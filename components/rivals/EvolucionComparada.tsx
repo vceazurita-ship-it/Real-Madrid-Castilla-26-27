@@ -62,14 +62,24 @@ function Bloque({ equipo }: { equipo: string }) {
   ].filter(Boolean);
 
   return (
-    <section aria-label="Evolución comparada" className="mt-8 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4 sm:px-5">
-      <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-white">
-        Evolución comparada
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">
+    <section aria-label="Evolución comparada" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+      <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
+        Evolución comparada · jornada a jornada
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
           dato · Opta, {favor.partidosRival} {favor.partidosRival === 1 ? "partido" : "partidos"} suyos, media acumulada
         </span>
       </p>
-      <p className="mt-1 text-sm leading-6 text-white/75">
+      <h3 className="fuente-club mt-1.5 text-[24px] font-bold uppercase leading-[1.05] text-white sm:text-[30px]">
+        {vFavor || vContra
+          ? `${nombreRival}: ${[
+              vFavor && (vFavor.cambio === "sube" ? "más xG a favor" : vFavor.cambio === "baja" ? "menos xG a favor" : "mismo xG a favor"),
+              vContra && (vContra.cambio === "sube" ? "concede más" : vContra.cambio === "baja" ? "concede menos" : "concede lo mismo"),
+            ]
+              .filter(Boolean)
+              .join(", ")} en sus últimos partidos`
+          : `${nombreRival} y el Castilla, jornada a jornada`}
+      </h3>
+      <p className="mt-1 text-sm leading-6 text-white/70">
         xG (goles esperados: lo que valen sus remates por la ocasión) por partido de {nombreRival} y del Castilla, la media hasta cada jornada.
         {frase.length > 0 && ` ${nombreRival} ${frase.join(" y ")}.`}
       </p>
@@ -104,7 +114,7 @@ function Leyenda({ rival }: { rival: string }) {
 
 const W = 340;
 const H = 180;
-const M = { izq: 30, der: 12, arriba: 12, abajo: 22 };
+const M = { izq: 30, der: 36, arriba: 12, abajo: 22 };
 
 function trazo(puntos: ([number, number] | null)[]): string {
   let d = "";
@@ -144,7 +154,7 @@ function Grafico({ titulo, nota, serie, rival }: { titulo: string; nota: string;
   const uL = ultimoDe(ps, "liga");
 
   return (
-    <figure className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3">
+    <figure className="portada-celda m-0 min-w-0 p-3">
       <figcaption className="mb-1 flex flex-wrap items-baseline justify-between gap-x-2">
         <span className="text-[13px] font-semibold text-white">{titulo}</span>
         <span className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/55">{nota}</span>
@@ -166,22 +176,39 @@ function Grafico({ titulo, nota, serie, rival }: { titulo: string; nota: string;
           ) : null,
         )}
         <path d={trazo(pts("liga"))} style={{ fill: "none", stroke: tinta(0.45), strokeWidth: 1.75, strokeDasharray: "4 3" }} />
-        <path d={trazo(pts("rival"))} style={{ fill: "none", stroke: COMPARADO, strokeWidth: 2.25 }} />
-        <path d={trazo(pts("castilla"))} style={{ fill: "none", stroke: ORO, strokeWidth: 2.5 }} />
+        <path d={trazo(pts("rival"))} pathLength={1} className="idea-trazo" style={{ fill: "none", stroke: COMPARADO, strokeWidth: 2.5, strokeLinejoin: "round", strokeLinecap: "round" }} />
+        <path d={trazo(pts("castilla"))} pathLength={1} className="idea-trazo" style={{ fill: "none", stroke: ORO, strokeWidth: 2.75, strokeLinejoin: "round", strokeLinecap: "round" }} />
         {ps.map((p, i) => (
           <g key={`p${p.jornada}`}>
             {p.rival != null && (
-              <circle cx={xDe(i)} cy={yDe(p.rival)} r={2.5} style={{ fill: COMPARADO }}>
+              <circle cx={xDe(i)} cy={yDe(p.rival)} r={3} style={{ fill: COMPARADO, stroke: "var(--portada-sup)", strokeWidth: 1.25 }}>
                 <title>{`J${p.jornada} · ${rival}: ${coma(p.rival)}`}</title>
               </circle>
             )}
             {p.castilla != null && (
-              <circle cx={xDe(i)} cy={yDe(p.castilla)} r={2.75} style={{ fill: ORO }}>
+              <circle cx={xDe(i)} cy={yDe(p.castilla)} r={3.25} style={{ fill: ORO, stroke: "var(--portada-sup)", strokeWidth: 1.25 }}>
                 <title>{`J${p.jornada} · Castilla: ${coma(p.castilla)}`}</title>
               </circle>
             )}
           </g>
         ))}
+        {/* Como el original de X: la última cifra de cada línea, a su derecha. Se separan si caen encima. */}
+        {(() => {
+          const finales = [
+            { u: uC, color: ORO },
+            { u: uR, color: COMPARADO },
+            { u: uL, color: tinta(0.6) },
+          ]
+            .filter((f): f is { u: { jornada: number; valor: number }; color: string } => f.u != null)
+            .map((f) => ({ ...f, y: yDe(f.u.valor) }))
+            .sort((a, b) => a.y - b.y);
+          for (let k = 1; k < finales.length; k++) if (finales[k].y - finales[k - 1].y < 12) finales[k].y = finales[k - 1].y + 12;
+          return finales.map((f) => (
+            <text key={f.color} x={W - M.der + 4} y={f.y + 4} className="fuente-club" style={{ fill: f.color, fontSize: 13, fontWeight: 700 }}>
+              {coma(f.u.valor)}
+            </text>
+          ));
+        })()}
       </svg>
       <dl className="mt-2 grid grid-cols-3 gap-2 text-[11px] tabular-nums">
         <Pie etiqueta="Castilla" color={ORO} u={uC} />
@@ -200,7 +227,7 @@ function Pie({ etiqueta, color, u }: { etiqueta: string; color: string; u: { jor
         {etiqueta}
       </dt>
       <dd className="text-white/80">
-        <span className="text-sm font-bold text-white">{coma(u.valor)}</span> <span className="text-white/45">J{u.jornada}</span>
+        <span className="fuente-club text-lg font-bold text-white">{coma(u.valor)}</span> <span className="text-white/45">J{u.jornada}</span>
       </dd>
     </div>
   );
