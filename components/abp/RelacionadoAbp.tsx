@@ -20,6 +20,8 @@
 | Lo que no se sabe (sin calendario, sin rival) no sale.
 */
 
+import { useEsJugador } from "@/hooks/useRolPlataforma";
+import { pantallaDeJugador } from "@/lib/acceso/rutas";
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ChevronRight, Film, ShieldHalf, Target } from "lucide-react";
@@ -57,7 +59,11 @@ type Atajo = { href: string; texto: string; title: string; icono?: "video" | "ab
 const CLASE_ATAJO =
   "inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]";
 
-function Atajos({ atajos, color }: { atajos: Atajo[]; color: string }) {
+function Atajos({ atajos: todos, color }: { atajos: Atajo[]; color: string }) {
+  /* Los jugadores, sólo los atajos a pantallas que pueden abrir (18/11/2026): ni pizarra, ni microciclo, ni plan de partido. */
+  const esJugador = useEsJugador();
+  const atajos = esJugador ? todos.filter((a) => a.goles || pantallaDeJugador(a.href.split("?")[0])) : todos;
+  if (!atajos.length) return null;
   return (
     <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
       {atajos.map((a) => (

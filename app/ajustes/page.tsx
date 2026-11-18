@@ -52,6 +52,7 @@ import { SesionYoutube } from "@/components/ajustes/SesionYoutube";
 import { planRecomendado, progresoDePaso } from "@/lib/progreso";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, type PartidoNuestro } from "@/lib/castilla/calendario";
+import { PanelPlataformas } from "@/components/ui/AvisoBaseDatos";
 import { AccesoPlataforma } from "@/components/ajustes/AccesoPlataforma";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -1184,6 +1185,11 @@ export default function AjustesPage() {
                 />
               </Plegable>
               </div>
+            </div>
+
+            {/* Límites gratis de hoy (18/11/2026): Render, la base y Backblaze, a la vista sin esperar al aviso del día. */}
+            <div className="mt-6">
+              <PanelPlataformas />
             </div>
 
             <h2 className="mt-8 text-[12px] font-semibold uppercase tracking-[0.22em] text-[#C8A96B]">Otros ajustes</h2>

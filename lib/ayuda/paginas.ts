@@ -457,6 +457,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las tarjetas",
         filas: [
+          { que: "Botón de PDF y jugadores (18/11/2026)", es: "En el móvil, el botón redondo de PDF va abajo, encima del ⋮ (arriba tapaba las pestañas). Los jugadores no ven los atajos a la pizarra, el microciclo ni el plan de partido" },
           { que: "Acciones lanzadas", es: "Córners y faltas a favor con los filtros puestos", cuenta: "Debajo, la temporada: total, jornadas y por partido" },
           { que: "Sin remate", es: "Si ninguna acción acaba en remate ni en ocasión, una sola tarjeta «5 de 5» sustituye a goles esperados, remates y gol u ocasión", cuenta: "Debajo, la temporada con su población: remates y gol u ocasión sobre todas sus acciones" },
           { ...XG, que: "Goles esperados", es: "Lo que valían las acciones, entraran o no" },
@@ -522,6 +523,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las tarjetas",
         filas: [
+          { que: "Botón de PDF y jugadores (18/11/2026)", es: "En el móvil, el botón redondo de PDF va abajo, encima del ⋮ (arriba tapaba las pestañas). Los jugadores no ven los atajos a la pizarra, el microciclo ni el plan de partido" },
           { que: "Acciones rivales con remate", es: "ABP del rival que acaban en remate, en % · menos es mejor", cuenta: "Acciones con remate ÷ acciones. En la tabla, «Remates concedidos» es el número" },
           { que: "Gol u ocasión", es: "ABP del rival que acaban en «Gol Rival» u «Ocasión»", cuenta: "Ojo: en esta hoja el sujeto de «Ocasión» es el rival, no nosotros" },
           { ...XG, que: "Goles esperados concedidos", es: "Lo que valían los remates del rival en su ABP (la calidad de sus remates, sumada), con su base · menos es mejor" },
@@ -2108,6 +2110,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo primero de la pantalla",
         filas: [
+          { que: "Accesos de arriba (18/11/2026)", es: "«Cómo son sus goles» es un botón como los de al lado (en el móvil era texto suelto). Los jugadores no ven «Plan de partido»" },
           { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido, Informe del rival, Sus goles en vídeo (en el pop-up de la portada, 18/11/2026, con «Cómo son sus goles ›» al lado, a Análisis de goles), Su ABP y Su plantilla van en una sola fila, siempre con el rival de ese viaje ya elegido (por su fila de la hoja RIVALES o, sin ella, por su nombre); en el móvil, en una rejilla de dos columnas. El único botón de la cabecera es «Sacar los documentos»; con el horario aún propuesto, al lado, en texto, «Propuesta · aún sin guardar»" },
           { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Pinchándola se abre «Cómo va el viaje». Si lo único que queda son datos por completar, la chapa no sale: eso lo cuenta sólo «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
           { que: "Horas por fijar", es: "Una cita cuya hora no se ha podido calcular (por ejemplo, una ruta que llega sin minutos) sale «por fijar», al final de su día y en ámbar; nunca con una hora inventada. Es la primera tarea de «Cómo va el viaje», con «Poner la hora», y el botón de sacar dice «Faltan N horas» y lleva a la primera en vez de exportar", cuenta: "El dossier no nombra los trayectos sin hora ni ningún dato roto; la hoja A4 sólo coloca las citas con hora. Hoja, resumen y editor van en el mismo orden (por hora)" },
@@ -2878,6 +2881,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Poner al día",
         filas: [
+          { que: "Límites gratis de hoy (18/11/2026)", es: "Antes de «Otros ajustes»: cuánto llevan Render (minutos de compilación), la base de datos y Backblaze (vídeos y copias) frente a su tope gratis, y lo pendiente de cerrar. Lo mismo que el aviso diario del administrador, pero siempre a la vista", cuenta: "Documento salud:plataformas, que deja cada día el ordenador del club (scripts/salud-datos.mjs)" },
           { que: "Plegado", es: "Cada proceso es una línea con un punto de color (verde al día, dorado en marcha, ámbar con aviso, gris sin dato), «Hecho hace X» con lo que dejó y su botón. Lo que está al día va plegado: se pulsa la línea para verlo entero. Lo que está en marcha, falló, se cortó o está en pausa sale abierto y arriba. Arriba, el recuento: cuántos al día, en marcha y con aviso. En «Actualizaciones» igual: lo atrasado o sin fecha primero y abierto, lo que está al día en una línea con «Último dato hace X»", cuenta: "Lo que se abre o cierra a mano se recuerda en este aparato, atado al estado: si algo plegado falla, vuelve a abrirse. components/ajustes/Plegable.tsx" },
           { que: "El ordenador del club", es: "Si el vigía está encendido (y su último aviso) o apagado: lo que se pida espera a que se encienda" },
           { que: "Datos de Opta", es: "Primera RFEF entera de Opta ProVision; corre en GitHub cada lunes y al pulsar. «Seguir en directo» mira los partidos del día" },

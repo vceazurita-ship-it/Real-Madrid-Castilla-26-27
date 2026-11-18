@@ -31,6 +31,7 @@
  * El modelo vive en `lib/viaje/modelo.ts` y el dibujo en `components/viaje/`.
  */
 
+import { useEsJugador } from "@/hooks/useRolPlataforma";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { BotonGolesEnVideo, EnlaceComoSonSusGoles } from "@/components/rivals/BotonGolesEnVideo";
@@ -1012,6 +1013,7 @@ function SeccionMovil({
 export default function DesplazamientoPage() {
   /* El escudo del club, que la hoja no trae: ver `hooks/useEscudos`. */
   const escudoDe = useEscudos();
+  const esJugador = useEsJugador();
 
   /* El día de hoy, para saber si el partido ya se jugó (la valoración se pliega antes). */
   const ahora = useAhora(60 * 60 * 1000);
@@ -2682,9 +2684,12 @@ export default function DesplazamientoPage() {
                 */}
                 {partido && (
                   <>
-                    <Link href={enlacePlanDePartido(jornada)}>
-                      <Button icon={ClipboardList}>Plan de partido</Button>
-                    </Link>
+                    {/* El plan de partido es del cuerpo técnico: los jugadores no lo ven (18/11/2026). */}
+                    {!esJugador && (
+                      <Link href={enlacePlanDePartido(jornada)}>
+                        <Button icon={ClipboardList}>Plan de partido</Button>
+                      </Link>
+                    )}
 
                     <Link href={jornada ? enlaceAnalisisRival(jornada) : `/rivals?equipo=${encodeURIComponent(partido.opponent)}`}>
                       <Button icon={Binoculars}>Informe del rival</Button>
@@ -2699,7 +2704,12 @@ export default function DesplazamientoPage() {
                       <Clapperboard size={13} aria-hidden />
                       Sus goles en vídeo
                     </BotonGolesEnVideo>
-                    <EnlaceComoSonSusGoles equipo={jornada?.equipo || partido.opponent} />
+                    {/* 18/11/2026: botón como los de al lado (en el móvil era texto suelto en la rejilla). */}
+                    <EnlaceComoSonSusGoles
+                      equipo={jornada?.equipo || partido.opponent}
+                      texto="Cómo son sus goles"
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px] max-sm:w-full"
+                    />
 
                     {/* 17/11/2026 (r20, jueces): su ABP y su plantilla, como en Microciclos. */}
                     <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>

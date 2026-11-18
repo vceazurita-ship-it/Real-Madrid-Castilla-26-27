@@ -17,6 +17,8 @@
  * comparte entre todos los `<Explicativo>`; mientras no llega, escondidos.
  */
 
+import { useEsJugador } from "@/hooks/useRolPlataforma";
+import { pantallaDeJugador } from "@/lib/acceso/rutas";
 import { useEffect, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { Lightbulb } from "lucide-react";
@@ -93,6 +95,9 @@ export function Conclusiones({
   className?: string;
 }) {
   const frases = items.filter((x): x is string => Boolean(x && x.trim()));
+  /* Los jugadores no tienen el microciclo: sin ese enlace (18/11/2026). */
+  const esJugador = useEsJugador();
+  if (esJugador && enlace && !pantallaDeJugador(enlace.href.split("?")[0])) enlace = undefined;
 
   if (!frases.length && !titular) return null;
 

@@ -5110,7 +5110,7 @@ value={`${tasaPeligroResultado.toFixed(0)}%`}
   title="Descargar en PDF"
   className="
     fixed
-    top-24
+    top-24 max-sm:top-auto max-sm:bottom-20 max-sm:right-3
     right-5
     z-50
 

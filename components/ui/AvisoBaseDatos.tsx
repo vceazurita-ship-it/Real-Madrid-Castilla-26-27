@@ -100,7 +100,8 @@ export function AvisoBaseDatos() {
     <div className="modal-veil fixed inset-0 z-[90] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="aviso-bd-titulo">
       <div className="siempre-oscuro max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-amber-500/50 bg-[#141414] p-5 text-white shadow-2xl">
         <div className="mb-3 flex items-start justify-between gap-3">
-          <p id="aviso-bd-titulo" className="flex items-center gap-2 text-base font-semibold">
+          {/* text-white propio (18/11/2026): heredado, en modo día salía casi negro sobre el fondo oscuro. */}
+          <p id="aviso-bd-titulo" className="flex items-center gap-2 text-base font-semibold text-white">
             <Database size={18} className="text-amber-400" aria-hidden />
             Plataformas y pendientes
           </p>
@@ -169,5 +170,55 @@ export function AvisoBaseDatos() {
         </button>
       </div>
     </div>
+  );
+}
+
+/**
+ * Lo mismo que el aviso, como panel fijo de Ajustes → Poner al día (18/11/2026):
+ * dónde está de verdad cada límite gratis hoy (Render, la base y Backblaze),
+ * sin esperar al aviso del día. Mismo documento `salud:plataformas`.
+ */
+export function PanelPlataformas() {
+  const [estado, setEstado] = useState<Estado | null | undefined>(undefined);
+
+  useEffect(() => {
+    let vivo = true;
+    fetch("/api/docs?key=salud%3Aplataformas", { cache: "no-store" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => vivo && setEstado((j?.data as Estado) ?? null))
+      .catch(() => vivo && setEstado(null));
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  if (estado === undefined) return null;
+
+  return (
+    <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-labelledby="panel-plataformas">
+      <h3 id="panel-plataformas" className="flex items-center gap-2 text-[15px] font-semibold text-white">
+        <Database size={16} className="text-[#C8A96B]" aria-hidden /> Límites gratis de hoy
+      </h3>
+      <p className="mt-0.5 text-[12px] text-white/55">
+        Donde vive todo ahora: la web en Render, los datos en su base y los vídeos y copias en Backblaze.
+        {estado?.comprobadoEn ? ` Comprobado ${new Date(estado.comprobadoEn).toLocaleString("es-ES", { timeZone: "Europe/Madrid", day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}.` : ""}
+      </p>
+      {estado ? (
+        <ul className="mt-3 grid gap-3 sm:grid-cols-3">
+          {estado.render && (
+            <Barra nombre="Render · compilación" uso={estado.render.minutosEstimados / estado.render.tope} detalle={`Unos ${estado.render.minutosEstimados} de ${estado.render.tope} min este mes.`} />
+          )}
+          {estado.base && <Barra nombre="Base de datos" uso={estado.base.bytes / 1e9} detalle={`${mb(estado.base.bytes)} de 1 GB${estado.base.dias != null ? ` · caduca en ${estado.base.dias} días` : ""}.`} />}
+          {estado.b2 && <Barra nombre="Vídeos y copias (Backblaze)" uso={estado.b2.bytes / estado.b2.tope} detalle={`${mb(estado.b2.bytes)} de 10 GB · ${estado.b2.ficheros} ficheros.`} />}
+        </ul>
+      ) : (
+        <p className="mt-3 text-[12px] text-white/55">Todavía no ha llegado la comprobación de hoy del ordenador del club.</p>
+      )}
+      {(estado?.pendientes?.length ?? 0) > 0 && (
+        <p className="mt-3 text-[12px] text-white/65">
+          <b className="text-white/85">Pendiente de cerrar:</b> {estado!.pendientes!.map((p) => p.titulo).join(" · ")}
+        </p>
+      )}
+    </section>
   );
 }
