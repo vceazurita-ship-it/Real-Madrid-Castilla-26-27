@@ -31,6 +31,7 @@ import {
 import type { Unidad } from "@/lib/data-analisis/metricas";
 import { casaNombre } from "@/lib/data-analisis/once";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { METRICAS_DEL_PUESTO } from "@/lib/rivals/metricas-del-puesto";
 import { normalizePlayerName } from "@/lib/playerImages";
 
 /** Sólo cuenta como «destaca» por encima de esto, y como «flojea» por debajo del espejo. */
@@ -92,6 +93,8 @@ export type RasgoWyscout = {
    * pesar). `null` si no se conoce el volumen o no es un porcentaje.
    */
   intentos?: number | null;
+  /** La columna del Excel de Wyscout («Duelos aéreos ganados, %»): con ella se sabe si es de su puesto. */
+  columna?: string;
 };
 
 export type PerfilWyscout = {
@@ -117,6 +120,13 @@ export type PerfilWyscout = {
    * Javi Moreno salía sin ninguno). Sin los porcentajes de menos de 15 intentos.
    */
   peor?: RasgoWyscout | null;
+  /**
+   * Todas sus cifras de las métricas con lectura para su puesto
+   * (`METRICAS_DEL_PUESTO`), de mayor a menor percentil (18/11/2026, ronda 23):
+   * de aquí salen el ▲ y el ▼ de Scout individual y de «El once de un vistazo».
+   * Falta en respuestas viejas de la copia del aparato.
+   */
+  delPuesto?: RasgoWyscout[];
 };
 
 export type PerfilesDeEquipo = {
@@ -147,6 +157,7 @@ const rasgo = (c: Candidato, minutos: number, fila?: FilaJugador): RasgoWyscout 
     mejorAlto: c.metrica.mejorAlto !== false,
     casos: casosDe(c, minutos),
     intentos: volumen != null && volumen > 0 ? Math.round((volumen * minutos) / 90) : null,
+    columna: c.metrica.columna,
   };
 };
 
@@ -227,6 +238,10 @@ export function perfilesDeEquipo(
         const lista = [...validas].sort((a, b) => a.percentil - b.percentil).map((f) => rasgo(f, minutos, fila));
         return lista.find((r) => r.percentil < 50 && !(r.unidad === "porcentaje" && r.intentos != null && r.intentos < 15) && !/penalti/i.test(r.nombre)) ?? null;
       })(),
+      delPuesto: validas
+        .filter((f) => (METRICAS_DEL_PUESTO[puesto] ?? []).includes(f.metrica.columna))
+        .sort((a, b) => b.percentil - a.percentil)
+        .map((f) => rasgo(f, minutos, fila)),
     };
   });
 

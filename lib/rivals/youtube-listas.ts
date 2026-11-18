@@ -209,6 +209,8 @@ export type JugadorPlantilla = {
   poblacion?: string;
   /** Su puesto como en Plantillas y Duelos: «pivote en su once (mediapunta de origen)». */
   rol?: string;
+  /** Sus minutos en Wyscout: con menos de 450′ su fila lleva «tendencia» (18/11/2026, ronda 23). */
+  minutosWyscout?: number;
 };
 
 /** Una cifra de Wyscout lista para la tarjeta: «Acciones de ataque exitosas 2,7 · P91», con la base entera aparte. */
@@ -222,6 +224,11 @@ export type RasgoCorto = {
   percentil: number;
   /** «2,7 · mejor que 9 de cada 10 de su puesto»; contra cuántos y los minutos van en la población del jugador. */
   base: string;
+  /** Por piezas, para el titular de la radiografía (18/11/2026, ronda 23): «duelos aéreos ganados», «27,8 %», «por alto», «medios». */
+  nombre?: string;
+  cifra?: string;
+  enQue?: string;
+  contra?: string;
 };
 
 /*

@@ -62,7 +62,7 @@ import { comoNombre } from "@/lib/duelos-onces";
 import { rotuloDePuesto } from "@/lib/rivals/lineas-puesto";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { asignaPerfiles, type PerfilWyscout, type RasgoWyscout } from "@/lib/rivals/perfil-wyscout";
-import { formatea } from "@/lib/data-analisis/metricas";
+import { MINUTOS_TENDENCIA, cifraConUnidad, deCadaDiez, enQue, lecturaDelPuesto, nombreDelRasgo } from "@/lib/rivals/metricas-del-puesto";
 
 /*
 | UNA CIFRA DE SU PUESTO EN CADA FICHA (16/11/2026, tercera vuelta): la
@@ -77,83 +77,38 @@ import { formatea } from "@/lib/data-analisis/metricas";
 | «Ver base» («P91 entre 117 laterales · 1.017′ en Wyscout»).
 */
 
-/** «mejor que 9 de cada 10» / «peor que 8 de cada 10»: el percentil como en /rivals. */
-const deCadaDiez = (percentil: number) =>
-  percentil >= 50
-    ? `mejor que ${Math.min(9, Math.max(1, Math.round(percentil / 10)))} de cada 10`
-    : `peor que ${Math.min(9, Math.max(1, Math.round((100 - percentil) / 10)))} de cada 10`;
-
 /*
-| UNA CIFRA, UN FORMATO (18/11/2026, ronda 22): por partido y por 90′ con un
-| decimal («Remates 0,99» → «1,0»; «xG 0,64» → «0,6»). Dos sólo si con uno
-| saldría 0,0 o si es un xG por remate por debajo de 0,3. Los porcentajes, con
-| uno y sin el «%» repetido del nombre («Duelos aéreos ganados % 50,0 %»).
+| LAS MÉTRICAS DE SU PUESTO, CON SU UNIDAD (18/11/2026, ronda 23, fútbol y
+| guionista): el ▲ y el ▼ se eligen sólo entre las métricas con lectura
+| táctica para su puesto (`lecturaDelPuesto`, lib/rivals/metricas-del-puesto,
+| la misma lista de «El once de un vistazo» de /rivals) y cada cifra va con su
+| unidad: «Remates 1,0 por 90′», «Duelos aéreos ganados 27,8 %».
 */
-const cifraDe = (r: RasgoWyscout) => {
-  if (r.unidad === "porcentaje") return `${r.valor.toFixed(1).replace(".", ",")} %`;
-  if (r.unidad === "entero" || r.unidad === "minutos") return formatea(r.valor, r.unidad);
-
-  const uno = r.valor.toFixed(1);
-  const dos = (uno === "0.0" && r.valor !== 0) || (Math.abs(r.valor) < 0.3 && /xg/i.test(r.nombre) && /remate|tiro/i.test(r.nombre));
-
-  return (dos ? r.valor.toFixed(2) : uno).replace(".", ",").replace(/^-/, "−");
-};
-
-const nombreDe = (r: RasgoWyscout) => r.nombre.replace(/\s*%\s*$/, "").trim();
-
 function rasgosDePerfil(perfil: PerfilWyscout | undefined): RasgoCorto[] {
   if (!perfil || perfil.muestraCorta) return [];
 
-  /*
-  | UN SOLO LENGUAJE PARA EL PERCENTIL (18/11/2026, ronda 22, fútbol y
-  | guionista): «P86» aquí y «mejor que 8 de cada 10» en /rivals eran dos
-  | lenguajes para la misma cifra. Ahora el de /rivals en toda la pantalla,
-  | siempre en el sentido «más es mejor» (en las de menos es mejor, como
-  | faltas cometidas, el percentil ya viene dado la vuelta: «peor que 7 de
-  | cada 10» se lee como explotable, que era lo que pidió fútbol en la ronda
-  | 18). Contra cuántos y con qué minutos va una vez, en la población del
-  | jugador (`poblacionDe`), que la radiografía enseña bajo su nombre.
-  */
+  const contra = perfil.puestoLabel.toLowerCase();
   const escribe = (r: RasgoWyscout, signo: "▲" | "▼"): RasgoCorto => {
     const percentil = Math.round(r.percentil);
     const frase = deCadaDiez(percentil);
-    /* Con su separador: la radiografía la pinta pegada a la cifra («Remates 1,0 · mejor que 9 de cada 10»). */
-    const marca = `· ${frase}`;
     /* Un porcentaje con sus intentos (17/11/2026, ronda 19): «10 de 20 intentos». */
     const deIntentos = r.unidad === "porcentaje" && r.intentos ? `${Math.round((r.valor * r.intentos) / 100)} de ${r.intentos} intentos` : "";
+    const cifra = cifraConUnidad(r);
 
-    /* «Porterías a cero 5,0» era un total, no un «por 90′» (17/11/2026, jueces de fútbol). */
-    if (/porter[ií]as? a cero/i.test(r.nombre)) {
-      return {
-        signo,
-        corta: `Porterías a cero: ${Math.round(r.valor)} en ${perfil.partidos}`,
-        marca,
-        percentil,
-        base: `${frase} de su puesto`,
-      };
-    }
-
-    /* «Ver base» la pinta tras la cifra corta: sin repetir el valor. */
     return {
       signo,
-      corta: `${nombreDe(r)} ${cifraDe(r)}`,
-      marca,
+      corta: `${nombreDelRasgo(r)} ${cifra}`,
+      marca: `· ${frase}`,
       percentil,
       base: [deIntentos, r.mejorAlto === false ? "aquí menos es mejor" : "", `${frase} de su puesto`].filter(Boolean).join(" · "),
+      nombre: nombreDelRasgo(r).toLowerCase(),
+      cifra,
+      enQue: enQue(r),
+      contra,
     };
   };
 
-  /*
-  | 17/11/2026 (ronda 19, jueces de fútbol): fuera del ▲/▼ los porcentajes de
-  | menos de 15 intentos y los penaltis («Penaltis marcados 100 %» de Flakus no
-  | es lo que le hace peligroso). Al delantero, si la tiene, una de remate o xG.
-  */
-  const vale = (r: RasgoWyscout) => !/penalti/i.test(r.nombre) && !(r.unidad === "porcentaje" && r.intentos != null && r.intentos < 15);
-  const fuertes = perfil.fuertes.filter(vale);
-  const delantero = /delanter/i.test(perfil.puestoLabel);
-  const fuerte = (delantero ? fuertes.find((r) => /xg|remate|gol/i.test(r.nombre)) : undefined) ?? fuertes[0];
-  /* Todo titular con su ▼: si nada llega a «flojo», su cifra más baja (por debajo de la mediana). */
-  const flojo = perfil.flojos.filter(vale)[0] ?? (perfil.minutos >= 450 ? perfil.peor ?? undefined : undefined);
+  const { fuerte, flojo } = lecturaDelPuesto(perfil);
 
   return [...(fuerte ? [escribe(fuerte, "▲")] : []), ...(flojo ? [escribe(flojo, "▼")] : [])];
 }
@@ -185,14 +140,20 @@ const familiaDe = (texto: string) => FAMILIAS.find(([re]) => re.test(texto.toLow
 function poblacionDe(perfil: PerfilWyscout | undefined, origen: string, enElOnce: string | null) {
   if (!perfil || perfil.muestraCorta) return "";
 
+  /*
+  | 18/11/2026 (ronda 23, fútbol y guionista): «pivote en su once (…) · pivote
+  | en su once, comparado con…» decía dos veces el puesto. El puesto va una vez
+  | (el rol, delante); aquí sólo contra quién y con cuántos minutos, y si
+  | Wyscout le mide en otra familia, por qué. Con menos de 450′, «tendencia».
+  */
   const familia = familiaDe(origen);
-  const comparado = `comparado con ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()} · ${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout`;
+  const minutos = `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout${perfil.minutos < MINUTOS_TENDENCIA ? " · tendencia" : ""}`;
+  const contra = `se le compara con ${perfil.iguales} ${perfil.puestoLabel.toLowerCase()}`;
+  const suFamilia = !familia || familia === perfil.puesto || (enElOnce && familiaDe(enElOnce) === perfil.puesto);
 
-  if (!familia || familia === perfil.puesto) return enElOnce ? `${enElOnce} en su once, ${comparado}` : comparado;
+  if (suFamilia || !perfil.posicionTexto) return `${contra} · ${minutos}`;
 
-  if (enElOnce && familiaDe(enElOnce) === perfil.puesto) return `${enElOnce} en su once, ${comparado}`;
-
-  return perfil.posicionTexto ? `en Wyscout juega sobre todo de ${perfil.posicionTexto.toLowerCase()}: ${comparado}` : `Wyscout le cuenta con los ${perfil.puestoLabel.toLowerCase()}: ${comparado}`;
+  return `${contra} (en Wyscout juega sobre todo de ${perfil.posicionTexto.toLowerCase()}) · ${minutos}`;
 }
 
 const conMayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
@@ -551,6 +512,7 @@ export default function ScoutRivalIndividual() {
         goles: temporada?.goles,
         asistencias: temporada?.asistencias,
         rasgos: rasgosDePerfil(perfil),
+        minutosWyscout: perfil?.minutos,
         poblacion: poblacionDe(perfil, puesto, enSuOnce?.enElOnce ?? null),
         rol: enSuOnce?.enElOnce ? conMayuscula(enSuOnce.texto) : "",
         /* Como en Plantillas, con tildes y en caja de nombre: «SAMU VAZQUEZ» → «Samu Vázquez» (07/11/2026). */
@@ -643,8 +605,10 @@ export default function ScoutRivalIndividual() {
               <div className="h-10 w-full max-w-md animate-pulse rounded-xl bg-white/[0.05]" />
             ) : (
               <div className="flex min-w-0 flex-wrap items-center gap-3">
+                {/* 18/11/2026 (ronda 23, móvil): el rival en su propia línea, a todo el ancho (salía «Re»); jornada y PRÓXIMO debajo. */}
+                <div className="flex w-full min-w-0 items-center gap-3 sm:w-auto sm:max-w-md sm:flex-1">
                 {equipo && <EscudoEquipo nombre={equipo} escudo={escudoDe(equipo)} lado={28} />}
-                <label className="flex min-w-0 flex-1 items-center gap-2 sm:max-w-md">
+                <label className="flex min-w-0 flex-1 items-center gap-2">
                   <span className="sr-only">Rival</span>
                   <select
                     value={equipo}
@@ -665,6 +629,7 @@ export default function ScoutRivalIndividual() {
                     })}
                   </select>
                 </label>
+                </div>
                 {/* La jornada (17/11/2026, ronda 21): nuestros partidos contra él; abre la lista del canal de ese partido. */}
                 {equipo && jornadasDelRival.length > 0 && (
                   <label className="flex min-w-0 items-center gap-2">

@@ -149,6 +149,25 @@ export function fraseDeDano(
 }
 
 /*
+| EL PERCENTIL EN PALABRAS (18/11/2026, ronda 23, fútbol): la consigna de
+| Duelos trae «(pase que rompe líneas: P17 frente a P71)» y «hoy está en P71»;
+| en /rivals se lee como en el resto de la pantalla: «el nuestro, peor que 8
+| de cada 10 de su puesto; el suyo, mejor que 7 de cada 10».
+*/
+const deCadaDiezDuelo = (p: number) =>
+  p >= 50
+    ? `mejor que ${Math.min(9, Math.max(1, Math.round(p / 10)))} de cada 10`
+    : `peor que ${Math.min(9, Math.max(1, Math.round((100 - p) / 10)))} de cada 10`;
+
+export function percentilesEnPalabras(texto: string): string {
+  return texto
+    .replace(/:\s*P(\d{1,3}) frente a P(\d{1,3})\)/g, (_, n: string, s: string) => `: el nuestro, ${deCadaDiezDuelo(Number(n))} de su puesto; el suyo, ${deCadaDiezDuelo(Number(s))})`)
+    .replace(/\s*\(P50\)/g, "")
+    .replace(/hoy está en P(\d{1,3})/g, (_, p: string) => `hoy es ${deCadaDiezDuelo(Number(p))}`)
+    .replace(/por encima de P(\d{1,3})/g, (_, p: string) => `al menos como hoy (${deCadaDiezDuelo(Number(p))} de su puesto)`);
+}
+
+/*
 | UNA SOLA ORDEN POR JUGADOR (16/11/2026, ronda 18, jueces de fútbol): /rivals
 | mandaba «provocarle el 1 contra 1» a Jorge Mier mientras el Plan y Duelos lo
 | daban por el duelo que perdemos (−62). Si el jugador está en un duelo medido
@@ -214,9 +233,9 @@ export function ordenDelDuelo(
   const pieza = (rotulo: string) => resto.find((r) => r.startsWith(rotulo))?.slice(rotulo.length).trim().replace(/\.\s*$/, "") ?? "";
 
   return {
-    accion: orden.replace(/\.\s*$/, ""),
+    accion: percentilesEnPalabras(orden.replace(/\.\s*$/, "")),
     cifra: `Duelo «${duelo.titulo}» (${cifras.join(" · ")}), el mismo de Duelos y del Plan de partido.${resto.length ? ` ${resto.join(" ")}` : ""}${duelo.base ? ` ${duelo.base}.` : ""}`,
     enContra,
-    duelo: { titulo: duelo.titulo, conBalon: duelo.conBalon, sinBalon: duelo.sinBalon, tarea: pieza("Tarea:"), objetivo: pieza("Objetivo:"), base: duelo.base },
+    duelo: { titulo: duelo.titulo, conBalon: duelo.conBalon, sinBalon: duelo.sinBalon, tarea: pieza("Tarea:"), objetivo: percentilesEnPalabras(pieza("Objetivo:")), base: duelo.base },
   };
 }
