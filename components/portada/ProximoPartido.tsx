@@ -482,7 +482,7 @@ export function ProximoPartido() {
                     style={esHoy ? { background: ORO, color: "#0B0F14", borderRadius: 12 } : esPartido ? undefined : { borderRadius: 12 }}
                   >
                     <span
-                      className={`whitespace-nowrap text-[11px] font-bold uppercase tracking-[-0.01em] sm:tracking-[0.14em] ${
+                      className={`whitespace-nowrap text-[12px] font-bold uppercase tracking-[-0.02em] sm:tracking-[0.1em] ${
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
@@ -497,15 +497,21 @@ export function ProximoPartido() {
                       {Number(dia.fecha.slice(8, 10))}
                     </span>
 
-                    {/* En el móvil sólo «libre»: con el día de la semana debajo
-                        no caben las siete casillas. */}
+                    {/* 18/11/2026 (ronda 23, fútbol): el día de la semana siempre,
+                        también en los libres («SÁB · libre», no sólo «LIBRE»); el
+                        «libre» va en su renglón para que quepan las siete casillas
+                        a 390 px. Letra de 12 px como mínimo. */}
                     <span
-                      className={`mt-1 text-[11px] uppercase tracking-tight sm:text-[11px] sm:tracking-normal ${
-                        libre ? "" : "hidden sm:inline"
-                      } ${esHoy ? "opacity-80" : "text-white/40"}`}
+                      className={`mt-1 whitespace-nowrap text-[12px] uppercase tracking-tight sm:tracking-normal ${esHoy ? "opacity-80" : "text-white/55"}`}
                     >
-                      {libre ? "libre" : dia.nombre.slice(0, 3)}
+                      {dia.nombre.slice(0, 3)}
+                      {libre ? <span className="sr-only"> · libre</span> : null}
                     </span>
+                    {libre ? (
+                      <span aria-hidden className={`whitespace-nowrap text-[12px] font-semibold lowercase ${esHoy ? "opacity-80" : "text-white/60"}`}>
+                        libre
+                      </span>
+                    ) : null}
                   </button>
                 );
               })}
@@ -741,7 +747,7 @@ function Escudos({
         <Image src="/logo.png" alt="Real Madrid Castilla" width={48} height={48} priority />
       </span>
 
-      <span className="text-[11px] font-bold uppercase tracking-[0.3em] text-white/35">
+      <span className="text-[12px] font-bold uppercase tracking-[0.3em] text-white/45">
         vs
       </span>
 

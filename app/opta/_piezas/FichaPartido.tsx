@@ -104,6 +104,15 @@ export function CaraACara({
     return vs.length >= 3 ? vs.reduce((s, v) => s + v, 0) / vs.length : null;
   };
   const nMedia = otros ? Math.min(otros.a.length, otros.b.length) : 0;
+  /*
+  | 18/11/2026 (ronda 23, fútbol y guionista): cada media dice de quién es y de
+  | cuántos partidos sale («nuestra media 1,6 en los otros 11 · su media 1,1
+  | en sus otros 11»), en la primera fila; la leyenda, arriba.
+  */
+  const esNuestro = a.teamId === CASTILLA_OPTA;
+  const quienA = esNuestro ? "nuestra media" : "media";
+  const quienB = esNuestro ? "su media" : "media";
+  const primera = (principales ?? METRICAS).find((k) => k in a || k.startsWith("·"));
   const fila = (k: string) =>
     k in a || k.startsWith("·") ? (
       <FilaCara
@@ -113,6 +122,10 @@ export function CaraACara({
         vb={valorDe(b, k, catalogo)}
         ma={media(otros?.a, k)}
         mb={media(otros?.b, k)}
+        rotMedia={[
+          [quienA, k === primera && otros ? ` en los otros ${otros.a.length}` : ""],
+          [quienB, k === primera && otros ? ` en sus otros ${otros.b.length}` : ""],
+        ]}
         unDecimal={k === "ExpG" || k === "ExpGAg"}
       />
     ) : null;
@@ -120,6 +133,16 @@ export function CaraACara({
 
   return (
     <div className="mx-auto max-w-3xl">
+      {conMedia && nMedia >= 3 && otros && (
+        <p className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[12px] leading-snug text-white/65">
+          <span aria-hidden className="inline-block h-3 w-0.5 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .85)" }} />
+          <span>
+            La raya fina es la media de la temporada de cada equipo sin este partido (Opta): {esNuestro ? "la nuestra" : nombreEquipo(a)}, en los otros {otros.a.length};{" "}
+            {esNuestro ? "la suya" : nombreEquipo(b)}, en sus otros {otros.b.length}
+            {nMedia < 15 ? " (tendencia)" : ""}.
+          </span>
+        </p>
+      )}
       <div className="mb-2 flex items-baseline justify-between gap-3 text-sm font-semibold">
         <span className="min-w-0 truncate" style={{ color: ORO }}>
           {nombreEquipo(a)}
@@ -151,9 +174,7 @@ export function CaraACara({
       <p className="mt-2 text-xs text-white/45">
         En cada fila, la barra más larga es la mayor de las dos y el que sale mejor va en color pleno (↓ menos es mejor). En las de estilo (posesión, centros, pases por
         secuencia) no hay mejor ni peor.{"PPDA" in a ? " PPDA: pases que deja dar el rival antes de que presionemos; menos es más presión." : ""}
-        {conMedia && nMedia >= 3
-          ? ` La raya fina en cada barra es la media de la temporada de ese equipo (Opta, sus otros partidos: ${otros!.a.length} y ${otros!.b.length})${nMedia < 15 ? "; con menos de 15, tendencia" : ""}.`
-          : ""}
+        {/* 18/11/2026 (ronda 23): la leyenda de la media, arriba del cara a cara. */}
       </p>
     </div>
   );
@@ -166,6 +187,10 @@ function FilaCara({
   ma = null,
   mb = null,
   unDecimal = false,
+  rotMedia = [
+    ["media", ""],
+    ["media", ""],
+  ],
 }: {
   def: DefMetrica;
   va: number | null;
@@ -174,6 +199,8 @@ function FilaCara({
   ma?: number | null;
   mb?: number | null;
   unDecimal?: boolean;
+  /** 18/11/2026 (ronda 23): de quién es cada media y su base («nuestra media», « en los otros 11»). */
+  rotMedia?: [[string, string], [string, string]];
 }) {
   if (va == null && vb == null) return null;
   /* 10/11/2026: los goles esperados con un decimal en toda la pantalla. */
@@ -219,9 +246,9 @@ function FilaCara({
         </div>
       )}
       {(ma != null || mb != null) && (
-        <div className="mt-0.5 flex justify-between text-[11px] tabular-nums text-white/50">
-          <span>{ma != null ? `media ${cifraMedia(ma)}` : ""}</span>
-          <span>{mb != null ? `media ${cifraMedia(mb)}` : ""}</span>
+        <div className="mt-0.5 flex justify-between gap-3 text-[11px] tabular-nums text-white/60">
+          <span>{ma != null ? `${rotMedia[0][0]} ${cifraMedia(ma)}${rotMedia[0][1]}` : ""}</span>
+          <span className="text-right">{mb != null ? `${rotMedia[1][0]} ${cifraMedia(mb)}${rotMedia[1][1]}` : ""}</span>
         </div>
       )}
     </div>

@@ -23,9 +23,12 @@
  * comparten entre las piezas (`hooks/useDocsOpta.ts`).
  */
 
-import { useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ClipboardList, Film, Footprints, LayoutGrid, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, ClipboardList, Film, Footprints, LayoutGrid, Mountain, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
+import { leeEventos } from "@/lib/opta-directo-mapas";
+import { retrato } from "@/lib/opta-retrato";
+import { fraseCampoPisado, nombreCorto } from "@/lib/partido-frases";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { ClavesDelPartido, fichaJugador, pc, useLaboratorioDelPartido, type CifrasLaboratorio } from "@/components/data/ClavesDelPartido";
@@ -302,9 +305,10 @@ export function PanelPostPartido({
       <EnlacesRapidos
         className="mt-3"
         titulo="De este partido"
+        /* 18/11/2026 (ronda 23, fútbol): robos y pérdidas salen aquí sólo si su clave de arriba no está (cada tarjeta ya lleva a su pantalla): un enlace, una vez. */
         enlaces={[
-          { href: delVideo?.robos(visto) || lab.robos ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Robos y transiciones", icono: Swords, title: "Los robos de este partido, jugada a jugada" },
-          { href: delVideo?.perdidas(visto) || lab.perdidas ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Pérdidas y transiciones", icono: ShieldAlert, title: "Las pérdidas de este partido y lo que hizo el rival con ellas" },
+          { href: !(lab.robos && lab.robos.total > 0) && delVideo?.robos(visto) ? enlaceConPartido("/laboratorio/transiciones", visto) : null, texto: "Robos y transiciones", icono: Swords, title: "Los robos de este partido, jugada a jugada" },
+          { href: !(lab.perdidas && lab.perdidas.total > 0) && delVideo?.perdidas(visto) ? enlaceConPartido("/laboratorio/perdidas", visto) : null, texto: "Pérdidas y transiciones", icono: ShieldAlert, title: "Las pérdidas de este partido y lo que hizo el rival con ellas" },
           { href: delVideo?.faltas(visto) ? enlaceConPartido("/laboratorio/faltas", visto) : null, texto: "Análisis de faltas", icono: Timer, title: "Las faltas de este partido, con cuánta gente detrás" },
           { href: visto.opta ? "#goles-del-partido" : null, texto: "Los goles del partido en vídeo", icono: Video, title: "Más abajo, en esta misma pantalla" },
           { href: urlGolesDelEquipo(NOMBRE_CASTILLA), texto: "Análisis de goles", icono: Video, title: "Todos nuestros goles de la temporada, en el campo" },
@@ -322,7 +326,7 @@ export function PanelPostPartido({
       {visto.opta && datos && <BloqueOpta datos={datos} partido={visto} hasta={hasta} />}
 
       {/* 2 · EL PARTIDO EN RELIEVE (14/11/2026): parado en el final, con el resumen. */}
-      {visto.opta && <RelieveDelPartido partido={visto.clave} titular={titular3D(datos, visto.clave, nombreRival)} xgFinal={xgDelPartido(datos, visto.clave)} />}
+      {visto.opta && <RelieveDelPartido partido={visto.clave} xgFinal={xgDelPartido(datos, visto.clave)} />}
 
       {/* 2 · WYSCOUT: EL PARTIDO EN EL CAMPO */}
       {visto.wyscout && (
@@ -755,35 +759,8 @@ function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
 
 /* El relieve del partido: lo deja scripts/opta-directo.mjs en opta:directo:<partido>. Si aún no está, el
    administrador lo pide (1-2 minutos, desde GitHub). */
-/** El nombre corto del rival para el 3D: una sola palabra que diga quién es («Gimnàstic», «Murcia», «Andreu»). */
-const GENERICAS = new Set(["cd", "ud", "cf", "sd", "fc", "ad", "rcd", "sad", "club", "deportivo", "de", "del", "la", "real", "union", "unión", "juventud", "balompie", "balompié"]);
-function cortoRival(n: string) {
-  const palabras = n.split(/\s+/).filter(Boolean);
-  return palabras.find((p) => p.length > 4 && !GENERICAS.has(p.toLowerCase())) ?? palabras.find((p) => !GENERICAS.has(p.toLowerCase())) ?? n;
-}
-
-/* En el móvil el 3D va plegado (17/11/2026, ronda 19): no es lo primero que se ve. */
-const MOVIL = "(max-width: 639px)";
-const suscribeMovil = (avisa: () => void) => {
-  const mq = window.matchMedia(MOVIL);
-  mq.addEventListener("change", avisa);
-  return () => mq.removeEventListener("change", avisa);
-};
-const useEsMovil = () => useSyncExternalStore(suscribeMovil, () => window.matchMedia(MOVIL).matches, () => false);
-
-/**
- * El titular del 3D (17/11/2026, ronda 19, fútbol): los goles esperados del
- * MISMO dato de Opta que el cara a cara, con el Castilla primero y un decimal,
- * y quién creó más. El 3D por dentro pone al local a la izquierda.
- */
-function titular3D(datos: DatosOpta | null, partido: string, rival: string) {
-  const filas = datos?.partidos.filter((f) => String(f.partido ?? "") === partido) ?? [];
-  const xg = (f: (typeof filas)[number] | undefined) => (typeof f?.ExpG === "number" && Number.isFinite(f.ExpG) ? f.ExpG : null);
-  const nos = xg(filas.find((f) => f.teamId === CASTILLA_OPTA));
-  const ellos = xg(filas.find((f) => f.teamId !== CASTILLA_OPTA));
-  if (nos == null || ellos == null) return null;
-  return { nos, ellos, rival: cortoRival(rival) };
-}
+/** El nombre corto del rival («Gimnàstic», «Murcia», «Andreu»): el mismo que la portada (lib/partido-frases). */
+const cortoRival = nombreCorto;
 
 /** Los goles esperados del partido por equipo, de la fila de Opta del cara a cara (para el panel del 3D). */
 function xgDelPartido(datos: DatosOpta | null, partido: string): Record<string, number> | undefined {
@@ -794,34 +771,17 @@ function xgDelPartido(datos: DatosOpta | null, partido: string): Record<string, 
 }
 
 /*
-| 17/11/2026 (ronda 20, fútbol): el titular del 3D en el mismo orden que el
-| marcador del propio 3D (el local primero, como el campo) y diciendo quién es
-| local; el 3D (RelievePartido) no se toca.
+| EL PARTIDO EN 3D (18/11/2026, ronda 23, fútbol y guionista): plegado tras
+| «Ver en 3D», como en la portada, con la conclusión a la vista: la MISMA
+| frase del campo pisado que la portada (`fraseCampoPisado`). Dentro, el
+| Castilla a la izquierda y primero en el marcador (`nuestroALaIzquierda`),
+| en el mismo orden que el cara a cara. Se monta al pulsar.
 */
-/*
-| 18/11/2026 (ronda 22, guionista): en el titular, el Castilla primero, como
-| en las tres claves y el cara a cara de la misma pestaña, y cada cifra con
-| su equipo al lado; dentro del 3D el local sigue a la izquierda.
-*/
-function textoTitular3D(t: { nos: number; ellos: number; rival: string }) {
-  const d1 = (v: number) => v.toFixed(1).replace(".", ",");
-  const quien = Math.abs(t.nos - t.ellos) < 0.15 ? "parejo en ocasiones" : t.nos > t.ellos ? "creó más el Castilla" : `creó más el ${t.rival}`;
-  return `Goles esperados, Castilla ${d1(t.nos)} – ${d1(t.ellos)} ${t.rival}: ${quien}`;
-}
-
-function RelieveDelPartido({
-  partido,
-  titular: datosTitular,
-  xgFinal,
-}: {
-  partido: string;
-  titular: { nos: number; ellos: number; rival: string } | null;
-  xgFinal?: Record<string, number>;
-}) {
-  const esMovil = useEsMovil();
+function RelieveDelPartido({ partido, xgFinal }: { partido: string; xgFinal?: Record<string, number> }) {
   const [doc, setDoc] = useState<{ eventos?: TablaOpta; equipos?: TablaOpta } | null | undefined>(undefined);
   const [vuelta, setVuelta] = useState(0);
   const [pedido, setPedido] = useState(false);
+  const [ver3d, setVer3d] = useState(false);
   const { admin } = useAdmin();
   useEffect(() => {
     let vivo = true;
@@ -837,27 +797,56 @@ function RelieveDelPartido({
     const t = window.setInterval(() => setVuelta((n) => n + 1), 20_000);
     return () => window.clearInterval(t);
   }, [pedido, doc]);
-  const filas = aObjetos(doc?.equipos ?? null).sort((x, y) => (x.teamId === CASTILLA_OPTA ? -1 : y.teamId === CASTILLA_OPTA ? 1 : 0));
-  /* El local primero (el campo de Opta). */
-  const [x, y] = [...filas].sort((p, q) => Number(String(q.campo ?? "").toUpperCase() === "HOME") - Number(String(p.campo ?? "").toUpperCase() === "HOME"));
-  /* 17/11/2026 (ronda 19, fútbol): «manda el Castilla / manda el Gimnàstic» en vez de «manda Real / manda Tarragona»: el 3D toma una palabra del nombre. */
+  /* El Castilla primero. */
+  const [x, y] = aObjetos(doc?.equipos ?? null).sort((p, q) => (p.teamId === CASTILLA_OPTA ? -1 : q.teamId === CASTILLA_OPTA ? 1 : 0));
+  /* 17/11/2026 (ronda 19, fútbol): «manda el Castilla / manda el Gimnàstic»: el 3D toma una palabra del nombre. */
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : cortoRival(String(f.equipo ?? "")));
-  const titular = datosTitular ? textoTitular3D(datosTitular) : "";
+  const idX = x ? String(x.teamId ?? "") : "";
+  const idY = y ? String(y.teamId ?? "") : "";
+  const nomX = x ? nom(x) : "";
+  const nomY = y ? nom(y) : "";
+  const frase = useMemo(() => {
+    if (!doc?.eventos?.filas?.length || !idX || !idY) return null;
+    return fraseCampoPisado(retrato(leeEventos(doc.eventos), idX, idY), nomX, nomY, idX === CASTILLA_OPTA);
+  }, [doc, idX, idY, nomX, nomY]);
   if (doc === undefined) return null;
+  const hay = !!(doc?.eventos?.filas?.length && x && y);
   return (
-    <details key={String(esMovil)} open={!esMovil} className="group mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-      <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
-        <h3 className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/60">El partido en 3D</h3>
-        {titular && <p className="mt-1 text-base font-semibold text-white">{titular}</p>}
-        <p className="mb-2 mt-0.5 text-[12px] text-white/60">
-          Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG).
-          {x && y ? ` ${nom(x)}, el local, a la izquierda y primero en el marcador del 3D; ${nom(y)}, a la derecha. «Campo rival pisado» es cuánto juega el ${nom(x)} en campo contrario: en el tramo final y en todo el partido.` : ""}
-          <span className="ml-1 font-medium text-[#C8A96B] group-open:hidden">Ver el 3D</span>
+    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.03] p-4" aria-label="El partido en 3D">
+      <h3 className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">El partido en 3D</h3>
+      <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <p className="min-w-0 flex-1 basis-[260px] text-[15px] font-semibold leading-snug text-white">
+          {frase ?? "Quién mandó en cada tramo y dónde llegaron los remates, minuto a minuto."}
         </p>
-      </summary>
-      {doc?.eventos?.filas?.length && x && y ? (
-        <RelievePartido quietoAlFinal xgFinal={xgFinal} eventos={doc.eventos} a={{ teamId: String(x.teamId ?? ""), nombre: nom(x), color: String(x.color ?? ""), campo: String(x.campo ?? "") }} b={{ teamId: String(y.teamId ?? ""), nombre: nom(y), color: String(y.color ?? ""), campo: String(y.campo ?? "") }} partido={partido} />
-      ) : admin ? (
+        {hay && (
+          <button
+            type="button"
+            onClick={() => setVer3d((v) => !v)}
+            aria-expanded={ver3d}
+            className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3.5 text-[13px] font-semibold text-[#C8A96B] hover:border-[#C8A96B]/50"
+          >
+            <Mountain className="h-4 w-4" aria-hidden />
+            {ver3d ? "Plegar el 3D" : "Ver en 3D"}
+            <ChevronDown className={`h-4 w-4 transition-transform ${ver3d ? "rotate-180" : ""}`} aria-hidden />
+          </button>
+        )}
+      </div>
+      {hay && ver3d ? (
+        <>
+          <p className="mb-2 mt-2 text-[12px] text-white/60">
+            Minuto a minuto: la altura es la presión de ataque y cada pico, un remate (más alto, más xG). {nomX}, a la izquierda y primero en el marcador del 3D; {nomY}, a la derecha.
+          </p>
+          <RelievePartido
+            quietoAlFinal
+            nuestroALaIzquierda
+            xgFinal={xgFinal}
+            eventos={doc!.eventos}
+            a={{ teamId: idX, nombre: nomX, color: String(x.color ?? ""), campo: String(x.campo ?? "") }}
+            b={{ teamId: idY, nombre: nomY, color: String(y.color ?? ""), campo: String(y.campo ?? "") }}
+            partido={partido}
+          />
+        </>
+      ) : !hay && admin ? (
         <button
           type="button"
           disabled={pedido}
@@ -865,13 +854,11 @@ function RelieveDelPartido({
             setPedido(true);
             void fetch("/api/opta/directo", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ partido, duracion: 15 }) });
           }}
-          className="rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
+          className="mt-2 rounded-xl bg-red-500 px-4 py-2 text-sm font-bold text-white disabled:opacity-60"
         >
           {pedido ? "Pedido a Opta: sale aquí en 1-2 minutos…" : "Cargar el relieve y los mapas de este partido"}
         </button>
-      ) : (
-        <p className="text-xs text-white/50">Aún no está el evento a evento de este partido.</p>
-      )}
-    </details>
+      ) : null}
+    </section>
   );
 }

@@ -24,6 +24,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { leeEventos, type JugadorDirecto } from "@/lib/opta-directo-mapas";
 import { CASTILLA_OPTA, traeOpta, type TablaOpta } from "@/lib/opta";
 import { GX, GY, retrato, territorioRetrato, ventana, type TiroRetrato } from "@/lib/opta-retrato";
+import { fraseCampoPisado } from "@/lib/partido-frases";
 
 type Equipo = { teamId: string; nombre: string; color?: string; campo?: string };
 type RGB = [number, number, number];
@@ -72,6 +73,7 @@ export function RelievePartido({
   partido,
   quietoAlFinal = false,
   xgFinal,
+  nuestroALaIzquierda = false,
 }: {
   eventos: TablaOpta | null | undefined;
   a: Equipo;
@@ -93,9 +95,15 @@ export function RelievePartido({
    * (0,71 – 0,46 frente a 0,7 – 0,5 arriba).
    */
   xgFinal?: Record<string, number>;
+  /**
+   * 18/11/2026 (ronda 23, portada y Análisis de datos): el equipo `a` a la
+   * izquierda y primero en el marcador aunque juegue fuera; las dos pantallas
+   * del último partido van siempre Castilla – rival, también en el 3D.
+   */
+  nuestroALaIzquierda?: boolean;
 }) {
-  /* El local siempre a la izquierda (expertos, 14/11/2026: «Castilla 1-0» en un partido que jugamos fuera confundía). */
-  const fuera = String(a0.campo ?? "").toUpperCase() === "AWAY";
+  /* El local siempre a la izquierda (expertos, 14/11/2026: «Castilla 1-0» en un partido que jugamos fuera confundía), salvo `nuestroALaIzquierda`. */
+  const fuera = !nuestroALaIzquierda && String(a0.campo ?? "").toUpperCase() === "AWAY";
   const a = fuera ? b0 : a0;
   const b = fuera ? a0 : b0;
   const ev = useMemo(() => leeEventos(eventos), [eventos]);
@@ -650,6 +658,8 @@ export function RelievePartido({
   const terrAhora = territorioRetrato(r, minuto);
   const ultima = [...r.tiros].filter((p) => p.minuto <= minuto).sort((x, y) => y.minuto - x.minuto)[0] ?? null;
   const terrPartido = useMemo(() => territorioRetrato(r, null), [r]);
+  /* En el pitido final, la MISMA frase que la portada (lib/partido-frases, ronda 23). */
+  const fraseFinal = useMemo(() => fraseCampoPisado(r, a.nombre, b.nombre, a.teamId === CASTILLA_OPTA), [r, a.nombre, b.nombre, a.teamId]);
   /* El máximo hasta el minuto que se ve (y su minuto). 16/11/2026 (expertos):
      era el del partido entero y salía «hasta el 24′» al lado de «89 % a los 98′». */
   const terrMax = useMemo(() => {
@@ -717,14 +727,16 @@ export function RelievePartido({
           <p className="font-mono text-base font-bold tabular-nums">
             Goles esperados <span style={{ color: css(colA) }}>{d1(xgA)}</span> – <span style={{ color: css(colB) }}>{d1(xgB)}</span>
           </p>
-          {terrAhora != null && (
+          {alFinal && fraseFinal ? (
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.8)" }}>{fraseFinal}</p>
+          ) : terrAhora != null && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.8)" }}>
               Campo rival pisado por el {a.nombre}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> {tramo}
               {terrPartido != null ? <span style={{ color: "rgba(255,255,255,0.55)" }}> · {Math.round(terrPartido * 100)} % en todo el partido</span> : null}
             </p>
           )}
-          {/* 18/11/2026 (ronda 22, fútbol): sólo si dice algo nuevo; con la misma cifra que la línea de arriba («89 % en el tramo final») se repetía. */}
-          {terrMax && !(terrAhora != null && Math.round(terrMax.v * 100) === Math.round(terrAhora * 100)) && (
+          {/* 18/11/2026 (ronda 22, fútbol): sólo si dice algo nuevo; con la misma cifra que la línea de arriba («89 % en el tramo final») se repetía. Ronda 23: en el pitido final manda la frase compartida. */}
+          {!alFinal && terrMax && !(terrAhora != null && Math.round(terrMax.v * 100) === Math.round(terrAhora * 100)) && (
             <p className="text-xs tabular-nums" style={{ color: "rgba(255,255,255,0.72)" }}>
               Máximo hasta el {minuto}′: {Math.round(terrMax.v * 100)} % a los {terrMax.m}′
             </p>
@@ -742,7 +754,9 @@ export function RelievePartido({
           <p className="col-span-2">
             Goles esperados{alFinal ? "" : ` hasta el ${minuto}′`}: <b style={{ color: css(colA) }}>{d1(xgA)}</b> – <b style={{ color: css(colB) }}>{d1(xgB)}</b>
           </p>
-          {terrAhora != null && (
+          {alFinal && fraseFinal ? (
+            <p className="col-span-2">{fraseFinal}</p>
+          ) : terrAhora != null && (
             <p className="col-span-2">
               Campo rival pisado por el {a.nombre}: <b style={{ color: css(colA) }}>{Math.round(terrAhora * 100)} %</b> {tramo}
               {terrPartido != null ? ` · ${Math.round(terrPartido * 100)} % en todo el partido` : ""}

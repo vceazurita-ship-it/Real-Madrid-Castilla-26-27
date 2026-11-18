@@ -1563,20 +1563,31 @@ export default function DataAnalisisPage() {
     <>
 
                 {/* 02/11/2026: bloques a la izquierda, buscador de áreas a la derecha (debajo hasta 1536 px: a 1366 el sexto bloque salía cortado). 17/11/2026 (ronda 19, análisis): desde 1400 px ya en una fila, una menos antes del contenido. */}
-                <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 min-[1400px]:flex-row min-[1400px]:items-center min-[1400px]:justify-between">
+                {/*
+                  18/11/2026 (ronda 23, análisis y fútbol): a 1440 px «Más de
+                  Análisis» salía cortada («s de Análisis») y la última pestaña
+                  sólo con su icono. Lo tapaba la propia tira: pegada, se
+                  estiraba 40 px a la derecha (margen negativo con fondo) por
+                  encima del botón; dentro de esta fila no llegaba a pegarse.
+                  Ahora va sin pegar, «Más de Análisis» al final de la tira
+                  (fuera del scroll, nunca encoge) y el buscador, en la misma
+                  fila sólo desde 1600 px, cuando caben las siete pestañas.
+                */}
+                <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 min-[1600px]:flex-row min-[1600px]:items-center min-[1600px]:justify-between">
                   <div className="min-w-0 flex-1">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Análisis de datos"
+                      pegada={false}
                       /* 10/11/2026: sin el número de áreas al lado («Nuestro equipo 5»): no se entendía qué contaba. */
                       opciones={BLOQUES.map((g) => ({ clave: g.clave, label: g.label, icono: g.icono }))}
                       valor={bloqueDe(area).clave}
                       onCambia={(g) => setArea(entradaDe((BLOQUES.find((x) => x.clave === g) ?? BLOQUES[0]).areas[0]))}
+                      /* 18/11/2026 (ronda 22, análisis): una sola fila de navegación; las otras pantallas de Análisis (Coding, Robos…) van aquí y no en una tira aparte encima. */
+                      final={<EnlacesSeccion className="ml-1 self-center" />}
                     />
                   </div>
 
-                  {/* 18/11/2026 (ronda 22, análisis): una sola fila de navegación; las otras pantallas de Análisis (Coding, Robos…) van aquí y no en una tira aparte encima. */}
-                  <div className="flex min-w-0 flex-wrap items-center gap-2 sm:flex-nowrap">
-                    <EnlacesSeccion />
+                  <div className="flex min-w-0 shrink-0 items-center gap-2 max-sm:w-full">
                     <BuscadorAreas areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
                   </div>
                 </div>
@@ -1678,7 +1689,8 @@ export default function DataAnalisisPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          {/* 18/11/2026 (ronda 23): margen a la derecha, como la portada: el botón flotante ⋮ montaba sobre el canto de las tarjetas (las tres claves, el cara a cara). */}
+          <div className="min-w-0 py-6 pl-4 pr-12 sm:pl-6 sm:pr-16 lg:pl-10 lg:pr-[76px]">
             <AbpHeader
               area="RMCF Castilla · Análisis de datos"
               title="Análisis de datos"

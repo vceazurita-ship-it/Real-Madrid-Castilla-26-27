@@ -218,7 +218,7 @@ export function VideosDelRival({
             >
               <div className="flex items-start justify-between gap-3 border-b border-white/[0.08] px-4 py-3 sm:px-5 sm:py-4">
                 <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-[0.32em] text-[#C8A96B]">{etiqueta}</p>
+                  <p className="text-[12px] uppercase tracking-[0.28em] text-[#C8A96B]">{etiqueta}</p>
                   <h2 className="mt-1 text-lg font-semibold text-white">{rival}, gol a gol</h2>
                 </div>
                 <button

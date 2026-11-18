@@ -144,7 +144,13 @@ function FichaRival({
   empuja?: boolean
 }) {
   return (
-    <div className={`relative px-5 pt-5 sm:px-6 sm:pt-6 ${empuja ? "mb-auto" : ""}`}>
+    <div className={`relative px-3 pt-3 sm:px-4 sm:pt-4 ${empuja ? "mb-auto" : ""}`}>
+      {/*
+        18/11/2026 (ronda 23, análisis y marketing): un velo SÓLIDO detrás del
+        texto. El escudo y el estadio se pisaban con «Sus últimos 5» y con la
+        línea de puntos; ahora la ficha va en su caja opaca, sin desenfoque.
+      */}
+      <div className="rounded-2xl px-3 py-3 sm:px-3.5" style={{ background: "#070D1A", border: "1px solid rgba(255,255,255,.08)" }}>
       <p className="text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: "#F7D98B" }}>
         El rival · BeSoccer
       </p>
@@ -206,6 +212,7 @@ function FichaRival({
           <ResumenUltimos ultimos={ficha.ultimos} juegaFuera={ficha.juegaFuera} />
         </div>
       )}
+      </div>
     </div>
   )
 }
@@ -249,7 +256,10 @@ function ResumenUltimos({ ultimos, juegaFuera }: { ultimos: NonNullable<EquipoPo
     <p className="mt-2 text-[13px] leading-snug tabular-nums" style={{ color: "rgba(255,255,255,.9)" }}>
       <span className="font-semibold" style={{ color: "#fff" }}>{todo.pts} de {todo.n * 3} pts</span>
       {todo.favor != null && todo.contra != null ? ` · ${gol(todo.favor)} a favor, ${todo.contra} en contra` : ""}
-      {alli.n > 0 && alli.n < todo.n ? ` · ${juegaFuera ? "fuera" : "en casa"}: ${alli.pts} de ${alli.n * 3}` : ""}
+      {/* 18/11/2026 (ronda 23, fútbol): «fuera: 3 de 6» se leía como «ganó 3 de 6 fuera» y chocaba con la temporada de /rivals; ahora dice puntos y de cuántos partidos. */}
+      {alli.n > 0 && alli.n < todo.n
+        ? ` · ${juegaFuera ? "fuera" : "en casa"}: ${alli.pts} de ${alli.n * 3} pts en ${alli.n === 1 ? `su último partido ${juegaFuera ? "fuera" : "en casa"}` : `sus ${alli.n} últimos ${juegaFuera ? "fuera" : "en casa"}`}`
+        : ""}
     </p>
   )
 }
@@ -1071,11 +1081,12 @@ export default function Home() {
 
             {/* ========================== CIFRAS =============================== */}
 
-            <section className="portada-tarjeta p-4 sm:p-6" aria-label="El equipo en cifras">
+            {/* 18/11/2026 (ronda 23, guionista): sólo trae seguimientos, así que se llama como lo que trae. */}
+            <section className="portada-tarjeta p-4 sm:p-6" aria-label="Seguimiento de la plantilla">
               <CabeceraBloque
                 icono={BarChart3}
-                titulo="El equipo en cifras"
-                sub="Seguimientos de la temporada · jugadores de campo del Castilla"
+                titulo="Seguimiento de la plantilla"
+                sub="Seguimientos de la temporada · jugadores de campo del Castilla, sin porteros"
               />
 
               <div className="mt-5">

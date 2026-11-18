@@ -21,7 +21,8 @@ import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { VideoOpta } from "@/components/opta/VideoOpta";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
-import { retrato, territorioRetrato } from "@/lib/opta-retrato";
+import { retrato } from "@/lib/opta-retrato";
+import { fraseCampoPisado, nombreCorto, titularPartido } from "@/lib/partido-frases";
 import { urlPostDelPartido } from "@/lib/post-partido";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
@@ -55,28 +56,23 @@ export function UltimoPartido3D() {
   const idRival = y ? String(y.teamId ?? "") : "";
 
   /*
-  | Lo que dice el 3D, en una frase (18/11/2026, ronda 22, análisis): cuánto
-  | campo rival pisamos en el partido entero y el tramo en que más apretó el
-  | rival. Mismo cálculo que el panel del propio 3D (`territorioRetrato`, una
-  | ventana de seis minutos).
+  | Lo que dice el 3D, en una frase (18/11/2026, ronda 22, análisis). Ronda 23
+  | (guionista y fútbol): la MISMA función y la misma frase que el 3D de
+  | Análisis de datos (`fraseCampoPisado`, lib/partido-frases), contada desde
+  | nosotros: «Pisamos campo rival el 62 % del partido; en el tramo final
+  | (desde el 75′), el Gimnàstic, el 89 %». Nada de «hacia el 98′».
   */
+  const nombreRival = y ? nombreCorto(String(y.equipo ?? "")) : "";
   const territorio = useMemo(() => {
     if (!doc?.eventos?.filas?.length || !idRival) return null;
-    const r = retrato(leeEventos(doc.eventos), CASTILLA_OPTA, idRival);
-    const total = territorioRetrato(r, null);
-    if (total == null) return null;
-    let peor: { v: number; m: number } | null = null;
-    for (let m = 5; m < r.minutos; m++) {
-      const v = territorioRetrato(r, m);
-      if (v != null && (!peor || v < peor.v)) peor = { v, m };
-    }
-    return { total, peor };
-  }, [doc, idRival]);
+    return fraseCampoPisado(retrato(leeEventos(doc.eventos), CASTILLA_OPTA, idRival), "Castilla", nombreRival, true);
+  }, [doc, idRival, nombreRival]);
 
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
   /* El nombre corto, para las cifras y la leyenda del 3D («manda Castilla», no «manda Real»). */
-  const corto = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : String(f.equipo ?? "").split(" ").slice(-1)[0]);
+  /* 18/11/2026 (ronda 23): el mismo nombre corto que Análisis de datos («Gimnàstic», no «Tarragona»). */
+  const corto = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Castilla" : nombreCorto(String(f.equipo ?? "")));
   const n = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : Number(v) || 0);
   /* Un decimal (17/11/2026): la misma cifra que el 3D de debajo y que Análisis de datos («0,7 – 0,5»). */
   const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
@@ -98,12 +94,8 @@ export function UltimoPartido3D() {
   const gx = n(x.Goal);
   const gy = n(y.Goal);
   const dxg = n(x.ExpG) - n(y.ExpG);
-  const lectura =
-    gx > gy
-      ? dxg >= 0.15 ? "Victoria merecida: más ocasiones que el rival." : dxg <= -0.15 ? "Victoria con menos ocasiones que el rival." : "Victoria en un partido de ocasiones igualadas."
-      : gx < gy
-        ? dxg >= 0.15 ? "Derrota con más ocasiones que el rival: faltó acierto." : dxg <= -0.15 ? "Derrota en la que el rival generó más." : "Derrota en un partido de ocasiones igualadas."
-        : dxg >= 0.15 ? "Empate con más ocasiones nuestras." : dxg <= -0.15 ? "Empate con más ocasiones del rival." : "Empate con ocasiones igualadas.";
+  /* 18/11/2026 (ronda 23, guionista): el mismo titular que las tres claves de Análisis de datos («Ganamos 1-0 con menos goles esperados (0,5 – 0,7)»). */
+  const lectura = titularPartido(gx, gy, n(x.ExpG), n(y.ExpG));
   /*
   | Tres claves para el micro (expertos, 14/11/2026): ocasiones, presión y
   | balón parado. 17/11/2026 (ronda 21, fútbol): cada una con su base (el
@@ -230,7 +222,10 @@ export function UltimoPartido3D() {
         <div className="mb-4 mt-3 flex flex-wrap items-center gap-2">
           <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">Las ocasiones más claras, en vídeo</span>
           {ocasiones.map((e) => {
-            const quien = nombreDe.get(e.jugadorId) || (e.teamId === CASTILLA_OPTA ? "Castilla" : corto(y));
+            /* 18/11/2026 (ronda 23, fútbol): de qué equipo es cada una («Castilla · Pol Fortuny», «Gimnàstic · Pere»). */
+            const equipo = e.teamId === CASTILLA_OPTA ? "Castilla" : corto(y);
+            const jugador = nombreDe.get(e.jugadorId);
+            const quien = jugador ? `${equipo} · ${jugador}` : equipo;
             return (
               <VideoOpta
                 key={`${e.parte}-${e.segundo}-${e.jugadorId}`}
@@ -238,7 +233,7 @@ export function UltimoPartido3D() {
                 evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
                 /* 18/11/2026 (ronda 22, fútbol): un decimal, como el resto de la portada. */
                 etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
-                descripcion={`Remate de ${quien}, ${e.minuto}′`}
+                descripcion={`Remate de ${jugador || equipo} (${equipo}), ${e.minuto}′`}
               />
             );
           })}
@@ -253,14 +248,7 @@ export function UltimoPartido3D() {
       */}
       <div className="portada-celda flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3.5 py-3">
         {territorio ? (
-          <p className="min-w-0 flex-1 basis-[260px] text-[14px] leading-snug text-white/80">
-            <span className="font-semibold text-white">
-              Campo rival pisado por el Castilla: {Math.round(territorio.total * 100)} % en todo el partido
-            </span>
-            {territorio.peor && territorio.peor.v < 0.5
-              ? ` · el ${corto(y)} apretó más hacia el ${territorio.peor.m}′ (${Math.round((1 - territorio.peor.v) * 100)} % para él)`
-              : ""}
-          </p>
+          <p className="min-w-0 flex-1 basis-[260px] text-[14px] font-semibold leading-snug text-white">{territorio}</p>
         ) : (
           <p className="min-w-0 flex-1 basis-[260px] text-[14px] leading-snug text-white/80">Quién mandó en cada tramo y dónde llegaron los remates.</p>
         )}
@@ -279,7 +267,7 @@ export function UltimoPartido3D() {
 
       {ver3d ? (
         <div className="mt-3">
-          <RelievePartido quietoAlFinal eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
+          <RelievePartido quietoAlFinal nuestroALaIzquierda eventos={doc.eventos} jugadores={new Map(leeJugadores(doc.jugadores).map((j) => [j.id, j]))} a={eq(x)} b={eq(y)} partido={ultimo} />
         </div>
       ) : null}
     </section>
