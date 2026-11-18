@@ -168,6 +168,10 @@
       "jornada": 12,
       "fecha": "2026-11-13",
       "partido": "Gimnàstic Tarragona - Real Madrid Castilla",
+      "hudl": {
+        "id": "VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YWZkMzdkZGNmNTdjY2IxMTc4YTZlOGE="
+      },
       "tactica": {
         "fichero": "J 12 - NASTIC - RM CASTILLA.mov"
       }
