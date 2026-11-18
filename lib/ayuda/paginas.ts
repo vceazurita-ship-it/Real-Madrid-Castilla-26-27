@@ -1234,19 +1234,39 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/analisis-goles",
     titulo: "Análisis de goles",
-    resumen: "Los goles de un equipo y de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
+    resumen: "Lo primero, los goles del equipo elegido (el próximo rival por defecto) en el campo y en vídeo; debajo, sus goles y los de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
     origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. «En el campo»: los remates uno a uno de Opta (doc opta:remates). Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
-    revisada: "2026-11-17",
+    revisada: "2026-11-18",
     bloques: [
+      {
+        titulo: "Lo primero: sus goles en el campo y en vídeo (18/11/2026)",
+        filas: [
+          {
+            que: "Qué es",
+            es: "Arriba del todo, con el equipo elegido (el próximo rival si no se elige otro o no llega ?equipo= en el enlace): sus goles en el campograma de remates de Opta y, pegado (a la derecha; en el móvil, debajo del campo), el reproductor «Ver de seguido los N goles» con la lista para ver uno suelto. Pinchar un gol en el campo lo reproduce; si ese gol aún no tiene vídeo, se dice. Antes eran la pestaña «En el campo» del Detalle y «Sus goles en vídeo» al final de Visual: ahora es un solo bloque y lo de abajo (Visual o Detalle) es el detalle",
+            cuenta: "Mismos datos que antes: remates de Opta (opta:remates) y, para el vídeo, el corte de Opta (opta:goles-video) o el resumen de la RFEF con el segundo marcado por Gemini. Los goles en propia puerta no son remates y no salen",
+          },
+          {
+            que: "Filtros del bloque",
+            es: "Sus goles / Los que encaja (con ?lado=contra abre en los que encaja), En jugada / A balón parado (la situación del remate en Opta), Temporada / Últimos 3 / Últimos 5; y, del campograma, «Todos los remates / Sólo goles» y el partido. Pinchar un gol también da el remate y «Ver en Opta» / «Ver en Wyscout»",
+          },
+          {
+            que: "El titular",
+            es: "Cuántos goles marca (o encaja), cuántos desde dentro del área y cuántos en jugada, con la base al pie (partidos de Opta y «tendencia» por debajo de 15)",
+            cuenta: "Dentro del área: remate con x ≥ 83 y y entre 21,1 y 78,9 en las coordenadas de Opta (0-100, atacando hacia la portería rival). En jugada: situación «Open play» o «Fastbreak/Counter»; el resto, balón parado",
+          },
+          { que: "?vista=campo", es: "Los enlaces de otras pantallas que lo traen siguen valiendo: abren con el equipo y el lado pedidos arriba (y el Detalle, en Resumen)" },
+        ],
+      },
       {
         titulo: "Mandos",
         filas: [
-          { que: "Equipo y Condición", es: "Cualquier equipo de la liga, con el Castilla y el próximo rival arriba del desplegable; Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
+          { que: "Equipo y Condición", es: "Cualquier equipo de la liga, con el Castilla y el próximo rival arriba del desplegable; sin elegir, el próximo rival (18/11/2026). Todos, Casa o Fuera (también desde la dirección, ?lugar=casa)" },
           { que: "Cambiar jornadas y franjas", es: "Desde y hasta qué jornada, franjas de 5, 10, 15, 30 o 45′, tramos a medida («20, 45, 70») y «Descuentos aparte»" },
           { que: "45+ y 90+", es: "Los descuentos; sin «Descuentos aparte», cuentan en la última franja de cada parte" },
           {
             que: "Visual · Detalle (16/11/2026)",
-            es: "La pantalla se abre en «Visual» (17/11/2026, ronda 20: primero «A un toque» y las dos láminas; la frase del balance va debajo, con «La liga: media por partido de los 20 equipos, J1–J12»; el titular de los anillos lleva su base, «28 de 29 goles con su tipo, tendencia (12 partidos)»; en el móvil la nube sólo rotula al equipo elegido, sacado del grupo con una línea guía, y el próximo rival va al pie con sus dos cifras; para el Castilla, «A un toque» suma cómo marca el próximo rival, cómo le marcan y su ABP): cada una con su conclusión en el título, las franjas en espejo (a favor arriba, en contra abajo, con la raya de la liga), la nube de la liga (17/11/2026: su propio titular, dónde está y el equipo que más se le parece en las dos cifras; el lienzo mide lo que su caja, letra de 11 px como mínimo, las rayas son las MEDIAS de la liga como en la frase, nombre sólo del elegido en oro, del próximo rival en azul y de los dos extremos, y las esquinas dicen «Marca más, encaja menos» y «Marca menos, encaja más»; pinchar un escudo cambia de equipo) y, para el Castilla, cómo llegan los goles: los anillos cuentan los goles del marcador, con los que no tienen su jugada en Hudl en gris y su número («10 de 15 con su tipo · 5 en gris») y los partidos al lado (tendencia por debajo de 20); cada gol de la línea de minutos abre su vídeo, Hudl y el análisis de ese partido. Debajo de la frase, «A un toque»: para un rival, sus goles en vídeo, cómo le marcan, su ABP, su plan de partido con el rival puesto, su plantilla y, si es el próximo, «De un vistazo»; para el Castilla, el post del último partido, nuestro ABP y el histórico. Al final, los goles de ese equipo en vídeo, de seguido o uno a uno (con «?lado=contra», los que encaja). «Detalle» es la pantalla de siempre con sus seis pestañas. La elección se recuerda en este aparato (16/11/2026)",
+            es: "La pantalla se abre en «Visual» (17/11/2026, ronda 20: primero «A un toque» y las dos láminas; la frase del balance va debajo, con «La liga: media por partido de los 20 equipos, J1–J12»; el titular de los anillos lleva su base, «28 de 29 goles con su tipo, tendencia (12 partidos)»; en el móvil la nube sólo rotula al equipo elegido, sacado del grupo con una línea guía, y el próximo rival va al pie con sus dos cifras; para el Castilla, «A un toque» suma cómo marca el próximo rival, cómo le marcan y su ABP): cada una con su conclusión en el título, las franjas en espejo (a favor arriba, en contra abajo, con la raya de la liga), la nube de la liga (17/11/2026: su propio titular, dónde está y el equipo que más se le parece en las dos cifras; el lienzo mide lo que su caja, letra de 11 px como mínimo, las rayas son las MEDIAS de la liga como en la frase, nombre sólo del elegido en oro, del próximo rival en azul y de los dos extremos, y las esquinas dicen «Marca más, encaja menos» y «Marca menos, encaja más»; pinchar un escudo cambia de equipo) y, para el Castilla, cómo llegan los goles: los anillos cuentan los goles del marcador, con los que no tienen su jugada en Hudl en gris y su número («10 de 15 con su tipo · 5 en gris») y los partidos al lado (tendencia por debajo de 20); cada gol de la línea de minutos abre su vídeo, Hudl y el análisis de ese partido. Debajo de la frase, «A un toque»: para un rival, su ABP, su plan de partido con el rival puesto, su plantilla y, si es el próximo, «De un vistazo»; para el Castilla, el post del último partido, nuestro ABP y el histórico. Los goles en vídeo ya no van al final: están arriba del todo, con el campo (18/11/2026). «Detalle» es la pantalla de siempre con sus pestañas (Resumen, Minutos, Casa y fuera, Cómo llegan y Gol a gol; «En el campo» subió arriba). La elección se recuerda en este aparato (16/11/2026)",
             cuenta: "Mismos filtros de arriba. Nube: goles a favor y en contra entre partidos de cada equipo en las jornadas y la condición elegidas; el título compara con la media de los equipos (la misma de la frase de arriba): a menos de 0,1 por partido, «como la media». Título de las franjas: el tramo con más goles (si empatan tres o más, no se nombra) y, con menos de 20 partidos, «tendencia»",
           },
         ],
@@ -1282,7 +1302,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Cómo llega", es: "El desplegable de cada gol: lo elegido manda sobre lo de Hudl" },
           { que: "Banda D e I", es: "Vistas desde el equipo que ataca" },
           {
-            que: "En el campo",
+            que: "En el campo (arriba del todo desde el 18/11/2026)",
             es: "Los goles del equipo elegido (cualquiera de la categoría), a favor o en contra, en el campograma de remates: de un partido o de todos. Pinchar un gol (en el campo o en la lista) da el remate, «Ver el resumen (YouTube)» y «Ver en Opta» / «Ver en Wyscout». Encima, «Ver de seguido los N goles»: los goles uno tras otro con el vídeo de la retransmisión de Opta (10 s antes y 6 después), con «Anterior» y «Siguiente»; el gol que aún no lo tiene va sobre el resumen de la RFEF y los que no tienen ninguno de los dos se cuentan aparte. Se abre ya con un equipo desde la dirección (?vista=campo&equipo=NOMBRE, y &lado=contra para los que encaja): así llegan la portada, Plantillas rivales, Scout colectivo y el Plan de partido",
             cuenta: "Punto = sitio del remate; tamaño = xG. El resumen es el del canal de la RFEF de ese partido (/api/rivals/resumenes), cruzado por los dos equipos y la fecha (lib/rivals/resumen-de-partido.ts; «Real Madrid II» de Opta = Castilla): abre el partido resumido, no el segundo del gol, que la RFEF no trae. Para «Ver de seguido», el ordenador del club baja de Opta ProVision el corte de cada gol a 720p y lo guarda en B2 (scripts/opta-goles-video.mjs, documento opta:goles-video; primero el Castilla, el Murcia, los próximos rivales y el resto del grupo). De respaldo, Gemini marca cada noche el segundo de cada gol en los resúmenes (scripts/rfef-goles-resumenes.mjs, documento rfef:goles-resumenes; con el mismo orden) y sólo vale un resumen si salen tantos goles como su marcador; el gol de Opta se ata al del resumen por equipo y orden. «Ver en Opta» abre el Event Log del partido filtrado a ese segundo y esa parte, con el vídeo de la fila abierto (lib/opta-video.ts); si Opta no tiene el vídeo de ese partido, ProVision lo dice. Wyscout no deja enlazar un clip: su botón abre la plataforma y copia el partido y el minuto. Los goles en propia puerta no son remates y no salen",
           },

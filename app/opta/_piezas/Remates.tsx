@@ -172,8 +172,14 @@ export function MapaRemates({
   rotuloGoles,
   referenciaXgRemate,
   lectura = false,
+  alPincharGol,
+  listaGoles = true,
 }: {
   remates: Remate[];
+  /** 18/11/2026 (/analisis-goles): al pinchar un gol (en el campo o en su lista), para reproducirlo al lado. */
+  alPincharGol?: (r: Remate) => void;
+  /** Sin la lista de goles bajo el campo (cuando ya la pone el reproductor de al lado). */
+  listaGoles?: boolean;
   /**
    * 17/11/2026 (ronda 19, post del partido): tres cifras grandes y, en vez de
    * la tarjeta «Calidad del golpeo» con su párrafo, unas barras en la misma
@@ -311,7 +317,10 @@ export function MapaRemates({
                   cx={cx}
                   cy={cy}
                   r={radio(s.xG)}
-                  onClick={() => setElegido(marcado ? null : s)}
+                  onClick={() => {
+                    setElegido(marcado ? null : s);
+                    if (!marcado && s.gol) alPincharGol?.(s);
+                  }}
                   style={{
                     fill: color,
                     fillOpacity: s.gol ? 0.95 : 0.7,
@@ -336,13 +345,16 @@ export function MapaRemates({
       )}
 
       {/* Con «Sólo goles», la lista de los goles: pinchar uno lo marca en el campo y da sus enlaces. */}
-      {soloGoles && goles.length > 0 && (
+      {listaGoles && soloGoles && goles.length > 0 && (
         <ol className="mt-3 space-y-1 text-[12px]">
           {goles.map((g, i) => (
             <li key={`${g.partido}-${g.segundo}-${i}`}>
               <button
                 type="button"
-                onClick={() => setElegido(visto === g ? null : g)}
+                onClick={() => {
+                  setElegido(visto === g ? null : g);
+                  if (visto !== g) alPincharGol?.(g);
+                }}
                 className={`flex w-full min-w-0 flex-wrap items-baseline gap-x-2 rounded-lg px-2 py-1 text-left transition hover:bg-white/[0.05] ${visto === g ? "bg-white/[0.07]" : ""}`}
               >
                 <span className="font-semibold tabular-nums text-[#C8A96B]">{g.minuto}′</span>

@@ -30,12 +30,10 @@ import { Lectura } from "@/components/data/formas";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { Explicativo, useTextosExplicativos } from "@/components/ui/textos-analisis";
 import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasTipologia";
-import { GolesDelRivalEnVideo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { NubeGoles } from "@/components/goles/NubeGoles";
+import { GolesCampoVideo } from "@/components/goles/GolesCampoVideo";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
-import { useAsoma } from "@/hooks/useAsoma";
-import { GolesEnElCampo } from "@/app/opta/_piezas/Remates";
 import { avisoMuestra, loImportante, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useCalendario } from "@/hooks/useCalendario";
@@ -297,20 +295,6 @@ function tarjetaTramoCorto(
 /*  Pantalla                                                           */
 /* ------------------------------------------------------------------ */
 
-/**
- * 16/11/2026 (expertos, ronda 18): en «Visual», los goles del equipo elegido
- * en vídeo (los que marca y, con `?lado=contra`, los que encaja). Opta se pide
- * al asomar la lámina, como en Plantillas rivales; sin goles, no sale.
- */
-function GolesEnVideoAlAsomar({ equipo, lado }: { equipo: string; lado: "favor" | "contra" }) {
-  const { caja, abierto } = useAsoma<HTMLDivElement>();
-  return (
-    <div ref={caja} className="min-w-0">
-      {abierto && <GolesDelRivalEnVideo equipo={equipo} ladoInicial={lado} enMarco />}
-    </div>
-  );
-}
-
 /** Un parámetro de la dirección, sin `useSearchParams` (no pide Suspense). */
 const suscribeUrl = (aviso: () => void) => {
   window.addEventListener("popstate", aviso);
@@ -370,6 +354,12 @@ export function PantallaGoles() {
   */
   const equipoPedido = useParametroUrl("equipo");
   const ladoPedido = useParametroUrl("lado") === "contra" ? "contra" : "favor";
+  /* 18/11/2026: un enlace de esta misma pantalla a otro equipo («Cómo marca el …») manda sobre lo elegido en el desplegable. */
+  const [equipoPedidoVisto, setEquipoPedidoVisto] = useState(equipoPedido);
+  if (equipoPedido !== equipoPedidoVisto) {
+    setEquipoPedidoVisto(equipoPedido);
+    setEquipo(null);
+  }
   const equipoDeUrl = equipoPedido ? (equipos.find((e) => e === equipoPedido) ?? equipos.find((e) => mismoEquipo(e, equipoPedido))) : undefined;
   const [lugar, setLugar] = usePestanaUrl<Lugar>("lugar", LUGARES, "todos");
   const condicion = CONDICION_DE[lugar];
@@ -381,7 +371,13 @@ export function PantallaGoles() {
   const [vista, setVista] = usePestanaUrl<Vista>("vista", VISTAS, "resumen");
   const explicativos = useTextosExplicativos();
 
-  const equipo = equipoElegido ?? equipoDeUrl ?? nuestroNombre;
+  /*
+  | 18/11/2026 (petición del analista): sin `?equipo=` ni elección, la pantalla
+  | abre con el próximo rival (sus goles en el campo y en vídeo, lo primero);
+  | el Castilla sigue el primero del desplegable.
+  */
+  const rivalEnLista = proximoRival ? equipos.find((e) => mismoEquipo(e, proximoRival) && !mismoEquipo(e, CASTILLA)) : undefined;
+  const equipo = equipoElegido ?? equipoDeUrl ?? rivalEnLista ?? nuestroNombre;
   const esNuestro = mismoEquipo(equipo, CASTILLA);
   /* 19/10/2026: con «desde» por detrás de «hasta» (J9 a J4) la pantalla se
      quedaba entera a cero sin decir por qué. Se lee como el tramo entre las
@@ -813,7 +809,8 @@ export function PantallaGoles() {
   /* Los goles con tipología (los de nuestros partidos), con la corrección a mano encima de la de Hudl. Los que faltan por elegir no se dibujan. */
   const conTipo: GolConTipo[] = goles.map((g) => ({ ...g, tipoFinal: tipoDe(g.clave) })).filter((g) => g.tipoFinal);
 
-  const vistaVer: Vista = vista;
+  /* 18/11/2026: «En el campo» subió arriba del todo; `?vista=campo` (enlaces de otras pantallas) sigue valiendo y abre el detalle en Resumen. */
+  const vistaVer: Vista = vista === "campo" ? "resumen" : vista;
 
   /*
   | VISUAL (16/11/2026, petición del analista: «de primeras debe ser mucho más
@@ -821,7 +818,6 @@ export function PantallaGoles() {
   | todas con los datos que la pantalla ya tiene. «Detalle» es la pantalla de
   | antes, tal cual.
   */
-  const rivalEnLista = proximoRival ? equipos.find((e) => mismoEquipo(e, proximoRival) && !mismoEquipo(e, CASTILLA)) : undefined;
   const nubeLiga: Punto[] = (() => {
     const suma = new Map<string, { gf: number; gc: number; n: number }>();
     for (const p of liga)
@@ -890,8 +886,7 @@ export function PantallaGoles() {
     : [
         /* 17/11/2026 (ronda 19, los tres jueces): con el rival elegido, sus goles y cómo le marcan
            en el campo (esta misma pantalla), su ABP y su plan con el rival puesto. */
-        { href: urlGolesDelEquipo(equipo), texto: "Sus goles en vídeo", icono: Goal },
-        { href: urlGolesDelEquipo(equipo, "contra"), texto: "Cómo le marcan", icono: Goal },
+        /* 18/11/2026: «Sus goles en vídeo» y «Cómo le marcan» ya no van aquí: son lo primero de esta pantalla. */
         { href: `/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`, texto: "Su ABP", icono: Trophy },
         { href: conRivalEnUrl("/match-preparation", { equipo }), texto: esElProximo ? "Plan de partido" : "Su plan de partido", icono: Lightbulb },
         { href: `/rivals?equipo=${encodeURIComponent(equipo)}`, texto: "Su plantilla", icono: Crosshair },
@@ -940,8 +935,7 @@ export function PantallaGoles() {
           <GraficasTipologia goles={conTipo} colorFavor={ORO} colorContra={PEOR} onGol={alPincharGol} totales={{ favor: gf, contra: gc, partidos: delEquipo.length }} />
         </Lamina>
       ) : null}
-      {/* 16/11/2026 (expertos, ronda 18): los goles de este equipo en vídeo, con el equipo ya elegido (y «?lado=contra», los que encaja). */}
-      <GolesEnVideoAlAsomar key={`${equipo}-${ladoPedido}`} equipo={equipo} lado={ladoPedido} />
+      {/* 18/11/2026: los goles en vídeo se fueron arriba del todo, con el campo (GolesCampoVideo). */}
     </div>
   ) : null;
   /* Los títulos hablan desde nosotros cuando el equipo es el Castilla. */
@@ -1123,6 +1117,16 @@ export function PantallaGoles() {
       </details>
       </div>
 
+      {/*
+      | LO PRIMERO (18/11/2026, petición del analista): los goles del equipo
+      | elegido en el campo y, pegado, en vídeo; pinchar uno lo reproduce.
+      | Antes era la pestaña «En el campo» del detalle y «Sus goles en vídeo»
+      | al final de Visual. `?lado=contra` abre en los que encaja.
+      */}
+      <div id="goles-en-el-campo" className="mt-6 min-w-0 scroll-mt-24">
+        <GolesCampoVideo key={`${equipo}-${ladoPedido}`} equipo={equipo} esCastilla={esNuestro} nombre={nombreEquipo(equipo)} ladoInicial={ladoPedido} />
+      </div>
+
       {!todos.length ? (
         <div className="mt-6">
           <Notice tone="warn" title="Todavía no hay goles cargados">
@@ -1149,7 +1153,6 @@ export function PantallaGoles() {
               { clave: "tipo", label: "Cómo llegan", icono: Shapes },
               /* 16/11/2026: sin el «29» suelto al lado (no se sabía qué era). */
               { clave: "goles", label: "Gol a gol", corto: "Goles", icono: ListOrdered },
-              { clave: "campo", label: "En el campo", corto: "Campo", icono: Crosshair },
             ]}
           />
 
@@ -1520,20 +1523,6 @@ export function PantallaGoles() {
             </details>
           </Panel>
             </>
-          ) : null}
-
-          {/*
-          | EN EL CAMPO (16/11/2026, petición del analista): los goles del equipo
-          | elegido —a favor o en contra, de un partido o de todos— en el
-          | campograma de remates de Opta, con el vídeo a mano en Opta o Wyscout.
-          */}
-          {vistaVer === "campo" ? (
-            <Panel
-              title="Los goles en el campo"
-              subtitle={`Desde dónde marca ${esNuestro ? "el Castilla" : nombreEquipo(equipo)} y desde dónde le marcan, gol a gol (Opta). Elige un partido o todos; pincha un gol para ver el remate y abrir su vídeo en Opta o en Wyscout. Los goles en propia puerta no son remates y no salen.`}
-            >
-              <GolesEnElCampo key={`${equipo}-${ladoPedido}`} equipo={equipo} esCastilla={esNuestro} ladoInicial={ladoPedido} />
-            </Panel>
           ) : null}
 
           {vistaVer === "goles" ? (

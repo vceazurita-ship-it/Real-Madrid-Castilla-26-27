@@ -39,7 +39,8 @@ const ANTES = 10;
 const DESPUES = 5;
 
 /** `cuando` y `situacion`, para la lista de goles que se eligen uno a uno (16/11/2026). */
-type Toma = { clave: string; titulo: string; detalle: string; cuando: string; situacion: string } & (
+/* `gol`: el remate del que sale la toma (18/11/2026), para abrirla al pinchar ese gol en el campo. */
+type Toma = { clave: string; titulo: string; detalle: string; cuando: string; situacion: string; gol: Remate } & (
   | { fuente: "opta"; src: string }
   | { fuente: "rfef"; video: string; inicio: number; fin: number }
 );
@@ -141,6 +142,7 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
         clave: `${g.partido}-${g.parte}-${g.segundo}-${g.tirador}`,
         fuente: "opta",
         src: clip.url,
+        gol: g,
         titulo,
         detalle: cuando,
         cuando,
@@ -171,6 +173,7 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
       video: resumen.id,
       inicio: Math.max(0, enResumen.segundo - ANTES),
       fin: enResumen.segundo + DESPUES,
+      gol: g,
       titulo,
       cuando,
       situacion,
@@ -186,14 +189,25 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
  * lista de los goles con vídeo para abrir uno suelto; desde él sigue de
  * seguido con los demás.
  */
-export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Remate[]; titulo: string; conLista?: boolean }) {
+/**
+ * `pedido` (18/11/2026, /analisis-goles): un gol pinchado fuera (en el
+ * campograma). Cada pedido nuevo —otro objeto, aunque sea el mismo gol— abre
+ * el reproductor en ese gol y sigue de seguido desde él. Debe ser uno de los
+ * `goles` (el mismo objeto). Si ese gol aún no tiene vídeo, se dice.
+ */
+export type PedidoGol = { gol: Remate };
+
+export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null }: { goles: Remate[]; titulo: string; conLista?: boolean; pedido?: PedidoGol | null }) {
   const [resumenes, setResumenes] = useState<ResumenRfef[] | null>(null);
   const [marcas, setMarcas] = useState<Marcas | null>(null);
   const [clips, setClips] = useState<ClipsOpta | null>(null);
   const [abierto, setAbierto] = useState(false);
   const [i, setI] = useState(0);
   const caja = useRef<HTMLDivElement>(null);
+  const raiz = useRef<HTMLDivElement>(null);
   const jugador = useRef<YTPlayer | null>(null);
+  const [atendido, setAtendido] = useState<PedidoGol | null>(null);
+  const [sinVideo, setSinVideo] = useState<Remate | null>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -215,7 +229,24 @@ export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Rem
     [goles, resumenes, marcas, clips],
   );
 
+  /* Un gol pinchado fuera: se atiende en el pintado (sin setState en un efecto) en cuanto están las tomas. */
+  if (pedido && pedido !== atendido && resumenes && marcas && clips) {
+    const k = tomas.findIndex((t) => t.gol === pedido.gol);
+
+    setAtendido(pedido);
+    setSinVideo(k >= 0 ? null : pedido.gol);
+    if (k >= 0) {
+      setI(k);
+      setAbierto(true);
+    }
+  }
+
   const actual = tomas[i];
+
+  /* Tras pinchar un gol en el campo, el reproductor a la vista (en el móvil va debajo del campo). */
+  useEffect(() => {
+    if (atendido) raiz.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }, [atendido]);
 
   /* Crea el reproductor al abrir; al cambiar de toma, sólo carga el trozo nuevo. */
   useEffect(() => {
@@ -278,10 +309,15 @@ export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Rem
   const fueraDeLista = i >= tomas.length;
 
   return (
-    <div className="mb-3 min-w-0">
+    <div ref={raiz} className="mb-3 min-w-0 scroll-mt-24">
+      {sinVideo && (
+        <p className="mb-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/70" role="status">
+          El gol de {sinVideo.tirador} ({minutoTexto(sinVideo.minuto, sinVideo.parte)}) aún no tiene vídeo: se baja cada noche.
+        </p>
+      )}
       {!abierto ? (
         <div className="flex flex-wrap items-center gap-3">
-          <button type="button" className={boton} disabled={!tomas.length} onClick={() => (setI(0), setAbierto(true))}>
+          <button type="button" className={boton} disabled={!tomas.length} onClick={() => (setI(0), setAbierto(true), setSinVideo(null))}>
             {/* 18/11/2026 (ronda 22): con uno solo, «Ver el gol», no «los 1 goles». */}
             {tomas.length === 1 ? "▶ Ver el gol" : `▶ Ver de seguido los ${tomas.length} goles`}
           </button>
@@ -341,7 +377,7 @@ export function GolesDeSeguido({ goles, titulo, conLista = false }: { goles: Rem
             <li key={t.clave} className="min-w-0">
               <button
                 type="button"
-                onClick={() => (setI(k), setAbierto(true))}
+                onClick={() => (setI(k), setAbierto(true), setSinVideo(null))}
                 aria-current={abierto && k === i ? "true" : undefined}
                 className={`flex w-full min-w-0 items-baseline gap-2 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/50 ${abierto && k === i ? "border-[#C8A96B]/60 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.02]"}`}
               >
