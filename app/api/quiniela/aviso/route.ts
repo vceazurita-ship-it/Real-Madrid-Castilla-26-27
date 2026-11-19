@@ -30,6 +30,7 @@ import {
   CLAVE_CUENTAS,
   CUENTAS_VACIAS,
   correosDe,
+  juegaLaQuiniela,
   type DocumentoCuentas,
 } from "@/lib/quiniela/cuentas";
 import {
@@ -235,7 +236,7 @@ async function recuerda(jornada: number, dias: number, origen: string, probar: b
   }
 
   const pendientes = Object.values(cuentas?.cuentas ?? {})
-    .filter((una) => una.correo)
+    .filter((una) => una.correo && juegaLaQuiniela(una))
     .map((una) => ({
       correo: una.correo,
       faltan: total - (suyas?.pronosticos[una.slug] ?? []).filter(Boolean).length,

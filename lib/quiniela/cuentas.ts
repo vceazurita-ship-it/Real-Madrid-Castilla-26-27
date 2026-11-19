@@ -24,6 +24,8 @@
 
 import { randomBytes, scryptSync, timingSafeEqual } from "node:crypto";
 
+import { PERSONA_POR_SLUG } from "./staff";
+
 /** La clave del documento. El prefijo `secreto:` es lo que lo mantiene fuera del navegador. */
 export const CLAVE_CUENTAS = "secreto:quiniela-cuentas";
 
@@ -153,11 +155,19 @@ export function cuentaDeUsuario(doc: DocumentoCuentas, usuario: string) {
   return Object.values(doc.cuentas ?? {}).find((una) => una.usuario && limpiaUsuario(una.usuario) === usuario) ?? null;
 }
 
+/**
+ * Si la cuenta juega la quiniela (19/11/2026): sólo quien está en
+ * lib/quiniela/staff.ts. Las cuentas que sólo sirven para entrar en la
+ * plataforma (David Martín) no reciben sus avisos ni salen en ella.
+ */
+export const juegaLaQuiniela = (una: CuentaQuiniela) => PERSONA_POR_SLUG.has(una.slug);
+
 /** Todas las direcciones dadas de alta: es a quien se avisa los viernes. */
 export function correosDe(doc: DocumentoCuentas) {
   return [
     ...new Set(
       Object.values(doc.cuentas ?? {})
+        .filter(juegaLaQuiniela)
         .map((una) => una.correo)
         .filter(Boolean),
     ),
