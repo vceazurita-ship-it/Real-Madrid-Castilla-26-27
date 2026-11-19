@@ -141,6 +141,7 @@ import { SelloFuente } from "@/components/ui/SelloFuente";
 import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { ClasificacionJusta } from "@/components/data/ClasificacionJusta";
+import { OcasionesConcedidas } from "@/components/data/OcasionesConcedidas";
 import { SalidaContraPresion } from "@/components/data/SalidaContraPresion";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
@@ -2815,6 +2816,9 @@ export default function DataAnalisisPage() {
 
                 {/* Clasificación justa (13/11/2026): puntos reales contra xPts del grupo, Opta. */}
                 {area === "equipo" && <ClasificacionJusta />}
+
+                {/* Ocasiones que concede (19/11/2026): cuántos remates deja y de qué calidad, con su mapa. Opta. */}
+                {area === "equipo" && <OcasionesConcedidas />}
 
                 {area === "parecidos" && <PanelParecidos partidos={datos.partidos ?? []} />}
 

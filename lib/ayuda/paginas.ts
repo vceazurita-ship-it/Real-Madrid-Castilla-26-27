@@ -114,6 +114,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas («Clasificación justa» y «Nuestra salida contra la presión», de opta:partidos; el próximo rival, del calendario de BeSoccer). El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
+        titulo: "Lo nuevo (19/11/2026): ocasiones que concede el rival",
+        filas: [
+          { que: "Ocasiones que concede · cuántas y de qué calidad", es: "En Rival y categoría → Un equipo de un vistazo, debajo de la clasificación justa. Un punto por equipo de nuestro grupo: a la derecha, más remates concedidos por partido; arriba, más xG vale de media cada remate que le hacen. Las rayas son la media de la liga y dejan cuatro cuadrantes: «concede mucho y peligroso», «concede mucho pero lejos» (no basta con llegar: hay que pisar el área), «concede poco pero claro» (paciencia, esperar la ocasión buena) y «sólido». En azul el próximo rival (o el que se elija en «Equipo» o pinchando su punto) y en oro el Castilla; el titular dice en qué cuadrante cae y qué hacer contra él. Debajo, el mapa de los remates que concede ese equipo (rojo dentro del área, azul fuera; tamaño = xG; aro blanco = gol) con el % de cada zona y su xG por remate frente a la liga", cuenta: "Opta, opta:remates (cada remate con sus x/y y su xG, de lib/opta-eventos.ts), sólo partidos entre dos equipos del grupo del Castilla y sin penaltis. Remates concedidos por partido = remates que le hacen / partidos en que aparece; xG por remate = xG concedido / remates concedidos. Las líneas = media de los equipos del grupo; un equipo en la línea o por encima cuenta como «mucho» o «peligroso». Dentro del área = x ≥ 83 e y entre 21,1 y 78,9; el % de la liga es el de todos sus remates concedidos juntos. Con menos de 5 partidos, tendencia. Las cuentas, en lib/data-analisis/ocasiones-concedidas.ts; el próximo rival, del calendario de BeSoccer" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
           { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
@@ -358,7 +364,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
   },
 
   /* ==================== MICROCICLOS ==================== */

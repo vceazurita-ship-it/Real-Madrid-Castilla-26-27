@@ -45,7 +45,7 @@ export function ClasificacionJusta() {
   return <div ref={caja} className="min-w-0">{abierto && <Bloque />}</div>;
 }
 
-function useProximoRival(): string {
+export function useProximoRival(): string {
   const [proximo, setProximo] = useState("");
   useEffect(() => {
     let vivo = true;
