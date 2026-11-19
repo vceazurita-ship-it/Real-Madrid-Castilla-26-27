@@ -81,7 +81,7 @@ git diff --cached --quiet -- public/data/abp-ligas.json && (
   exit /b 0
 )
 
-git commit -m "El balon parado de las ligas (Wyscout)" -- public/data/abp-ligas.json
+git commit -m "El balon parado de las ligas (Wyscout) [skip render]" -- public/data/abp-ligas.json
 if errorlevel 1 (
   echo  EL COMMIT HA FALLADO: no se ha publicado.
   pause

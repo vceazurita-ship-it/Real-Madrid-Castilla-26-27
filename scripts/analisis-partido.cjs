@@ -350,7 +350,7 @@ function publica(mensaje, rutas) {
   if (cambiadas.length) {
     git("add", "--", ...cambiadas);
 
-    git("commit", "-m", mensaje, "--", ...cambiadas);
+    git("commit", "-m", `${mensaje} [skip render]`, "--", ...cambiadas); // [skip render] (19/11/2026): los datos van en el lote de publicar-render, no compilan solos
   }
 
   if (git("rev-list", "--count", "origin/main..HEAD") === "0") return cambiadas.length ? "subido" : "sin cambios";

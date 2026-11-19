@@ -93,7 +93,7 @@ set "HAYCAMBIOS=0"
 git diff --cached --quiet -- "%FICHERO%" || set "HAYCAMBIOS=1"
 
 if "%HAYCAMBIOS%"=="1" (
-  git commit -m "El balon parado de las ligas (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" >> "%LOG%" 2>&1
+  git commit -m "El balon parado de las ligas (Wyscout, %HOY%) [skip render]" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" >> "%LOG%" 2>&1
   if errorlevel 1 (
     echo   RESUMEN: el commit ha fallado; no se publica. >> "%LOG%"
     set "CODIGO=4"

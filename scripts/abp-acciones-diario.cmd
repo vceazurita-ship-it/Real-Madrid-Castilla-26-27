@@ -141,7 +141,7 @@ set "HAYCAMBIOS=0"
 git diff --cached --quiet -- "%FICHERO%" "%TODAS%" "%ENLACES%" || set "HAYCAMBIOS=1"
 
 if "%HAYCAMBIOS%"=="1" (
-  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%)" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%TODAS%" "%ENLACES%" >> "%LOG%" 2>&1
+  git commit -m "ABP de cada jornada: lo mejor a balon parado (Wyscout, %HOY%) [skip render]" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%TODAS%" "%ENLACES%" >> "%LOG%" 2>&1
   if errorlevel 1 (
     echo EL COMMIT HA FALLADO: no se publica. >> "%LOG%"
     set "CODIGO=4"

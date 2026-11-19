@@ -253,7 +253,7 @@ rem  nuevo" y la semana no puede quedar hecha con los datos sin publicar.
 set "HAYCAMBIOS=0"
 git diff --cached --quiet -- "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" || set "HAYCAMBIOS=1"
 
-git commit -m "Los datos de Wyscout de la semana %SEMANA%" -- "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" >> "%LOG%" 2>&1
+git commit -m "Los datos de Wyscout de la semana %SEMANA% [skip render]" -- "public/data/wys" "public/data/wys-elite" "public/data/analisis.json" >> "%LOG%" 2>&1
 
 if not errorlevel 1 goto :empuja
 

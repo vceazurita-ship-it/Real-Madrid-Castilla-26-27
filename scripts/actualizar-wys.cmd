@@ -153,7 +153,7 @@ if "%HAYCAMBIOS%"=="0" (
   exit /b 0
 )
 
-git commit -m "Los datos de Wyscout al %HOY%" -- public/data/wys public/data/analisis.json
+git commit -m "Los datos de Wyscout al %HOY% [skip render]" -- public/data/wys public/data/analisis.json
 
 if errorlevel 1 (
   echo.

@@ -68,7 +68,11 @@ jobs:
           N_MES=$(git tag -l "render-${MES}*" | wc -l)
           N_DIA=$(git tag -l "render-${DIA}*" | wc -l)
           # Noviembre de 2026 empezó a contarse con 350 minutos ya gastados: quedan ~17 compilaciones.
-          if [ "$MES" = "202611" ]; then PUBLICACIONES_MES=15; fi
+          # 19/11/2026: además se escaparon compilaciones sin etiqueta (las subidas
+          # automáticas de datos no llevaban [skip render]; ya lo llevan). Hasta el
+          # 1/12 (Render reinicia los 500): una publicación al día como mucho y 12
+          # en todo el mes (quedan 3). Sólo lo urgente; el resto espera al 1/12.
+          if [ "$MES" = "202611" ]; then PUBLICACIONES_MES=12; PUBLICACIONES_DIA=1; fi
           echo "Publicaciones: $N_DIA hoy, $N_MES de $PUBLICACIONES_MES este mes"
           if [ "$CAMBIOS" -eq 0 ]; then echo "publicar=no" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$N_MES" -ge "$PUBLICACIONES_MES" ]; then
