@@ -1813,9 +1813,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>).",
-    revisada: "2026-11-18",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga.",
+    revisada: "2026-11-19",
     bloques: [
+      {
+        titulo: "Lo nuevo (19/11/2026): cómo progresa el rival",
+        filas: [
+          {
+            que: "Cómo progresa · por dentro en corto o en largo directo",
+            es: "Debajo de «Amplitud por banda»: un plano con un punto por equipo de la liga del rival. A la derecha, los que más juegan en largo; arriba, los que más progresan por el carril central. Las dos líneas discontinuas (la mediana de la liga en cada eje) parten cuatro cuadrantes: combinativo por dentro, combinativo por fuera, directo y mixto. El rival va en oro, su punto de los últimos 5 partidos en azul unido al suyo, y el Castilla con su nombre. Arriba, la frase que lo clasifica (con su puesto en cada eje) y qué hacer con el bloque: cerrar el pasillo interior o preparar el balón largo y la segunda jugada. Si en los últimos 5 ha cambiado de cuadrante, lo avisa y el consejo es el de ahora. Al pasar por un punto sale el equipo y sus cifras",
+            cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo. Su liga: los equipos que se cruzan con él en el archivo. Eje X: pases en juego (sin saques de banda ni de puerta) de 32 m o más sobre todos sus pases en juego (x 0-100 = 105 m, y 0-100 = 68 m). Eje Y: de sus pases progresivos completados (acercan el balón a la portería al menos un 25 % y no se quedan en campo propio), los que acaban con y entre 30 y 70. Cuadrante: por encima o por debajo de la mediana de los equipos del plano en cada eje (largo y por fuera = directo; largo y por dentro = mixto). Equipos con menos de 40 progresivos (20 en los últimos 5 del rival), fuera. Cuentas en lib/rivals/progresion-rival.ts",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
