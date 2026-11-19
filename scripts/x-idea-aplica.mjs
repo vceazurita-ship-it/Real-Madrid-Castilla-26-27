@@ -9,7 +9,7 @@
  * pasada; si quedan más en cola, el vigía vuelve a pedirlo al acabar
  * (la última línea dice «QUEDAN: n»).
  *
- * AÑADIR, en una copia aparte del repo (`git worktree` en .cache/x-ideas/obra,
+ * AÑADIR, en una copia aparte del repo (`git worktree` en ../x-ideas-obra, fuera del repo,
  * rama `x-idea/<id>` desde origin/main), sin tocar la carpeta de trabajo del
  * ordenador del club:
  *   1. Claude Code sin ventana programa la idea. Sólo recibe la idea tal y
@@ -39,7 +39,12 @@ import path from "node:path";
 import { CACHE, RAIZ, X, cambiaIdea, claro, claude, leeDoc, paso, sal } from "./x-comun.mjs";
 
 const EN_SECO = process.argv.includes("--en-seco");
-const OBRA = path.join(CACHE, "obra");
+/* Fuera del repo (19/11/2026): dentro, Next tomaba el repo de fuera como raíz
+   y compilaba SUS ficheros (un proxy.ts sin subir rompía todas las ideas).
+   La raíz de Turbopack es la carpeta común (TURBOPACK_RAIZ, next.config.ts),
+   para que el enlace a node_modules caiga dentro. */
+const OBRA = path.join(path.dirname(RAIZ), "x-ideas-obra");
+const RAIZ_TURBOPACK = path.dirname(RAIZ);
 const HOY = new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 const MAX_LINEAS = 2500;
 
@@ -247,13 +252,13 @@ async function comprueba(tocados, pantalla) {
      reutilizada sale templado. Es sólo comprobación: lo que se publica lo
      compila Render desde cero. */
   try {
-    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1", CACHE_BUILD: "1" });
+    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1", CACHE_BUILD: "1", TURBOPACK_RAIZ: RAIZ_TURBOPACK });
   } catch (e) {
     /* Un plazo agotado (falta de memoria del momento), la red al bajar las
        fuentes de Google o la caché no son culpa del cambio: una vez más, sin caché. */
     if (!/plazo agotado|internal\/font\/google|fonts\.g(oogleapis|static)|Failed to fetch|ECONNRESET|ETIMEDOUT|ENOTFOUND|getaddrinfo|turbo|cache/i.test(String(e?.message))) throw e;
     console.log("next build… (otra vez, sin caché)");
-    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1" });
+    await corre("build", build, 40 * 60_000, { SIN_TIPOS_EN_BUILD: "1", TURBOPACK_RAIZ: RAIZ_TURBOPACK });
   }
 }
 

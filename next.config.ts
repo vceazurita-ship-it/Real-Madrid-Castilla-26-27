@@ -12,8 +12,16 @@ const enRender = Boolean(process.env.RENDER);
    Experimental en build; nunca en Render ni en el build normal. */
 const cacheBuild = !enRender && process.env.CACHE_BUILD === "1";
 
+/* TURBOPACK_RAIZ (19/11/2026), también sólo para la copia de X: vive fuera del
+   repo (../x-ideas-obra) con node_modules enlazado al del repo, y Turbopack
+   exige que el enlace caiga dentro de su raíz. Antes vivía DENTRO del repo y
+   Next cogía el repo de fuera como raíz: compilaba los ficheros de arriba (su
+   proxy.ts sin subir) y fallaba con «Module not found: @/lib/acceso/…». */
+const raizTurbopack = !enRender ? process.env.TURBOPACK_RAIZ : undefined;
+
 const nextConfig: NextConfig = {
-  turbopack: {},
+  turbopack: raizTurbopack ? { root: raizTurbopack } : {},
+  ...(raizTurbopack ? { outputFileTracingRoot: raizTurbopack } : {}),
 
   ...(enRender
     ? {
