@@ -2884,6 +2884,7 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Dos maneras de entrar",
         filas: [
           { que: "Cuerpo técnico", es: "Correo y contraseña. «Registrarme» pide además el código del cuerpo técnico (lo da Víctor). Lo ve todo" },
+          { que: "Cuerpo técnico sin correo", es: "Algunas cuentas son de usuario, sin correo (p. ej. «davidmartin»): se escribe el usuario donde va el correo. No reciben los avisos de la quiniela" },
           { que: "Jugadores", es: "Usuario: nombre y primer apellido (p. ej. «Pol Fortuny»); contraseña: su nombre y 123 («pol123»). Da igual mayúsculas y tildes. Van a su inicio (/jugadores) y ven sólo sus pantallas", cuenta: "Cinco fallos seguidos con el mismo usuario lo cierran 15 minutos, sólo a él" },
           { que: "Volver a donde iba", es: "Quien abre un enlace sin haber entrado, al entrar llega a esa pantalla" },
         ],

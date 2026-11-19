@@ -300,9 +300,9 @@ export function Acceso({
         ) : null}
 
         <Entrada
-          label="Tu correo"
-          type="email"
-          autoComplete="email"
+          label={modo === "entrar" ? "Tu correo o usuario" : "Tu correo"}
+          type={modo === "entrar" ? "text" : "email"}
+          autoComplete={modo === "entrar" ? "username" : "email"}
           value={correo}
           onChange={setCorreo}
           placeholder="nombre@dominio.com"

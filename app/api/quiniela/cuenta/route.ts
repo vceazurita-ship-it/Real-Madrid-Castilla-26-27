@@ -22,6 +22,8 @@ import {
   cifra,
   claveInicialDe,
   cuentaDeCorreo,
+  cuentaDeUsuario,
+  limpiaUsuario,
   limpiaCorreo,
   type CuentaQuiniela,
   type DocumentoCuentas,
@@ -87,7 +89,7 @@ async function cambiaCuentas<T>(
 const suyo = (cuenta: CuentaQuiniela) => ({
   slug: cuenta.slug,
   correo: cuenta.correo,
-  nombre: PERSONA_POR_SLUG.get(cuenta.slug)?.nombre ?? cuenta.slug,
+  nombre: PERSONA_POR_SLUG.get(cuenta.slug)?.nombre ?? cuenta.nombre ?? cuenta.slug,
   inicial: cuenta.inicial,
   telefono: cuenta.telefono,
 });
@@ -196,11 +198,14 @@ export async function POST(request: NextRequest) {
        diría a cualquiera quién está dado de alta. */
     const generico = "El correo o la contraseña no son correctos.";
 
-    if (!correo || !clave) return mal(generico, 401);
+    /* Sin @: es una cuenta con usuario y sin correo (19/11/2026). */
+    const usuario = correo ? "" : limpiaUsuario(cuerpo.correo);
+
+    if ((!correo && !usuario) || !clave) return mal(generico, 401);
 
     const doc = await dameCuentas();
 
-    const cuenta = cuentaDeCorreo(doc, correo);
+    const cuenta = correo ? cuentaDeCorreo(doc, correo) : cuentaDeUsuario(doc, usuario);
 
     if (!cuenta || !acierta(clave, cuenta)) return mal(generico, 401);
 

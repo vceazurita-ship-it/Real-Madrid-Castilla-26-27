@@ -47,6 +47,14 @@ export type CuentaQuiniela = {
   inicial: boolean;
   /** Opcional: si está, el botón de WhatsApp abre ese número. */
   telefono?: string;
+  /**
+   * 19/11/2026: cuenta del cuerpo técnico SIN correo (petición del analista:
+   * «davidmartin» / «david123»). Entra escribiendo el usuario donde va el
+   * correo; con `correo` vacío no le llegan los avisos de la quiniela.
+   * `nombre`: el que se enseña si su slug no está en lib/quiniela/staff.ts.
+   */
+  usuario?: string;
+  nombre?: string;
 };
 
 export type DocumentoCuentas = {
@@ -129,6 +137,20 @@ export function cuentaDeCorreo(doc: DocumentoCuentas, correo: string) {
   return (
     Object.values(doc.cuentas ?? {}).find((una) => una.correo === correo) ?? null
   );
+}
+
+/** «David Martín » → «davidmartin»: así se compara el usuario sin correo. */
+export const limpiaUsuario = (valor: unknown) =>
+  String(valor ?? "")
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9._-]/g, "");
+
+/** La cuenta sin correo de ese usuario, o `null`. */
+export function cuentaDeUsuario(doc: DocumentoCuentas, usuario: string) {
+  if (!usuario) return null;
+  return Object.values(doc.cuentas ?? {}).find((una) => una.usuario && limpiaUsuario(una.usuario) === usuario) ?? null;
 }
 
 /** Todas las direcciones dadas de alta: es a quien se avisa los viernes. */
