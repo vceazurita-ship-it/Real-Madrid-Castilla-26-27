@@ -73,6 +73,14 @@ jobs:
           # 1/12 (Render reinicia los 500): una publicación al día como mucho y 12
           # en todo el mes (quedan 3). Sólo lo urgente; el resto espera al 1/12.
           if [ "$MES" = "202611" ]; then PUBLICACIONES_MES=12; PUBLICACIONES_DIA=1; fi
+          # 19/11/2026: Render marca 461 de 500 min (≈ 8 por compilación: caben 4).
+          # Plan del analista: en noviembre sólo se publica A MANO (Run workflow),
+          # una vez por partido cuando estén todos sus datos; las pasadas de las
+          # 7:00 y las 15:00 no publican hasta el 1/12.
+          if [ "$MES" = "202611" ] && [ "$GITHUB_EVENT_NAME" = "schedule" ]; then
+            echo "Noviembre: sólo publicaciones a mano (quedan pocos minutos de Render)."
+            echo "publicar=no" >> "$GITHUB_OUTPUT"; exit 0
+          fi
           echo "Publicaciones: $N_DIA hoy, $N_MES de $PUBLICACIONES_MES este mes"
           if [ "$CAMBIOS" -eq 0 ]; then echo "publicar=no" >> "$GITHUB_OUTPUT"; exit 0; fi
           if [ "$N_MES" -ge "$PUBLICACIONES_MES" ]; then
