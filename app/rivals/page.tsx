@@ -128,6 +128,7 @@ import ResumenesRival from "@/components/rivals/ResumenesRival";
 import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
+import DefinicionDelantero from "@/components/rivals/DefinicionDelantero";
 import { pieDominante } from "@/lib/rivals/pie";
 import { lineasDelDibujo, puestoDelBloque, puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { centimetros, kilos } from "@/lib/rivals/lienzo-club";
@@ -3343,6 +3344,13 @@ export default function RivalPlayersPage() {
   const perfilDelEditado =
     editForm && !isCreating ? (perfilesPorFicha.get(idDeJugador(editForm)) ?? null) : null;
 
+  /* Su plantilla entera, para cruzar su nombre con Opta uno a uno («Cómo define»). */
+  const equipoDelEditado = editForm?.NOMBRE_EQUIPO || selectedTeam;
+  const plantillaDelEditado = useMemo(
+    () => players.filter((p) => p.NOMBRE_EQUIPO === equipoDelEditado),
+    [players, equipoDelEditado],
+  );
+
   /* Lo que dice BeSoccer de esta temporada, para explicar si no cuadra con Wyscout. */
   const besoccerDelEditado = (() => {
     if (!editForm || !statsDoc) return null;
@@ -6068,6 +6076,19 @@ export default function RivalPlayersPage() {
                 {perfilDelEditado && (
                   <div className="mt-5">
                     <PerfilWyscoutCard perfil={perfilDelEditado} besoccer={besoccerDelEditado} />
+                  </div>
+                )}
+
+                {/* Y si es delantero o mediapunta, cómo define (Opta): goles frente a xG y de dónde tira. */}
+
+                {!isCreating && (editForm.NOMBRE_EQUIPO || selectedTeam) && (
+                  <div className="mt-5">
+                    <DefinicionDelantero
+                      equipo={editForm.NOMBRE_EQUIPO || selectedTeam}
+                      clave={idDeJugador(editForm)}
+                      plantilla={plantillaDelEditado}
+                      claveDe={idDeJugador}
+                    />
                   </div>
                 )}
 

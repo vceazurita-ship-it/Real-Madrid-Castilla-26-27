@@ -1660,8 +1660,18 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
+      {
+        titulo: "Lo nuevo (19/11/2026): cómo define el delantero rival",
+        filas: [
+          {
+            que: "«Cómo define», en la ficha",
+            es: "Para delanteros y mediapuntas, debajo de «Cómo juega»: su punto (en color) en la nube de goles/90 frente a xG/90 de los delanteros de la categoría (en gris), con la diagonal goles = xG: por encima marca más de lo que dicen sus ocasiones. Al lado, goles/90 y xG/90, su xG medio por remate y su % de remates desde fuera del área, cada uno con la mediana de los delanteros. Una etiqueta lo resume con su orden: «Tira de lejos» (salirle al borde), «Define por encima de lo esperado» (ni medio metro en el área), «Necesita ocasiones claras» (sin espacio dentro del área, desde fuera apenas hace daño) o, si no es nada de eso, «Marca lo que dicen sus ocasiones». Si no es delantero ni mediapunta en Opta, o no se le encuentra, no sale",
+            cuenta: "Opta: opta:remates (cada remate con x/y y xG) por tirador y opta:jugadores (minutos y puesto más repetido). SIN PENALTIS en goles y xG. Fuera del área = fuera del rectángulo de Opta (x < 83 o fuera de 21,1-78,9 de ancho, enArea). Nube: delanteros con 450′ o más; medianas y cuartil, de los que tienen 10 remates o más. Etiqueta (por este orden): tira de lejos si el 40 % o más de sus remates son de fuera y está en el cuartil alto de los delanteros; define por encima si lleva 3 goles o más, al menos 1 más que su xG y un 30 % por encima; necesita ocasiones claras si su xG por remate llega a la mediana y no tira de fuera más que la mediana. Con menos de 270′ o de 8 remates no se etiqueta. Su fila de Opta: su equipo (casaEquipo) y su nombre cruzado con la plantilla entera uno a uno (asignaPerfiles). lib/rivals/definicion-delantero.ts y components/rivals/DefinicionDelantero.tsx",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
