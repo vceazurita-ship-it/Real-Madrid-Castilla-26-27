@@ -1417,9 +1417,15 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/match-preparation",
     titulo: "Plan de Partido",
     resumen: "La preparación de cada jornada: contexto, proyección del juego, plan con y sin balón, duelos, análisis del rival y recursos de vídeo.",
-    origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase.",
-    revisada: "2026-11-18",
+    origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase. Partido modelo (robo alto): evento a evento de Opta de todos los partidos del rival (opta:directo:<partido>) y opta:partidos.",
+    revisada: "2026-11-19",
     bloques: [
+      {
+        titulo: "Lo nuevo (19/11/2026): partido modelo robándole alto",
+        filas: [
+          { que: "Análisis rival · Partido modelo: quién ya le hizo daño robándole alto", es: "Debajo de la proyección, una tabla con todos los partidos del rival de la temporada. En cada fila, lo que hizo el equipo de enfrente: robos en su último tercio, remates en los 10 s siguientes a esos robos (con barra y goles así) y el resultado (G, E, P de ese equipo). Ordenada por remates tras robo alto; arriba, en oro, el partido modelo, con «Ver el partido» si está en los vídeos del rival o, si no, «Sus goles en vídeo» de ese partido. Debajo, la lectura frente a la media de la liga y el sello (Opta, cuántos partidos y hasta qué fecha)", cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de todos los partidos del rival. Robo alto: recuperación (BallRecovery) o intercepción en x ≥ 66,7 (último tercio, la raya de PosWonA3rd). Remate tras robo: remate (gol, fuera, parado o al palo) del mismo equipo en la misma parte y en los 10 s siguientes a un robo alto; cada remate cuenta una vez. Partido modelo: más remates tras robo alto; a igualdad, más goles así y más robos; con 0 no hay. Resultado: goles del archivo. Media de la liga: PosWonA3rd de opta:partidos por equipo y partido en todos los partidos del archivo, frente a la de los oponentes del rival; ±10 % es «como la media», más de un 10 % por encima «se le puede apretar arriba». Vídeo: el primero de los vídeos del rival (rival-media:<id>, sólo se lee) cuyo nombre lleva una palabra propia del oponente. Cuentas en lib/match-preparation/robo-alto.ts" },
+        ],
+      },
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
