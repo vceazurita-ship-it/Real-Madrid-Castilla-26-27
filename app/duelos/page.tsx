@@ -45,6 +45,7 @@ import { aObjetos, DOCS_OPTA, traeOpta } from "@/lib/opta";
 import { planoDeExtremos, regateDelDuelo, type RegateDelDuelo } from "@/lib/duelos-regate";
 import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
 import { CarrilExtremo } from "@/components/duelos/carril-extremo";
+import { SegundaJugada } from "@/components/duelos/segunda-jugada";
 import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
@@ -918,6 +919,9 @@ export default function DuelosPage() {
                   cambia={cambia}
                   deshaz={deshaz}
                 />
+
+                {/* Segunda jugada tras el balón largo (19/11/2026, idea de X): Opta, evento a evento. */}
+                {equipoVisto && <SegundaJugada equipo={equipoVisto} />}
 
 
                 <details

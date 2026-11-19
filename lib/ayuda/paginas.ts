@@ -1183,9 +1183,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/duelos",
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
-    origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Carril de su extremo: evento a evento de Opta de sus últimos partidos («opta:directo:<partido>»). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»).",
-    revisada: "2026-11-18",
+    origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Carril de su extremo: evento a evento de Opta de sus últimos partidos («opta:directo:<partido>»). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»). Segunda jugada: evento a evento de Opta de los últimos partidos del rival y del Castilla («opta:directo:<partido>»).",
+    revisada: "2026-11-19",
     bloques: [
+      {
+        titulo: "Lo nuevo (19/11/2026): la segunda jugada tras el balón largo",
+        filas: [
+          {
+            que: "Segunda jugada · tras el balón largo, ¿quién se queda el balón?",
+            es: "Debajo de los onces, dos tarjetas. La del rival: qué parte de las segundas jugadas de sus balones largos se queda él, el mapa de calor de dónde cae el primer toque (visto desde quien lanza: a la derecha, nuestra portería), la zona del mediocentro en discontinua y sus tres jugadores que más las recogen. La del Castilla cuando defiende balones largos: qué parte ganamos, dónde caen, qué parte ganamos en la zona del mediocentro (por debajo de la mitad: «necesita ayuda en la caída») y nuestros tres que más las recogen. Arriba, el chip dice si el rival es de juego directo",
+            cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo. Balón largo: pase en juego o saque de puerta (no de banda) de 32 m o más y al menos 10 de x de Opta hacia delante (x 0-100 = 105 m, y 0-100 = 68 m). Segunda jugada: el primer toque de cualquiera de los dos en los 5 s siguientes, en la misma parte; el duelo aéreo no cuenta (es la disputa), sí lo que viene detrás; con falta antes o sin toque en 5 s, no entra. Zona del mediocentro: pasillo central (y 37-63) entre el medio campo y el borde del área de quien defiende (x 50-83, en el marco de quien lanza). Juego directo: su parte de pases largos sobre sus pases en juego, al menos 1,15 veces la de sus rivales en esos mismos partidos. Con menos de 15 segundas jugadas no se pinta. Cuentas en lib/duelos-segunda-jugada.ts",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
