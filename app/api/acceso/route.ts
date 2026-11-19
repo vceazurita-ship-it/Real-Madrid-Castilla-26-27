@@ -1,17 +1,19 @@
 /**
- * /api/acceso (18/11/2026): entrar como jugador, salir, y los códigos (admin).
+ * /api/acceso (18/11/2026): entrar como jugador, salir, y el acceso (admin).
  * Ver lib/acceso/*.
  *
- *   GET                                  → { rol, hayCodigoJugadores, hayCodigoStaff }
- *   POST { accion: "jugador", codigo }   → cookie de jugador
+ *   GET                                  → { rol, hayCodigoJugadores (= acceso de jugadores abierto), hayCodigoStaff }
+ *   POST { accion: "jugador", usuario, contrasena }   → cookie de jugador (19/11: cada uno con la suya)
  *   POST { accion: "salir" }             → fuera todas las cookies de acceso
- *   POST { accion: "codigos", jugadores?, staff? }   (admin) cambia uno o los dos; "" lo quita
+ *   POST { accion: "jugadores", abierto }            (admin) abre o cierra el acceso de jugadores
+ *   POST { accion: "codigos", staff }    (admin) cambia el código del staff; "" lo quita
  *   POST { accion: "echar-jugadores" }   (admin) cierra todas las sesiones de jugador
  */
 import { NextRequest, NextResponse } from "next/server";
 
 import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
-import { aciertaCodigo, apuntaIntento, cifraCodigo, guardaAcceso, leeAcceso, MINIMO_CODIGO, nuevaVersion, puertaCerrada } from "@/lib/acceso/codigos";
+import { apuntaIntento, cifraCodigo, guardaAcceso, leeAcceso, MINIMO_CODIGO, nuevaVersion, puertaCerrada } from "@/lib/acceso/codigos";
+import { cuentaDe, esContrasenaDeJugador, normaliza } from "@/lib/acceso/jugadores";
 import {
   COOKIE_JUGADOR,
   COOKIE_QUINIELA,
@@ -47,13 +49,15 @@ export async function POST(request: NextRequest) {
   }
 
   if (accion === "jugador") {
-    const cerrada = await puertaCerrada();
+    const quien = normaliza(String(cuerpo.usuario ?? "")).slice(0, 60);
+    if (!quien) return mal("Escribe tu usuario: tu nombre y tu primer apellido.");
+    const cerrada = await puertaCerrada(quien);
     if (cerrada) return mal(`Demasiados intentos. Prueba dentro de ${cerrada} min.`, 429);
     const doc = await leeAcceso();
-    if (!doc.jugadores) return mal("El acceso de jugadores aún no está abierto: pide el código al cuerpo técnico.", 403);
-    const bien = aciertaCodigo(String(cuerpo.codigo ?? ""), doc.jugadores);
-    await apuntaIntento(bien);
-    if (!bien) return mal("Ese código no es.", 401);
+    if (!doc.jugadores) return mal("El acceso de jugadores está cerrado ahora mismo: pregunta al cuerpo técnico.", 403);
+    const cuenta = cuentaDe(quien, String(cuerpo.contrasena ?? ""));
+    await apuntaIntento(Boolean(cuenta), quien);
+    if (!cuenta) return mal("Usuario o contraseña no son. Usuario: nombre y primer apellido; contraseña: tu nombre y 123.", 401);
     const r = NextResponse.json({ ok: true, rol: "jugador" });
     r.cookies.set(COOKIE_JUGADOR, creaSesionJugador(doc.jugadores.version), OPCIONES_COOKIE_JUGADOR);
     r.cookies.set(COOKIE_ROL, "jugador", OPCIONES_COOKIE_ROL);
@@ -67,31 +71,33 @@ export async function POST(request: NextRequest) {
   const ahora = new Date().toISOString();
 
   if (accion === "echar-jugadores") {
-    if (!doc.jugadores) return mal("No hay código de jugadores.");
+    if (!doc.jugadores) return mal("El acceso de jugadores está cerrado.");
     await guardaAcceso({ ...doc, jugadores: { ...doc.jugadores, version: nuevaVersion() } });
     return NextResponse.json({ ok: true });
   }
 
+  const respuesta = (d: typeof doc) => NextResponse.json({ ok: true, hayCodigoJugadores: Boolean(d.jugadores), hayCodigoStaff: Boolean(d.staff) });
+
+  if (accion === "jugadores") {
+    const siguiente = { ...doc };
+    if (cuerpo.abierto === true) siguiente.jugadores = { version: nuevaVersion(), desde: ahora };
+    else delete siguiente.jugadores;
+    await guardaAcceso(siguiente);
+    return respuesta(siguiente);
+  }
+
   if (accion === "codigos") {
     const siguiente = { ...doc };
-    for (const lado of ["jugadores", "staff"] as const) {
-      if (!(lado in cuerpo)) continue;
-      const codigo = String(cuerpo[lado] ?? "").trim();
-      if (!codigo) {
-        delete siguiente[lado];
-        continue;
-      }
+    const codigo = String(cuerpo.staff ?? "").trim();
+    if (!codigo) delete siguiente.staff;
+    else {
       if (codigo.length < MINIMO_CODIGO) return mal(`El código tiene que tener al menos ${MINIMO_CODIGO} caracteres.`);
-      if (lado === "jugadores") siguiente.jugadores = { ...cifraCodigo(codigo), version: nuevaVersion(), desde: ahora };
-      else siguiente.staff = { ...cifraCodigo(codigo), desde: ahora };
+      /* Si fuera la contraseña de un jugador, ese jugador podría darse de alta como alguien del staff. */
+      if (esContrasenaDeJugador(codigo)) return mal("Ese código es la contraseña de un jugador: pon otro.");
+      siguiente.staff = { ...cifraCodigo(codigo), desde: ahora };
     }
-    /* Si fueran iguales, un jugador podría darse de alta como alguien del staff. */
-    const igual =
-      (typeof cuerpo.jugadores === "string" && cuerpo.jugadores.trim() && aciertaCodigo(cuerpo.jugadores, siguiente.staff)) ||
-      (typeof cuerpo.staff === "string" && cuerpo.staff.trim() && aciertaCodigo(cuerpo.staff, siguiente.jugadores));
-    if (igual) return mal("Los dos códigos no pueden ser iguales.");
     await guardaAcceso(siguiente);
-    return NextResponse.json({ ok: true, hayCodigoJugadores: Boolean(siguiente.jugadores), hayCodigoStaff: Boolean(siguiente.staff) });
+    return respuesta(siguiente);
   }
 
   return mal("Acción desconocida.");

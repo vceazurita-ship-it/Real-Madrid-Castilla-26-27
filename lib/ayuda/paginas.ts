@@ -2834,15 +2834,15 @@ export const AYUDAS: AyudaDePagina[] = [
   {
     ruta: "/entrar",
     titulo: "Entrar en la plataforma",
-    resumen: "La puerta: desde el 18/11/2026 hay que entrar. El cuerpo técnico con su cuenta (la de la quiniela) y los jugadores con el código de jugadores.",
-    origen: "Las cuentas del staff son las de la quiniela (Supabase, secreto:quiniela-cuentas); los códigos, los de Ajustes → Acceso (secreto:acceso). Las sesiones son cookies firmadas: 30 días.",
-    revisada: "2026-11-18",
+    resumen: "La puerta: desde el 18/11/2026 hay que entrar. El cuerpo técnico con su cuenta (la de la quiniela) y cada jugador con su usuario y su contraseña.",
+    origen: "Las cuentas del staff son las de la quiniela (Supabase, secreto:quiniela-cuentas); las de los jugadores, lib/acceso/jugadores.ts; el código del staff y si el acceso de jugadores está abierto, Ajustes → Acceso (secreto:acceso). Las sesiones son cookies firmadas: 30 días.",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Dos maneras de entrar",
         filas: [
           { que: "Cuerpo técnico", es: "Correo y contraseña. «Registrarme» pide además el código del cuerpo técnico (lo da Víctor). Lo ve todo" },
-          { que: "Jugadores", es: "Sólo el código de jugadores. Van a su inicio (/jugadores) y ven sólo sus pantallas" },
+          { que: "Jugadores", es: "Usuario: nombre y primer apellido (p. ej. «Pol Fortuny»); contraseña: su nombre y 123 («pol123»). Da igual mayúsculas y tildes. Van a su inicio (/jugadores) y ven sólo sus pantallas", cuenta: "Cinco fallos seguidos con el mismo usuario lo cierran 15 minutos, sólo a él" },
           { que: "Volver a donde iba", es: "Quien abre un enlace sin haber entrado, al entrar llega a esa pantalla" },
         ],
       },
@@ -2859,12 +2859,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Acceso de jugadores",
     resumen: "El inicio de los jugadores: sus pantallas en tarjetas y el botón de salir.",
     origen: "La lista de pantallas es lib/acceso/rutas.ts (PANTALLAS_JUGADOR), la misma que filtra su menú y la que hace cumplir el proxy.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Qué hay",
         filas: [
-          { que: "Sus pantallas", es: "Calendario operativo, desplazamiento, identidad y modelo de juego, plantillas y scout de rivales, ABP y saques de banda, análisis de goles e histórico de la competición" },
+          { que: "Sus pantallas", es: "Plantillas y scout de rivales, ABP y saques de banda, análisis de goles e histórico de la competición. Desde el 19/11/2026 ya no: calendario operativo, desplazamiento ni identidad y modelo de juego" },
           { que: "Lo que no", es: "Nada de lo que rellena el staff sobre ellos ni lo interno: seguimientos, valoraciones, pizarras, emocional, carga, planes, informes, coding, visionados, tareas, alertas, Data análisis, quiniela, apuestas, laboratorio y Ajustes" },
           { que: "Salir", es: "Cierra la sesión en este aparato y vuelve a la puerta" },
         ],
@@ -2915,7 +2915,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Acceso (18/11/2026)",
         filas: [
-          { que: "Código de jugadores", es: "El que se da al vestuario: entran sin cuenta, por /entrar → «Jugadores», y sólo ven sus pantallas (calendario operativo, desplazamiento, identidad y modelo de juego, rivales y scout, ABP y banda, análisis de goles e histórico). Cambiarlo, o «Sacar a todos los jugadores», cierra sus sesiones en 5 minutos", cuenta: "Guardado con scrypt en Supabase (secreto:acceso); cinco fallos seguidos cierran la puerta 15 minutos. La lista de pantallas y lo vetado está en lib/acceso/rutas.ts" },
+          { que: "Acceso de jugadores (19/11/2026)", es: "Abrir o cerrar. Cada jugador entra por /entrar → «Jugadores» con su usuario (nombre y primer apellido) y su contraseña (nombre123); la lista desplegable enseña los de todos para pasárselos. Sólo ven rivales y scout, ABP y banda, análisis de goles e histórico. Cerrarlo, o «Sacar a todos los jugadores», cierra sus sesiones en 5 minutos", cuenta: "Las cuentas están en lib/acceso/jugadores.ts (nombres de BeSoccer, sin los que esconde la plantilla); cinco fallos con el mismo usuario lo cierran 15 minutos. La lista de pantallas y lo vetado, en lib/acceso/rutas.ts" },
           { que: "Código del cuerpo técnico", es: "Lo pide «Registrarme» para crear una cuenta del staff. Quien ya tiene cuenta entra igual. Sin código puesto, nadie nuevo puede darse de alta" },
           { que: "Qué NO ven los jugadores", es: "Seguimientos e Individual, valoraciones, emocional, carga física, pizarras (táctica, de sesión y de ABP), planes e informes, coding, visionados, tareas, alertas, quiniela, apuestas, laboratorio, Data análisis y Ajustes: ni en el menú, ni abriendo la dirección, ni pidiendo los datos a mano (la API dice 403)" },
         ],
@@ -2950,7 +2950,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */

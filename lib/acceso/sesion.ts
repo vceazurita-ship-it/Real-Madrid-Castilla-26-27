@@ -7,7 +7,7 @@
  *
  *   - CUERPO TÉCNICO: la cuenta de la quiniela (`quiniela_sesion`, 30 días)
  *     o la de administrador (`admin_sesion`, 12 h). Lo ven todo.
- *   - JUGADORES: el código de jugadores que Víctor pone en Ajustes
+ *   - JUGADORES: cada uno con su usuario (lib/acceso/jugadores.ts), si Ajustes lo abre
  *     (`jugador_sesion`, 30 días). Ven la plataforma SIN lo que rellena el
  *     staff sobre ellos (lib/acceso/rutas.ts).
  *   - MÁQUINAS: los scripts del ordenador del club y el propio servidor

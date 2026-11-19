@@ -15,15 +15,13 @@
  * no algo que rellene el staff.
  */
 
-/** Pantallas que ven los jugadores (la ruta exacta o lo que cuelga de ella). */
+/**
+ * Pantallas que ven los jugadores (la ruta exacta o lo que cuelga de ella).
+ * 19/11/2026: fuera, a petición del analista, el Calendario Operativa, el
+ * Desplazamiento y toda la Identidad y modelo de juego.
+ */
 export const PANTALLAS_JUGADOR = [
   "/jugadores",
-  "/calendar_general",
-  "/desplazamiento",
-  "/game-model",
-  "/identidad-campo",
-  "/identidad-cultura",
-  "/identidad-posicional",
   "/rivals",
   "/scout-rival-collective",
   "/scout-rival-individual",

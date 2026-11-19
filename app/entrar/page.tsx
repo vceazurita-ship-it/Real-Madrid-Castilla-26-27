@@ -4,8 +4,9 @@
  * /entrar (18/11/2026): la puerta de la plataforma. Dos maneras de entrar:
  *   - Cuerpo técnico: la misma cuenta de la quiniela (correo y contraseña).
  *     Darse de alta pide el código del cuerpo técnico.
- *   - Jugadores: el código que da el cuerpo técnico. Ven la plataforma sin lo
- *     que rellena el staff (lib/acceso/rutas.ts).
+ *   - Jugadores (19/11/2026): cada uno su usuario (nombre y primer apellido)
+ *     y su contraseña (nombre123), lib/acceso/jugadores.ts. Ven la plataforma
+ *     sin lo que rellena el staff (lib/acceso/rutas.ts).
  * Al entrar se vuelve a la pantalla que se pidió (?volver=).
  */
 import { Suspense, useEffect, useState } from "react";
@@ -26,7 +27,8 @@ function Puerta() {
   const volver = destinoSeguro(params.get("volver"));
   const [lado, setLado] = useState<"staff" | "jugador">(params.get("jugador") === "1" ? "jugador" : "staff");
   const { yo, cargando, manda } = useQuinielaSesion();
-  const [codigo, setCodigo] = useState("");
+  const [usuario, setUsuario] = useState("");
+  const [contrasena, setContrasena] = useState("");
   const [enviando, setEnviando] = useState(false);
 
   /* Recién entrado como staff: a donde iba. Navegación completa, para que el proxy lea la cookie nueva. */
@@ -35,10 +37,10 @@ function Puerta() {
   }, [yo, volver]);
 
   const entraJugador = async () => {
-    if (!codigo.trim()) return toast.error("Escribe el código que te ha dado el cuerpo técnico.");
+    if (!usuario.trim() || !contrasena.trim()) return toast.error("Escribe tu usuario y tu contraseña.");
     setEnviando(true);
     try {
-      const r = await fetch("/api/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion: "jugador", codigo }) });
+      const r = await fetch("/api/acceso", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ accion: "jugador", usuario, contrasena }) });
       const j = (await r.json().catch(() => ({}))) as { ok?: boolean; error?: string };
       if (!r.ok || !j.ok) throw new Error(j.error || "No se ha podido entrar.");
       window.location.replace("/jugadores");
@@ -92,14 +94,26 @@ function Puerta() {
             <p className="flex items-center gap-2 text-sm font-bold uppercase tracking-[0.14em] text-white">
               <Shirt size={16} className="text-[#C8A96B]" aria-hidden /> Acceso de jugadores
             </p>
-            <p className="mt-1 text-[13px] text-white/60">El código te lo da el cuerpo técnico. Verás el calendario, el viaje, el modelo de juego, los rivales y el balón parado.</p>
+            <p className="mt-1 text-[13px] text-white/60">Usuario: tu nombre y tu primer apellido. Verás los rivales, el balón parado y los goles.</p>
             <label className="mt-4 block text-[12px] font-semibold text-white/70">
-              Código de jugadores
+              Usuario
+              <input
+                type="text"
+                autoComplete="username"
+                autoCapitalize="words"
+                placeholder="Nombre Apellido"
+                value={usuario}
+                onChange={(e) => setUsuario(e.target.value)}
+                className="mt-1 block w-full rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2.5 text-[15px] text-white placeholder:text-white/30"
+              />
+            </label>
+            <label className="mt-3 block text-[12px] font-semibold text-white/70">
+              Contraseña
               <input
                 type="password"
-                autoComplete="off"
-                value={codigo}
-                onChange={(e) => setCodigo(e.target.value)}
+                autoComplete="current-password"
+                value={contrasena}
+                onChange={(e) => setContrasena(e.target.value)}
                 className="mt-1 block w-full rounded-lg border border-white/15 bg-white/[0.05] px-3 py-2.5 text-[15px] text-white"
               />
             </label>
