@@ -202,7 +202,8 @@ function Ventana({
           <ul className="max-h-[55vh] space-y-2 overflow-y-auto px-5 py-4">
             {pendientes.map((t) => (
               <li key={t.clave} className="flex min-w-0 flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
-                <div className="min-w-0 flex-1">
+                {/* basis-48 (19/11/2026): en el móvil el texto se quedaba en una columna de una palabra; ahora los botones bajan debajo. */}
+                <div className="min-w-0 flex-1 basis-48">
                   <p className="text-sm font-medium text-white/90">{t.texto}</p>
                   <p className="text-xs text-red-300/80">
                     {rotuloDia(t.fecha)}
@@ -210,10 +211,10 @@ function Ventana({
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-1.5">
-                  <button type="button" onClick={() => marca(t)} className="inline-flex items-center gap-1 rounded-full border border-emerald-400/40 px-2.5 py-1 text-xs font-semibold text-emerald-300 hover:bg-emerald-500/10">
+                  <button type="button" onClick={() => marca(t)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-emerald-400/40 px-3 py-1 text-xs sm:min-h-0 sm:px-2.5 font-semibold text-emerald-300 hover:bg-emerald-500/10">
                     <Check className="h-3.5 w-3.5" /> Marcar hecha
                   </button>
-                  <button type="button" onClick={() => aHoy(t)} className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-xs font-semibold text-white/75 hover:bg-white/10">
+                  <button type="button" onClick={() => aHoy(t)} className="inline-flex min-h-9 items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/75 sm:min-h-0 sm:px-2.5 hover:bg-white/10">
                     <ArrowDownToLine className="h-3.5 w-3.5" /> Pasar a hoy
                   </button>
                 </div>

@@ -91,7 +91,7 @@ export function ResponsiveConVistas({ children, width = "100%", height = "100%",
             aria-label="Ver este gráfico de otra forma"
             aria-expanded={menu}
             title="Ver como: clásicos (barras, líneas, tabla) o actuales (piruleta, mapa de calor, pesas)"
-            className="rounded-md border border-[rgb(var(--rmcf-ink-rgb)/0.15)] bg-[var(--rmcf-surface,#0B0F14)] p-1 text-[rgb(var(--rmcf-ink-rgb)/0.70)] transition hover:text-[#C8A96B]"
+            className="zona-dedo rounded-md border border-[rgb(var(--rmcf-ink-rgb)/0.15)] bg-[var(--rmcf-surface,#0B0F14)] p-1 text-[rgb(var(--rmcf-ink-rgb)/0.70)] transition hover:text-[#C8A96B]"
           >
             <LayoutGrid size={13} />
           </button>

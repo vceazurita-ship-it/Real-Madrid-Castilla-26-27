@@ -1189,6 +1189,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (19/11/2026): la segunda jugada tras el balón largo",
         filas: [
+          { que: "Modo día (19/11/2026)", es: "Las cifras en oro de la segunda jugada se escriben en el oro oscuro, legible sobre blanco" },
           {
             que: "Segunda jugada · tras el balón largo, ¿quién se queda el balón?",
             es: "Debajo de los onces, dos tarjetas. La del rival: qué parte de las segundas jugadas de sus balones largos se queda él, el mapa de calor de dónde cae el primer toque (visto desde quien lanza: a la derecha, nuestra portería), la zona del mediocentro en discontinua y sus tres jugadores que más las recogen. La del Castilla cuando defiende balones largos: qué parte ganamos, dónde caen, qué parte ganamos en la zona del mediocentro (por debajo de la mitad: «necesita ayuda en la caída») y nuestros tres que más las recogen. Arriba, el chip dice si el rival es de juego directo",
@@ -1423,6 +1424,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (19/11/2026): partido modelo robándole alto",
         filas: [
+          { que: "Modo día (19/11/2026)", es: "El rótulo «Partido modelo» y las demás cifras en oro se escriben en el oro oscuro, legible sobre blanco" },
           { que: "Análisis rival · Partido modelo: quién ya le hizo daño robándole alto", es: "Debajo de la proyección, una tabla con todos los partidos del rival de la temporada. En cada fila, lo que hizo el equipo de enfrente: robos en su último tercio, remates en los 10 s siguientes a esos robos (con barra y goles así) y el resultado (G, E, P de ese equipo). Ordenada por remates tras robo alto; arriba, en oro, el partido modelo, con «Ver el partido» si está en los vídeos del rival o, si no, «Sus goles en vídeo» de ese partido. Debajo, la lectura frente a la media de la liga y el sello (Opta, cuántos partidos y hasta qué fecha)", cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de todos los partidos del rival. Robo alto: recuperación (BallRecovery) o intercepción en x ≥ 66,7 (último tercio, la raya de PosWonA3rd). Remate tras robo: remate (gol, fuera, parado o al palo) del mismo equipo en la misma parte y en los 10 s siguientes a un robo alto; cada remate cuenta una vez. Partido modelo: más remates tras robo alto; a igualdad, más goles así y más robos; con 0 no hay. Resultado: goles del archivo. Media de la liga: PosWonA3rd de opta:partidos por equipo y partido en todos los partidos del archivo, frente a la de los oponentes del rival; ±10 % es «como la media», más de un 10 % por encima «se le puede apretar arriba». Vídeo: el primero de los vídeos del rival (rival-media:<id>, sólo se lee) cuyo nombre lleva una palabra propia del oponente. Cuentas en lib/match-preparation/robo-alto.ts" },
         ],
       },
@@ -2681,11 +2683,12 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "El próximo partido",
         filas: [
+          { que: "En el móvil y la tableta (19/11/2026)", es: "Las tareas pendientes ponen sus botones debajo del texto (antes el título se partía en una palabra por línea), la casilla de «hecha» se acierta con el dedo y los rótulos pequeños suben a 11 px" },
           { que: "Hoy MD-n · Jornada · Temporada", es: "La chapa dorada dice en qué día de la semana de trabajo estamos («· libre» si hoy no hay sesión); al lado, en una línea, la jornada y la temporada" },
           { que: "Cómo se ve (16/11/2026)", es: "Todos los bloques son tarjetas con el mismo canto, el mismo radio y la misma sombra, en día y en noche; lo que se pulsa sube un poco y se le dora el borde. Títulos y cifras grandes con la letra del club (Barlow Condensed), cada cifra con su base debajo, e iconos de la misma familia. Orden: el partido y el rival; el directo, tu día y los atajos; los datos destacados; el último partido en 3D y Opta (de MD-4 a MD-1, Opta va antes que el 3D: esos días manda el rival); y el equipo en cifras" },
           { que: "El rival, el día y el campo", es: "Del calendario de BeSoccer; fuera de casa, con su estadio y su ciudad" },
@@ -4032,6 +4035,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
+          { que: "En el móvil y la tableta (19/11/2026)", es: "Los accesos al seguimiento de cada jugador se aciertan con el dedo y los rótulos pequeños suben a 11 px" },
           { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
           { que: "¿Quién lo ejecuta mejor?", es: "La conclusión como titular, cada jugador en su tarjeta con el puesto y el encaje en cifra grande y la barra que se llena al llegar" },
         ],
@@ -4086,7 +4090,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
   },
 ];
 

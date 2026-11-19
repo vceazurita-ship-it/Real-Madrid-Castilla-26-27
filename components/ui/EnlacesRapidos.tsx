@@ -28,7 +28,7 @@ export type EnlaceRapido = {
 };
 
 const CHIP =
-  "inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white";
+  "inline-flex min-h-9 min-w-0 max-w-full items-center gap-1.5 rounded-full border border-white/15 bg-white/[0.04] px-3 py-1.5 text-xs font-semibold text-white/80 transition hover:border-[#C8A96B]/50 hover:text-white";
 
 export function EnlacesRapidos({
   enlaces,

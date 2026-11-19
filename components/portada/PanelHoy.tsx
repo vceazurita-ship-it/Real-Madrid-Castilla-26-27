@@ -193,7 +193,7 @@ function TuDia() {
                 onClick={() => marca(t, !t.hecha)}
                 aria-pressed={t.hecha}
                 aria-label={t.hecha ? `Desmarcar ${t.texto}` : `Marcar ${t.texto} como hecha`}
-                className={`mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${t.hecha ? "border-emerald-400 bg-emerald-500/80" : "border-white/30 hover:border-[#D8B45A]"}`}
+                className={`zona-dedo mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition-colors ${t.hecha ? "border-emerald-400 bg-emerald-500/80" : "border-white/30 hover:border-[#D8B45A]"}`}
               >
                 {t.hecha && <Check className="h-3.5 w-3.5 text-white" />}
               </button>

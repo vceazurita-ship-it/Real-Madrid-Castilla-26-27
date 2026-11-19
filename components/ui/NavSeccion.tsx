@@ -181,7 +181,7 @@ export function NavSeccion() {
               href={conRival && !activa ? conRivalEnUrl(href, rivalEnCurso) : href}
               aria-current={activa ? "page" : undefined}
               /* Más alta en el móvil (14/11/2026): 40 px para el dedo. */
-              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition sm:min-h-0 ${
+              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition lg:min-h-0 ${
                 activa ? "bg-[#C8A96B] text-black" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
               }`}
             >

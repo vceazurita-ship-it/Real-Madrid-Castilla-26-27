@@ -971,6 +971,17 @@ scrollbar-width:none;
   color: var(--rmcf-gold-ink);
 }
 
+/* Revisión de diseño 19/11/2026: el oro escrito EN LÍNEA (style={{ color: ORO }})
+   se saltaba la regla de arriba y quedaba a 2,1:1 sobre blanco (Duelos,
+   Plan de partido y otras 36 piezas). El navegador lo guarda como «color: rgb(200, 169, 107);».
+   Dentro de un contenedor siempre oscuro se queda el oro claro. */
+:root[data-theme="light"] :not(.siempre-oscuro *)[style^="color:#C8A96B" i],
+:root[data-theme="light"] :not(.siempre-oscuro *)[style*=";color:#C8A96B" i],
+:root[data-theme="light"] :not(.siempre-oscuro *)[style^="color: rgb(200, 169, 107)"],
+:root[data-theme="light"] :not(.siempre-oscuro *)[style*="; color: rgb(200, 169, 107)"] {
+  color: var(--rmcf-gold-ink) !important;
+}
+
 /* Oros palidos usados como borde: se asientan en el oro base */
 :root[data-theme="light"] [class~="border-[#D8B45A]"],
 :root[data-theme="light"] [class~="border-[#E1C77B]"],
@@ -2613,4 +2624,29 @@ html[data-pizarra-abierta] [data-menu-flotante] {
   animation-delay: -60s !important;
   animation-iteration-count: 1 !important;
   transition: none !important;
+}
+
+
+/* ------------------------------------------------------------------
+   REVISIÓN DE DISEÑO EN MÓVIL Y TABLETA (19/11/2026)
+   Medido en 390, 820 y 1366 (scripts/agentes/revisa-diseno.cjs): ninguna
+   pantalla desborda, pero en el móvil y la tableta había ~600 textos de
+   10 px (rótulos en versalitas, chapas de jornada) y botones de menos de
+   32 px para el dedo. En pantallas táctiles y estrechas:
+   - la letra de 9-10 px sube a 10,5-11 px (en el portátil se queda);
+   - los atajos de teclado (Ctrl K) no se enseñan: no hay teclado;
+   - las chapas de los accesos y las pestañas de sección llegan a 36-40 px.
+   ------------------------------------------------------------------ */
+@media (max-width: 1023px) {
+  /* Los que ya cambian de tamaño en tableta (sm:text-…, md:text-…) se dejan. */
+  [class~="text-[10px]"]:not([class*="sm:text-"]):not([class*="md:text-"]) { font-size: 11px; }
+  [class~="text-[9px]"]:not([class*="sm:text-"]):not([class*="md:text-"]) { font-size: 10.5px; }
+  [class~="text-[10.5px]"]:not([class*="sm:text-"]):not([class*="md:text-"]) { font-size: 11px; }
+}
+@media (pointer: coarse) {
+  main kbd, header kbd, aside kbd { display: none; }
+  /* «zona-dedo»: el control se ve igual de pequeño, pero se acierta con el dedo
+     (casilla de hecho de la portada, botones de los gráficos…): 10 px más por lado. */
+  .zona-dedo { position: relative; }
+  .zona-dedo::after { content: ""; position: absolute; inset: -10px; }
 }
