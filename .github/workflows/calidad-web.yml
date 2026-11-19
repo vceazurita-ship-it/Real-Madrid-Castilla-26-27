@@ -42,10 +42,14 @@ jobs:
     name: Medir las pantallas
     # Vercel avisa de cada despliegue, también de las vistas previas: sólo
     # cuenta el de producción, y cuando ya ha terminado bien.
+    # 19/11/2026: SÓLO A MANO. Cada pasada carga 46 pantallas enteras de la web
+    # publicada y eso gasta el tráfico de Render (5 GB al mes). Ni los lunes ni
+    # tras cada despliegue; Actions → Calidad de la web → Run workflow.
     if: >-
+      github.event_name == 'workflow_dispatch' && (
       github.event_name != 'deployment_status' ||
       (github.event.deployment_status.state == 'success' &&
-       github.event.deployment.environment == 'Production')
+       github.event.deployment.environment == 'Production'))
     runs-on: ubuntu-latest
     timeout-minutes: 120
 

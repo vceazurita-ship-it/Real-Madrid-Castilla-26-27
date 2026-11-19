@@ -21,10 +21,11 @@
 
 name: Publicar en Render
 
+# 19/11/2026: SÓLO A MANO, siempre (petición del analista: «que no se pueda
+# activar ninguna publicación sin mi autorización manual»). Sin pasadas a las
+# 7:00 ni a las 15:00: se lanza desde Actions → «Publicar en Render» → Run
+# workflow cuando él lo dice. Los topes de abajo siguen valiendo.
 on:
-  schedule:
-    - cron: "0 6 * * *"
-    - cron: "0 14 * * *"
   workflow_dispatch:
 
 permissions:

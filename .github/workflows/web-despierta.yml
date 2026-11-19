@@ -21,12 +21,18 @@ jobs:
     timeout-minutes: 3
     steps:
       - name: Visitar la web
-        run: curl -fsS -o /dev/null --retry 2 --retry-delay 20 --max-time 90 https://rmcf-castilla.onrender.com/api/docs?key=castilla:calendario || true
+        # 19/11/2026 (tráfico de Render, 5 GB al mes): una respuesta de 55 bytes
+        # basta para que no se duerma; antes bajaba el calendario entero (5 KB).
+        run: curl -sS -o /dev/null --retry 2 --retry-delay 20 --max-time 90 https://rmcf-castilla.onrender.com/api/ping || true
       # Tras un reinicio, que los datos de Data análisis ya estén en memoria
       # cuando entre la primera persona (05/11/2026).
       - name: Calentar Data análisis
-        run: curl -fsS -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/data-analisis?resumen=1" || true
+        run: curl -fsS --compressed -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/data-analisis?resumen=1" || true
       # Las vistas de los clips del canal (06/11/2026): la ruta hace una foto
       # al día en cuanto YouTube tiene cuota y, si ya está, no gasta nada.
       - name: Vistas de los clips en YouTube
-        run: curl -fsS -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/youtube/visionados" || true
+        # Una vez al día basta (la ruta hace una foto al día): eran 45 KB cada 10 min.
+        run: |
+          if [ "$(date -u +%H)" = "06" ] && [ "$(date -u +%M)" -lt 10 ]; then
+            curl -fsS --compressed -o /dev/null --max-time 90 "https://rmcf-castilla.onrender.com/api/youtube/visionados" || true
+          fi
