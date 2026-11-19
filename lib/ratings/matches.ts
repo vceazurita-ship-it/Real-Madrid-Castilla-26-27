@@ -1,5 +1,7 @@
 import Papa from "papaparse";
 
+import { traeCsv } from "@/lib/hojaCsv";
+
 import { MatchMeta } from "./types";
 
 /** Mismo CSV que alimenta /match-plans: calendario y resultados de la temporada. */
@@ -123,12 +125,15 @@ export function rowToMatch(row: MatchRow): MatchMeta {
   };
 }
 
+/* 19/11/2026: por `traeCsv` (copia del aparato), no `fetch` a la hoja: con la
+   hoja dormida /ratings se quedaba en «Cargando valoraciones…». La señal se
+   respeta sólo para no seguir si la pantalla ya no está. */
 export async function fetchMatches(signal?: AbortSignal): Promise<MatchMeta[]> {
-  const response = await fetch(MATCHES_CSV_URL, { signal });
+  const texto = await traeCsv(MATCHES_CSV_URL);
 
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
+  if (signal?.aborted) throw new DOMException("Abortado", "AbortError");
 
-  const parsed = Papa.parse<MatchRow>(await response.text(), {
+  const parsed = Papa.parse<MatchRow>(texto, {
     header: true,
     skipEmptyLines: true,
   });

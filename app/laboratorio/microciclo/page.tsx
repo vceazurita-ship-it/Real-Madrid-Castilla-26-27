@@ -1565,7 +1565,9 @@ export default function EditorMicrocicloPage() {
     const cerrado = hoy ? conTareas.find((uno) => {
       const f = ultimaFecha(uno.micro);
 
-      return f && f < hoy;
+      /* 19/11/2026 (fútbol): hasta hoy incluido. En MD-1 el micro de la semana ya
+         tiene sus días (MD-4…MD-1) y es el que hay que proponer, no el anterior. */
+      return f && f <= hoy;
     }) : undefined;
 
     return (cerrado ?? conTareas[0])?.micro ?? null;

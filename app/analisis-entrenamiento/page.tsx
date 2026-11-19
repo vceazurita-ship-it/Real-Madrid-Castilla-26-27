@@ -177,7 +177,8 @@ function queHacer(resultado: string) {
 export default function AnalisisEntrenamientoPage() {
   const [hoyDia] = useState(hoy);
   const [fecha, setFechaEstado] = useState(() => {
-    const pedida = deLaDireccion("fecha");
+    /* ?fecha= o ?dia= (19/11/2026: así enlazan el microciclo y el calendario). */
+    const pedida = deLaDireccion("fecha") ?? deLaDireccion("dia");
 
     return pedida && /^\d{4}-\d{2}-\d{2}$/.test(pedida) ? pedida : hoyDia;
   });
@@ -343,7 +344,7 @@ export default function AnalisisEntrenamientoPage() {
   const [editadas, setEditadas] = useState<Record<string, SesionEntreno>>({});
 
   /* Elegir un día a mano manda: el salto automático al último día con sesión ya no lo pisa. */
-  const [saltoHecho, setSaltoHecho] = useState(() => deLaDireccion("fecha") !== null);
+  const [saltoHecho, setSaltoHecho] = useState(() => (deLaDireccion("fecha") ?? deLaDireccion("dia")) !== null);
   /* Se abrió en otro día porque hoy no tiene objetivos: se dice junto a la tira. */
   const [saltoDesdeHoy, setSaltoDesdeHoy] = useState(false);
   const setFecha = (f: string) => {
@@ -712,7 +713,7 @@ export default function AnalisisEntrenamientoPage() {
 
             {saltoDesdeHoy && fecha !== hoyDia ? (
               <p className="-mt-2 text-xs text-white/55">
-                Hoy aún sin objetivos: se abre el {ddmm(fecha)}, el último día con trabajo.{" "}
+                Último día analizado: {ddmm(fecha)}.{" "}
                 <button type="button" onClick={() => setFecha(hoyDia)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
                   Ir a hoy
                 </button>

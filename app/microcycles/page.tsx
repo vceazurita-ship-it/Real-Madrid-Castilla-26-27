@@ -2959,10 +2959,11 @@ export default function Page() {
                             <div className="flex flex-wrap items-baseline justify-between gap-x-2 text-xs">
                               <span className="text-white/60">{d.metric}</span>
                               <span className="font-semibold text-[#C8A96B]">
-                                {fmt1(d.value)}
+                                {/* Notas con un decimal siempre (19/11/2026): «7,0», no «7». */}
+                                {fmtDec(d.value)}
                                 {ref ? (
                                   <span className="ml-1.5 font-normal text-white/55">
-                                    {firme ? `· media ${fmt1(ref.media)} en ${ref.n} micros` : `· tendencia · ${ref.n} de ${ref.de} micros con dato`}
+                                    {firme ? `· media ${fmtDec(ref.media)} en ${ref.n} micros` : `· tendencia · ${ref.n} de ${ref.de} micros con dato`}
                                   </span>
                                 ) : null}
                               </span>
@@ -3114,7 +3115,7 @@ export default function Page() {
                       const fila = (rotulo: string, d: { micro: string; value: number; rival: string }) => (
                         <div key={rotulo} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
                           <p className="text-[11px] font-semibold uppercase tracking-[0.12em] text-white/50">{rotulo}</p>
-                          <p className="text-lg font-semibold tabular-nums text-[#C8A96B]">{fmt1(d.value)}</p>
+                          <p className="text-lg font-semibold tabular-nums text-[#C8A96B]">{fmtDec(d.value)}</p>
                           <p className="truncate text-[12px] text-white/60">
                             {d.micro}
                             {d.rival ? ` · ${nombreEquipo(d.rival)}` : ""}

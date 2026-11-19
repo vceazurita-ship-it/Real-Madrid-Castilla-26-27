@@ -473,12 +473,24 @@ function queHacemosConCentros(
   const deCalidad =
     aciertoRecibe && metaCalidad != null
       ? /* 17/11/2026 (ronda 19, jueces de análisis): «mantener o subir» frente a lo que le hacen sus rivales, en la misma unidad, sin repetir la cifra. */
-        nuestros.precisos != null && nuestros.precisos >= aciertoRecibe.valor
+        /* 19/11/2026 (fútbol): con la misma cifra (36,5 % y 36,5 %) no se dice «por encima de»; se dice que coincide. */
+        nuestros.precisos != null && Math.abs(nuestros.precisos - aciertoRecibe.valor) < 0.5
+        ? ` y, en acierto, mantener nuestro ${cifra1(nuestros.precisos, aciertoRecibe.unidad)} de centros que llegan a un rematador (el mismo acierto que tienen contra él sus rivales)`
+        : nuestros.precisos != null && nuestros.precisos >= aciertoRecibe.valor
         ? ` y, en acierto, mantener o subir nuestro ${cifra1(nuestros.precisos, aciertoRecibe.unidad)} de centros que llegan a un rematador, por encima del ${cifra1(aciertoRecibe.valor, aciertoRecibe.unidad)} que le hacen sus rivales`
         : ` y, en acierto, subir${nuestros.precisos != null ? ` de nuestro ${cifra1(nuestros.precisos, aciertoRecibe.unidad)}` : ""} al ${cifra1(metaCalidad, aciertoRecibe.unidad)} de centros que llegan a un rematador, lo que le hacen sus rivales`
       : "";
   /* La cantidad, tampoco por debajo de la nuestra. */
   const metaCentros = (n: number) => Math.max(n, nuestros.centros ?? 0);
+  /*
+  | 19/11/2026 (fútbol): «subir de 14,2 a 14,3 centros» no es un objetivo.
+  | Si la meta queda a menos de un centro por partido de lo que ya hacemos,
+  | el objetivo de volumen se quita y manda el de acierto.
+  */
+  const volumenObjetivo = (n: number, porDefecto: string) =>
+    nuestros.centros != null && recibe && metaCentros(n) - nuestros.centros < 1
+      ? `mantener nuestros ${cifra1(nuestros.centros, recibe.unidad)} centros por partido`
+      : `${objetivoCentros(metaCentros(n), recibe?.unidad ?? "decimal")}, ${porQueMeta(n, porDefecto)}`;
   const porQueMeta = (n: number, porDefecto: string) =>
     nuestros.centros != null && nuestros.centros > n
       ? `mantener los que ya hacemos nosotros${recibe ? ` (a él le hacen ${cifra1(recibe.valor, recibe.unidad)} por partido sus rivales)` : ""}`
@@ -492,7 +504,7 @@ function queHacemosConCentros(
       ? {
           rotulo: "Nuestro ataque · cuando les centramos",
           frase: `como ${cuantoAcierta}, defienden mal el centro: atacar el área con centro y tres rematadores`,
-          tarea: `centro lateral con tres rematadores atacando primer palo, punto de penalti y segundo palo; objetivo en el partido: ${objetivoCentros(metaCentros(Math.max(recibe.valor, recibe.mediana)), recibe.unidad)}, ${porQueMeta(
+          tarea: `centro lateral con tres rematadores atacando primer palo, punto de penalti y segundo palo; objetivo en el partido: ${volumenObjetivo(
             Math.max(recibe.valor, recibe.mediana),
             recibe.valor >= recibe.mediana ? "los que le hacen de media" : "la mediana de la liga",
           )}${deCalidad}`,
@@ -501,7 +513,7 @@ function queHacemosConCentros(
         ? {
             rotulo: "Nuestro ataque · cuando les centramos",
             frase: `como le hacen ${cuantoRecibe}, ${lectura(recibe.percentil, equipos, false, recibe).texto}, atacarle por fuera, con extremo y lateral doblando y tres hombres en el área`,
-            tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${objetivoCentros(metaCentros(recibe.valor), recibe.unidad)}, ${porQueMeta(recibe.valor, "los que le hacen de media")}${deCalidad}`,
+            tarea: `centro lateral tras el doblaje del lateral, con tres en el área; objetivo en el partido: ${volumenObjetivo(recibe.valor, "los que le hacen de media")}${deCalidad}`,
           }
         : cercaDeLaMediana
           ? {
@@ -509,7 +521,7 @@ function queHacemosConCentros(
               frase: defiendeBien
                 ? `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, y ${cuantoAcierta}, defiende bien el centro: probar primero por dentro y centrar sólo con el área cargada`
                 : `como le hacen ${cuantoRecibe}, cerca de lo normal en la liga, alternar el centro con el juego por dentro y centrar con el área cargada (tendencia, no rasgo)`,
-              tarea: `finalización tras centro con tres en el área; objetivo: ${objetivoCentros(metaCentros(recibe.mediana), recibe.unidad)}, ${porQueMeta(recibe.mediana, "la mediana de la liga")}${deCalidad}`,
+              tarea: `finalización tras centro con tres en el área; objetivo: ${volumenObjetivo(recibe.mediana, "la mediana de la liga")}${deCalidad}`,
             }
           : {
               rotulo: "Nuestro ataque · cuando les centramos",
@@ -535,7 +547,7 @@ function queHacemosConCentros(
       : muchos && mal
         ? ["centra mucho pero encuentra poco", "dejarle centrar desde fuera del área, nunca sin presión al que centra, y ganar el área", `defensa del área ante centro desde tres cuartos, con presión al que centra; objetivo: ${
             /* La misma columna que su dato, «centros precisos %» (16/11/2026, 3.ª vuelta). */
-            `que siga por debajo de la mediana de la liga en centros precisos (${cifra1(acierto.mediana, acierto.unidad)}; el mejor centrador de la liga acierta el ${cifra1(acierto.maximo ?? acierto.mediana, acierto.unidad)})`
+            `que siga por debajo de la mediana de la liga en centros precisos (${cifra1(acierto.mediana, acierto.unidad)}; el equipo que mejor centra de la liga acierta el ${cifra1(acierto.maximo ?? acierto.mediana, acierto.unidad)})`
           }`]
         : muchos
           ? ["el centro es una de sus vías", "cerrar el carril exterior y ganar el área", `basculación al carril exterior y defensa del área; objetivo: dejarle en la mediana de la liga (${cifra1(volumen.mediana, volumen.unidad)} centros) o menos`]
@@ -1340,7 +1352,8 @@ export function AbpWyscoutRival({
                   {/* Quién centra a quién, en el rótulo (16/11/2026, ronda 18, análisis): los dos bloques se leían al revés. */}
                   {ambito === "area" && aspecto.clave === "centrosOf" && <span className="mr-1.5 text-[#C8A96B]">Cuando nos centran ·</span>}
                   {ambito === "area" && aspecto.clave === "centrosDef" && <span className="mr-1.5 text-[#C8A96B]">Cuando les centramos ·</span>}
-                  {aspecto.aspecto}
+                  {/* 19/11/2026 (fútbol): en ABP del rival, «Balón parado a favor» se leía como el nuestro: es el SUYO. */}
+                  {ambito === "abp" ? aspecto.aspecto.replace(/^Balón parado/, "Su balón parado") : aspecto.aspecto}
                   {aspecto.filas[0]?.partidos != null && aspecto.filas[0].partidos < 10 && (
                     <span className="ml-2 font-normal normal-case tracking-normal italic text-white/45">
                       tendencia, {aspecto.filas[0].partidos} partidos

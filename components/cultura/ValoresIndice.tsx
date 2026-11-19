@@ -156,7 +156,7 @@ export function ValoresIndice() {
                     {/* 17/11/2026 (marketing): con su base en el título de la tarjeta. */}
                     {anti.conVotos.length > 0
                       ? `Lo destruye · ${anti.conVotos.reduce((t, a) => t + a.votos, 0)} de ${TOTAL_VOTOS_ANTIVALORES} votos`
-                      : "Lo destruye"}
+                      : "Lo destruye · sin votos: lo propone el documento"}
                   </span>
                 )}
                 <span className="mt-1 space-y-1.5">
@@ -280,24 +280,9 @@ export function VotosValores({ compacto = false }: { compacto?: boolean } = {}) 
         )}
       </p>
 
-      {/* 17/11/2026 (marketing): en /team-values, chips con su base en vez de
-          repetir las barras de /identidad-cultura. */}
-      {compacto ? (
-        <ul className="mt-3 flex flex-wrap gap-2">
-          {orden.map((v) => (
-            <li key={v.numero}>
-              <Link
-                href={hrefConductas(v)}
-                title={`Conductas de ${v.titulo}`}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white ${v === primero ? "border-[#C8A96B]/60 bg-[#C8A96B]/10 font-semibold" : "border-white/15"}`}
-              >
-                {v.titulo}
-                <span className="whitespace-nowrap tabular-nums text-gray-400">· {votosDe(v)} de {TOTAL_VOTOS_VALORES}</span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : (
+      {/* 19/11/2026 (tres expertos): también en /team-values, barras con su base;
+          lo primero que se ve es un gráfico, no pastillas de texto. */}
+      {(
       <ol className="mt-3 space-y-2">
         {orden.map((v) => {
           const n = votosDe(v);

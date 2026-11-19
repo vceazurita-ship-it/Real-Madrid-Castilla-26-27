@@ -81,29 +81,35 @@ export function useRatings() {
       setStatus("loading");
       setError("");
 
-      const [ratings, matches] = await Promise.allSettled([
+      /*
+      | 19/11/2026: el calendario ya no bloquea la pantalla. Las notas se
+      | enseñan en cuanto llegan; los partidos de la hoja se suman cuando
+      | lleguen (antes se esperaba a los dos y la hoja dormida la dejaba en
+      | «Cargando» sin fin).
+      */
+      fetchMatches(controller.signal)
+        .then((matches) => {
+          if (!controller.signal.aborted) setCalendar(matches);
+        })
+        .catch(() => {
+          if (!controller.signal.aborted) setError((previous) => previous || "No se ha podido cargar el calendario de partidos.");
+        });
+
+      try {
         /* Recargar a mano (`reloadKey`) salta la copia del aparato. */
-        traeJson<CargaHistorico>(URL_HISTORICO, { forzar: reloadKey > 0 }),
-        fetchMatches(controller.signal),
-      ]);
+        const ratings = await traeJson<CargaHistorico>(URL_HISTORICO, { forzar: reloadKey > 0 });
 
-      if (controller.signal.aborted) return;
+        if (controller.signal.aborted) return;
 
-      if (ratings.status === "fulfilled" && ratings.value?.success && ratings.value.season) {
-        setSeason(ratings.value.season);
-      } else if (ratings.status === "rejected") {
-        setError("No se ha podido cargar el histórico de valoraciones.");
+        if (ratings?.success && ratings.season) setSeason(ratings.season);
+
+        setStatus("ready");
+      } catch {
+        if (controller.signal.aborted) return;
+
+        setError("No se ha podido cargar el histórico de valoraciones. Pulsa «Actualizar» para reintentar.");
+        setStatus("error");
       }
-
-      setCalendar(matches.status === "fulfilled" ? matches.value : []);
-
-      if (matches.status === "rejected") {
-        setError((previous) =>
-          previous || "No se ha podido cargar el calendario de partidos."
-        );
-      }
-
-      setStatus(ratings.status === "rejected" ? "error" : "ready");
     }
 
     load();

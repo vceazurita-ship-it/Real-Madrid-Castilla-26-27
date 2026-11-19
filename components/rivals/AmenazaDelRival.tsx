@@ -113,7 +113,8 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
 
         puntos.push({
           clave: "xg",
-          dato: `${nombre} suma el ${Math.round(primero.pct)} % de su xG (${coma(primero.xg)} en ${Math.round(primero.minutos)}′${primero.xg90 != null ? `, ${coma(primero.xg90)} por 90′` : ""}; Opta, ${reparto.sinPenaltis ? "sin penaltis" : "con penaltis"})`,
+          /* 19/11/2026 (fútbol): «el % de su xG» parecía el del jugador; es el del equipo. */
+          dato: `${nombre} hace el ${Math.round(primero.pct)} % de los goles esperados (xG) de ${equipo} (${coma(primero.xg)} en ${Math.round(primero.minutos)}′${primero.xg90 != null ? `, ${coma(primero.xg90)} por 90′` : ""}; Opta, ${reparto.sinPenaltis ? "sin penaltis" : "con penaltis"})`,
           orden: `marcar a ${nombre} en el área: vigilancia al hombre en el centro y en el segundo palo`,
           jugador: nombre,
         });

@@ -26,7 +26,7 @@
  * a discutir.
  */
 
-import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState } from "react";
+import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import {
@@ -190,7 +190,38 @@ function useEscudosLiga() {
   return mapa;
 }
 
+/*
+| 19/11/2026: la quiniela depende de la hora (cuenta atrás, jornada de hoy,
+| cierre del viernes) y el servidor no está en la hora de Madrid ni en el
+| mismo segundo: React avisaba de hidratación (#418). Se pinta en el aparato;
+| el servidor deja el marco con la carga.
+*/
+const nadaQueOir = () => () => {};
+
 export default function QuinielaPage() {
+  const montado = useSyncExternalStore(nadaQueOir, () => true, () => false);
+
+  if (!montado) {
+    return (
+      <main className="min-h-screen bg-[#0B0F14] text-white">
+        <div className="flex">
+          <Sidebar />
+          <section className="flex min-w-0 flex-1 flex-col">
+            <Topbar />
+            <div className="mx-auto w-full max-w-[1400px] space-y-3 px-4 py-6 md:px-8" aria-label="Cargando la quiniela" aria-busy="true">
+              <div className="h-24 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+              <div className="h-64 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" />
+            </div>
+          </section>
+        </div>
+      </main>
+    );
+  }
+
+  return <Quiniela />;
+}
+
+function Quiniela() {
   const ahora = useAhora();
 
   const escudosLiga = useEscudosLiga();

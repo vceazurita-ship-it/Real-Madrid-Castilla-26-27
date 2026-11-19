@@ -250,6 +250,11 @@ export function pendientesAnteriores({ partidos, hoy, hechas, doc, sesiones }: E
   const todos = alrededorDe(partidos, Date.parse(`${hoy}T12:00:00`)).todos;
 
   const fuera: TareaDelDia[] = [];
+  /* 19/11/2026: la misma tarea del mismo día (dos micros que se solapan) sale
+     una vez, y si una copia está hecha o quitada, ninguna cuenta. Así la
+     ventana, «Tu día» y «Mis tareas» dan la misma cifra. */
+  const resueltas = new Set<string>();
+  const huella = (t: TareaDelDia) => `${t.texto.trim().toLowerCase()}|${t.fecha}`;
 
   todos.forEach((p, i) => {
     const anterior = todos[i - 1]?.cuando ?? null;
@@ -266,14 +271,27 @@ export function pendientesAnteriores({ partidos, hoy, hechas, doc, sesiones }: E
       for (const t of d.tareas) {
         const una = deLaPlantilla(p.cuando, d, t, hechas);
 
-        if (!una.hecha && !doc.quitadas[una.clave]) fuera.push(una);
+        if (una.hecha || doc.quitadas[una.clave]) resueltas.add(huella(una));
+        else fuera.push(una);
       }
     }
   });
 
   for (const t of doc.propias) if (!t.hecha && t.fecha < hoy && t.fecha >= INICIO_AVISOS) fuera.push(dePropia(t));
 
-  return fuera.sort((a, b) => a.fecha.localeCompare(b.fecha) || PESO[a.prioridad] - PESO[b.prioridad]);
+  const vistas = new Set<string>();
+  const unicas = fuera.filter((t) => {
+    const h = huella(t);
+
+    if (t.tipo === "auto" && resueltas.has(h)) return false;
+    if (vistas.has(h)) return false;
+
+    vistas.add(h);
+
+    return true;
+  });
+
+  return unicas.sort((a, b) => a.fecha.localeCompare(b.fecha) || PESO[a.prioridad] - PESO[b.prioridad]);
 }
 
 /* ------------------------------------------------------------------ */

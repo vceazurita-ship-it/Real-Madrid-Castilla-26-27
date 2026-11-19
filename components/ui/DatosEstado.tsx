@@ -18,7 +18,6 @@ import { RefreshCw } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { toast } from "sonner";
 
-import { useAdmin } from "@/hooks/useAdmin";
 import { descartaNuevas, estadoHojas, olvidaTodoElCsv, suscribeHojas } from "@/lib/hojaCsv";
 
 const VACIO = { bajando: 0, deCopia: 0, masVieja: null, hayNuevas: false };
@@ -38,7 +37,6 @@ function haceCuanto(ms: number, ahora: number): string {
 
 export function DatosEstado() {
   const estado = useSyncExternalStore(suscribeHojas, estadoHojas, () => VACIO);
-  const { admin } = useAdmin();
 
   /* El reloj se apunta en un efecto, nunca en el render (regla de pureza). */
   const [ahora, setAhora] = useState(0);
@@ -218,7 +216,8 @@ export function DatosEstado() {
   | analista (sesión de administrador); los demás, un botón discreto con el
   | icono y la explicación al pasar el ratón. Hace lo mismo.
   */
-  if (estado.hayNuevas && admin !== true) {
+  /* 19/11/2026 (tres jueces): también para el analista, el botón discreto; el rótulo largo era lo primero que se veía. */
+  if (estado.hayNuevas) {
     return (
       <button
         type="button"
@@ -284,7 +283,8 @@ export function DatosEstado() {
       >
         <RefreshCw size={12} />
         <span className="hidden sm:inline">
-          {estado.masVieja !== null && ahora > 0 ? `Datos ${haceCuanto(estado.masVieja, ahora)}: no se han podido renovar ·` : "No se han podido actualizar ·"}
+          {/* 19/11/2026 (marketing): qué se ve y que se puede reintentar, sin «no se han podido». */}
+          {estado.masVieja !== null && ahora > 0 ? `Mostrando datos ${haceCuanto(estado.masVieja, ahora)} ·` : "Una hoja tarda ·"}
         </span>{" "}
         Reintentar
       </button>

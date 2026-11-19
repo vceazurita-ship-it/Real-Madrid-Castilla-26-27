@@ -328,16 +328,25 @@ export default function ScoutRivalAbpPage() {
 
     async function load() {
       try {
-        const [dataset, squadResponse] = await Promise.all([
-          loadRivalAbp(),
-          traeJson("/api/rivals?action=rivalesPlantillas", { forzar: intento > 0 }),
-        ]);
+        /*
+        | 19/11/2026: el ABP se pinta en cuanto llega. Las plantillas (Apps
+        | Script, 30-70 s en frío) ya no dejan la pantalla entera en
+        | «Cargando»: mientras no llegan, los equipos salen de las hojas de ABP.
+        */
+        const plantillas = traeJson("/api/rivals?action=rivalesPlantillas", { forzar: intento > 0 });
+        const dataset = await loadRivalAbp();
 
         if (cancelled) return;
 
         setDerived(dataset.events);
         setEquiposHoja(dataset.equipos);
-        setSquad(squadResponse);
+        setLoading(false);
+
+        const squadResponse = await plantillas.catch(() => null);
+
+        if (cancelled) return;
+
+        if (squadResponse) setSquad(squadResponse);
 
         /*
         | Enlace directo desde otra página:
@@ -403,7 +412,8 @@ export default function ScoutRivalAbpPage() {
      ABP: si dependiera de ellas, un rival al que aún no hemos jugado no se
      podría ni seleccionar, que es justo lo que hay que poder hacer. */
   const equiposLiga = useMemo(() => {
-    if (!Array.isArray(squad)) return [];
+    /* Sin plantillas todavía: los equipos de las hojas de ABP, para no enseñar la pantalla vacía. */
+    if (!Array.isArray(squad)) return ordena([...new Set(equiposHoja)], (nombre) => nombre);
 
     const nombres = new Set<string>();
 
@@ -419,7 +429,7 @@ export default function ScoutRivalAbpPage() {
 
     /* Por calendario: el rival de la semana el primero. */
     return ordena([...nombres], (nombre) => nombre);
-  }, [squad, ordena]);
+  }, [squad, ordena, equiposHoja]);
 
   const clavesLiga = useMemo(
     () => new Set(equiposLiga.map(teamKey)),

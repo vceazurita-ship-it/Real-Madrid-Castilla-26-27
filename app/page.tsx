@@ -1050,6 +1050,10 @@ export default function Home() {
               </div>
             </div>
 
+            {/* 19/11/2026 (fútbol): de MD-4 a MD-1, «el rival frente a nosotros» va
+                justo detrás del próximo partido, antes de «Tu día» y los atajos. */}
+            {rivalSemana ? <OptaPortada /> : null}
+
             {/* ======================= TU DÍA Y MESA DE TRABAJO ================= */}
 
             {/* 13/11/2026: el directo de Opta de un toque (lanza y lleva a verlo). */}
@@ -1074,10 +1078,7 @@ export default function Home() {
               encima del 3D; el resto de la semana, el 3D primero.
             */}
             {rivalSemana ? (
-              <>
-                <OptaPortada />
-                <UltimoPartido3D />
-              </>
+              <UltimoPartido3D />
             ) : (
               <>
                 <UltimoPartido3D />
@@ -1220,4 +1221,4 @@ export default function Home() {
       </div>
     </main>
   )
-}
+}

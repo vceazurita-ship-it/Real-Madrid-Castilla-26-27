@@ -6,8 +6,10 @@
  * Montado en el layout, sólo para el administrador: al abrir la app (en
  * cualquier pantalla) mira «Mis tareas» y, si queda algo sin hacer de días
  * anteriores, lo enseña con «Marcar hecha», «Pasar a hoy» e «Ir a mis tareas».
- * Sale una vez por sesión del navegador (cerrarlo cuenta como visto); al
- * volver a entrar otro día, o en otra ventana, vuelve a mirar.
+ * 19/11/2026 (revisión de expertos: tapaba casi todas las pantallas al
+ * entrar): la ventana sale sólo en la portada; en el resto de pantallas es una
+ * franja pequeña abajo que no tapa nada. Sale una vez al día por aparato
+ * (localStorage): cerrarla cuenta como visto hasta mañana.
  *
  * Cuenta lo mismo que el correo de las 7:00 (`pendientesAnteriores`).
  */
@@ -37,7 +39,7 @@ const VISTO = "rmcf-tareas-pendientes-visto";
 
 const yaVisto = (hoy: string) => {
   try {
-    return window.sessionStorage.getItem(VISTO) === hoy;
+    return window.localStorage.getItem(VISTO) === hoy;
   } catch {
     return false;
   }
@@ -45,7 +47,7 @@ const yaVisto = (hoy: string) => {
 
 const marcaVisto = (hoy: string) => {
   try {
-    window.sessionStorage.setItem(VISTO, hoy);
+    window.localStorage.setItem(VISTO, hoy);
   } catch {
     /* Sin almacenamiento, sale en cada carga: mejor eso que nunca. */
   }
@@ -57,10 +59,13 @@ export function AvisoTareasPendientes() {
 
   if (!admin || ruta?.startsWith("/login")) return null;
 
-  return <Vigia />;
+  /* Ni en las pizarras (proyector) ni en Tareas y alertas, que ya es la pantalla de tareas. */
+  if (ruta && ["/pizarra-tactica", "/abp-pizarra", "/alertas", "/laboratorio/abp"].some((r) => ruta.startsWith(r))) return null;
+
+  return <Vigia enPortada={ruta === "/"} />;
 }
 
-function Vigia() {
+function Vigia({ enPortada }: { enPortada: boolean }) {
   const [hoy, setHoy] = useState("");
 
   /* Se mira un poco después de entrar, para no competir con la carga de la pantalla. */
@@ -88,18 +93,35 @@ function Vigia() {
 
   if (!hoy) return null;
 
-  return <Aviso hoy={hoy} cerrado={cerrado} alCerrar={cierra} />;
+  return <Aviso hoy={hoy} cerrado={cerrado} alCerrar={cierra} enPortada={enPortada} />;
 }
 
-function Aviso({ hoy, cerrado, alCerrar }: { hoy: string; cerrado: boolean; alCerrar: () => void }) {
+function Aviso({ hoy, cerrado, alCerrar, enPortada }: { hoy: string; cerrado: boolean; alCerrar: () => void; enPortada: boolean }) {
   const { partidos, cargando: sinCalendario } = useCalendario();
   const { sesiones, listo } = useSesionesDelMicro();
   const { hechas, doc, cambiaHechas, cambiaDoc, cargando } = useMisTareas();
 
-  const pendientes = useMemo(
+  const todas = useMemo(
     () => (partidos.length && listo && !cargando ? pendientesAnteriores({ partidos, hoy, hechas, doc, sesiones }) : null),
     [partidos, listo, cargando, hoy, hechas, doc, sesiones],
   );
+
+  /* La misma tarea del mismo día una sola vez (19/11/2026: salían repetidas
+     «Crear la pizarra de ABP del partido»); marcarla marca todas sus copias. */
+  const grupos = useMemo(() => {
+    const m = new Map<string, TareaDelDia[]>();
+
+    for (const t of todas ?? []) {
+      const clave = `${t.texto.trim().toLowerCase()}|${t.fecha}`;
+
+      m.set(clave, [...(m.get(clave) ?? []), t]);
+    }
+
+    return m;
+  }, [todas]);
+
+  const pendientes = useMemo(() => (todas ? [...grupos.values()].map((g) => g[0]) : null), [todas, grupos]);
+  const copias = (t: TareaDelDia) => grupos.get(`${t.texto.trim().toLowerCase()}|${t.fecha}`) ?? [t];
 
   /* Lo que había al abrir: si se resuelve todo, se dice y se cierra. */
   const [habia, setHabia] = useState<number | null>(null);
@@ -124,23 +146,65 @@ function Aviso({ hoy, cerrado, alCerrar }: { hoy: string; cerrado: boolean; alCe
   if (!abierto || !pendientes) return null;
 
   const marca = (t: TareaDelDia) => {
-    if (t.tipo === "auto") cambiaHechas((h) => alternaHechaAuto(h, t.clave, true));
-    else cambiaDoc((d) => alternaHechaPropia(d, t.id, true));
+    for (const c of copias(t)) {
+      if (c.tipo === "auto") cambiaHechas((h) => alternaHechaAuto(h, c.clave, true));
+      else cambiaDoc((d) => alternaHechaPropia(d, c.id, true));
+    }
   };
 
   const aHoy = (t: TareaDelDia) => {
-    const id = nuevoId();
+    const lista = copias(t);
+    const ids = lista.map(() => nuevoId());
 
-    cambiaDoc((d) => edita(d, t, { fecha: hoy }, id));
+    cambiaDoc((d) => lista.reduce((acc, c, i) => edita(acc, c, { fecha: hoy }, ids[i]), d));
   };
 
   const todasAHoy = () => {
-    const ids = pendientes.map(() => nuevoId());
+    const lista = todas ?? [];
+    const ids = lista.map(() => nuevoId());
 
-    cambiaDoc((d) => pendientes.reduce((acc, t, i) => edita(acc, t, { fecha: hoy }, ids[i]), d));
+    cambiaDoc((d) => lista.reduce((acc, t, i) => edita(acc, t, { fecha: hoy }, ids[i]), d));
   };
 
+  if (!enPortada) return <Franja n={pendientes.length} alCerrar={alCerrar} />;
+
   return <Ventana pendientes={pendientes} alCerrar={alCerrar} marca={marca} aHoy={aHoy} todasAHoy={todasAHoy} />;
+}
+
+/* Fuera de la portada: una franja abajo, sin velo, que no tapa el trabajo. */
+function Franja({ n, alCerrar }: { n: number; alCerrar: () => void }) {
+  /* Se va sola a los 8 s (19/11/2026: aun pequeña tapaba pestañas y fichas de
+     la pizarra); cuenta como vista hasta mañana. La cifra sigue en «Tu día». */
+  useEffect(() => {
+    const id = setTimeout(alCerrar, 8000);
+
+    return () => clearTimeout(id);
+  }, [alCerrar]);
+
+  return (
+    <div
+      role="status"
+      data-export-hide
+      className="siempre-oscuro fixed inset-x-0 bottom-3 z-[60] mx-auto flex w-fit max-w-[calc(100vw-24px)] items-center gap-2 rounded-full border border-white/12 py-1.5 pl-3 pr-1.5 shadow-[0_10px_30px_rgba(0,0,0,.35)]"
+      style={{ background: "#11161D" }}
+    >
+      <AlertTriangle className="h-4 w-4 shrink-0 text-red-300" />
+      <span className="text-sm text-white/90">{n === 1 ? "1 tarea atrasada" : `${n} tareas atrasadas`}</span>
+      <Link
+        href="/?tareas=1"
+        onClick={() => {
+          window.dispatchEvent(new Event(EVENTO_ABRIR));
+          alCerrar();
+        }}
+        className="inline-flex min-h-9 items-center rounded-full bg-[#D8B45A] px-3 text-sm font-semibold text-[#0B0F14] sm:min-h-8"
+      >
+        Ver
+      </Link>
+      <button type="button" onClick={alCerrar} aria-label="Cerrar el aviso" className="inline-flex h-9 w-9 items-center justify-center rounded-full text-white/60 hover:text-white sm:h-8 sm:w-8">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
 }
 
 function Ventana({

@@ -116,6 +116,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (19/11/2026): ocasiones que concede el rival",
         filas: [
+          { que: "Lectura del campograma", es: "La frase conserva las siglas («xG a favor», no «xg a favor»)" },
           { que: "Ocasiones que concede · cuántas y de qué calidad", es: "En Rival y categoría → Un equipo de un vistazo, debajo de la clasificación justa. Un punto por equipo de nuestro grupo: a la derecha, más remates concedidos por partido; arriba, más xG vale de media cada remate que le hacen. Las rayas son la media de la liga y dejan cuatro cuadrantes: «concede mucho y peligroso», «concede mucho pero lejos» (no basta con llegar: hay que pisar el área), «concede poco pero claro» (paciencia, esperar la ocasión buena) y «sólido». En azul el próximo rival (o el que se elija en «Equipo» o pinchando su punto) y en oro el Castilla; el titular dice en qué cuadrante cae y qué hacer contra él. Debajo, el mapa de los remates que concede ese equipo (rojo dentro del área, azul fuera; tamaño = xG; aro blanco = gol) con el % de cada zona y su xG por remate frente a la liga", cuenta: "Opta, opta:remates (cada remate con sus x/y y su xG, de lib/opta-eventos.ts), sólo partidos entre dos equipos del grupo del Castilla y sin penaltis. Remates concedidos por partido = remates que le hacen / partidos en que aparece; xG por remate = xG concedido / remates concedidos. Las líneas = media de los equipos del grupo; un equipo en la línea o por encima cuenta como «mucho» o «peligroso». Dentro del área = x ≥ 83 e y entre 21,1 y 78,9; el % de la liga es el de todos sus remates concedidos juntos. Con menos de 5 partidos, tendencia. Las cuentas, en lib/data-analisis/ocasiones-concedidas.ts; el próximo rival, del calendario de BeSoccer" },
         ],
       },
@@ -373,11 +374,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Microciclos",
     resumen: "Cada tarea de cada sesión, con su contenido, su carga y su valoración, micro a micro.",
     origen: "Hoja de microciclos, una fila por tarea (la escribe el cuerpo técnico). Los equipos del día, de Jugadores sesión; lo medido en la sesión, del análisis de entrenamiento. El micro de hoy y el MD de cada día, de la regla común de las cuatro pantallas de planificación (lib/microciclo/semana-de-hoy.ts).",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "La tira de microciclos",
         filas: [
+          { que: "Notas", es: "Las notas de las tareas, siempre con un decimal (7,0), también Mejor, Peor y Último" },
           { que: "Micro N · rival", es: "Una tarjeta por semana, la última primero; pulsarla filtra la pantalla entera. «Todos» = la temporada. El degradado de la derecha avisa de que hay más tarjetas" },
           {
             que: "Abre en el micro de hoy",
@@ -998,11 +1000,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Dashboard Seguimiento",
     resumen: "Cuánto se sigue a cada jugador de campo del Castilla, quién lo hace y de qué se le habla, en toda la temporada.",
     origen: "Hoja de seguimiento (una fila por registro, por el Apps Script) cruzada con la plantilla de la hoja JUGADORES. Cuenta toda la temporada (el corte del 21/10 es sólo de las sesiones de entrenamiento) y nada fechado después de hoy. Los filtros de estrategia leen cada parte: «VÍDEO» trae también los de «VÍDEO Y CHARLA». El de entrenador ofrece a cada autor suelto y casa por «incluye a»: «JULIÁN» trae los de «JULIÁN Y MIGUEL» y los de «TODOS» (todo el cuerpo técnico).",
-    revisada: "2026-11-17",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "A quién cuenta",
         filas: [
+          { que: "Cifras", es: "Los porcentajes, siempre a un decimal; el pico semanal dice la semana con su mes («semana del 21 – 27 sep»)" },
           { que: "Jugadores de campo del Castilla", es: "Sólo licencia del Castilla y sin porteros (puesto PORTERO, 1 o 13), que llevan un registro independiente; los del RMC y del juvenil llevan su seguimiento en su equipo. La misma población y la misma cuenta que Plantilla y Calendario de Seguimiento", cuenta: "El filtro va antes de todo: cifras, gráficos, listas y CSV" },
           { que: "El nombre manda sobre el ID", es: "Cada registro se ata a su jugador por nombre: los JUG-XX se han renumerado" },
           { que: "Filtros", es: "Jugador, posición y entrenador, siempre a la vista; estrategia, modalidad, momento, mes y semana van en «Más filtros» (se abre solo si hay alguno puesto)", cuenta: "Semana de temporada: de lunes a domingo, desde la del 8 de julio" },
@@ -1086,11 +1089,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Valoraciones de partido",
     resumen: "La nota que el cuerpo técnico pone a cada jugador en cada partido y lo que sale de ella: ranking, campograma, comparativa e histórico.",
     origen: "Supabase (tabla match_ratings, temporada 2026-2027); los partidos, de la hoja del calendario (la misma que Planes de partido). Minutos, titularidad, goles, asistencias y tarjetas los rellena cada noche BeSoccer (scripts/valoraciones-besoccer.mjs); la nota, las áreas y el comentario, sólo el cuerpo técnico.",
-    revisada: "2026-11-17",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Registrar",
         filas: [
+          { que: "Carga", es: "Las notas se enseñan en cuanto llegan (copia del aparato); los partidos del calendario se suman después. Los contadores de arriba salen sólo cuando hay partidos valorados" },
           { que: "Partido", es: "Se elige la jornada del calendario; «Añadir partido» crea uno a mano (amistoso, copa…)" },
           { que: "Nota", es: "De 0 a 10 por jugador; «Sin valorar» es una decisión tomada y no entra en ninguna media" },
           { que: "Titular", es: "Pone 90′ si aún no hay minutos" },
@@ -1282,11 +1286,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Análisis de goles",
     resumen: "Lo primero, los goles del equipo elegido (el próximo rival por defecto) en el campo y en vídeo; debajo, sus goles y los de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
     origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. «En el campo»: los remates uno a uno de Opta (doc opta:remates). Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Lo primero: sus goles en el campo y en vídeo (18/11/2026)",
         filas: [
+          { que: "Tarjetas de remates", es: "Salen siempre de todos los remates (del partido elegido, si lo hay); «Sólo goles» filtra el mapa y la lista, no las cifras. «Por partido» divide entre los partidos de la selección" },
           {
             que: "Qué es",
             es: "Arriba del todo, con el equipo elegido (el próximo rival si no se elige otro o no llega ?equipo= en el enlace): sus goles en el campograma de remates de Opta y, pegado (a la derecha; en el móvil, debajo del campo), el reproductor «Ver de seguido los N goles» con la lista para ver uno suelto. Pinchar un gol en el campo lo reproduce; si ese gol aún no tiene vídeo, se dice. Antes eran la pestaña «En el campo» del Detalle y «Sus goles en vídeo» al final de Visual: ahora es un solo bloque y lo de abajo (Visual o Detalle) es el detalle",
@@ -1667,6 +1672,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (19/11/2026): cómo define el delantero rival",
         filas: [
+          { que: "Reparto del xG", es: "«Hace el N % de los goles esperados (xG) del equipo»: la parte del xG del equipo que lleva ese jugador (Opta)" },
           {
             que: "«Cómo define», en la ficha",
             es: "Para delanteros y mediapuntas, debajo de «Cómo juega»: su punto (en color) en la nube de goles/90 frente a xG/90 de los delanteros de la categoría (en gris), con la diagonal goles = xG: por encima marca más de lo que dicen sus ocasiones. Al lado, goles/90 y xG/90, su xG medio por remate y su % de remates desde fuera del área, cada uno con la mediana de los delanteros. Una etiqueta lo resume con su orden: «Tira de lejos» (salirle al borde), «Define por encima de lo esperado» (ni medio metro en el área), «Necesita ocasiones claras» (sin espacio dentro del área, desde fuera apenas hace daño) o, si no es nada de eso, «Marca lo que dicen sus ocasiones». Si no es delantero ni mediapunta en Opta, o no se le encuentra, no sale",
@@ -1963,11 +1969,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
+          { que: "Su balón parado", es: "Las tarjetas de Wyscout dicen «Su balón parado a favor / en contra»: son las del rival, no las nuestras" },
+          { que: "Carga", es: "El balón parado se pinta en cuanto llega; mientras llegan las plantillas (Apps Script), los equipos salen de las hojas de ABP" },
           { que: "En todas", es: "Misma idea visual que la publicación de X de la que salió, con la letra del club (Barlow Condensed) en el titular y las cifras, la tarjeta de la app (canto y sombra, día y noche) y una entrada suave. Los datos y las cuentas no cambian" },
           { que: "Sus lanzadores de penalti", es: "Cada lanzador en su tarjeta con el nombre grande y «goles/penaltis marcados» arriba a la derecha (todos sus penaltis en Opta, esta temporada y las anteriores); la portería lleva red y los tiros aparecen uno a uno" },
           { que: "Cómo saca el córner", es: "Las líneas de cada córner se dibujan desde el banderín al llegar; la zona que más repite va de titular (la zona, el lado y su %)" },
@@ -2066,11 +2074,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Sus centros laterales: cuánto centran y con qué acierto, cuántos reciben, qué hacemos en cada caso y las láminas de la jornada.",
     origen:
       "Wyscout (sus centros frente a los equipos de la liga), el texto del Scout Colectivo para contrastar y la carpeta de centros de cada jornada, con las láminas que se dibujan aquí (Supabase).",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
+          { que: "Objetivo de centros", es: "Si la meta queda a menos de un centro por partido de lo que ya hacemos, no hay objetivo de volumen: se mantiene y manda el acierto. Con el mismo acierto que le hacen sus rivales, se dice que coincide" },
           { que: "Tira de accesos del rival (17/11/2026)", es: "A la vista, el vídeo del rival (sus goles, cómo le marcan, su último partido), ⬇ Clips de Hudl si los hay, Plan de partido, Duelos y ABP; el resto de pantallas del rival, en «Más», con el rival ya puesto" },
           { que: "Por dónde ataca · el centro", es: "Quién carga el carril central sale de centros, regates y pases al área; las acciones progresivas (que suman los centrales) sólo si no hay nada más" },
         ],
@@ -2149,11 +2158,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Desplazamiento de Partido",
     resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
     origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap; la distancia y el tiempo de Valdebebas al estadio, de la ruta de OSRM (o de la memoria de trayectos del analista).",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Lo primero de la pantalla",
         filas: [
+          { que: "Carga", es: "El calendario y la hoja RIVALES salen de la copia del aparato y se renuevan por detrás: abre al momento aunque la hoja esté dormida" },
           { que: "Accesos de arriba (18/11/2026)", es: "«Cómo son sus goles» es un botón como los de al lado (en el móvil era texto suelto). Los jugadores no ven «Plan de partido»" },
           { que: "Al entrar", es: "Abre el próximo partido; los demás siguen en el selector (✓ = viaje ya guardado). Copiar de otro viaje, Plan de partido, Informe del rival, Sus goles en vídeo (en el pop-up de la portada, 18/11/2026, con «Cómo son sus goles ›» al lado, a Análisis de goles), Su ABP y Su plantilla van en una sola fila, siempre con el rival de ese viaje ya elegido (por su fila de la hoja RIVALES o, sin ella, por su nombre); en el móvil, en una rejilla de dos columnas. El único botón de la cabecera es «Sacar los documentos»; con el horario aún propuesto, al lado, en texto, «Propuesta · aún sin guardar»" },
           { que: "Titular y chapa", es: "El titular dice sólo el viaje («Viaje a Gimnàstic de Tarragona · viernes 13, 21:15»); debajo, una chapa de color con cómo va («El horario no cuadra · 2 errores · 1 aviso»). Pinchándola se abre «Cómo va el viaje». Si lo único que queda son datos por completar, la chapa no sale: eso lo cuenta sólo «Cómo va el viaje»", cuenta: "Rojo si hay errores, ámbar si sólo avisos y verde si está todo; los mismos recuentos que «Cómo va el viaje»" },
@@ -2398,11 +2408,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Cómo se rellena",
         filas: [
+          { que: "Carga", es: "Se pinta en el aparato, porque depende de la hora de Madrid (cuenta atrás, jornada de hoy); el servidor deja el marco con la carga" },
           { que: "Registrarme (18/11/2026)", es: "Darse de alta pide también el código del cuerpo técnico, que pone Víctor en Ajustes → Acceso: con la cuenta se entra en toda la plataforma" },
           { que: "Entrar", es: "Con tu correo. La primera vez, «Registrarme»: la contraseña es lo que va antes de la @, y conviene cambiarla. Cada uno pone sólo lo suyo" },
           { que: "Guardar mi apuesta", es: "Marcar un signo no guarda nada: se guarda con el botón, y se cambia las veces que haga falta hasta el cierre" },
@@ -2583,11 +2594,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Antes de entrar",
         filas: [
+          { que: "Día que abre", es: "?fecha= o ?dia= abren ese día; sin él, el último día analizado, dicho arriba («Último día analizado: 04/11») con «Ir a hoy»" },
           { que: "Registrarme (18/11/2026)", es: "Darse de alta pide también el código del cuerpo técnico, que pone Víctor en Ajustes → Acceso" },
           { que: "Entra con tu cuenta del staff", es: "El correo, la contraseña y un solo botón «Entrar». Sólo puede registrarse el cuerpo técnico. Si el aparato ya tiene la cuenta del staff, el formulario no sale: se abre el análisis directamente" },
           { que: "Titular", es: "«Qué cumplió cada jugador en la sesión»; el nombre de la pantalla va en la línea de arriba" },
@@ -2688,6 +2700,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El próximo partido",
         filas: [
+          { que: "Orden en la semana del partido", es: "De MD-4 a MD-1, «el rival frente a nosotros» va justo detrás del próximo partido; las tareas atrasadas se cuentan igual en la ventana, en «Tu día» y en «Mis tareas» (la misma tarea del mismo día, una vez)" },
+          { que: "Aviso de tareas atrasadas", es: "La ventana sale sólo en la portada y una vez al día; en las demás pantallas es una franja pequeña abajo, con «Ver», que no tapa nada. La misma tarea del mismo día sale una sola vez (marcarla marca sus copias)" },
           { que: "En el móvil y la tableta (19/11/2026)", es: "Las tareas pendientes ponen sus botones debajo del texto (antes el título se partía en una palabra por línea), la casilla de «hecha» se acierta con el dedo y los rótulos pequeños suben a 11 px" },
           { que: "Hoy MD-n · Jornada · Temporada", es: "La chapa dorada dice en qué día de la semana de trabajo estamos («· libre» si hoy no hay sesión); al lado, en una línea, la jornada y la temporada" },
           { que: "Cómo se ve (16/11/2026)", es: "Todos los bloques son tarjetas con el mismo canto, el mismo radio y la misma sombra, en día y en noche; lo que se pulsa sube un poco y se le dora el borde. Títulos y cifras grandes con la letra del club (Barlow Condensed), cada cifra con su base debajo, e iconos de la misma familia. Orden: el partido y el rival; el directo, tu día y los atajos; los datos destacados; el último partido en 3D y Opta (de MD-4 a MD-1, Opta va antes que el 3D: esos días manda el rival); y el equipo en cifras" },
@@ -3161,6 +3175,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Los valores",
         filas: [
+          { que: "Lo destruye", es: "Si ningún antivalor de ese valor tiene votos, lo dice: «sin votos: lo propone el documento»" },
           { que: "El titular", es: "Cuántos valores se votaron y cuál fue el más votado, con sus votos sobre el total", cuenta: "Sale del propio documento de valores: si cambia el recuento, cambia el titular" },
           { que: "La barra de acciones", es: "Una sola fila bajo el titular: Descargar en PDF, Descargar en PowerPoint, «Proyéctalo en la charla», la hoja de ruta de la cultura (/team-values) y el seguimiento de los jugadores; sin tarjeta aparte del documento, para que la vista previa empiece antes" },
           { que: "Las cinco láminas", es: "Un valor por lámina: su número, «Lo votaron» (barra de oro con N de 32 votos) y «Lo destruye · N de 55 votos» (con su base en el título; barra granate por antivalor con sus votos; el nombre entero, a dos líneas si no cabe). Pulsar una lámina abre su diapositiva de conductas en la vista previa; «Seguimiento →» lleva al seguimiento de los jugadores", cuenta: "Es el único recuento completo de la app; /team-values enlaza aquí. La cabecera da las dos bases: votos a los valores y votos a los antivalores, contados aparte" },
@@ -3190,7 +3205,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-19",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -3203,6 +3218,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las cifras del mes",
         filas: [
+          { que: "Registros repetidos", es: "Un registro copiado en la hoja (mismo jugador, día, autor y contenido; sólo cambia el ID) se pinta una vez. «MD-n» y el recuento del día van en una sola línea" },
           { que: "Seguimientos en (mes)", es: "Registros del mes de los jugadores de campo del Castilla; si es el mes en curso, hasta hoy", cuenta: "Debajo, cuántos más o menos que el mes anterior al mismo día (o entero), lo programado después de hoy y la temporada hasta hoy (la misma cuenta que el Dashboard Seguimiento). Lo de otros equipos (RMC, juvenil y demás licencias que entrenan con nosotros) va aparte, este mes y en la temporada. Los porteros no cuentan: llevan un registro independiente y sus registros no se pintan" },
           { que: "Jugadores con seguimiento", es: "«N de M»: jugadores de campo del Castilla con algún registro ese mes, sobre todos ellos; el pie dice la base («de los 18 jugadores de campo del Castilla, sin porteros»)", cuenta: "Debajo, cuántos de otros equipos además" },
           { que: "Por tipo", es: "Registros del mes de los de campo del Castilla (la base va al pie) por estrategia, en una columna en pantallas estrechas: Campo, Vídeo, Charla, Vídeo y charla, Sin tipo escrito", cuenta: "Se lee de la columna ESTRATEGIA; «Sin tipo escrito» es lo que no trae ninguna de esas palabras" },
@@ -3228,7 +3244,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Aquí sólo se lee; los seguimientos se escriben desde la ficha individual.",
       "La leyenda de los tipos va encima del mes, no al pie (16/11/2026).",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-19",
   },
   /* ==================== CALENDARIO DE OPERATIVA GENERAL (12/11/2026) ==================== */
   {
@@ -3318,11 +3334,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "Las cifras del mes",
         filas: [
+          { que: "Rival en la casilla", es: "Nombre corto en una línea; el nombre entero, al pasar el ratón" },
           { que: "Aviso de la semana", es: "Bajo el titular, en una tarjeta ámbar: la lectura de la carga (qué MD se ha movido, los días a vigilar del micro de hoy y la carga cognitiva). Antes iba en letra de nota al pie" },
           { que: "Carga física por entreno del mes", es: "Antes del calendario: una barra por entreno hecho, coloreada por su MD, con la raya de la media de ese MD en la temporada; al lado, la media del mes frente a la del anterior en los mismos días. El título dice la conclusión («Más carga por entreno que en octubre: 230 UA frente a 194»)", cuenta: "UA de un día = suma de la «Carga Ponderada» de sus tareas de entreno. Media de un MD = media de sus días con carga en la temporada (3 o más)" },
           { que: "Titular", es: "Corto, con su base: «Noviembre: carga física +19 %, cognitiva −25 % · 6 entrenos · tendencia» («tendencia» con menos de 25 entrenos por lado). Debajo, el resto de la base: entrenos, volumen y contra qué días se compara" },
@@ -3410,6 +3427,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las etapas",
         filas: [
+          { que: "Votación", es: "Barras horizontales con «n de 32» por valor (las mismas de Identidad y Cultura), cada una lleva a sus conductas; el recuento con los antivalores está en Identidad y Cultura" },
           { que: "Marco, Planificación, Semana 1-4", es: "Las etapas de la hoja de ruta, con cuántos contenidos tiene cada una (rail en escritorio)" },
           { que: "Línea de proceso", es: "Las seis etapas en orden bajo el titular, con su fecha si la hoja la trae: la que se ve en oro, las ya hechas teñidas; pulsar una la abre" },
           { que: "Hoy", es: "Si la hoja trae FECHA, la etapa en la que está la plantilla lleva «Hoy» y la pantalla abre en ella (salvo que la dirección traiga #etapa)", cuenta: "La última etapa cuya fecha ya ha llegado; FECHA como «17/11/2026», «17/11» o «2026-11-17»" },
@@ -3442,7 +3460,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
     ],
-    revisada: "2026-11-17",
+    revisada: "2026-11-19",
   },
 
   /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */
@@ -3579,6 +3597,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
+          { que: "A balón parado", es: "Frontales y laterales no se solapan: una frontal no cuenta además como lateral, así que la suma da las faltas a favor en campo rival" },
           { que: "Datos hasta la J·", es: "Una línea: la última jornada con faltas, su rival y fecha, y cuántos partidos hay. Desde el 17/11/2026 cuenta también los partidos del respaldo de Opta («Etiquetado propio y Opta»), con el mismo número que el selector. Lo que aún no tiene dato no se nombra" },
           { que: "Partido", es: "Un desplegable con las jornadas (las etiquetadas y las de Opta, un nombre por equipo), la última arriba (abre en ella), y «de N partidos». Un partido de Opta con la misma jornada y el mismo club que uno etiquetado no entra dos veces" },
           { que: "N faltas en la J·", es: "El chip junto a los mandos cuenta las faltas del partido elegido con el lado y lo pinchado, no las de la temporada" },
@@ -3626,7 +3645,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
       "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
     ],
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
   },
 
   /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
@@ -3755,11 +3774,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Crear o editar el microciclo",
     resumen: "Preparar la semana que viene, o retocar una ya escrita, y escribirla en la hoja de registro de tareas.",
     origen: "La hoja de registro de tareas (la misma que leen Microciclos, el microciclo de ABP y Data análisis) y el calendario del Castilla que baja de BeSoccer el ordenador del club. Los equipos del día salen de Jugadores sesión y del análisis de entrenamiento.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-19",
     bloques: [
       {
         titulo: "1 · La semana",
         filas: [
+          { que: "Partir de lo que ya está", es: "Propone el micro más reciente con días ya en la hoja hasta hoy incluido (en MD-1, el de la semana)" },
           { que: "Días de la semana", es: "Del día siguiente al partido anterior hasta el del próximo, cada uno con su MD. Junto a los días, de dónde sale la propuesta en una línea. Las casillas miden 150 px como mínimo y pasan a dos filas si no caben; en el móvil, los botones Entreno/Libre miden 44 px de alto. Bajo cada MD, en cuántas semanas de liga se entrenó («· 18 de 21») y una barra con su carga media de la temporada («≈ 320 UA»; atenuada si el día va libre). Encima, la carga física que tendría la semana con los días marcados", cuenta: "Propuesta: libre el MD+1 y, con 5 semanas de liga o más, también los MD que se entrenan en menos de la mitad de ellas; se cuenta sólo con las semanas de la misma duración (entre partido y partido) si hay 3 o más, y la frase lo dice («de las 4 semanas de liga de 9 días»); si no, con todas. Carga de un MD = media de la «Carga Ponderada» (minutos × intensidad) de sus días con carga apuntada, con 3 días o más; la de la semana, la suma de los MD de entreno marcados; el resto, entreno, y la frase lo dice con su base. Con menos base, libre sólo el MD+1. Un día libre no escribe ninguna fila. Semanas de liga = micros con partido y tareas de entreno, sin pretemporada ni amistosos; mismo recuento que Microciclos (lib/microciclo/cuenta.ts)" },
           { que: "Carga de la semana propuesta", es: "Encima de los interruptores Entreno/Libre: una barra por día con la carga media de su MD en la temporada (el libre, vacío; el partido, en oro). El titular dice el día de más carga; cada tarjeta lleva su base («≈ 244 UA · media de 11 MD-4»)", cuenta: "UA = minutos × intensidad; la media es la de los días de ese MD ya hechos esta temporada" },
           { que: "Accesos del rival", es: "En azul, bajo el titular: Plan de partido, «Su ABP · rival», «Sus goles en vídeo · rival» (en el pop-up de la portada, 18/11/2026; al lado, «Cómo son sus goles ›» a Análisis de goles) y «Su plantilla · rival», con el rival del micro ya elegido. Debajo, «Informe del micro N · rival» (el post de la semana anterior, en Microciclos) y el Calendario operativo", cuenta: "El Plan abre por el ID de la hoja RIVALES, buscado por la fecha del partido; los demás, por el nombre del equipo" },

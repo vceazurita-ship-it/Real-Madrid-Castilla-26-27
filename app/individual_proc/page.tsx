@@ -9,8 +9,9 @@ import { nombreVisible } from "@/lib/nombreJugador";
 import { chipInk } from "@/lib/theme";
 
 /* Cifras con coma decimal, como el resto del área de jugadores. */
+/* 19/11/2026: redondea siempre a un decimal (salía «68,36461126005362 %»). */
 const cm = (v: ReactNode) =>
-  typeof v === "number" ? String(v).replace(".", ",") : v;
+  typeof v === "number" ? String(Math.round(v * 10) / 10).replace(".", ",") : v;
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -876,10 +877,11 @@ export default function DashboardSeguimiento() {
 
     if (pico.value < weeklyMean * 1.5) return "";
 
-    const lunes = pico.desde.split(" – ")[0];
+    /* Con el mes (19/11/2026): «semana del 21 – 27 sep», no «semana del 21». */
+    const semana = pico.desde.replace(/(lun|dom) /g, "");
     const deGrupo = pico.grupal >= pico.value / 2;
 
-    return `El pico (${pico.value}, semana del ${lunes.replace("lun ", "")}) ${
+    return `El pico (${pico.value}, semana del ${semana}) ${
       deGrupo
         ? `es sobre todo de registros grupales (${pico.grupal} de ${pico.value}): un mismo trabajo apuntado a varios jugadores, no más contacto uno a uno`
         : `es sobre todo de registros individuales (${pico.individual} de ${pico.value})`

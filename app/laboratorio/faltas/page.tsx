@@ -1131,8 +1131,9 @@ export default function FaltasPage() {
               {(() => {
                 const enRival = (partido?.faltas ?? []).filter((f) => f.lado === "ofensivo" && sitioEnCampo(f).zona === "campo rival");
                 if (!enRival.length) return null;
-                const banda = enRival.filter((f) => f.carril && f.carril !== "centro").length;
+                /* Excluyentes (19/11/2026): una frontal no cuenta además como lateral; la suma da el total. */
                 const frontales = enRival.filter((f) => f.distancia === "frontal").length;
+                const banda = enRival.filter((f) => f.distancia !== "frontal" && f.carril && f.carril !== "centro").length;
                 const trozos = [banda ? `${banda} ${banda === 1 ? "lateral" : "laterales"}` : "", frontales ? `${frontales} ${frontales === 1 ? "frontal" : "frontales"}` : ""].filter(Boolean);
                 return (
                   <p className="mt-3 text-[13px] leading-relaxed text-white/75">

@@ -13,6 +13,7 @@
  * análisis en el sitio correcto.
  */
 
+import { traeJson } from "@/lib/hojaCsv";
 import { diaDeMadrid } from "@/lib/abp/ventana";
 import { compareMatches } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
@@ -92,15 +93,13 @@ export function aJornada(fila: FilaRival): JornadaRival {
  * directamente desde el navegador es lo que hacen las páginas más viejas, pero
  * el proxy ya está y evita el CORS.
  */
+/* 19/11/2026: por `traeJson` (copia del aparato), como /rivals y Scout
+   colectivo, que leen la misma hoja: con el Apps Script dormido (30-70 s)
+   /desplazamiento y ABP se quedaban en «cargando». */
 export async function cargaJornadas(signal?: AbortSignal): Promise<JornadaRival[]> {
-  const response = await fetch("/api/rivals?action=rivales", {
-    cache: "no-store",
-    signal,
-  });
+  const data = await traeJson<unknown>("/api/rivals?action=rivales");
 
-  if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-  const data = await response.json();
+  if (signal?.aborted) throw new DOMException("Abortado", "AbortError");
 
   if (!Array.isArray(data)) return [];
 

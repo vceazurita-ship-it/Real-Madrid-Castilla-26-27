@@ -658,7 +658,10 @@ export function lecturaDeMomento(
         ? ""
         : `, un ${Math.abs(cambio).toFixed(0)} % ${cambio >= 0 ? "más" : "menos"}`;
 
-    return `${f.ficha.rotulo.toLowerCase()} (${formatea(f.partido, f.unidad)} frente a ${formatea(f.media, f.unidad)}${cuanto})`;
+    /* En minúscula salvo las siglas (19/11/2026): «xG a favor», no «xg a favor». */
+    const rotulo = f.ficha.rotulo.replace(/\S+/g, (p) => (/[A-Z].*[A-Z]|^x[A-Z]/.test(p) ? p : p.toLowerCase()));
+
+    return `${rotulo} (${formatea(f.partido, f.unidad)} frente a ${formatea(f.media, f.unidad)}${cuanto})`;
   };
 
   /* Sin rival no se está mirando un partido: somos nosotros de cuerpo entero. */

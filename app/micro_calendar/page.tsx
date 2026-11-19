@@ -997,7 +997,7 @@ export default function MicroCalendar() {
                     <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                     <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                     <Escudo url={escudoDe(suyo.rival)} nombre={nombreBonito(suyo.rival)} className="h-4 w-4 md:h-5 md:w-5" />
-                    <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">{nombreCorto(nombreBonito(suyo.rival))}</span>
+                    <span className="min-w-0 truncate text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]" title={nombreBonito(suyo.rival)}>{nombreCorto(nombreBonito(suyo.rival))}</span>
                   </div>
                   {detalle ? <p className="line-clamp-2 break-words text-[11px] font-semibold leading-tight text-[#C8A96B]">{detalle}</p> : null}
                   {(() => {
@@ -1129,7 +1129,8 @@ export default function MicroCalendar() {
                   <Escudo url={escudoDe(NOSOTROS)} nombre="RM Castilla" className="h-4 w-4 md:h-5 md:w-5" />
                   <span className="shrink-0 text-[10px] font-semibold text-[#C8A96B]">vs</span>
                   <Escudo url={escudoDe(partido)} nombre={nombreBonito(partido)} className="h-4 w-4 md:h-5 md:w-5" />
-                  <span className="min-w-0 break-words text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]">
+                  {/* Truncado con el nombre entero al pasar (19/11/2026: salía «Majadahond a»). */}
+                  <span className="min-w-0 truncate text-[10px] font-semibold leading-tight text-white/85 md:text-[11px]" title={nombreBonito(partido)}>
                     {nombreCorto(nombreBonito(partido))}
                   </span>
                 </div>

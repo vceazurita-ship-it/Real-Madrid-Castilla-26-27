@@ -233,7 +233,8 @@ export default function RatingsPage() {
               campograma de rendimiento.
             </p>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/35">
+            {/* Lo que no tiene dato no se nombra: los contadores, cuando hay notas. */}
+            {!loading && totals.matches > 0 && <div className="mt-4 flex flex-wrap items-center gap-2 text-[11px] text-white/35">
               <span className="rounded-full border border-white/10 px-2.5 py-1 tabular-nums">
                 {totals.matches} partidos valorados
               </span>
@@ -247,7 +248,7 @@ export default function RatingsPage() {
                   Media {totals.average.toFixed(1).replace(".", ",")}
                 </span>
               )}
-            </div>
+            </div>}
           </header>
 
           {error && (

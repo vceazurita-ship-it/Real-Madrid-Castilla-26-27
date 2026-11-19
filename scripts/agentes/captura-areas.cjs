@@ -124,9 +124,16 @@ const MIDE = `(() => {
   await envia("Runtime.enable");
   await envia("Page.enable");
   await envia("Fetch.enable", { patterns: [{ urlPattern: "*" }] });
-  /* Con CAPTURA_ADMIN=<cookie> se ven también las pantallas sólo de administrador. */
-  if (process.env.CAPTURA_ADMIN) await envia("Network.setCookie", { name: "admin_sesion", value: process.env.CAPTURA_ADMIN, url: BASE });
-  await envia("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("rmcf-theme","light")}catch(e){}` });
+  /* Desde el 19/11/2026 la app pide entrar: sin sesión todo lleva a /entrar.
+     La cookie del cuerpo técnico se firma aquí (como revisa-diseno.cjs);
+     CAPTURA_ADMIN=<cookie> la sustituye. El aviso diario de la base, visto. */
+  const env = Object.fromEntries(fs.readFileSync(path.join(RAIZ, ".env.local"), "utf8").split(/\r?\n/).filter((l) => /^[A-Z_]+=/.test(l))
+    .map((l) => { const i = l.indexOf("="); return [l.slice(0, i), l.slice(i + 1).replace(/^["']|["']$/g, "")]; }));
+  const cuerpo = `admin.${Date.now() + 6 * 3_600_000}`;
+  const firmada = `${cuerpo}.${require("crypto").createHmac("sha256", `admin:${env.QUINIELA_SECRET ?? env.SUPABASE_SERVICE_ROLE_KEY}`).update(cuerpo).digest("base64url")}`;
+  await envia("Network.setCookie", { name: "admin_sesion", value: process.env.CAPTURA_ADMIN || firmada, url: BASE });
+  const hoy = new Date().toISOString().slice(0, 10);
+  await envia("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("rmcf-theme","light");localStorage.setItem("rmcf:aviso-base-datos","${hoy}")}catch(e){}` });
 
   const medidas = {};
   for (const { g, r } of tareas) {

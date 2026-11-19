@@ -198,10 +198,18 @@ export default function Calendar() {
   /** Sesiones agrupadas por día: evita recorrer todo el array en cada celda. */
   const sessionsByDay = useMemo(() => {
     const map = new Map<string, TrackingRecord[]>();
+    /* 19/11/2026: la hoja trae algún registro copiado dos veces (mismo jugador,
+       día, autor y contenido; sólo cambia el ID). Se pinta una vez. */
+    const vistos = new Set<string>();
 
     visibleData.forEach((session) => {
       const key = recordDateKey(session.FECHA);
       if (!key) return;
+
+      const { ID_REGISTRO: _id, ...resto } = session;
+      const huella = JSON.stringify(resto);
+      if (vistos.has(huella)) return;
+      vistos.add(huella);
 
       const list = map.get(key);
       if (list) list.push(session);
@@ -652,7 +660,7 @@ export default function Calendar() {
         ) : null;
         const md = mdDe(key);
         const marcaMd = md ? (
-          <span className="rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300" title="Días que faltan para el próximo partido">
+          <span className="whitespace-nowrap rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300" title="Días que faltan para el próximo partido">
             {md}
           </span>
         ) : null;
@@ -677,7 +685,7 @@ export default function Calendar() {
           badges: (
             <>
             {marcaMd}
-            <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">
+            <span className="whitespace-nowrap rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">
               {daySessions.length}
               <span className="hidden md:inline">
                 {daySessions.length === 1 ? " seguimiento" : " seguimientos"}

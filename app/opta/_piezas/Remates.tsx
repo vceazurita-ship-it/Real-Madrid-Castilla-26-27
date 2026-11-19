@@ -224,7 +224,11 @@ export function MapaRemates({
     () => remates.filter((x) => (!soloGoles || x.gol) && (!delPartido || x.partido === delPartido)),
     [remates, soloGoles, delPartido],
   );
-  const r = resumenRemates(visibles);
+  /* 19/11/2026 (experto de fútbol): las cifras salen de TODOS los remates
+     (del partido elegido, si lo hay). «Sólo goles» filtra el mapa y la lista,
+     no las tarjetas: con sólo los goles salían «100 % a puerta» y «xG +9,5». */
+  const base = useMemo(() => remates.filter((x) => !delPartido || x.partido === delPartido), [remates, delPartido]);
+  const r = { ...resumenRemates(base), partidos: delPartido ? 1 : partidos.length };
   /* Los grandes debajo y los goles encima: que ninguno tape a otro entero. */
   const orden = useMemo(() => [...visibles].sort((a, b) => Number(a.gol) - Number(b.gol) || b.xG - a.xG), [visibles]);
   const visto = elegido && visibles.includes(elegido) ? elegido : null;
