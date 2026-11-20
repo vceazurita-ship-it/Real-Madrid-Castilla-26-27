@@ -387,6 +387,7 @@ export function ListaClips({
                   src={miniaturaDe?.(fila.clip) ?? ""}
                   ms={fila.clip.codingInicioMs}
                   color={fila.categoria?.color}
+                  rotulo={fila.categoria?.nombre}
                   activo={activo}
                   className="h-10 w-[72px]"
                 />
@@ -580,6 +581,7 @@ export function ListaClips({
                       src={miniaturaDe?.(clip) ?? ""}
                       ms={clip.codingInicioMs}
                       color={fila.categoria?.color}
+                      rotulo={fila.categoria?.nombre}
                       activo={activo}
                       className="h-11 w-20"
                     />
@@ -1064,12 +1066,15 @@ function Miniatura({
   src,
   ms,
   color = "#C8A96B",
+  rotulo,
   activo,
   className = "",
 }: {
   src: string;
   ms: number;
   color?: string;
+  /** La categoría del corte, para cuando no hay fotograma. */
+  rotulo?: string;
   activo: boolean;
   className?: string;
 }) {
@@ -1087,8 +1092,14 @@ function Miniatura({
         <img src={imagen} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         /* 17/11/2026 (ronda 20, análisis y marketing): sin fotograma (vídeo aún sin abrir o que no deja sacarlo), el bloque dice dónde empieza el corte en vez de quedarse oscuro y mudo. */
-        <span aria-hidden className="absolute inset-0 flex items-center justify-center font-mono text-[11px] font-semibold tabular-nums" style={{ color: "#fff" }}>
-          {`${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`}
+        /* 20/11/2026 (ronda 4): los clips de jugador empiezan todos en 0:00 y salían seis «0:00» iguales: ahora la categoría y el minuto sólo si no es el arranque; sin ninguno de los dos, el icono de reproducir. */
+        <span aria-hidden className="absolute inset-0 flex flex-col items-center justify-center px-1 text-center leading-tight" style={{ color: "#fff" }}>
+          {rotulo ? <span className="line-clamp-2 text-[11px] font-semibold">{rotulo}</span> : null}
+          {ms >= 1000 ? (
+            <span className="font-mono text-[11px] tabular-nums">{`${Math.floor(ms / 60000)}:${String(Math.floor((ms % 60000) / 1000)).padStart(2, "0")}`}</span>
+          ) : rotulo ? null : (
+            <Play size={14} className="fill-white/70 text-white/70" />
+          )}
         </span>
       )}
       <span aria-hidden className="absolute inset-x-0 bottom-0 h-1" style={{ backgroundColor: color }} />

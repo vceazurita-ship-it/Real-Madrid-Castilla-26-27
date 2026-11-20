@@ -456,13 +456,48 @@ function Quiniela() {
 
     if (!pcts.length) return { suelo: 0, techo: 100 };
 
-    const suelo = Math.max(0, Math.floor((Math.min(...pcts) - 5) / 10) * 10);
+    /* 20/11/2026 (ronda 4, marketing): la barra empieza en 0; de 30 a 60 % exageraba diferencias pequeñas. */
+    const suelo = 0;
     const techo = Math.min(100, Math.max(suelo + 10, Math.ceil(Math.max(...pcts) / 10) * 10));
 
     return { suelo, techo };
   }, [tabla]);
   const anchoBarra = (pct: number) => Math.max(2, Math.min(100, ((pct - escala.suelo) / (escala.techo - escala.suelo)) * 100));
   const liderTabla = tabla.find((f) => f.total.jugados > 0 && !pocasApuestas(f)) ?? null;
+
+  /* 20/11/2026 (ronda 4, marketing): las tres cifras de cabecera del ranking. */
+  const cifrasRanking = (() => {
+    if (!liderTabla) return [];
+    const nombre = (slug: string) => {
+      const p = PERSONA_POR_SLUG.get(slug);
+      return p ? nombreCorto(p) : slug;
+    };
+    const segundo = tabla.find((f) => f !== liderTabla && f.total.jugados > 0 && !pocasApuestas(f));
+    const salida: { rotulo: string; valor: string; base: string }[] = [
+      {
+        rotulo: "Líder",
+        valor: `${nombre(liderTabla.slug)} · ${liderTabla.total.porcentaje.toFixed(0)} %`,
+        base: `${liderTabla.total.aciertos} de ${liderTabla.total.jugados} acertados`,
+      },
+    ];
+    if (segundo) {
+      const d = liderTabla.total.aciertos - segundo.total.aciertos;
+      salida.push({
+        rotulo: "Al segundo",
+        valor: d > 0 ? `${d} ${d === 1 ? "acierto" : "aciertos"}` : "Empatados",
+        base: `${nombre(segundo.slug)} · ${segundo.total.porcentaje.toFixed(0)} %`,
+      });
+    }
+    const comen = tablaBloque.filter((f) => f.invitado);
+    if (comen.length && tablaBloque.some((f) => f.jugados > 0)) {
+      salida.push({
+        rotulo: cerrado ? "Comen gratis" : "Comen gratis, por ahora",
+        valor: comen.map((f) => nombre(f.slug)).join(" y "),
+        base: `bloque de la jornada ${bloque.desde} a la ${bloque.hasta}`,
+      });
+    }
+    return salida;
+  })();
 
   const ultimaCerrada = useMemo(() => {
     const k = Object.values(doc.jornadas)
@@ -812,11 +847,27 @@ function Quiniela() {
                   mediaGrupo !== null
                     ? `Media del grupo ${mediaGrupo.toFixed(0)} % (raya azul) · ${
                         tabla.filter((f) => f.total.jugados > 0 && !pocasApuestas(f) && f.total.porcentaje > mediaGrupo).length
-                      } por encima, en oro · la barra va de ${escala.suelo} a ${escala.techo} %. «Ganadas»: jornadas en que acertó más que nadie.`
+                      } por encima, en oro. «Ganadas»: jornadas en que acertó más que nadie.`
                     : "Ordenado por porcentaje de acierto. «Ganadas»: jornadas en que acertó más que nadie."
                 }
                 icon={Trophy}
               >
+                {/*
+                  20/11/2026 (ronda 4, marketing): lo que se busca al abrir el
+                  ranking, en cifra grande antes de la tabla: quién manda, a
+                  cuánto está el segundo y quién come gratis en este bloque.
+                */}
+                {cifrasRanking.length > 0 ? (
+                  <div className="mb-4 grid grid-cols-1 gap-2 pr-8 sm:grid-cols-3 sm:pr-14">
+                    {cifrasRanking.map((c) => (
+                      <div key={c.rotulo} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
+                        <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/55">{c.rotulo}</p>
+                        <p className="mt-0.5 truncate text-[22px] font-bold leading-tight text-white">{c.valor}</p>
+                        <p className="truncate text-[12.5px] text-white/65">{c.base}</p>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
                 {(
                   <div className="min-w-0 overflow-x-auto pr-8 sm:pr-14">
                     {/* 13-14 px (11/11/2026, marketing): a 12 px no se leía en escritorio. */}
@@ -825,7 +876,10 @@ function Quiniela() {
                         <tr className="text-[12px] uppercase tracking-[0.12em] text-white/55">
                           <th className="w-7 pb-2 pt-1.5 text-right font-medium">#</th>
                           <th className="pb-2 pl-2 pt-1.5 text-left font-medium">Quién</th>
-                          <th className="w-32 pb-2 pt-1.5 text-left font-medium sm:w-52">Acierto</th>
+                          {/* 20/11/2026 (ronda 4): la escala de la barra, a la vista junto a su columna. */}
+                          <th className="w-32 pb-2 pt-1.5 text-left font-medium sm:w-52">
+                            Acierto <span className="normal-case tracking-normal text-white/45">· barra de {escala.suelo} a {escala.techo} %</span>
+                          </th>
                           <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Aciertos</th>
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
                             <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
@@ -1177,6 +1231,9 @@ function Quiniela() {
             </div>
   );
 
+  /* 20/11/2026 (ronda 4): con la jornada abierta, en la vista de la jornada y en las últimas horas, el plazo sube arriba. */
+  const cierreArriba = vista === "jornada" && !plazo.cerrada && plazo.ultimasHoras;
+
   return (
     <EscudosLiga.Provider value={escudosLiga}>
     <main className="min-h-screen bg-[#0B0F14] text-white">
@@ -1209,6 +1266,36 @@ function Quiniela() {
                 ) : undefined
               }
             />
+
+            {/*
+              20/11/2026 (ronda 4, marketing): con menos de 24 horas para el
+              cierre, el plazo es lo primero de la pantalla, más grande y con el
+              botón de apostar al lado.
+            */}
+            {cierreArriba && (
+              <div className="mt-4">
+                <EstadoJornada
+                  jornada={laJornada}
+                  numero={jornada}
+                  jugadores={jugadores}
+                  partidos={partidos.length}
+                  cerrada={plazo.cerrada}
+                  ultimasHoras={plazo.ultimasHoras}
+                  cuandoCierra={cuandoCierra(plazo.viernes)}
+                  cierreEn={plazo.prorrogaHasta ? null : cierreEn}
+                  ahora={ahora}
+                  primerPartido={[...partidos]
+                    .filter((uno) => uno.fecha)
+                    .sort((a, b) => a.fecha.localeCompare(b.fecha))[0]}
+                  faltan={faltanQuiniela}
+                  verCaritas={verCaritas}
+                  onVerCaritas={() => setVerCaritas((v) => !v)}
+                  apostar={yo ? { href: "#los-partidos", texto: "Apostar" } : { href: "#acceso-quiniela", texto: "Entrar para apostar" }}
+                >
+                  {panelQuienJuega}
+                </EstadoJornada>
+              </div>
+            )}
 
             {/* Quién va ganando, lo primero (08/11/2026, guionista y
                 marketing): sale del ranking ya calculado, y el botón «Entrar»
@@ -1292,6 +1379,7 @@ function Quiniela() {
 
             {/* --------------- CÓMO VA LA JORNADA --------------------- */}
 
+            {!cierreArriba && (
             <div className="mt-6">
               <EstadoJornada
                 jornada={laJornada}
@@ -1313,6 +1401,7 @@ function Quiniela() {
                 {panelQuienJuega}
               </EstadoJornada>
             </div>
+            )}
 
             {/* 29/10/2026 (marketing): lo primero son los partidos y el ranking;
                 «entrar» es una franja baja encima, no un formulario que los
@@ -1373,7 +1462,7 @@ function Quiniela() {
             <>
             {/* --------------------- LOS PARTIDOS --------------------- */}
 
-            <div className="mt-5">
+            <div id="los-partidos" className="mt-5 scroll-mt-24">
               <Panel
                 title="Los partidos"
                 subtitle={
@@ -1601,16 +1690,17 @@ function Quiniela() {
                             <td className="py-2 pl-2">
                               {yo ? (
                                 <>
-                              <span className="block break-words text-white/85">
+                              <span className="block break-words text-[14px] text-white/85">
                                 <Equipo nombre={partido.local} contexto />
                               </span>
 
-                              <span className="block break-words text-[13px] text-white/55">
+                              {/* 20/11/2026 (ronda 4, marketing): el visitante, al mismo tamaño que el local. */}
+                              <span className="block break-words text-[14px] text-white/80">
                                 <Equipo nombre={partido.visitante} contexto />
                               </span>
                                 </>
                               ) : (
-                                <span className="text-white/85">
+                                <span className="text-[14px] text-white/85">
                                   <Equipo nombre={partido.local} contexto /> <span className="text-white/35">–</span> <Equipo nombre={partido.visitante} contexto />
                                 </span>
                               )}
@@ -1838,9 +1928,16 @@ function Quiniela() {
                   </p>
                 ) : null}
 
-                {!cerrado && base === 0 ? null : (
-                  <ol className="space-y-1.5">
-                    {tablaBloque.map((fila, indice) => {
+                {/*
+                  20/11/2026 (ronda 4, marketing): a la vista sólo los que comen y
+                  los dos que les persiguen; el resto, plegado (eran once filas
+                  casi iguales).
+                */}
+                {!cerrado && base === 0 ? null : (() => {
+                  const ultimoInvitado = tablaBloque.reduce((m, f, i) => (f.invitado ? i : m), -1);
+                  const aLaVista = Math.max(2, ultimoInvitado + 1) + 2;
+                  const pintaFila = (filaB: (typeof tablaBloque)[number], indice: number) => {
+                      const fila = filaB;
                       const persona = PERSONA_POR_SLUG.get(fila.slug);
 
                       if (!persona) return null;
@@ -1871,9 +1968,24 @@ function Quiniela() {
                           </span>
                         </li>
                       );
-                    })}
-                  </ol>
-                )}
+                  };
+
+                  return (
+                    <>
+                      <ol className="space-y-1.5">{tablaBloque.slice(0, aLaVista).map((f, i) => pintaFila(f, i))}</ol>
+                      {tablaBloque.length > aLaVista ? (
+                        <details className="mt-1.5">
+                          <summary className="cursor-pointer select-none text-[13px] font-semibold text-[#C8A96B]">
+                            Ver los otros {tablaBloque.length - aLaVista}
+                          </summary>
+                          <ol start={aLaVista + 1} className="mt-1.5 space-y-1.5">
+                            {tablaBloque.slice(aLaVista).map((f, i) => pintaFila(f, i + aLaVista))}
+                          </ol>
+                        </details>
+                      ) : null}
+                    </>
+                  );
+                })()}
 
                 {base > 0 ? (
                   <p className="mt-3 text-[13px] leading-relaxed text-white/70">
@@ -2281,16 +2393,26 @@ function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boole
         {liga.puesto}.º{liga.balance ? ` · ${liga.balance}` : ""}
       </span>
     ) : null}
+    {/* 20/11/2026 (ronda 4, marketing): los accesos con su palabra, no un icono suelto: sus goles y su ABP. */}
     {contexto && (
       /* 18/11/2026: en el pop-up de la portada, sin salir de la quiniela. */
       <BotonGolesEnVideo
         equipo={nombre}
         title={`Goles de ${nombre} en vídeo`}
-        className="ml-1 inline-flex align-middle text-white/45 hover:text-[#C8A96B]"
+        className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
       >
-        <Film size={13} aria-hidden />
-        <span className="sr-only">Goles de {nombre} en vídeo</span>
+        <Film size={12} aria-hidden />
+        goles
       </BotonGolesEnVideo>
+    )}
+    {contexto && (
+      <Link
+        href={`/scout-rival-abp?equipo=${encodeURIComponent(nombre)}`}
+        title={`El balón parado de ${nombre}`}
+        className="ml-1.5 inline-flex align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
+      >
+        ABP
+      </Link>
     )}
     </>
   );

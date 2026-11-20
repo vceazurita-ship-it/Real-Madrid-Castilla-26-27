@@ -2628,11 +2628,19 @@ const conclusiones = (() => {
     tasaPeligroDe,
   );
 
-  if (zona && zona.valor > 0) {
-    frases.push(
-      `Más peligro cayendo en ${hablado(zona.nombre)}: ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión${zona.n < 10 ? " (indicio)" : ""}.`,
-    );
-  }
+  /*
+  | 20/11/2026 (jueces, ronda 4): «3 de 3» se leía como la lectura principal.
+  | Con menos de 10 casos dice «tendencia» y va detrás de lo que tiene muestra.
+  */
+  const zonaCorta = zona && zona.valor > 0 && zona.n < 10;
+  const fraseZona =
+    zona && zona.valor > 0
+      ? zonaCorta
+        ? `Tendencia, ${zona.n} ${zona.n === 1 ? "caso" : "casos"}: cayendo en ${hablado(zona.nombre)}, ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`
+        : `Más peligro cayendo en ${hablado(zona.nombre)}: ${Math.round(zona.valor * zona.n)} de ${zona.n} en gol u ocasión.`
+      : null;
+
+  if (fraseZona && !zonaCorta) frases.push(fraseZona);
 
   /* La rutina dice más que la intención; si no hay ninguna con muestra, la
      intención. */
@@ -2739,7 +2747,7 @@ const conclusiones = (() => {
       ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${moda.nombre} (${moda.filas.length} de ${filtered.length}) ${/\bcort|\d+v\d+/i.test(moda.nombre) ? "que acabe en centro al área en dos toques" : "con desmarque y llegada al remate"}; se cuentan las acciones que acaban en remate · objetivo: ${criterioRemate} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${tasaRemateHoy} %).`
       : null;
 
-  return [...frases.filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
+  return [...[...frases, zonaCorta ? fraseZona : null].filter(Boolean).slice(0, 4), cierre, tarea].filter(Boolean);
 })();
 
 /* Las cuatro tarjetas de arriba (02/11/2026): qué funciona, qué falla y qué
@@ -2763,7 +2771,11 @@ const lectura = useMemo(
           nombre: "rutina",
           categoria: (r) => r.rutina,
           rotulo: (v) => (/^(nada|ninguna|ninguno|sin rutina)$/i.test(v) ? "sin rutina (balón directo)" : v),
-          entrenar: (v) => `Rutina ${v}: repetir los movimientos o cambiarla`,
+          /* 20/11/2026 (jueces, ronda 4): «Rutina sin rutina (balón directo)» no decía nada. */
+          entrenar: (v) =>
+            /^(nada|ninguna|ninguno|sin rutina)/i.test(v.trim()) || /^sin rutina/i.test(v)
+              ? "Balón directo sin rutina: montar una rutina para ese envío"
+              : `Rutina ${v}: repetir los movimientos o cambiarla`,
         },
         {
           nombre: "tipo de envío",

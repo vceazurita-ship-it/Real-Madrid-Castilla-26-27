@@ -202,7 +202,8 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
   const saquesOpta = lineaSaques?.casos != null ? Math.round(lineaSaques.casos) : null;
   const cuadreSaques =
     area === "banda" && hoja && saquesOpta != null && saquesOpta !== hoja.acciones
-      ? `Saques: la hoja cuenta ${hoja.acciones} en ${hoja.jornadas} jornadas etiquetadas; Opta, ${saquesOpta} en ${ctx.partidos} partidos. Opta registra cada saque de banda del partido y la hoja, los que el cuerpo técnico etiqueta en el vídeo: la diferencia es de etiquetado, no de juego.`
+      ? /* 20/11/2026 (jueces, ronda 4): una frase corta; los porcentajes de esta tarjeta son de Opta y llevan su base de Opta. */
+        `Aquí la base es Opta: ${saquesOpta} saques en ${ctx.partidos} partidos (los registra todos); el resto de la página usa la hoja, ${hoja.acciones} etiquetados en el vídeo.`
       : "";
   const mejor = orden[0];
   const peor = orden.at(-1);
@@ -248,14 +249,14 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
                   className="min-w-0 flex-1 truncate text-left text-[13px] text-white/85 underline decoration-dotted underline-offset-4 hover:text-white"
                 >
                   {l.m.nombre}
-                  {l.m.mejorAlto === false && <span className="ml-1.5 text-[10px] text-white/40">(menos es mejor)</span>}
+                  {l.m.mejorAlto === false && <span className="ml-1.5 text-[11px] text-white/55">(menos es mejor)</span>}
                   {estilo && <span className="ml-1.5 text-[11px] text-white/50">(volumen)</span>}
                   {esTendencia(l) && !estilo && <span className="ml-1.5 text-[11px] text-white/50">· tendencia, pocos casos</span>}
                 </button>
                 <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">
                   {textoAbp(l.m, l.valor)}
-                  <span className="ml-1 text-[10px] font-normal text-white/45">
-                    {l.m.modo === "pct" && l.casos != null ? `de ${Math.round(l.casos)}` : UNIDAD[l.m.modo]}
+                  <span className="ml-1 text-[11px] font-normal text-white/55">
+                    {l.m.modo === "pct" && l.casos != null ? `de ${Math.round(l.casos)} (Opta)` : UNIDAD[l.m.modo]}
                   </span>
                 </span>
               </div>

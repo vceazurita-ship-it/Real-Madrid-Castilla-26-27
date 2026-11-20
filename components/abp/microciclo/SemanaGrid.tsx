@@ -132,10 +132,13 @@ function textoDeFicha(texto: string) {
 function TrabajoCuerpo({
   trabajo,
   detalle,
+  dato,
 }: {
   trabajo: Trabajo;
   /** Ficha completa (la de compartir) o corta (la de replanificar). */
   detalle: boolean;
+  /** 20/11/2026 (jueces, ronda 4): la carencia que ataca, con su dato de la temporada. */
+  dato?: string | null;
 }) {
   const lados = ladosDe(trabajo);
   const aspectos = aspectosDe(trabajo);
@@ -164,20 +167,31 @@ function TrabajoCuerpo({
       <div className="flex items-start justify-between gap-1.5">
         {/* En detalle el nombre se parte en varias líneas en vez de cortarse:
             «Falta lateral indirecta» no cabe entera en una columna. */}
-        <p
-          className={`min-w-0 flex-1 text-[11.5px] font-semibold text-white ${
-            detalle ? "leading-snug" : "truncate leading-tight"
+        <div
+          className={`min-w-0 flex-1 font-semibold text-white ${
+            detalle ? "text-[12.5px] leading-snug" : "truncate text-[11.5px] leading-tight"
           }`}
         >
           {/* 16/11/2026 (jueces): todas las acciones, que «Córner directo ·
               Penaltis y 2 más» obligaba a entrar para saber qué se trabaja. El
               nombre se parte en renglones en vez de cortarse. */}
+          {/* 20/11/2026 (jueces, ronda 4): «A · B · C · D» unidos no se leían.
+              Apilados, como mucho tres renglones; el resto, en el tercero. */}
           {detalle ? (
-            <span>{aspectos.map((aspecto) => aspecto.label).join(" · ")}</span>
+            <ul className="space-y-0.5" title={aspectos.map((aspecto) => aspecto.label).join(" · ")}>
+              {aspectos.slice(0, aspectos.length > 3 ? 2 : 3).map((aspecto) => (
+                <li key={aspecto.key}>{aspecto.label}</li>
+              ))}
+              {aspectos.length > 3 ? (
+                <li className="text-[11px] font-medium text-white/60">
+                  y {aspectos.length - 2} más: {aspectos.slice(2).map((aspecto) => aspecto.label.toLowerCase()).join(", ")}
+                </li>
+              ) : null}
+            </ul>
           ) : (
             etiquetaTrabajo(trabajo, true)
           )}
-        </p>
+        </div>
 
         {trabajo.minutos > 0 && (
           <span className="shrink-0 text-[11px] font-semibold tabular-nums text-white/70">
@@ -205,9 +219,14 @@ function TrabajoCuerpo({
           </span>
         ))}
 
-        <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/55">
-          {MOMENTO_SHORT[trabajo.momento]}
-        </span>
+        {/* 20/11/2026 (jueces, ronda 4): PRE / INTRA / POST dicen cuándo va el
+            vídeo; en una tarea de campo («OFENSIVO POST CAMPO» en unos
+            penaltis) confundían. Sólo con vídeo. */}
+        {trabajo.medio === "video" && (
+          <span className="rounded bg-white/[0.07] px-1.5 py-0.5 text-[11px] font-semibold text-white/55">
+            {MOMENTO_SHORT[trabajo.momento]}
+          </span>
+        )}
 
         {trabajo.medio === "video" ? (
           <span
@@ -265,6 +284,13 @@ function TrabajoCuerpo({
           </p>
         ))}
 
+      {detalle && dato && (
+        <p className="mt-1 text-[11px] leading-snug text-white/65">
+          <span className="font-semibold text-white/80">Ataca · </span>
+          {dato}
+        </p>
+      )}
+
       {detalle && trabajo.objetivo?.trim() && (
         <p className="mt-1 text-[11px] leading-snug text-white/60">
           <span className="font-semibold text-emerald-300">Éxito · </span>
@@ -296,6 +322,7 @@ function TrabajoCard({
   dia,
   trabajo,
   detalle,
+  dato,
   onClick,
   onDuplicar,
   onBorrar,
@@ -303,11 +330,20 @@ function TrabajoCard({
   dia: DiaKey;
   trabajo: Trabajo;
   detalle: boolean;
+  dato?: string | null;
   onClick: () => void;
   onDuplicar: () => void;
   onBorrar: () => void;
 }) {
   const franja = franjaDeLados(ladosDe(trabajo));
+  /*
+  | 20/11/2026 (jueces, ronda 4): lo que la revisión echa en falta, en la
+  | propia ficha: borde ámbar y qué falta, que abre la tarea para ponerlo.
+  */
+  const faltan = [
+    (trabajo.minutos || 0) > 0 && !(trabajo.intensidad > 0) ? "intensidad" : "",
+    !trabajo.objetivo?.trim() ? "criterio de éxito" : "",
+  ].filter(Boolean);
 
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: idBloque(dia, trabajo.id),
@@ -331,9 +367,9 @@ function TrabajoCard({
         ref={setNodeRef}
         {...attributes}
         {...listeners}
-        className={`group relative w-full min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] p-2 pl-2.5 text-left transition hover:border-white/25 hover:bg-white/[0.06] ${
-          isDragging ? "opacity-30" : ""
-        }`}
+        className={`group relative w-full min-w-0 overflow-hidden rounded-xl border bg-white/[0.03] p-2 pl-2.5 text-left transition hover:border-white/25 hover:bg-white/[0.06] ${
+          faltan.length ? "border-amber-400/45" : "border-white/10"
+        } ${isDragging ? "opacity-30" : ""}`}
         style={{ touchAction: "none" }}
       >
         {/* El canto de color: entero si es de un lado, partido si es de los
@@ -357,8 +393,20 @@ function TrabajoCard({
           className="block w-full min-w-0 text-left"
           title={`${etiquetaTrabajo(trabajo)} · ${trabajo.minutos}′`}
         >
-          <TrabajoCuerpo trabajo={trabajo} detalle={detalle} />
+          <TrabajoCuerpo trabajo={trabajo} detalle={detalle} dato={dato} />
         </button>
+
+        {faltan.length > 0 && (
+          <button
+            type="button"
+            onPointerDown={(event) => event.stopPropagation()}
+            onClick={onClick}
+            className="mt-1 inline-flex min-h-7 items-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-1.5 py-0.5 text-[11px] font-semibold text-amber-300 transition hover:bg-amber-400/20 max-sm:min-h-9"
+          >
+            <Plus size={11} aria-hidden />
+            Añadir {enLista(faltan)}
+          </button>
+        )}
 
 {/*
         | Duplicar y quitar. Van en su propia fila y no encima de la ficha:
@@ -406,6 +454,8 @@ function DiaColumna({
   plan,
   detalle,
   etiqueta,
+  esHoy,
+  datoDe,
   maximo,
   onCambiaTipo,
   onCambiaMd,
@@ -421,6 +471,8 @@ function DiaColumna({
   maximo: number;
   /** "dom 20": la fecha real de ese día en este microciclo. */
   etiqueta?: string;
+  esHoy?: boolean;
+  datoDe?: (trabajo: Trabajo) => string | null;
   onCambiaTipo: (tipo: TipoDia) => void;
   onCambiaMd: (md: string) => void;
   onAbrir: (trabajo: Trabajo) => void;
@@ -473,9 +525,12 @@ function DiaColumna({
 
   return (
     <div
-      className={`flex min-w-0 flex-col rounded-2xl border transition ${
+      id={`dia-${dia}`}
+      className={`flex min-w-0 scroll-mt-24 flex-col rounded-2xl border transition ${
         isOver
           ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.05]"
+          : esHoy
+            ? "border-[#C8A96B]/55 bg-white/[0.025]"
           : descansa
             ? "border-white/[0.06] bg-white/[0.01]"
             : plan.tipo === "partido"
@@ -492,6 +547,11 @@ function DiaColumna({
             {etiqueta && (
               <span className="ml-1 text-[11px] font-normal normal-case tracking-normal text-white/40">
                 {etiqueta}
+              </span>
+            )}
+            {esHoy && (
+              <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold normal-case tracking-normal" style={{ color: "var(--rmcf-gold-ink)", background: "rgb(var(--rmcf-ink-rgb) / .07)" }}>
+                Hoy
               </span>
             )}
           </p>
@@ -555,6 +615,7 @@ function DiaColumna({
             dia={dia}
             trabajo={trabajo}
             detalle={detalle}
+            dato={datoDe?.(trabajo)}
             onClick={() => onAbrir(trabajo)}
             onDuplicar={() => onDuplicar(trabajo)}
             onBorrar={() => onBorrar(trabajo)}
@@ -630,6 +691,8 @@ export function SemanaGrid({
   orden,
   etiquetas,
   detalle = true,
+  hoy,
+  datoDe,
   onCambiaTipo,
   onCambiaMd,
   onAbrir,
@@ -638,6 +701,10 @@ export function SemanaGrid({
   onDuplicar,
   onBorrar,
 }: {
+  /** 20/11/2026 (jueces, ronda 4): el día de hoy, resaltado y con atajo en el móvil. */
+  hoy?: DiaKey | null;
+  /** La carencia que ataca cada tarea, con su dato (de las hojas de ABP). */
+  datoDe?: (trabajo: Trabajo) => string | null;
   dias: Record<DiaKey, PlanDia>;
   /**
    * Qué días se pintan y en qué orden.
@@ -742,6 +809,14 @@ export function SemanaGrid({
       | la barra de cada cabecera ya deja comparar los días entre sí. Desde la
       | tableta, la rejilla de siempre.
       */}
+      {hoy && columnas.includes(hoy) && columnas[0] !== hoy && (
+        <a
+          href={`#dia-${hoy}`}
+          className="mb-2 inline-flex min-h-9 items-center rounded-full border border-white/12 px-3 py-1 text-[12px] font-semibold text-white/75 md:hidden"
+        >
+          Ir a hoy · {DIAS.find((item) => item.key === hoy)?.label.toLowerCase()}
+        </a>
+      )}
       <div className="pb-1 md:overflow-x-auto">
         {/* La ficha completa necesita columna ancha: con 140 px «Falta lateral
             indirecta» se parte en cuatro renglones. */}
@@ -763,6 +838,8 @@ export function SemanaGrid({
               plan={dias[clave]}
               detalle={detalle === "auto" ? dias[clave].trabajos.length < 3 : detalle}
               etiqueta={etiquetas?.[clave]}
+              esHoy={hoy === clave}
+              datoDe={datoDe}
               maximo={maximoDia}
               onCambiaTipo={(tipo) => onCambiaTipo(clave, tipo)}
               onCambiaMd={(md) => onCambiaMd(clave, md)}

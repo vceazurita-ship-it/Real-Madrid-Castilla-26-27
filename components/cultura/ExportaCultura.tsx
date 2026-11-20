@@ -151,6 +151,7 @@ export function ExportaCultura({
   accion,
   children,
   barra,
+  delante,
 }: {
   documento: DocumentoCultura;
   titulo?: string;
@@ -162,6 +163,8 @@ export function ExportaCultura({
    * y lo que se pase) sin tarjeta aparte, para que la vista previa empiece antes.
    */
   barra?: React.ReactNode;
+  /** 20/11/2026: la acción principal delante de las descargas (Proyectar); con ella, el PDF deja de ser el botón dorado. */
+  delante?: React.ReactNode;
 }) {
   const enPdf = useEnMarcha(tituloDescarga("pdf", documento));
   const enPptx = useEnMarcha(tituloDescarga("pptx", documento));
@@ -169,14 +172,20 @@ export function ExportaCultura({
   if (barra !== undefined) {
     return (
       <div className="flex flex-wrap items-center gap-2" role="toolbar" aria-label="Acciones del documento">
+        {delante}
         <Button
-          tone="primary"
+          tone={delante ? "ghost" : "primary"}
           icon={FileText}
           onClick={() => encargaCultura(documento, "pdf")}
           disabled={enPdf}
           title="Una diapositiva por hoja A4 apaisada, con pie numerado"
         >
-          {enPdf ? "Preparando el PDF…" : "Descargar en PDF"}
+          {enPdf ? "Preparando el PDF…" : (
+            <>
+              <span className="sm:hidden">PDF</span>
+              <span className="max-sm:hidden">Descargar en PDF</span>
+            </>
+          )}
         </Button>
         <Button
           icon={MonitorPlay}
@@ -184,7 +193,12 @@ export function ExportaCultura({
           disabled={enPptx}
           title="Cada diapositiva como imagen a tamaño de proyección; se abre en cualquier portátil, aunque no tenga la tipografía del club"
         >
-          {enPptx ? "Preparando el PowerPoint…" : "Descargar en PowerPoint"}
+          {enPptx ? "Preparando el PowerPoint…" : (
+            <>
+              <span className="sm:hidden">PowerPoint</span>
+              <span className="max-sm:hidden">Descargar en PowerPoint</span>
+            </>
+          )}
         </Button>
         {barra}
         {accion}

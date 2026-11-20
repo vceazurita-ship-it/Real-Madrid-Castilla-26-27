@@ -68,7 +68,8 @@ function filasDe(dia: DiaEntreno): Fila[] {
 
       return { objetivo: o, numero: i + 1, acciones, c, cumple: cumpleMeta(c, o.meta) };
     })
-    .filter((f) => f.c.total > 0);
+    /* 20/11/2026 (jueces): también con todo por revisar. Antes un día sin nada revisado se quedaba en una línea de texto; ahora sale el panel con lo propuesto rayado. */
+    .filter((f) => f.acciones.length > 0);
 }
 
 export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntreno[]; fecha: string; onAbre: (p: PeticionVisor) => void; onIrAlDia: (fecha: string) => void }) {
@@ -116,6 +117,10 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
   /* La comparación con el día anterior, sólo si los dos tienen porcentaje (con muestra corta sería ruido). */
   const delta = previo && total.pct !== null && previo.c.pct !== null ? total.pct - previo.c.pct : null;
 
+  /* Nada revisado todavía: el titular cuenta lo propuesto, dicho como propuesta (rayado, no cuenta). */
+  const provisional = total.total === 0;
+  const propuestasBien = todas.filter((p) => p.accion.veredicto === "correcta").length;
+  const propuestasMal = todas.length - propuestasBien;
   const lectura = [
     conMeta.length ? `${enMeta} de ${conMeta.length} objetivos con meta la cumplen` : "",
     mejor ? `lo mejor: «${corto(mejor.objetivo.objetivo, 48)}» (${mejor.c.pct} %)` : "",
@@ -164,7 +169,7 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
 
       return { clave, nombre, fs, c: cuentasDe(fs.flatMap((f) => f.acciones), val) };
     })
-    .filter((j) => j.c.total > 0)
+    .filter((j) => j.fs.length > 0)
     .sort((a, b) => (b.c.pctBruto ?? 0) - (a.c.pctBruto ?? 0) || b.c.total - a.c.total);
   const deNadie = filas.flatMap((f) => sinDueno(f.objetivo, f.acciones, val).map((accion) => ({ accion, fila: f })));
 
@@ -173,6 +178,17 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
       {/* 1. El titular */}
       <header className="space-y-1.5">
         <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">El entrenamiento del {ddmm(fecha)} de un vistazo</p>
+        {provisional ? (
+          <>
+            <h2 id="panel-visual" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
+              <span className="tabular-nums">{todas.length} acciones propuestas</span>
+              <span className="text-base font-medium text-white/65">
+                {propuestasBien} parecen correctas y {propuestasMal} mejorables
+              </span>
+            </h2>
+            <p className="text-sm text-white/70">Propuesta del análisis, sin revisar: va rayada y no cuenta en las cifras hasta que la valides.</p>
+          </>
+        ) : (
         <h2 id="panel-visual" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
           <span className="tabular-nums">{total.pct !== null ? `${total.pct} % de acierto` : `${total.correctas} de ${total.total} correctas`}</span>
           {total.pct !== null ? (
@@ -190,17 +206,27 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
             </span>
           ) : null}
         </h2>
+        )}
         {lectura.length ? <p className="text-sm text-white/70">{lectura.join(" · ").replace(/^./, (l) => l.toUpperCase())}.</p> : null}
         <p className="text-[11px] text-white/45">Pulsa cualquier barra, punto o cifra para ver los clips que la forman.</p>
       </header>
 
       {/* 2. Cifras clave, con su base */}
       <div className="grid grid-cols-2 gap-2 lg:grid-cols-4">
-        <Cifra valor={total.correctas} base={total.total} rotulo="Correctas" color={COLOR_BIEN} onClick={() => abre("Correctas del día", deVeredicto(todas, "correcta"))} />
-        <Cifra valor={total.mejorables} base={total.total} rotulo="Mejorables" color={COLOR_MEJORABLE} onClick={() => abre("Mejorables del día", deVeredicto(todas, "mejorable"))} />
+        {provisional ? (
+          <>
+            <Cifra valor={propuestasBien} base={todas.length} rotulo="Propuestas correctas" color={COLOR_BIEN} nota="sin revisar" onClick={() => abre("Propuestas correctas", deVeredicto(todas, "correcta"), undefined, { orden: "minuto" })} />
+            <Cifra valor={propuestasMal} base={todas.length} rotulo="Propuestas mejorables" color={COLOR_MEJORABLE} nota="sin revisar" onClick={() => abre("Propuestas mejorables", deVeredicto(todas, "mejorable"), undefined, { orden: "minuto" })} />
+          </>
+        ) : (
+          <>
+            <Cifra valor={total.correctas} base={total.total} rotulo="Correctas" color={COLOR_BIEN} onClick={() => abre("Correctas del día", deVeredicto(todas, "correcta"))} />
+            <Cifra valor={total.mejorables} base={total.total} rotulo="Mejorables" color={COLOR_MEJORABLE} onClick={() => abre("Mejorables del día", deVeredicto(todas, "mejorable"))} />
+          </>
+        )}
         <Cifra
           valor={total.validadas}
-          base={total.total + sinValidar.length}
+          base={todas.length}
           rotulo="Revisadas"
           nota={sinValidar.length ? `${sinValidar.length} sin validar` : "todo validado"}
           onClick={() => (sinValidar.length ? abre("Por revisar", sinValidar, undefined, { filtro: "sin-validar", orden: "minuto" }) : abre("Todas las acciones del día", todas, undefined, { orden: "minuto" }))}
@@ -221,7 +247,7 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
             <FilaBarra
               key={f.objetivo.id}
               titulo={`${f.numero}. ${f.objetivo.objetivo}`}
-              detalle={[f.objetivo.jugadores.map((j) => j.nombre).join(", "), f.objetivo.tarea ? `Tarea ${f.objetivo.tarea}` : ""].filter(Boolean).join(" · ")}
+              detalle={[`${f.acciones.length} ${f.acciones.length === 1 ? "acción" : "acciones"}`, f.objetivo.jugadores.map((j) => j.nombre).join(", "), f.objetivo.tarea ? `Tarea ${f.objetivo.tarea}` : ""].filter(Boolean).join(" · ")}
               acciones={f.acciones}
               val={val}
               c={f.c}
@@ -564,8 +590,12 @@ function FilaBarra({
           {meta ? <span className="pointer-events-none absolute -bottom-1 -top-1 w-0.5 rounded-full" style={{ left: `calc(${meta}% - 1px)`, background: "var(--rmcf-gold-ink)" }} aria-hidden title={`Meta ${meta} %`} /> : null}
         </div>
         <div className="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] tabular-nums text-white/65">
-          <span className="font-semibold text-white/90">{c.pct !== null ? `${c.pct} %` : "Tendencia"}</span>
-          {c.correctas ? (
+          <span className="font-semibold text-white/90">{c.pct !== null ? `${c.pct} %` : c.total ? "Tendencia" : "Propuesto"}</span>
+          {!c.total ? (
+            <span>
+              {porRevisar.filter((a) => a.veredicto === "correcta").length} bien · {porRevisar.filter((a) => a.veredicto === "mejorable").length} a mejorar
+            </span>
+          ) : c.correctas ? (
             <button type="button" onClick={() => onAbre("correcta")} className={`rounded hover:text-white hover:underline ${FOCO}`}>
               {c.correctas} de {c.total} bien
             </button>

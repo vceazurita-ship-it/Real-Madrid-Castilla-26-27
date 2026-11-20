@@ -99,7 +99,8 @@ function fechaValida(iso: string | null | undefined) {
 
 /** «RMCF - caritas» -> «caritas»: todas las tareas son del club. */
 function sinPrefijo(titulo: string) {
-  const limpio = titulo.trim().replace(/^RMCFs*[-–—·:]s*/i, "");
+  /* 20/11/2026: con `\s` (la barra se había perdido y «RMCF - caritas» salía tal cual). */
+  const limpio = titulo.trim().replace(/^RMCF\s*[-–—·:]\s*/i, "");
 
   return limpio || titulo.trim();
 }
@@ -231,8 +232,13 @@ function dondeSeHace(alerta: Alerta, rival: string): { href: string; texto: stri
   if (/viaje|desplazamiento|hotel|autobus/.test(t)) return { href: "/desplazamiento", texto: "Abrir el desplazamiento" };
   if (/microciclo|sesion|entrenamiento/.test(t)) return { href: "/microcycles", texto: "Abrir el microciclo" };
 
-  /* 17/11/2026 (ronda 20, fútbol): ninguna tarjeta sin salida; la que va atada al partido, a su semana. */
-  if (alerta.repeticion === "partido") return { href: "/microcycles", texto: "Ver en el microciclo" };
+  /* 17/11/2026 (ronda 20, fútbol): ninguna tarjeta sin salida; la que va atada al partido, a su semana.
+     20/11/2026 (ronda 4, marketing): con el día MD en el que cae. */
+  if (alerta.repeticion === "partido") {
+    const dias = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+
+    return { href: "/microcycles", texto: `Ver en el microciclo · ${dias === 0 ? "MD" : `MD-${dias}`}` };
+  }
 
   return null;
 }
@@ -378,6 +384,8 @@ export default function ListaAlertas({
         return (
           <article
             key={alerta.id}
+            /* 20/11/2026: la línea de la semana del partido salta aquí. */
+            id={`alerta-${alerta.id}`}
             /* Columna flexible y las acciones al pie: todas las tarjetas de una
                fila miden lo mismo, con descripción o sin ella (30/10/2026). */
             className={`flex h-full flex-col rounded-3xl border border-white/10 bg-white/[0.03] p-4 transition ${
@@ -445,8 +453,11 @@ export default function ListaAlertas({
                   );
                 } else if (alerta.envios > 0 && fechaValida(alerta.ultimoEnvio)) {
                   /* 11/11/2026 (marketing): la caducada dice desde cuándo y por qué. */
+                  /* 20/11/2026 (ronda 4, análisis): y la causa, sin abrir nada. */
                   principal = caducada(alerta)
-                    ? `Caducada · se envió por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`
+                    ? `Caducada: ${
+                        alerta.repeticion === "una-vez" ? "era de una sola vez y ya salió" : "su fecha ya pasó"
+                      } (última vez, el ${fechaDeSalida(alerta.ultimoEnvio)})`
                     : `Silenciada · enviada por última vez el ${fechaDeSalida(alerta.ultimoEnvio)}`;
                 } else {
                   principal =
@@ -495,17 +506,45 @@ export default function ListaAlertas({
 
               return (
                 <div className="mb-3 mt-3 space-y-1.5 text-[13px] leading-relaxed text-white/60">
+                  {/*
+                    20/11/2026 (ronda 4, análisis): cuándo sale y su regla en una
+                    sola línea —«sale el vie 27 nov · 09:00 · 2 días antes del
+                    partido vs Rayo Majadahonda»—, con el rival abriendo su
+                    plantilla ya elegida (marketing).
+                  */}
                   <p>
-                    <AlarmClock className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
-                    {principal}
-                  </p>
-
-                  {regla && !sinRegla && (
-                    <p>
+                    {regla && !sinRegla && alerta.repeticion !== "partido" ? (
                       <Repeat className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
-                      {regla}
-                    </p>
-                  )}
+                    ) : (
+                      <AlarmClock className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
+                    )}
+                    {principal}
+                    {regla && !sinRegla ? (
+                      <>
+                        {" · "}
+                        {(() => {
+                          const texto = regla.charAt(0).toLowerCase() + regla.slice(1);
+                          const marca = rivalDeLaTarea ? `vs ${rivalDeLaTarea}` : "";
+                          const i = marca ? texto.indexOf(marca) : -1;
+
+                          if (i < 0) return texto;
+
+                          return (
+                            <>
+                              {texto.slice(0, i)}vs{" "}
+                              <Link
+                                href={`/rivals?equipo=${encodeURIComponent(rivalDeLaTarea)}`}
+                                className="font-semibold text-white/85 underline decoration-white/30 underline-offset-2 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                              >
+                                {rivalDeLaTarea}
+                              </Link>
+                              {texto.slice(i + marca.length)}
+                            </>
+                          );
+                        })()}
+                      </>
+                    ) : null}
+                  </p>
 
                   {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
                   <p title={todos} className="[overflow-wrap:anywhere]">
@@ -592,7 +631,8 @@ export default function ListaAlertas({
             | queda al lado de «Reactivar» y sigue pidiendo confirmación.
             */
             <div className="mt-auto border-t border-white/[0.06] pt-2">
-              <div className="flex flex-wrap items-center gap-x-1 gap-y-1">
+              {/* 20/11/2026 (ronda 4, fútbol): en una sola fila; en el móvil «⋯» se quedaba solo en otra. */}
+              <div className="flex flex-nowrap items-center gap-x-1">
                 {!alerta.activa && !caducada(alerta) ? (
                   <button
                     type="button"
@@ -623,7 +663,7 @@ export default function ListaAlertas({
                 {destinoTarea && (
                   <Link
                     href={destinoTarea.href}
-                    className="inline-flex min-h-10 min-w-0 items-center gap-1 rounded-full px-3 py-1.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                    className="inline-flex min-h-10 min-w-0 shrink items-center gap-1 rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
                   >
                     <span className="min-w-0 break-words leading-tight">{destinoTarea.texto}</span>
                     <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
@@ -637,7 +677,7 @@ export default function ListaAlertas({
                   aria-expanded={menu === alerta.id}
                   aria-label="Más acciones"
                   title="Más acciones"
-                  className="ml-auto inline-flex min-h-10 min-w-10 items-center justify-center rounded-full text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
+                  className="ml-auto inline-flex min-h-10 min-w-10 shrink-0 items-center justify-center rounded-full text-white/60 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-40"
                 >
                   <MoreHorizontal className="h-4 w-4" aria-hidden />
                 </button>
@@ -760,20 +800,21 @@ export default function ListaAlertas({
       {caducadas.length > 0 && (
         /* Abierta (07/11/2026, marketing y análisis): plegada en una línea larga parecía un error. */
         /* 17/11/2026 (análisis): si todas llevan más de 30 días caducadas, plegadas: ya no hacen ruido. */
-        <details
-          className="group pt-1 @3xl:col-span-2 @6xl:col-span-3"
-          /* 17/11/2026 (ronda 20, los tres jueces): siempre abiertas; plegadas al pie no se veían. */
-          open
-        >
+        /* 20/11/2026 (ronda 4, marketing): plegadas fuera de la vista principal; el
+           resumen ya dice cuáles, por qué y desde cuándo, y el aviso de arriba las cuenta. */
+        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3">
+
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
           {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
             <b className="font-semibold text-white/80">Caducadas ({caducadas.length})</b>
             {" · "}
-            {caducadas.map((a) => `«${tituloLegible(sinPrefijo(a.titulo))}»`).join(", ")}
+            {caducadas
+              .map((a) => `«${tituloLegible(sinPrefijo(a.titulo))}»${fechaValida(a.ultimoEnvio) ? ` (salió el ${fechaDeSalida(a.ultimoEnvio)})` : ""}`)
+              .join(", ")}
             {" · "}
-            {caducadas.length === 1 ? "ya no saldría aunque la reactives: necesita fecha nueva" : "ya no saldrían aunque las reactives: necesitan fecha nueva"}
+            {caducadas.length === 1 ? "su fecha ya pasó: necesita una nueva" : "sus fechas ya pasaron: necesitan una nueva"}
           </summary>
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">

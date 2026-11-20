@@ -119,6 +119,21 @@ export function Momentum({
   const sitioA = sitioRotulo("a", rotuloA);
   const sitioB = sitioRotulo("b", rotuloB);
   const tramoEncima = encima != null ? curva[encima] : null;
+  /*
+  | 20/11/2026 (ronda 4, marketing de Análisis de datos): la conclusión en el
+  | titular del gráfico: quién mandó en más tramos y quién en la 2.ª parte.
+  */
+  const conclusion = (() => {
+    const umbral = tope * 0.1;
+    const cuenta = (lista: typeof curva) => ({ a: lista.filter((t) => t.valor > umbral).length, b: lista.filter((t) => t.valor < -umbral).length });
+    const todo = cuenta(curva);
+    const segunda = cuenta(curva.filter((t) => t.tramo >= 9));
+    const quien = (c: { a: number; b: number }) => (c.a === c.b ? null : c.a > c.b ? nombreA : nombreB);
+    const manda = quien(todo);
+    if (!manda) return "repartido";
+    const tras = quien(segunda);
+    return `${manda}, en ${Math.max(todo.a, todo.b)} de ${n} tramos${tras && tras !== manda ? `; en la 2.ª parte, ${tras}` : ""}`;
+  })();
   const ta = encima != null ? ea.tramos.get(encima) : undefined;
   const tb = encima != null ? eb.tramos.get(encima) : undefined;
 
@@ -126,7 +141,7 @@ export function Momentum({
     <div className="mt-5 min-w-0 border-t border-white/10 pt-4">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold text-white">Quién manda en cada tramo</h3>
+          <h3 className="text-sm font-semibold text-white">Quién manda en cada tramo: {conclusion}</h3>
           <p className="text-xs text-white/55">
             Por tramos de 5′, suavizado con los de al lado. Arriba, <span style={{ color: ORO }}>{nombreA}</span>; abajo, <span style={{ color: COMPARADO }}>{nombreB}</span>. xG{" "}
             {suma(ea, "xG").toFixed(1).replace(".", ",")} – {suma(eb, "xG").toFixed(1).replace(".", ",")} · toques en el área {suma(ea, "toquesArea")} – {suma(eb, "toquesArea")}.

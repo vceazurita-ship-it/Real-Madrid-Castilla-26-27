@@ -41,12 +41,36 @@ const ORO = "#C8A96B";
 const NARANJA = "#D95F02";
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
-export function SegundaJugada({ equipo }: { equipo: string }) {
-  const { caja, abierto } = useAsoma<HTMLDivElement>(2000);
-  return <div ref={caja} className="min-w-0">{abierto && equipo && <Indice equipo={equipo} />}</div>;
+/** Los nombres cortos de cada lado, para escribir a los de Opta como en el resto de la app. */
+type Cortos = { nuestros?: string[]; suyos?: string[] };
+
+const llano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+const palabrasDe = (t: string) => llano(t).split(/[\s.-]+/).filter(Boolean);
+
+/*
+| «David Flakus Bosilj» → «Flakus», «Oscar Naasei» → «Óscar» (20/11/2026,
+| jueces de fútbol): Opta da el nombre de la ficha federativa. Se busca el
+| nombre corto de la plantilla cuyas palabras salen todas en el de Opta; si
+| casan dos distintos, se deja el de Opta (mejor largo que equivocado).
+*/
+export function cortoDeOpta(nombre: string, cortos: string[] = []): string {
+  const palabras = new Set(palabrasDe(nombre));
+  const casan = [...new Set(cortos)].filter((c) => {
+    const suyas = palabrasDe(c).filter((w) => w.length >= 2);
+    return suyas.length > 0 && suyas.every((w) => palabras.has(w));
+  });
+  if (!casan.length) return nombre;
+  const mejor = Math.max(...casan.map((c) => palabrasDe(c).length));
+  const finalistas = casan.filter((c) => palabrasDe(c).length === mejor);
+  return finalistas.length === 1 ? finalistas[0] : nombre;
 }
 
-function Indice({ equipo }: { equipo: string }) {
+export function SegundaJugada({ equipo, cortos = {} }: { equipo: string; cortos?: Cortos }) {
+  const { caja, abierto } = useAsoma<HTMLDivElement>(2000);
+  return <div ref={caja} className="min-w-0">{abierto && equipo && <Indice equipo={equipo} cortos={cortos} />}</div>;
+}
+
+function Indice({ equipo, cortos }: { equipo: string; cortos: Cortos }) {
   const { docs } = useDocsOpta<[TablaOpta, Archivo]>(DOCS_OPTA.equipos, "opta:directo:archivo");
   const [tEquipos, archivo] = docs;
 
@@ -73,10 +97,10 @@ function Indice({ equipo }: { equipo: string }) {
   const idsRival = rival ? idsDe(rival.nombre) : [];
   const idsNuestros = idsDe(castilla);
   if (!rival || (!idsRival.length && !idsNuestros.length)) return null;
-  return <Bloque equipo={equipo} teamId={rival.id} idsRival={idsRival} idsNuestros={idsNuestros} />;
+  return <Bloque equipo={equipo} teamId={rival.id} idsRival={idsRival} idsNuestros={idsNuestros} cortos={cortos} />;
 }
 
-function Bloque({ equipo, teamId, idsRival, idsNuestros }: { equipo: string; teamId: string; idsRival: string[]; idsNuestros: string[] }) {
+function Bloque({ equipo, teamId, idsRival, idsNuestros, cortos }: { equipo: string; teamId: string; idsRival: string[]; idsNuestros: string[]; cortos: Cortos }) {
   const ids = useMemo(() => [...new Set([...idsRival, ...idsNuestros])], [idsRival, idsNuestros]);
   const { docs } = useDocsOpta<DocDirecto[]>(...ids.map(DOCS_OPTA.directo));
 
@@ -123,6 +147,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros }: { equipo: string; tea
             titulo={`Su balón largo: ${equipo} se queda`}
             cifra={suyo.parte}
             quien="Los suyos que más la recogen"
+            cortos={cortos.suyos}
             ejes={`${equipo} lanza hacia la derecha: a la derecha, nuestra portería`}
             zona={
               suyo.enZonaMc
@@ -140,6 +165,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros }: { equipo: string; tea
             titulo="Cuando defendemos el balón largo: el Castilla gana"
             cifra={1 - nuestro.parte}
             quien="Los nuestros que más la recogen"
+            cortos={cortos.nuestros}
             ejes="El rival lanza hacia la derecha: a la derecha, nuestra portería"
             zona={
               nuestro.enZonaMc
@@ -167,7 +193,9 @@ function Tarjeta({
   quien,
   ejes,
   zona,
+  cortos,
 }: {
+  cortos?: string[];
   datos: Datos;
   color: string;
   titulo: string;
@@ -222,7 +250,14 @@ function Tarjeta({
           </g>
         )}
       </CampoOpta>
-      <p className="mt-1 text-[11px] text-white/45">{ejes}. Discontinua: zona del mediocentro.</p>
+      {/* Leyenda de la escala (20/11/2026, jueces de análisis): cuánto vale la casilla más intensa. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/60">
+        <span>{ejes}. Discontinua: zona del mediocentro.</span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="inline-block h-2.5 w-12 rounded-sm" style={{ background: `linear-gradient(90deg, ${color}20, ${color}d9)` }} aria-hidden />
+          de 1 a {datos.max} primeros toques por casilla
+        </span>
+      </p>
       {zona && <p className="mt-2 text-xs leading-relaxed text-white/70">{zona}.</p>}
 
       {datos.recogen.length > 0 && (
@@ -232,7 +267,7 @@ function Tarjeta({
             {datos.recogen.map((r, i) => (
               <li key={r.id} className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 truncate text-white/85">
-                  {i + 1}. {r.nombre}
+                  {i + 1}. {cortoDeOpta(r.nombre, cortos)}
                 </span>
                 <b className="shrink-0 tabular-nums" style={{ color }}>
                   {r.veces}

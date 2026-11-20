@@ -12,6 +12,13 @@
  * (localStorage): cerrarla cuenta como visto hasta mañana.
  *
  * Cuenta lo mismo que el correo de las 7:00 (`pendientesAnteriores`).
+ *
+ * 20/11/2026 (ronda 4, los tres jueces): en la portada ya NO sale sola —tapaba
+ * la cabecera del próximo partido—. Allí la franja de atrasadas va dentro de
+ * «Tu día» (PanelHoy) y la ventana sólo se abre al tocarla
+ * (`EVENTO_VER_ATRASADAS`). Fuera de la portada, la franja va pegada al pie de
+ * la pantalla, a todo el ancho y por encima de la zona segura, y mientras se
+ * ve la página gana ese hueco por abajo: no tapa contenido.
  */
 
 import Link from "next/link";
@@ -36,6 +43,9 @@ import {
 } from "@/lib/portada/mis-tareas";
 
 const VISTO = "rmcf-tareas-pendientes-visto";
+
+/** Abre la ventana de tareas atrasadas (la lanza la franja de «Tu día»). */
+export const EVENTO_VER_ATRASADAS = "rmcf:tareas-atrasadas-ver";
 
 const yaVisto = (hoy: string) => {
   try {
@@ -67,9 +77,20 @@ export function AvisoTareasPendientes() {
 
 function Vigia({ enPortada }: { enPortada: boolean }) {
   const [hoy, setHoy] = useState("");
+  /* Abierta a mano desde «Tu día»: la ventana, aunque ya se viera hoy. */
+  const [aMano, setAMano] = useState(0);
 
-  /* Se mira un poco después de entrar, para no competir con la carga de la pantalla. */
+  /*
+  | Al cerrar se esconde la ventana pero el aviso sigue montado: lo marcado un
+  | segundo antes tiene que terminar de guardarse y avisar a «Mis tareas».
+  */
+  const [cerrado, setCerrado] = useState(false);
+
+  /* Se mira un poco después de entrar, para no competir con la carga de la
+     pantalla. En la portada no sale sola: allí la lleva «Tu día». */
   useEffect(() => {
+    if (enPortada) return;
+
     const id = setTimeout(() => {
       const dia = hoyEnMadrid();
 
@@ -77,13 +98,19 @@ function Vigia({ enPortada }: { enPortada: boolean }) {
     }, 2500);
 
     return () => clearTimeout(id);
-  }, []);
+  }, [enPortada]);
 
-  /*
-  | Al cerrar se esconde la ventana pero el aviso sigue montado: lo marcado un
-  | segundo antes tiene que terminar de guardarse y avisar a «Mis tareas».
-  */
-  const [cerrado, setCerrado] = useState(false);
+  useEffect(() => {
+    const abre = () => {
+      setHoy(hoyEnMadrid());
+      setCerrado(false);
+      setAMano((n) => n + 1);
+    };
+
+    window.addEventListener(EVENTO_VER_ATRASADAS, abre);
+
+    return () => window.removeEventListener(EVENTO_VER_ATRASADAS, abre);
+  }, []);
 
   const cierra = useCallback(() => {
     if (hoy) marcaVisto(hoy);
@@ -93,10 +120,10 @@ function Vigia({ enPortada }: { enPortada: boolean }) {
 
   if (!hoy) return null;
 
-  return <Aviso hoy={hoy} cerrado={cerrado} alCerrar={cierra} enPortada={enPortada} />;
+  return <Aviso key={aMano} hoy={hoy} cerrado={cerrado} alCerrar={cierra} ventana={aMano > 0} />;
 }
 
-function Aviso({ hoy, cerrado, alCerrar, enPortada }: { hoy: string; cerrado: boolean; alCerrar: () => void; enPortada: boolean }) {
+function Aviso({ hoy, cerrado, alCerrar, ventana }: { hoy: string; cerrado: boolean; alCerrar: () => void; ventana: boolean }) {
   const { partidos, cargando: sinCalendario } = useCalendario();
   const { sesiones, listo } = useSesionesDelMicro();
   const { hechas, doc, cambiaHechas, cambiaDoc, cargando } = useMisTareas();
@@ -166,7 +193,7 @@ function Aviso({ hoy, cerrado, alCerrar, enPortada }: { hoy: string; cerrado: bo
     cambiaDoc((d) => lista.reduce((acc, t, i) => edita(acc, t, { fecha: hoy }, ids[i]), d));
   };
 
-  if (!enPortada) return <Franja n={pendientes.length} alCerrar={alCerrar} />;
+  if (!ventana) return <Franja n={pendientes.length} alCerrar={alCerrar} />;
 
   return <Ventana pendientes={pendientes} alCerrar={alCerrar} marca={marca} aHoy={aHoy} todasAHoy={todasAHoy} />;
 }
@@ -181,12 +208,23 @@ function Franja({ n, alCerrar }: { n: number; alCerrar: () => void }) {
     return () => clearTimeout(id);
   }, [alCerrar]);
 
+  /* Mientras se ve, la página gana su alto por abajo: lo último no queda debajo. */
+  useEffect(() => {
+    const previo = document.body.style.paddingBottom;
+
+    document.body.style.paddingBottom = "calc(56px + env(safe-area-inset-bottom))";
+
+    return () => {
+      document.body.style.paddingBottom = previo;
+    };
+  }, []);
+
   return (
     <div
       role="status"
       data-export-hide
-      className="siempre-oscuro fixed inset-x-0 bottom-3 z-[60] mx-auto flex w-fit max-w-[calc(100vw-24px)] items-center gap-2 rounded-full border border-white/12 py-1.5 pl-3 pr-1.5 shadow-[0_10px_30px_rgba(0,0,0,.35)]"
-      style={{ background: "#11161D" }}
+      className="siempre-oscuro fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center gap-2 border-t border-white/12 px-3 pt-1.5 shadow-[0_-8px_24px_rgba(0,0,0,.3)]"
+      style={{ background: "#11161D", paddingBottom: "calc(6px + env(safe-area-inset-bottom))" }}
     >
       <AlertTriangle className="h-4 w-4 shrink-0 text-red-300" />
       <span className="text-sm text-white/90">{n === 1 ? "1 tarea atrasada" : `${n} tareas atrasadas`}</span>

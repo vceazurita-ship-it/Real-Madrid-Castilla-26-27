@@ -599,52 +599,11 @@ export default function TeamValuesPage() {
     ) : null;
 
   /*
-  | 17/11/2026 (marketing): en el Marco, el avance de la hoja de ruta antes que
-  | los votos: cada etapa con lo que se espera de ella, su fecha si la hoja la
-  | trae y a un toque. El recuento completo vive en /identidad-cultura.
+  | 20/11/2026 (fútbol, marketing y guionista): las etapas salían tres veces
+  | (rail, línea de pasos y la rejilla «Lo que trae cada una de las etapas»).
+  | Queda una sola navegación: la línea de pasos, con el estado de cada etapa
+  | (si la hoja trae FECHA) y sus contenidos.
   */
-  const hojaDeRuta =
-    !editing && etapaIndex === 0 && secciones.length > 1 ? (
-      <section aria-labelledby="avance-hoja-ruta" className="mt-6">
-        <h2 id="avance-hoja-ruta" className="text-lg font-semibold leading-snug text-white sm:text-xl">
-          {etapaHoy
-            ? `La plantilla está en ${rotuloSeccion(etapaHoy)}: etapa ${secciones.indexOf(etapaHoy) + 1} de ${secciones.length}`
-            : `Lo que trae cada una de las ${secciones.length - 1} etapas con el vestuario`}
-        </h2>
-        <ol className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-          {secciones.slice(1).map((s, i) => {
-            const fecha = data.filter((r) => r.SECCION === s).map((r) => limpio(r.FECHA)).find(Boolean);
-            const n = data.filter((r) => r.SECCION === s).length;
-            const hoy = s === etapaHoy;
-
-            return (
-              <li key={s}>
-                <button
-                  type="button"
-                  onClick={() => irASeccion(s)}
-                  className={cn(
-                    "flex h-full w-full flex-col gap-1 rounded-xl border p-3 text-left transition-colors hover:bg-white/[0.05]",
-                    focusRing,
-                    hoy ? "border-sky-500/50 bg-sky-500/[0.06]" : "border-white/10 bg-white/[0.02]",
-                  )}
-                >
-                  <span className="flex flex-wrap items-baseline gap-x-2 text-sm font-semibold text-white">
-                    <span className="tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">{i + 2}</span>
-                    {rotuloSeccion(s)}
-                    {fecha && <span className="text-[12px] font-normal text-gray-400">{fecha}</span>}
-                    {hoy && <span className="text-[12px] font-semibold text-sky-300">hoy</span>}
-                  </span>
-                  <span className="text-[13px] leading-snug text-gray-300">{TITULARES[s.toUpperCase()] ?? DESCRIPCIONES[s.toUpperCase()] ?? DESCRIPCION_POR_DEFECTO}</span>
-                  <span className="mt-auto text-[12px] text-gray-400">
-                    {n} contenido{n === 1 ? "" : "s"} →
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ol>
-      </section>
-    ) : null;
 
   const metodoPlegado = etapaIndex === 0 && !editing && !filtrando;
 
@@ -680,46 +639,6 @@ export default function TeamValuesPage() {
             | nombres («Se…») y ahora es una rejilla de dos columnas con el
             | nombre entero y cuántos contenidos tiene cada etapa.
             */}
-            <nav className="mt-5 hidden gap-2 lg:grid lg:grid-cols-1">
-              {secciones.map((s, i) => {
-                const total = visibles.filter((r) => r.SECCION === s).length;
-                const activa = s === seccion;
-
-                return (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => irASeccion(s)}
-                    aria-current={activa ? "true" : undefined}
-                    className={cn(
-                      "flex min-w-0 flex-col items-start gap-0.5 rounded-xl px-3 py-2 text-left transition-all lg:rounded-2xl lg:px-4 lg:py-3",
-                      focusRing,
-                      activa
-                        ? "bg-[#C8A96B] text-black shadow-[0_8px_24px_-12px_rgba(200,169,107,0.9)]"
-                        : "border border-white/10 text-gray-200 hover:border-[#C8A96B]/40 hover:bg-white/[0.04] hover:text-white",
-                      filtrando && total === 0 && !activa && "opacity-40",
-                    )}
-                  >
-                    <span className="min-w-0 break-words text-sm font-medium leading-snug">
-                      {rotuloSeccion(s)}
-                    </span>
-                    <span
-                      className={cn(
-                        "text-xs tabular-nums",
-                        activa ? "text-black/70" : "text-gray-400",
-                      )}
-                    >
-                      {/* 07/11/2026: la semana real, si la hoja la trae en FECHA. */}
-                      {data
-                        .filter((r) => r.SECCION === s)
-                        .map((r) => limpio(r.FECHA))
-                        .find(Boolean) || `Etapa ${i + 1}`}{" "}
-                      · {total} contenido{total === 1 ? "" : "s"}
-                    </span>
-                  </button>
-                );
-              })}
-            </nav>
 
             {loading && (
               <div className="mt-2 space-y-2 lg:mt-5">
@@ -748,11 +667,7 @@ export default function TeamValuesPage() {
             <div className="flex flex-row items-start justify-between gap-4">
               <div className="min-w-0">
                 {/* 10/11/2026: la etapa como antetítulo y un titular con la idea. */}
-                {seccion && TITULARES[seccion] && (
-                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                    {rotuloSeccion(seccion)}
-                  </p>
-                )}
+                {/* 20/11/2026 (marketing): sin el antetítulo suelto («MARCO»): la etapa ya va en oro en la línea de pasos. */}
                 <h1 className="mt-1 text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
                   {seccion ? TITULARES[seccion] ?? rotuloSeccion(seccion) : ""}
                 </h1>
@@ -772,13 +687,16 @@ export default function TeamValuesPage() {
               {!editing && !loading && !error && toolbar}
             </div>
 
+            {/* 20/11/2026 (fútbol): en el Marco, la votación arriba, bajo el titular: es lo que se dice en el vestuario. */}
+            {etapaIndex === 0 && votacion}
+
             {/* 16/11/2026: la hoja de ruta como línea de proceso: las seis
                 etapas en orden, con su fecha si la hoja la trae; la que se ve,
                 en oro. En el móvil sustituye a la rejilla del rail. */}
             {secciones.length > 1 && (
               <ol
                 aria-label="Hoja de ruta de la cultura"
-                className="-mx-4 mt-6 flex snap-x gap-0 overflow-x-auto px-4 pb-2 lg:mx-0 lg:px-0"
+                className="mt-6 grid grid-cols-3 gap-y-4 sm:flex sm:gap-0"
               >
                 {secciones.map((s, i) => {
                   const activa = s === seccion;
@@ -787,14 +705,17 @@ export default function TeamValuesPage() {
                     .filter((r) => r.SECCION === s)
                     .map((r) => limpio(r.FECHA))
                     .find(Boolean);
+                  const n = visibles.filter((r) => r.SECCION === s).length;
+                  /* El estado sólo cuando la hoja dice en qué etapa estamos (FECHA): sin fecha, no se nombra. */
+                  const estadoEtapa = etapaHoy ? (s === etapaHoy ? "En curso" : hecha ? "Hecha" : "Por hacer") : "";
 
                   return (
-                    <li key={s} className="relative min-w-[7.5rem] flex-1 snap-start">
+                    <li key={s} className="relative min-w-0 flex-1">
                       {i > 0 && (
                         <span
                           aria-hidden
                           className={cn(
-                            "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2",
+                            "absolute right-1/2 top-4 h-0.5 w-full -translate-y-1/2 max-sm:hidden",
                             hecha || activa ? "bg-[#C8A96B]" : "bg-white/15",
                           )}
                         />
@@ -821,9 +742,17 @@ export default function TeamValuesPage() {
                           {rotuloSeccion(s)}
                         </span>
                         {fecha && <span className="text-[12px] text-gray-400">{fecha}</span>}
-                        {s === etapaHoy && (
-                          <span className="rounded-full bg-sky-500/15 px-2 py-0.5 text-[11px] font-semibold text-sky-300 ring-1 ring-sky-500/30">
-                            Hoy
+                        <span className={cn("text-[12px] tabular-nums", filtrando && n === 0 ? "text-gray-500" : "text-gray-400")}>
+                          {n} contenido{n === 1 ? "" : "s"}
+                        </span>
+                        {estadoEtapa && (
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
+                              estadoEtapa === "En curso" ? "bg-sky-500/15 text-sky-300 ring-sky-500/30" : estadoEtapa === "Hecha" ? "text-[color:var(--rmcf-gold-ink,#C8A96B)] ring-[#C8A96B]/30" : "text-gray-400 ring-white/15",
+                            )}
+                          >
+                            {estadoEtapa}
                           </span>
                         )}
                       </button>
@@ -832,9 +761,6 @@ export default function TeamValuesPage() {
                 })}
               </ol>
             )}
-
-            {hojaDeRuta}
-            {etapaIndex === 0 && votacion}
 
             {/* Filtros por tipo */}
             {!editing && tipos.length > 1 && (

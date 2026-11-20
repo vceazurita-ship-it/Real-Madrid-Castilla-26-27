@@ -8,6 +8,7 @@ import {
   ImageIcon,
   Loader2,
   RefreshCw,
+  UploadCloud,
 } from "lucide-react";
 import { AREA_CONFIG, SEASON_LABEL } from "@/lib/season/config";
 import { SeasonArea, WeekData } from "@/lib/season/types";
@@ -32,7 +33,7 @@ interface Props {
   /** En cuántas semanas hay imágenes y en cuántas PDFs (ya no se pinta: la línea de resumen da el total de semanas con material). */
   semanasCon?: { images: number; pdfs: number };
   /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
-  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string }[];
+  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number }[];
   onSelectWeek?: (id: number) => void;
   saving: boolean;
   onGoToCurrentWeek: () => void;
@@ -146,6 +147,14 @@ export default function SeasonHeader({
           —la semana en curso, cuántas tienen material y la última subida, que
           abre esa semana— y la acción de subir se queda en la semana de abajo.
         */}
+        {/*
+          20/11/2026 (ronda 4, análisis y marketing): una sola línea con su
+          base —«3 imágenes y 13 PDF en 7 de 21 semanas»—, con las dos cifras
+          abriendo todo lo de la temporada (antes iban en una caja aparte,
+          «De la temporada»). Debajo, si la semana en curso está vacía y hace
+          dos o más que no se sube nada, el aviso con cuánto hace y el botón
+          de subir: lo que se puede hacer, no sólo el dato.
+        */}
         {tiraSemanas.length > 1 ? (
           <p className="mt-4 flex max-w-3xl flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px] leading-snug text-white/75">
             {idxActual >= 0 ? (
@@ -153,23 +162,61 @@ export default function SeasonHeader({
             ) : null}
             {idxActual >= 0 ? <span aria-hidden className="text-white/35">·</span> : null}
             <span>
-              <span className="font-semibold tabular-nums text-white/90">{conMaterial}</span> de {tiraSemanas.length} semanas con material
-            </span>
-            {ultimaConMaterial && sinSubir >= 2 && actualVacia ? (
-              <>
-                <span aria-hidden className="text-white/35">·</span>
+              {stats.images > 0 ? (
                 <button
                   type="button"
-                  onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
-                  className="text-left font-medium text-white/75 underline decoration-white/25 underline-offset-2 transition hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
-                  title="Abre la última semana con material"
+                  onClick={onOpenImages}
+                  title="Ver todas las imágenes de la temporada"
+                  className="inline-flex items-baseline gap-1 font-semibold text-white/90 underline decoration-white/25 underline-offset-2 transition hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
                 >
-                  última subida, la {ultimaConMaterial.week.toLowerCase()}
-                  {weekRangeLabel(ultimaConMaterial) ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}
+                  <ImageIcon size={13} className="self-center text-[#C8A96B]" aria-hidden />
+                  {stats.images === 1 ? "1 imagen" : `${stats.images} imágenes`}
                 </button>
-              </>
-            ) : null}
+              ) : null}
+              {stats.images > 0 && stats.pdfs > 0 ? " y " : null}
+              {stats.pdfs > 0 ? (
+                <button
+                  type="button"
+                  onClick={onOpenPdfs}
+                  title="Ver todos los PDF de la temporada"
+                  className="inline-flex items-baseline gap-1 font-semibold text-white/90 underline decoration-white/25 underline-offset-2 transition hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                >
+                  <FileText size={13} className="self-center text-[#C8A96B]" aria-hidden />
+                  {/* «PDF» invariable, como se escribe en español (07/11/2026). */}
+                  {`${stats.pdfs} PDF`}
+                </button>
+              ) : null}
+              {stats.images + stats.pdfs > 0 ? " en " : null}
+              <span className="font-semibold tabular-nums text-white/90">{conMaterial}</span> de {tiraSemanas.length} semanas
+              {stats.images + stats.pdfs > 0 ? "" : " con material"}
+            </span>
           </p>
+        ) : null}
+
+        {tiraSemanas.length > 1 && ultimaConMaterial && sinSubir >= 2 && actualVacia ? (
+          <div className="mt-3 flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-3.5 py-2.5 text-[13.5px] leading-snug text-white/80">
+            <span className="min-w-0 flex-1">
+              Sin subidas desde la{" "}
+              <button
+                type="button"
+                onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
+                className="font-semibold text-white/90 underline decoration-white/25 underline-offset-2 transition hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                title="Abre la última semana con material"
+              >
+                {ultimaConMaterial.week.toLowerCase()}
+                {weekRangeLabel(ultimaConMaterial) ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}
+              </button>
+              : hace <span className="font-semibold tabular-nums text-white/90">{sinSubir}</span> semanas.
+            </span>
+            <button
+              type="button"
+              onClick={onGoToCurrentWeek}
+              className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#C8A96B] px-3.5 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
+            >
+              <UploadCloud size={15} aria-hidden />
+              {currentWeek ? `Subir a la ${currentWeek.week.toLowerCase()}` : "Subir"}
+            </button>
+          </div>
         ) : null}
 
         {tiraSemanas.length > 1 && (
@@ -208,7 +255,14 @@ export default function SeasonHeader({
               aria-label="Semanas con y sin material"
             >
               {tiraSemanas.map((semana, i) => {
-                const detalle = [semana.nombre, semana.fechas, semana.partido, semana.conMaterial ? "con material" : "sin material"].filter(Boolean);
+                /* 20/11/2026 (análisis): qué hay dentro, no sólo si hay algo. */
+                const contenido = semana.conMaterial
+                  ? [
+                      semana.imagenes ? (semana.imagenes === 1 ? "1 imagen" : `${semana.imagenes} imágenes`) : "",
+                      semana.pdfs ? `${semana.pdfs} PDF` : "",
+                    ].filter(Boolean).join(" y ") || "con material"
+                  : "sin material";
+                const detalle = [semana.nombre, semana.fechas, semana.partido, contenido].filter(Boolean);
 
                 return (
                   <button
@@ -285,7 +339,8 @@ export default function SeasonHeader({
             </button>
           )}
 
-          {stats.images + stats.pdfs > 0 && (
+          {/* 20/11/2026: las cifras de la temporada ya van en la línea de estado, de arriba. */}
+          {tiraSemanas.length <= 1 && stats.images + stats.pdfs > 0 && (
             <div className="inline-flex max-w-full flex-wrap items-center gap-1 rounded-xl border border-white/15 p-1" role="group" aria-label="Todo lo de la temporada">
               <span className="px-2 text-[12.5px] font-medium text-white/60">De la temporada</span>
               {stats.images > 0 && (
@@ -305,7 +360,6 @@ export default function SeasonHeader({
                   className="inline-flex min-h-9 items-center gap-1.5 rounded-lg px-3 text-sm font-medium text-white/85 transition hover:bg-white/[0.08] hover:text-white"
                 >
                   <FileText size={15} className="text-[#C8A96B]" aria-hidden />
-                  {/* «PDF» invariable, como se escribe en español (07/11/2026). */}
                   {`${stats.pdfs} PDF`}
                 </button>
               )}

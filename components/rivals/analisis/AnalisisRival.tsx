@@ -805,6 +805,27 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
   if (nadaQueLeer && admin !== true) return null;
 
   /*
+  | Al administrador, sin láminas, una sola línea y no la tarjeta entera
+  | (20/11/2026, los tres jueces de Área del rival): la tarjeta vacía con
+  | «Pulsa Editar…» se leía como un hueco. No sale en el PDF ni en el PNG.
+  */
+  if (nadaQueLeer) {
+    return (
+      <p data-export-hide className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-dashed border-white/15 px-3 py-2 text-[13px] text-white/60">
+        <span className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">Sólo lo ves tú, como analista</span>
+        <span className="min-w-0 flex-1">Análisis visual {ambito === "abp" ? "de balón parado" : "del área"}: todavía no hay láminas de esta jornada.</span>
+        <button
+          type="button"
+          onClick={() => setEditandoManual(true)}
+          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[12px] font-semibold text-white/80 transition hover:bg-white/10"
+        >
+          <Pencil size={13} /> {ambito === "area" ? "Editar láminas" : "Editar"}
+        </button>
+      </p>
+    );
+  }
+
+  /*
   | Láminas que se llaman igual («1. Perfil derecho» y «3. Perfil derecho»):
   | en lectura se distinguen por lo que muestran (30/10/2026): la primera
   | leyenda que tengan o cuántos remates dibujan.

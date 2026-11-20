@@ -7,6 +7,7 @@ import {
   Activity,
   BarChart3,
   ChevronRight,
+  Plus,
   Users,
 } from "lucide-react"
 
@@ -1120,8 +1121,9 @@ export default function Home() {
                           {
                             /* 16/11/2026 (marketing): abre la ficha del que menos seguimientos lleva. */
                             /* 18/11/2026 (ronda 22): su ficha, ya en la pestaña de seguimiento. */
+                            /* 20/11/2026 (ronda 4, análisis): y la acción, no sólo el dato: abre «Nuevo seguimiento» con él ya elegido. */
                             href: menosSeguido
-                              ? `/individual?player=${encodeURIComponent(menosSeguido.id)}&nombre=${encodeURIComponent(menosSeguido.nombre)}&pestana=seguimiento`
+                              ? `/individual?player=${encodeURIComponent(menosSeguido.id)}&nombre=${encodeURIComponent(menosSeguido.nombre)}&nuevo=seguimiento`
                               : "/individual",
                             label: "Con seguimiento",
                             value: jugadoresSeguimiento,
@@ -1138,7 +1140,7 @@ export default function Home() {
                                   const lista = nombres.length > 1 ? `${nombres.slice(0, -1).join(", ")} y ${nombres[nombres.length - 1]}` : nombres[0]
                                   const cuantas = empatados.length > 1 ? `${menosSeguido.veces} cada uno` : `${menosSeguido.veces}`
                                   const mediana = medianaSeguimientos != null ? `; mediana ${coma(medianaSeguimientos, Number.isInteger(medianaSeguimientos) ? 0 : 1)}` : ""
-                                  return `Menos seguimientos: ${lista} (${cuantas}${mediana})`
+                                  return `Menos seguimientos: ${lista} (${cuantas}${mediana}) · programar el siguiente`
                                 })()
                               : "Abrir las fichas de nuestros jugadores",
                             loading: loadingSeguimiento || cargandoPlantilla,
@@ -1183,19 +1185,21 @@ export default function Home() {
                           title={`Ficha de ${j.nombre}`}
                         >
                           <span className="truncate">{j.nombre}</span>
-                          <span className="shrink-0 tabular-nums text-white/60">
-                            {j.veces}
+                          {/* 20/11/2026 (ronda 4, fútbol): la cifra con su palabra, en plural cuando toca. */}
+                          <span className="shrink-0 tabular-nums text-[12.5px] font-medium text-white/65">
+                            {j.veces} {j.veces === 1 ? "seguimiento" : "seguimientos"}
                           </span>
                         </Link>
+                        {/* 20/11/2026 (ronda 4, análisis): la acción —programar su seguimiento—, con él ya elegido. */}
                         <Link
-                          href={`/individual?player=${encodeURIComponent(j.id)}&pestana=seguimiento`}
+                          href={`/individual?player=${encodeURIComponent(j.id)}&nombre=${encodeURIComponent(j.nombre)}&nuevo=seguimiento`}
                           onClick={() => trackModuleVisit("/individual")}
                           className="portada-viva inline-flex min-h-10 shrink-0 items-center gap-1 rounded-xl border border-white/10 px-2.5 text-[12.5px] font-semibold"
                           style={{ color: "var(--rmcf-gold-ink)" }}
-                          title={`Los seguimientos de ${j.nombre}`}
+                          title={`Programar un seguimiento a ${j.nombre}`}
                         >
-                          Seguimiento
-                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                          <Plus className="h-3.5 w-3.5" aria-hidden />
+                          Programar
                         </Link>
                       </li>
                     ))}

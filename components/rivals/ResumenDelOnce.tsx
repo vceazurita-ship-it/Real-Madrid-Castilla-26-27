@@ -207,21 +207,40 @@ export function ResumenDelOnce({
               Su ficha ›
             </button>
           </div>
-        ) : (
-          <>
-            {peligros.length > 0 && (
-              <p>
-                <span className="font-semibold text-red-300">▲ Peligro: </span>
-                {lista(peligros)}.
-              </p>
-            )}
-            {explotables.length > 0 && (
-              <p>
-                <span className="font-semibold text-emerald-300">▼ Explotable: </span>
-                {lista(explotables)}.
-              </p>
-            )}
-          </>
+        ) : peligros.length + explotables.length === 0 ? null : (
+          /*
+          | Filas cortas con su chip (20/11/2026, jueces de análisis y fútbol):
+          | antes era un párrafo de seis líneas. Una fila por jugador: ▲/▼,
+          | dorsal, nombre y la métrica con su cifra; al tocarla, el porqué.
+          */
+          <ul className="space-y-1" aria-label={[peligros.length ? `Peligro: ${lista(peligros)}.` : "", explotables.length ? `Explotable: ${lista(explotables)}.` : ""].join(" ").trim()}>
+            {[...fichas.filter((f) => f.veredicto?.tipo === "peligro"), ...fichas.filter((f) => f.veredicto?.tipo === "explotable")].map((f) => {
+              const peligro = f.veredicto?.tipo === "peligro";
+
+              return (
+                <li key={f.clave} className="min-w-0">
+                  <button
+                    type="button"
+                    onClick={() => setElegida(f.clave)}
+                    className="flex w-full min-w-0 items-baseline gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-white/[0.05]"
+                  >
+                    <span
+                      className={`shrink-0 rounded-full border px-1.5 py-px text-[11px] font-bold ${peligro ? "border-red-400/60 text-red-300" : "border-emerald-400/60 text-emerald-300"}`}
+                    >
+                      {peligro ? "▲ peligro" : "▼ explotable"}
+                    </span>
+                    <span className="min-w-0">
+                      <b className="font-semibold text-white">
+                        {f.dorsal && <span className="mr-1 tabular-nums text-[#C8A96B]">{f.dorsal}</span>}
+                        {f.nombre}
+                      </b>
+                      <span className="text-white/65"> · {f.veredicto?.porque}</span>
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
         )}
       </div>
     </section>

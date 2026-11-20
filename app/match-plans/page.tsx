@@ -1063,18 +1063,24 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { pu
   const m = { izq: 28, der: 12, arr: 10, abj: 22 };
   /* 17/11/2026 (ronda 19, análisis): la raya de un equipo medio de la liga, como en Histórico. */
   const liga = ligaPuntosPP !== null ? puntos.map((_, i) => ligaPuntosPP * (i + 1)) : null;
-  const max = Math.max(3, puntos.length * 3);
+  /* 20/11/2026 (ronda 4, análisis): la misma escala que Histórico de la
+     Competición (hasta el máximo real, en pasos de 3 o 6), no hasta los
+     puntos posibles: 36 aquí y 24 allí con la misma serie. */
+  const maximo = Math.max(3, ...puntos, ...(liga ?? []));
+  const paso = maximo > 12 ? 6 : 3;
+  const max = Math.ceil(maximo / paso) * paso;
+  const marcas = Array.from({ length: max / paso + 1 }, (_, k) => k * paso);
   const x = (i: number) => m.izq + (i / Math.max(1, puntos.length - 1)) * (ancho - m.izq - m.der);
   const y = (v: number) => alto - m.abj - (v / max) * (alto - m.arr - m.abj);
   const color = (o: Outcome | null) => (o === "W" ? "#34D399" : o === "D" ? "#FBBF24" : "#FB7185");
   return (
     <figure id="partido-a-partido" className="mb-3 min-w-0 scroll-mt-28 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
       <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puntos acumulados: ${puntos[puntos.length - 1]} en ${puntos.length} partidos`}>
-        {[0, 0.5, 1].map((t) => (
-          <g key={t}>
-            <line x1={m.izq} x2={ancho - m.der} y1={y(max * t)} y2={y(max * t)} stroke="currentColor" strokeOpacity={0.12} />
-            <text x={m.izq - 6} y={y(max * t) + 4} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.6}>
-              {Math.round(max * t)}
+        {marcas.map((v) => (
+          <g key={v}>
+            <line x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={0.12} />
+            <text x={m.izq - 6} y={y(v) + 4} textAnchor="end" fontSize={11} fill="currentColor" fillOpacity={0.6}>
+              {v}
             </text>
           </g>
         ))}
@@ -1324,28 +1330,37 @@ function MatchCard({
            el móvil) en vez de enlaces de letra pequeña, y los goles de ese
            partido (análisis de goles con el Castilla) además de su post. */
         <nav aria-label={`Análisis del partido contra ${match.opponent}`} className="flex flex-wrap items-center gap-1.5 px-5 pb-5 pl-6 text-[13px] font-semibold">
-          <Link href={urlPostDelPartido(dia, match.opponent)} className={`${BOTON_TARJETA} border-[#C8A96B]/50 text-[#C8A96B]`} title="Las estadísticas del partido, en Análisis de datos">
-            Estadísticas
+          {/* 20/11/2026 (ronda 4, los tres jueces): siempre la misma fila —el post
+              del partido y sus goles— y lo etiquetado (robos, pérdidas, faltas)
+              plegado en «Análisis», en el mismo orden en todas las tarjetas. */}
+          <Link href={urlPostDelPartido(dia, match.opponent)} className={`${BOTON_TARJETA} border-[#C8A96B]/50 text-[#C8A96B]`} title={`El post del partido contra ${match.opponent} en Análisis de datos, con el partido ya elegido`}>
+            Post del partido
           </Link>
           {/* 18/11/2026: los goles de ESE partido (los dos equipos), en el pop-up de la portada. */}
           <BotonGolesEnVideo equipo={match.opponent} fecha={dia} className={BOTON_TARJETA} title="Los goles de este partido en vídeo, de los dos equipos">
             ▶ Goles
           </BotonGolesEnVideo>
-          {etiquetado?.robos({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/transiciones", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
-              Robos
-            </Link>
-          ) : null}
-          {etiquetado?.perdidas({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/perdidas", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
-              Pérdidas
-            </Link>
-          ) : null}
-          {etiquetado?.faltas({ fecha: dia, rival: match.opponent }) ? (
-            <Link href={enlaceConPartido("/laboratorio/faltas", { fecha: dia, rival: match.opponent })} className={BOTON_TARJETA}>
-              Faltas
-            </Link>
-          ) : null}
+          {(() => {
+            const del = { fecha: dia, rival: match.opponent };
+            const analisis = [
+              etiquetado?.robos(del) ? { href: enlaceConPartido("/laboratorio/transiciones", del), texto: "Robos" } : null,
+              etiquetado?.perdidas(del) ? { href: enlaceConPartido("/laboratorio/perdidas", del), texto: "Pérdidas" } : null,
+              etiquetado?.faltas(del) ? { href: enlaceConPartido("/laboratorio/faltas", del), texto: "Faltas" } : null,
+            ].filter((x): x is { href: string; texto: string } => x !== null);
+            if (!analisis.length) return null;
+            return (
+              <details className="min-w-0">
+                <summary className={`${BOTON_TARJETA} cursor-pointer list-none`}>Análisis ({analisis.length}) ▾</summary>
+                <span className="mt-1.5 flex flex-wrap gap-1.5">
+                  {analisis.map((a) => (
+                    <Link key={a.texto} href={a.href} className={BOTON_TARJETA}>
+                      {a.texto}
+                    </Link>
+                  ))}
+                </span>
+              </details>
+            );
+          })()}
         </nav>
       ) : (
         <div className="pb-2" />

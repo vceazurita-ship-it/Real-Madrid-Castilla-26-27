@@ -22,7 +22,7 @@
  *   pantalla, con el enlace a mano para pegarlo en un informe.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
   AlertTriangle,
   ChevronLeft,
@@ -42,11 +42,12 @@ import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useDuelosClave } from "@/hooks/useDuelosClave";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
-import { conRivalEnUrl, mismoNombreRival } from "@/lib/rivals/rival-en-curso";
+import { mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import Link from "next/link";
 import {
   CLAVE_LISTAS,
@@ -309,6 +310,14 @@ export function VideosDelCanal({
   const [abierto, setAbierto] = useState<Video | null>(null);
   /* Las vistas y el aviso de líneas sin cortes, sólo para el analista (16/11/2026, jueces). */
   const { admin } = useAdmin();
+
+  /* Quién le marca: nuestro jugador del duelo de cada uno, la misma cuenta que /duelos y el Plan (20/11/2026, jueces de fútbol). */
+  const duelosClave = useDuelosClave(equipo);
+  const marcas = useMemo<Marca[]>(() => {
+    if (!duelosClave) return [];
+    const g = duelosClave.grupos;
+    return [...g.buscar, ...g.doble, ...g.vigilar, ...g.parejos, ...g.tendencia].flatMap((d) => d.suyos.map((suyo) => ({ suyo, nuestros: d.nuestros })));
+  }, [duelosClave]);
 
   /* El rival oficial de cada jornada de nuestro calendario, para nombrar las listas (29/10/2026). */
   const { partidos } = useCalendario();
@@ -1029,6 +1038,7 @@ export function VideosDelCanal({
   }
 
   return (
+    <MarcasDelDuelo.Provider value={marcas}>
     <div className="min-w-0">
       {/* ---------------------- QUÉ LISTA SE MIRA --------------------- */}
 
@@ -1590,6 +1600,7 @@ export function VideosDelCanal({
         </div>
       )}
     </div>
+    </MarcasDelDuelo.Provider>
   );
 }
 
@@ -2032,6 +2043,10 @@ export function LecturaDelJugador({
 | Plan de partido con el rival ya elegido. Los rivales no tienen seguimiento
 | en la app: no hay «Su seguimiento» que enlazar.
 */
+/** Nuestro jugador (o los dos) que le toca a cada uno de los suyos en /duelos. */
+type Marca = { suyo: string; nuestros: string[] };
+const MarcasDelDuelo = createContext<Marca[]>([]);
+
 export function BotonesDelJugador({
   equipo,
   clave,
@@ -2049,6 +2064,8 @@ export function BotonesDelJugador({
   className?: string;
 }) {
   const portero = /portero|guardameta/i.test(puesto);
+  const marcas = useContext(MarcasDelDuelo);
+  const quien = portero ? undefined : marcas.find((m) => mismoNombreRival(m.suyo, nombre));
   const boton =
     "inline-flex min-h-[44px] items-center rounded-full border border-[#C8A96B]/40 px-2.5 font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10 sm:min-h-0 sm:py-0.5";
 
@@ -2062,9 +2079,12 @@ export function BotonesDelJugador({
           Su duelo →
         </Link>
       )}
-      <Link href={conRivalEnUrl("/match-preparation", { equipo })} className={boton} title={`El plan de partido contra ${equipo}`}>
-        Plan de partido →
-      </Link>
+      {/* «Quién le marca», con la ficha de nuestro jugador (20/11/2026, jueces de fútbol). «Plan de partido» sale ya en la tira de arriba (marketing). */}
+      {quien?.nuestros.slice(0, 2).map((n) => (
+        <Link key={n} href={`/individual?nombre=${encodeURIComponent(n)}`} className={boton} title={`Le marca ${n}: su ficha en Individual`}>
+          Le marca {n} →
+        </Link>
+      ))}
       {etiquetas.some((e) => ES_ABP.test(e)) && (
         <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className={boton}>
           Su ABP →

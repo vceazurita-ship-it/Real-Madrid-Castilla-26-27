@@ -94,9 +94,12 @@ export default function UploadZone({
         <input {...getInputProps()} />
 
         <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-white/85">
-            {busy ? busyLabel : isDragActive ? "Suelta los archivos aquí" : estado ?? "Arrastra los archivos o pulsa el botón"}
-          </span>
+          {/* 20/11/2026: sin rótulo fijo delante del botón; sólo lo que pasa al subir o al soltar. */}
+          {busy || isDragActive || estado ? (
+            <span className="block text-sm font-medium text-white/85">
+              {busy ? busyLabel : isDragActive ? "Suelta los archivos aquí" : estado}
+            </span>
+          ) : null}
           {/* «o arrástralos aquí» sólo con ratón (10/11/2026): en táctil no se puede arrastrar. */}
           <span className="block text-[13px] text-white/65">
             {formatos}

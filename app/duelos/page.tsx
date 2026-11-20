@@ -688,7 +688,8 @@ export default function DuelosPage() {
             {/* El Plan, sus goles en vídeo y el resto del rival, con él puesto (16/11/2026, ronda 18). */}
             {equipoVisto && <AccesosDelRival equipo={equipoVisto} aqui="/duelos" className="mt-4" />}
 
-            <div className="sticky top-[81px] z-20 -mx-4 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 px-4 pb-3 pt-3 backdrop-blur sm:-mx-8 sm:px-8 md:top-[97px]">
+            {/* A todo lo ancho también en el móvil (20/11/2026, jueces de fútbol): la sección deja hueco a la derecha para el botón flotante y la barra se quedaba corta. */}
+            <div className="sticky top-[81px] z-20 -ml-4 -mr-12 mt-6 flex flex-wrap items-center gap-3 border-b border-white/[0.06] bg-[#0B0F14]/95 pb-3 pl-4 pr-12 pt-3 backdrop-blur sm:-ml-8 sm:-mr-20 sm:pl-8 sm:pr-20 md:top-[97px]">
               <span className="text-xs uppercase tracking-wider text-white/55">Rival</span>
               {escudo && (
                 // eslint-disable-next-line @next/next/no-img-element -- escudo pequeño por el proxy propio
@@ -921,7 +922,7 @@ export default function DuelosPage() {
                 />
 
                 {/* Segunda jugada tras el balón largo (19/11/2026, idea de X): Opta, evento a evento. */}
-                {equipoVisto && <SegundaJugada equipo={equipoVisto} />}
+                {equipoVisto && <SegundaJugada equipo={equipoVisto} cortos={{ nuestros: nuestros.map(apellidoDe), suyos: suyos.map(apellidoDe) }} />}
 
 
                 <details
@@ -1076,19 +1077,34 @@ function Campo({
       ...HUECOS.map((h) => ({ key: `n-${h.clave}`, j: once[h.clave], p: px(SITIO[h.clave]), nuestro: true })),
       ...HUECOS.map((h) => ({ key: `s-${h.clave}`, j: suyo[h.clave], p: px(espejo(SITIO[h.clave])), nuestro: false })),
     ].filter((r) => r.j);
+    /*
+    | 20/11/2026 (los tres jueces): seguían pisándose Flakus, Mario y Sergio, y
+    | Palmberg, Pol y Carvajal. Ahora el rótulo también esquiva los círculos de
+    | las fichas (no sólo otros rótulos), prueba hasta cinco alturas y, si no
+    | cabe, se aparta de lado; y se mide con la letra de 20 px más el halo.
+    */
+    const circulos = rotulos.map((r) => r.p);
     const puestos: { x: number; y: number; w: number }[] = [];
-    const salida = new Map<string, number>();
+    const salida = new Map<string, { dx: number; dy: number }>();
     for (const r of rotulos) {
-      const w = apellidoDe(r.j!).length * 11.5 + 8; /* a 20 px (17/11/2026, ronda 20) */
-      let dy = r.nuestro ? 44 : -28;
-      for (let vez = 0; vez < 3; vez++) {
-        const y = r.p.y + dy;
-        const choca = puestos.some((o) => Math.abs(o.x - r.p.x) < (o.w + w) / 2 && Math.abs(o.y - y) < 22);
-        if (!choca) break;
-        dy += r.nuestro ? 22 : -22;
+      const w = apellidoDe(r.j!).length * 12 + 12;
+      const base = r.nuestro ? 44 : -28;
+      const paso = r.nuestro ? 22 : -22;
+      const choca = (x: number, y: number) =>
+        puestos.some((o) => Math.abs(o.x - x) < (o.w + w) / 2 && Math.abs(o.y - y) < 23) ||
+        circulos.some((c) => c !== r.p && Math.abs(c.x - x) < w / 2 + 19 && y - 16 < c.y + 19 && y + 4 > c.y - 19);
+      let elegido = { dx: 0, dy: base };
+      buscar: for (const dx of [0, -(w / 2 + 14), w / 2 + 14]) {
+        for (let vez = 0; vez < 5; vez++) {
+          const dy = base + vez * paso;
+          if (!choca(r.p.x + dx, r.p.y + dy)) {
+            elegido = { dx, dy };
+            break buscar;
+          }
+        }
       }
-      puestos.push({ x: r.p.x, y: r.p.y + dy, w });
-      salida.set(r.key, dy);
+      puestos.push({ x: r.p.x + elegido.dx, y: r.p.y + elegido.dy, w });
+      salida.set(r.key, elegido);
     }
     return salida;
   })();
@@ -1109,11 +1125,16 @@ function Campo({
         {j && !estrecho && (
           /* Los nuestros debajo y los suyos encima: en pareja ya no se pisan (16/11/2026, ronda 17). */
           <text
-            x={x}
-            y={y + (desplaza.get(key) ?? (nuestro ? 44 : -28))}
+            x={x + (desplaza.get(key)?.dx ?? 0)}
+            y={y + (desplaza.get(key)?.dy ?? (nuestro ? 44 : -28))}
             textAnchor="middle"
             className="cursor-pointer text-[25px] hover:underline sm:text-[20px]"
-            fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.85)"}
+            fill={nuestro ? ORO_CAMPO : "rgba(255,255,255,0.92)"}
+            /* Halo del color del césped (20/11/2026): se lee aunque pase por una raya o roce otro nombre, también en modo día. */
+            stroke="#0c2416"
+            strokeWidth={5}
+            strokeLinejoin="round"
+            paintOrder="stroke"
             fontWeight={600}
             role="link"
             onClick={() => router.push(fichaDe(j, nuestro, equipo))}
@@ -1406,6 +1427,12 @@ function FilasClaves({
               </button>
               {/* Su ficha y sus vídeos a un toque (17/11/2026, ronda 20, marketing): fuera del botón, que no se anidan enlaces. */}
               <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                {/* También la nuestra (20/11/2026, jueces de fútbol): «Aguado: su ficha», en Individual. */}
+                {d.nuestros.map((j) => (
+                  <Link key={`n-${j.clave}`} href={fichaDe(j, true, equipo)} className="font-semibold text-white/75 hover:text-white hover:underline">
+                    {apellidoDe(j)}: su ficha
+                  </Link>
+                ))}
                 {d.suyos.map((j) => (
                   <Link key={j.clave} href={fichaDe(j, false, equipo)} className="font-semibold text-[#C8A96B] hover:underline">
                     {apellidoDe(j)}: su ficha y vídeo

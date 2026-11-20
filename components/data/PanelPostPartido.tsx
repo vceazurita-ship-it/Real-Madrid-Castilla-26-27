@@ -628,16 +628,26 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       {/* 16/11/2026 (expertos, ronda 17): 24 filas sin jerarquía; las 8 clave
           a la vista y el resto bajo «Ver todas las cifras». */}
       <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} conMedia />
-      {/* Los goleadores ya van en la lista de remates de abajo (con su ficha y su vídeo): aquí, sólo en el dibujo. */}
-      <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} conGoleadores={false} />
-
       {!cargando && <GolesDelPartidoEnVideo goles={delPartido.filter((r) => r.gol)} />}
 
-      {cargando ? (
-        <div className="mt-5 h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los remates" />
-      ) : (
-        delPartido.length > 0 && <RematesDelPartido delPartido={delPartido} remates={remates} lados={lados} partido={id} rivalApp={partido.rival} />
-      )}
+      {/*
+      | 20/11/2026 (ronda 4, marketing): «El partido» pasaba de tres pantallas.
+      | A la vista, las claves, el cara a cara y los goles en vídeo; los tramos
+      | y la lista de remates, tras «Ver más» (el 3D ya iba plegado).
+      */}
+      <details className="group mt-5 min-w-0 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+        <summary className="cursor-pointer list-none text-[12px] font-semibold uppercase tracking-[0.14em] text-white/70 [&::-webkit-details-marker]:hidden">
+          <span className="group-open:hidden">Ver más: quién mandó en cada tramo y todos los remates ▾</span>
+          <span className="hidden group-open:inline">Plegar los tramos y los remates ▴</span>
+        </summary>
+        {/* Los goleadores ya van en la lista de remates de abajo (con su ficha y su vídeo): aquí, sólo en el dibujo. */}
+        <Momentum datos={datos} partido={id} teamId={CASTILLA_OPTA} conGoleadores={false} />
+        {cargando ? (
+          <div className="mt-5 h-64 animate-pulse rounded-2xl bg-white/[0.05]" role="status" aria-label="Cargando los remates" />
+        ) : (
+          delPartido.length > 0 && <RematesDelPartido delPartido={delPartido} remates={remates} lados={lados} partido={id} rivalApp={partido.rival} />
+        )}
+      </details>
     </Bloque>
   );
 }

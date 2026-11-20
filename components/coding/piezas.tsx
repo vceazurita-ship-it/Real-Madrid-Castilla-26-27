@@ -605,8 +605,9 @@ export function MarcadorCoding({
             <b className="font-mono text-base tabular-nums text-white">{total + aparte}</b>{" "}
             {total + aparte === 1 ? "corte guardado" : "cortes guardados"}
             {aparte > 0 ? (
-              <span className="block text-[11px] text-white/55">
-                {total} del partido · {aparte} {aparte === 1 ? "clip" : "clips"} de jugador
+              /* 20/11/2026 (ronda 4, análisis): qué cuenta cada total. */
+              <span className="block text-[11px] text-white/60" title="Cortes del partido: acciones marcadas con entrada y salida sobre el vídeo del partido. Clips de jugador: vídeos enteros de un jugador, subidos aparte.">
+                {total} {total === 1 ? "corte" : "cortes"} sobre el vídeo del partido · {aparte} {aparte === 1 ? "vídeo entero" : "vídeos enteros"} de un jugador
               </span>
             ) : null}
           </span>

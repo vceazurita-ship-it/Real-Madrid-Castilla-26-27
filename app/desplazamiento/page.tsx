@@ -32,6 +32,7 @@
  */
 
 import { useEsJugador } from "@/hooks/useRolPlataforma";
+import { useAdmin } from "@/hooks/useAdmin";
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { BotonGolesEnVideo, EnlaceComoSonSusGoles } from "@/components/rivals/BotonGolesEnVideo";
@@ -381,9 +382,10 @@ function LineaDelDia({ viaje }: { viaje: Desplazamiento }) {
   const tramo = Math.max(hasta - desde, 1);
 
   return (
-    <div className="mt-4 min-w-0 overflow-x-auto pb-1" aria-label="El día del partido, cita a cita">
-      <ol className="relative flex min-w-[520px] items-start justify-between gap-2 pt-5">
-        <span aria-hidden className="absolute left-2 right-2 top-[26px] h-0.5 rounded-full bg-white/15" />
+    /* 20/11/2026 (jueces): a 390 px sólo se veían las dos primeras citas (había que deslizar); en estrecho, rejilla de dos columnas. */
+    <div className="mt-4 min-w-0 pb-1" aria-label="El día del partido, cita a cita">
+      <ol className="relative grid grid-cols-2 gap-x-2 gap-y-3 sm:flex sm:items-start sm:justify-between sm:gap-2 sm:pt-5">
+        <span aria-hidden className="absolute left-2 right-2 top-[26px] hidden h-0.5 rounded-full bg-white/15 sm:block" />
         {citas.map((c) => {
           const partido = c.tipo === "partido";
 
@@ -2234,7 +2236,15 @@ export default function DesplazamientoPage() {
   /* 17/11/2026 (r20, jueces): plegado de entrada salvo que haya un error; los
      pendientes ya se nombran en el titular y no parece a medio hacer. */
   const [estadoElegido, setEstadoAbierto] = useState<boolean | null>(null);
-  const estadoAbierto = estadoElegido ?? Boolean(recuento && recuento.errores > 0);
+  /*
+  | 20/11/2026 (jueces): lo que falta por rellenar es trabajo del administrador
+  | (quien monta el viaje). Para él, «Cómo va el viaje» abre ya desplegado con
+  | lo que falta; el resto del cuerpo técnico sólo lo ve si hay errores o
+  | avisos del horario. Lo que no tiene dato no se nombra.
+  */
+  const { admin } = useAdmin();
+  const conEstado = admin === true || Boolean(recuento && (recuento.errores > 0 || recuento.avisos > 0));
+  const estadoAbierto = estadoElegido ?? Boolean(recuento && (recuento.errores > 0 || (admin === true && recuento.porCompletar > 0)));
   const abreEstado = () => {
     setEstadoAbierto(true);
     window.setTimeout(() => irA("viaje-estado"), 30);
@@ -2556,8 +2566,9 @@ export default function DesplazamientoPage() {
                       dice «Guardado 19:25» (era la hora de otro viaje del almacén). */}
                   {viaje && !guardado && status === "saved" && !localOnly ? (
                     /* 16/11/2026 (jueces): una palabra; la explicación, en la ayuda emergente. */
-                    <span className="cursor-help text-[12px] text-white/55" title="Es el horario que propone la pantalla: se guarda en cuanto cambies algo. Se pueden sacar los documentos tal cual">
-                      Propuesta · aún sin guardar
+                    /* 20/11/2026 (jueces): «Propuesta · aún sin guardar» confundía en una pantalla de consulta; se dice de dónde sale. */
+                    <span className="cursor-help text-[12px] text-white/55" title="Es el horario que propone la pantalla a partir de la hora del partido: se guarda en cuanto cambies algo. Se pueden sacar los documentos tal cual">
+                      Horario tipo por la hora del partido
                     </span>
                   ) : (
                     <SaveState
@@ -2695,6 +2706,13 @@ export default function DesplazamientoPage() {
                       <Button icon={Binoculars}>Informe del rival</Button>
                     </Link>
 
+                    {/* 20/11/2026 (marketing): seis botones en una fila saturaban; Plan e Informe a la vista y el resto en «Más del rival». */}
+                    <details className="group relative">
+                      <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px] [&::-webkit-details-marker]:hidden">
+                        Más del rival
+                        <ChevronDown size={13} className="transition group-open:rotate-180" aria-hidden />
+                      </summary>
+                      <div className="absolute left-0 z-30 mt-1 flex w-56 flex-col gap-1.5 rounded-xl border border-white/12 bg-[#0B0F14] p-2 shadow-xl">
                     {/* 18/11/2026: sus goles, en el pop-up de la portada (sin salir del viaje); aparte, «Cómo son sus goles ›». */}
                     <BotonGolesEnVideo
                       equipo={jornada?.equipo || partido.opponent}
@@ -2719,6 +2737,8 @@ export default function DesplazamientoPage() {
                     <Link href={`/rivals?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
                       <Button icon={ShieldHalf}>Su plantilla</Button>
                     </Link>
+                      </div>
+                    </details>
                   </>
                 )}
               </div>
@@ -2849,6 +2869,7 @@ export default function DesplazamientoPage() {
                   })()}
                   </div>
                   {/* Cómo va el viaje, plegado bajo su titular con el contador (quinta vuelta). */}
+                  {conEstado && (
                   <ListaPendiente
                     viaje={viaje}
                     avisos={avisosViaje}
@@ -2861,6 +2882,7 @@ export default function DesplazamientoPage() {
                     abierta={estadoAbierto}
                     onAbierta={setEstadoAbierto}
                   />
+                  )}
 
                   {/* El plan de viaje ante este rival (o en este campo), de otra vez (11/11/2026). */}
                   {planAjeno && (() => {
@@ -3348,7 +3370,8 @@ export default function DesplazamientoPage() {
 
                   {/* ==================== AVISOS ================== */}
 
-                  <div className="mt-5 scroll-mt-20" id="viaje-avisos">
+                  {/* 20/11/2026 (jueces): «No olvidar» vacío no se enseña al cuerpo técnico; el administrador lo rellena. */}
+                  <div className={`mt-5 scroll-mt-20 ${admin !== true && !viaje.avisos.some((a) => a.trim()) ? "hidden" : ""}`} id="viaje-avisos">
                     <SeccionMovil
                       titulo="No olvidar"
                       /* 17/11/2026 (jueces): plegado también en el ordenador; el horario y la vista previa, primero. */

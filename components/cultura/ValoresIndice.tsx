@@ -94,22 +94,45 @@ function irA(n: number) {
   document.getElementById("vista-previa-cultura")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
+/*
+| 20/11/2026 (fútbol, marketing y guionista): un solo gráfico enfrentado,
+| valor contra lo que lo destruye, con la conclusión en el titular. Las cinco
+| tarjetas en columnas partían las palabras a 1440 px («PROFESIONALID AD»,
+| «Egoísm o») y repetían el aviso de los votos afines en dos sitios: ahora una
+| fila por valor (lo que lo destruye a la izquierda, el valor en el centro y
+| sus votos a la derecha; en el móvil, uno debajo de otro) y el aviso, una vez
+| al pie. El valor sin votos en contra nombra su antivalor «(lo propone el
+| documento)», sin anunciar la falta de votos.
+*/
 export function ValoresIndice() {
   if (!VALORES_INDICE.length) return null;
 
+  const primero = [...VALORES_INDICE].sort((a, b) => votosDe(b) - votosDe(a))[0];
+  const antiMax = VALORES_INDICE.flatMap((v) => antivaloresDelValor(v).conVotos).sort((a, b) => b.votos - a.votos)[0];
+  const afines = VALORES_INDICE.map(afinDe).filter(Boolean);
+
   return (
-    <section aria-labelledby="indice-valores" className="min-w-0">
-      <div className="flex flex-wrap items-end justify-between gap-2">
-        <h2 id="indice-valores" className="text-lg font-semibold text-white sm:text-xl">
-          Los cinco valores y lo que los destruye
-        </h2>
-        <p className="text-xs text-gray-400">
-          {TOTAL_VOTOS_VALORES} votos a los cinco valores y {TOTAL_VOTOS_ANTIVALORES} a los antivalores, contados aparte. Pulsa un
-          valor para ver sus conductas.
-        </p>
+    <section aria-labelledby="indice-valores" className="min-w-0" lang="es">
+      <h2 id="indice-valores" className="text-lg font-semibold leading-snug text-white sm:text-xl">
+        {primero.titulo} encabeza la votación ({votosDe(primero)} de {TOTAL_VOTOS_VALORES})
+        {antiMax ? (
+          <>
+            ; {antiMax.nombre} es lo que más se rechaza ({antiMax.votos} de {TOTAL_VOTOS_ANTIVALORES})
+          </>
+        ) : null}
+      </h2>
+      <p className="mt-1 text-xs text-gray-400">
+        Votos de la plantilla: {TOTAL_VOTOS_VALORES} a los valores y {TOTAL_VOTOS_ANTIVALORES} a lo que los destruye, contados aparte.
+        Pulsa un valor para ver sus conductas.
+      </p>
+
+      <div className="mt-3 hidden grid-cols-[minmax(0,1fr)_minmax(0,13rem)_minmax(0,1fr)] gap-4 text-[11px] font-semibold uppercase tracking-[0.12em] md:grid" aria-hidden>
+        <span className="text-right text-red-400">Lo que lo destruye</span>
+        <span className="text-center text-gray-400">Valor</span>
+        <span className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">Lo votaron</span>
       </div>
 
-      <ol className="mt-3 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+      <ol className="mt-2 divide-y divide-white/10 border-y border-white/10">
         {VALORES_INDICE.map((v) => {
           const n = votosDe(v);
           const anti = antivaloresDelValor(v);
@@ -118,88 +141,79 @@ export function ValoresIndice() {
           return (
             <li
               key={v.numero}
-              className="group flex min-w-0 flex-col rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-[#C8A96B]/60 hover:bg-white/[0.05]"
+              className="grid min-w-0 gap-x-4 gap-y-2 py-3 md:grid-cols-[minmax(0,1fr)_minmax(0,13rem)_minmax(0,1fr)] md:items-center"
             >
-              <button
-                type="button"
-                onClick={() => irA(v.diapositiva)}
-                className="flex min-w-0 flex-1 flex-col text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
-              >
-                <span className="text-4xl font-black leading-none tabular-nums text-red-400" aria-hidden>
-                  {String(v.numero).padStart(2, "0")}
-                </span>
-                <span className="mt-2 break-words text-base font-bold uppercase tracking-wide text-white">
-                  {v.titulo}
-                </span>
-
-                <span className="mt-3 block text-[12px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                  Lo votaron
-                </span>
-                <span className="mt-1 flex items-center gap-2">
-                  <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
-                    <span className="block h-full rounded-full bg-[#C8A96B]" style={{ width: `${(n / MAX_VOTOS) * 100}%` }} />
-                  </span>
-                  <span className="shrink-0 text-sm font-semibold tabular-nums text-white">
-                    {n} de {TOTAL_VOTOS_VALORES}
-                  </span>
-                </span>
-                {/* «Aparte» dicho entero: no suma al valor (17/11/2026, marketing). */}
-                {/* 17/11/2026 (marketing): por qué va aparte. */}
-                {afin && (
-                  <span className="mt-1 text-[12px] leading-snug text-gray-400">
-                    {afin}: votos con otra palabra parecida; se enseñan aparte y no suman a los {n}
-                  </span>
-                )}
-
-                {(anti.conVotos.length > 0 || anti.tambien.length > 0) && (
-                  <span className="mt-3 block text-[12px] font-semibold uppercase tracking-[0.12em] text-red-400">
-                    {/* 17/11/2026 (marketing): con su base en el título de la tarjeta. */}
-                    {anti.conVotos.length > 0
-                      ? `Lo destruye · ${anti.conVotos.reduce((t, a) => t + a.votos, 0)} de ${TOTAL_VOTOS_ANTIVALORES} votos`
-                      : "Lo destruye · sin votos: lo propone el documento"}
-                  </span>
-                )}
-                <span className="mt-1 space-y-1.5">
-                  {anti.conVotos.map((a) => (
-                    /* El nombre entero, a dos líneas si hace falta (17/11/2026: «Irresponsabilida…»). */
-                    <span key={a.nombre} className="grid grid-cols-[minmax(0,1fr)_3rem_auto] items-center gap-2 text-sm">
-                      <span className="min-w-0 break-words leading-tight text-gray-200">{a.nombre}</span>
-                      <span className="h-2 overflow-hidden rounded-full bg-white/[0.08]">
-                        <span
-                          className="block h-full rounded-full"
-                          style={{ width: `${(a.votos / MAX_ANTI) * 100}%`, background: COLORES_CULTURA.granate }}
-                        />
-                      </span>
-                      <span className="w-6 text-right tabular-nums text-gray-300">{a.votos}</span>
-                    </span>
-                  ))}
-                  {anti.tambien.length > 0 && (
-                    <span className="block text-sm leading-snug text-gray-200">{anti.tambien.join(", ")}</span>
-                  )}
-                </span>
-              </button>
-
-              <span className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-3 text-sm font-semibold">
+              {/* El valor, en el centro (primero en el móvil) */}
+              <div className="min-w-0 md:order-2 md:text-center">
                 <button
                   type="button"
                   onClick={() => irA(v.diapositiva)}
-                  className="inline-flex items-center gap-1 text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+                  title={`Conductas de ${v.titulo}`}
+                  className="inline-flex min-w-0 items-baseline gap-2 rounded text-left hover:underline focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B] md:flex-col md:items-center md:gap-0.5 md:text-center"
                 >
-                  Sus conductas
-                  <ArrowRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                  <span className="text-2xl font-black leading-none tabular-nums text-red-400" aria-hidden>
+                    {String(v.numero).padStart(2, "0")}
+                  </span>
+                  <span className="min-w-0 hyphens-auto text-sm font-bold uppercase tracking-wide text-white sm:text-base">{v.titulo}</span>
                 </button>
-                <Link
-                  href={HREF_SEGUIMIENTO}
-                  title={`Seguimiento de los jugadores: dónde se apunta ${v.titulo.toLowerCase()} en el día a día`}
-                  className="text-[13px] text-gray-300 hover:text-white hover:underline"
-                >
-                  Seguimiento →
-                </Link>
-              </span>
+                <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-semibold md:justify-center">
+                  <button type="button" onClick={() => irA(v.diapositiva)} className="inline-flex items-center gap-1 text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+                    Sus conductas
+                    <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                  <Link
+                    href={HREF_SEGUIMIENTO}
+                    title={`Seguimiento de los jugadores: dónde se apunta ${v.titulo.toLowerCase()} en el día a día`}
+                    className="text-gray-300 hover:text-white hover:underline"
+                  >
+                    Seguimiento →
+                  </Link>
+                </span>
+              </div>
+
+              {/* Sus votos, a la derecha */}
+              <div className="min-w-0 md:order-3">
+                <span className="flex items-center gap-2">
+                  <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+                    <span className="block h-full rounded-full bg-[#C8A96B]" style={{ width: `${(n / MAX_VOTOS) * 100}%` }} />
+                  </span>
+                  <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-white">
+                    {n} de {TOTAL_VOTOS_VALORES}
+                    {afin ? <span className="ml-1.5 font-normal text-gray-400">{afin.replace(" a ", " ")}</span> : null}
+                  </span>
+                </span>
+              </div>
+
+              {/* Lo que lo destruye, a la izquierda y en espejo */}
+              <div className="min-w-0 space-y-1 md:order-1">
+                {anti.conVotos.map((a) => (
+                  <span key={a.nombre} className="flex min-w-0 items-center gap-2 text-sm md:flex-row-reverse">
+                    <span className="shrink-0 whitespace-nowrap text-gray-200">
+                      {a.nombre} <span className="tabular-nums text-gray-400">{a.votos}</span>
+                    </span>
+                    <span className="flex h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08] md:justify-end">
+                      <span className="block h-full rounded-full" style={{ width: `${(a.votos / MAX_ANTI) * 100}%`, background: COLORES_CULTURA.granate }} />
+                    </span>
+                  </span>
+                ))}
+                {anti.tambien.length > 0 && (
+                  <span className="block text-sm leading-snug text-gray-300 md:text-right">
+                    {anti.conVotos.length ? "También: " : ""}
+                    {anti.tambien.join(", ")}
+                    {anti.conVotos.length ? "" : " (lo propone el documento)"}
+                  </span>
+                )}
+              </div>
             </li>
           );
         })}
       </ol>
+
+      {afines.length > 0 && (
+        <p className="mt-2 text-xs text-gray-400">
+          {afines.join(" · ")}: votos con otra palabra parecida; se enseñan aparte y no suman al valor.
+        </p>
+      )}
     </section>
   );
 }

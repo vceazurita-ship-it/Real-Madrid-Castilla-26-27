@@ -4060,14 +4060,21 @@ function Coding() {
   const diaPartido = ambito === "partido" && !rivalPropio ? (partido?.date ?? "") : "";
   const rivalPartido = partido?.opponent ?? "";
   /* El último partido nuestro ya jugado contra el rival elegido (calendario de BeSoccer). */
-  const postContraElRival = (() => {
-    if (!nombreRival) return "";
-    const ultimo = ordenaPartidos(calendarioCastilla)
-      .map(comoNuestro)
-      .filter((uno) => uno.jugado && uno.cuando && mismoClub(uno.rival, nombreRival))
-      .at(-1);
-    return ultimo ? urlPostDelPartido(ultimo.cuando, ultimo.rival) : "";
+  /* 20/11/2026 (ronda 4, análisis): nuestro último partido contra él, para su post, sus robos, sus pérdidas y sus faltas. */
+  const partidoContraElRival = (() => {
+    if (!nombreRival) return null;
+    return (
+      ordenaPartidos(calendarioCastilla)
+        .map(comoNuestro)
+        .filter((uno) => uno.jugado && uno.cuando && mismoClub(uno.rival, nombreRival))
+        .at(-1) ?? null
+    );
   })();
+  const postContraElRival = partidoContraElRival ? urlPostDelPartido(partidoContraElRival.cuando, partidoContraElRival.rival) : "";
+  const contraElRival = partidoContraElRival ? { fecha: partidoContraElRival.cuando.slice(0, 10), rival: partidoContraElRival.rival } : null;
+  /* Y el jugador del último corte, a su ficha de vídeos con él ya elegido. */
+  const ultimoJugadorRival =
+    ambito === "rival" ? ([...sesion.sesion.clips].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0]?.jugadorNombre ?? "") : "";
   const enlacesCoding =
     ambito === "rival"
       ? nombreRival
@@ -4083,6 +4090,12 @@ function Coding() {
             { href: `/rivals?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su plantilla" },
             { href: `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}`, texto: "Sus jugadores, uno a uno" },
             postContraElRival ? { href: postContraElRival, texto: "Post de nuestro partido contra él" } : { texto: "" },
+            contraElRival && etiquetado?.robos(contraElRival) ? { href: enlaceConPartido("/laboratorio/transiciones", contraElRival), texto: "Robos de ese partido" } : { texto: "" },
+            contraElRival && etiquetado?.perdidas(contraElRival) ? { href: enlaceConPartido("/laboratorio/perdidas", contraElRival), texto: "Pérdidas" } : { texto: "" },
+            contraElRival && etiquetado?.faltas(contraElRival) ? { href: enlaceConPartido("/laboratorio/faltas", contraElRival), texto: "Faltas" } : { texto: "" },
+            ultimoJugadorRival
+              ? { href: `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}&jugador=${encodeURIComponent(ultimoJugadorRival)}`, texto: `Ficha de ${ultimoJugadorRival} (último corte)` }
+              : { texto: "" },
           ]
         : []
       : diaPartido && rivalPartido
@@ -4689,18 +4702,15 @@ function Coding() {
                     {/* 17/11/2026 (ronda 19, marketing): el trabajo ya hecho (cuántos
                         cortes y el último), y sus goles sólo en «A un toque», arriba. */}
                     {sesion.sesion.clips.length > 0 ? (
+                      /* 20/11/2026 (ronda 4, marketing): el recuento ya está en el marcador de arriba; aquí sólo el último corte, dicho entero. */
                       <span className="flex flex-col items-center gap-0.5 text-[12px] font-semibold text-white/80">
-                        <span>
-                          {sesion.sesion.clips.length} {sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}
-                          {nombreRival ? ` de ${nombreRival}` : ""}
-                        </span>
                         {(() => {
                           const ultimo = [...sesion.sesion.clips].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
                           const categoria = config.categorias.find((una) => una.id === ultimo.categoriaId)?.nombre ?? "";
                           const dia = ultimo.creadoEn ? new Date(ultimo.creadoEn).toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "") : "";
                           return (
-                            <span className="font-normal text-white/65">
-                              Último: {[ultimo.jugadorNombre, categoria, dia].filter(Boolean).join(" · ")}
+                            <span className="font-normal text-white/70">
+                              Último corte{ultimo.jugadorNombre ? ` de ${ultimo.jugadorNombre}` : ""}{categoria ? ` (${categoria})` : ""}{dia ? `, guardado el ${dia}` : ""}
                             </span>
                           );
                         })()}
@@ -5985,8 +5995,9 @@ function Coding() {
                     </Notice>
                   )}
 
+                {/* 20/11/2026 (ronda 4, marketing): sin vídeo abierto no se marca nada; aunque haya cortes, la columna va plegada y la lista de cortes sube. */}
                 <PliegaSinVideo
-                  abierto={Boolean(src) || clips.length > 0}
+                  abierto={Boolean(src)}
                   resumen="Jugadores, categorías, teclado y pizarras"
                   detalle="Se despliegan solos al abrir el vídeo"
                 >

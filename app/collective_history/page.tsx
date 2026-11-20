@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { Clapperboard, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
+import { ArrowLeftRight, BarChart3, Clapperboard, Crosshair, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -16,7 +16,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { Lamina, TituloConclusion, VistaVisualDetalle } from "@/components/ui/VistaVisual";
 import Link from "next/link";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
-import { urlPostDelPartido } from "@/lib/post-partido";
+import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 
@@ -47,14 +47,15 @@ function RachaPartidos({
               title={`J${uno.jornada} · ${nombreEquipo(uno.rival)} · ${uno.gf}-${uno.gc}: abrir su post`}
               className="flex flex-col items-center gap-1 rounded-md transition hover:opacity-80"
             >
-            <span className="text-[11px] tabular-nums text-white/60">J{uno.jornada}</span>
+            {/* 20/11/2026 (ronda 4, marketing): que se vea que es un enlace. */}
+            <span className="text-[11px] tabular-nums text-white/70 underline decoration-[#C8A96B]/60 underline-offset-2">J{uno.jornada}</span>
             <span
               className={`flex h-10 w-full max-w-[52px] flex-col items-center justify-center rounded-md text-[11px] font-bold tabular-nums ${
                 uno.puntos === 3 ? "bg-emerald-500/20 text-emerald-600" : uno.puntos === 1 ? "bg-amber-500/20 text-amber-600" : "bg-red-500/20 text-red-600"
               }`}
             >
               <span>{uno.puntos === 3 ? "G" : uno.puntos === 1 ? "E" : "P"}</span>
-              <span className="text-[10px] font-semibold">{uno.gf}-{uno.gc}</span>
+              <span className="text-[11px] font-semibold">{uno.gf}-{uno.gc}</span>
             </span>
             {puestos?.has(uno.jornada) ? (
               <span className="text-[11px] font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
@@ -65,7 +66,7 @@ function RachaPartidos({
           </li>
         ))}
       </ol>
-      <p className="mt-2 text-[11px] text-white/60">G, E, P: ganado, empatado, perdido, con el marcador{puestos ? "; debajo, nuestro puesto tras esa jornada" : ""}. Cada jornada abre su post.</p>
+      <p className="mt-2 text-[11px] text-white/60">G, E, P: ganado, empatado, perdido, con el marcador{puestos ? "; debajo, nuestro puesto tras esa jornada" : ""}. Toca una jornada (subrayada) para abrir su post.</p>
     </div>
   );
 }
@@ -85,8 +86,52 @@ const AZUL_RIVAL = "#4F8EF7";
 
 function BarraClasificacion({ tabla, proximoRival }: { tabla: TablaJornada; proximoRival: string }) {
   const max = Math.max(1, ...tabla.filas.map((f) => f.puntos));
+  /*
+  | 20/11/2026 (ronda 4, análisis y marketing): antes de los 20, los cinco de
+  | alrededor (dos arriba y dos abajo) con la distancia en puntos; y la leyenda
+  | de colores a la vista, arriba.
+  */
+  const yo = tabla.filas.findIndex((f) => f.nuestro);
+  const desde = yo < 0 ? 0 : Math.max(0, Math.min(yo - 2, tabla.filas.length - 5));
+  const cerca = yo < 0 ? [] : tabla.filas.slice(desde, desde + 5);
+  const nuestros = yo < 0 ? 0 : tabla.filas[yo].puntos;
+  const hayRival = Boolean(proximoRival) && tabla.filas.some((f) => mismoClub(f.nombre, proximoRival));
   return (
     <div className="min-w-0">
+      <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/70">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-full" style={{ background: "#C8A96B" }} aria-hidden /> RM Castilla
+        </span>
+        {hayRival ? (
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-4 rounded-full" style={{ background: AZUL_RIVAL }} aria-hidden /> Próximo rival ({proximoRival})
+          </span>
+        ) : null}
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-4 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .22)" }} aria-hidden /> El resto
+        </span>
+      </div>
+      {cerca.length ? (
+        <table className="mb-3 w-full text-[12px] tabular-nums">
+          <caption className="mb-1 text-left text-[11px] uppercase tracking-[0.14em] text-white/55">Alrededor del Castilla</caption>
+          <tbody>
+            {cerca.map((f) => {
+              const rival = Boolean(proximoRival) && mismoClub(f.nombre, proximoRival);
+              const d = f.puntos - nuestros;
+              return (
+                <tr key={f.puesto} className={`border-b border-white/5 ${f.nuestro ? "font-semibold" : ""}`}>
+                  <td className="w-8 py-1 text-right text-white/60">{f.puesto}º</td>
+                  <td className="px-2 py-1" style={f.nuestro ? { color: "var(--rmcf-gold-ink)" } : rival ? { color: AZUL_RIVAL } : undefined}>
+                    {f.nuestro ? "RM Castilla" : f.nombre}
+                  </td>
+                  <td className="w-12 py-1 text-right text-white/85">{f.puntos}</td>
+                  <td className="w-20 py-1 text-right text-white/60">{f.nuestro ? "" : d === 0 ? "igual" : `${d > 0 ? "+" : "−"}${Math.abs(d)} pts`}</td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      ) : null}
       <ol className="grid gap-[3px]">
         {tabla.filas.map((f) => {
           const rival = Boolean(proximoRival) && mismoClub(f.nombre, proximoRival);
@@ -513,6 +558,8 @@ const tituloPuesto = (() => {
     : `${ahora.p}º tras la J${ahora.j}; el mejor, ${mejor.p}º en la J${mejor.j}; ${inicio}`;
 })();
 
+/* 20/11/2026 (ronda 4): el próximo rival, para su distancia en el título de la tabla (el `proximo` de abajo se calcula después). */
+const proximoRivalTabla = ordenaPartidos(partidos).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? "";
 /* 17/11/2026 (ronda 20): el título de la barra de los 20: a cuánto del de arriba del todo y de la parte baja. */
 const tituloTabla = (() => {
   const t = liga.tablaFinal;
@@ -528,7 +575,14 @@ const tituloTabla = (() => {
       ? `${yo.puesto}º, con los mismos puntos que el líder (${lider.nombre})`
       : `${yo.puesto}º, a ${pts(lider.puntos - yo.puntos)} del líder (${lider.nombre})`;
   const abajo = bajo && !bajo.nuestro && yo.puesto < 16 ? ` y ${pts(yo.puntos - bajo.puntos)} por encima del 16º (${bajo.nombre})` : "";
-  return `${arriba}${abajo}`;
+  /* 20/11/2026 (ronda 4, marketing): y la distancia con el próximo rival. */
+  const suyo = proximoRivalTabla ? t.filas.find((f) => !f.nuestro && mismoClub(f.nombre, proximoRivalTabla)) : null;
+  const conRival = suyo
+    ? suyo.puntos === yo.puntos
+      ? `; con los mismos puntos que el próximo rival (${suyo.nombre}, ${suyo.puesto}º)`
+      : `; el próximo rival (${suyo.nombre}, ${suyo.puesto}º), ${pts(Math.abs(suyo.puntos - yo.puntos))} ${suyo.puntos > yo.puntos ? "por encima" : "por debajo"}`
+    : "";
+  return `${arriba}${abajo}${conRival}`;
 })();
 
 /*
@@ -650,6 +704,18 @@ useEffect(() => {
                     ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
                     : "."}
                 </p>
+              ) : null}
+              {/* 20/11/2026 (ronda 4, análisis): el último partido, a un toque: su post, sus robos y sus pérdidas. */}
+              {ultimo?.cuando ? (
+                <EnlacesRapidos
+                  className="mt-2"
+                  titulo={`Último partido · J${ultimo.jornada}`}
+                  enlaces={[
+                    { href: urlPostDelPartido(ultimo.cuando, ultimo.rival), texto: `Post contra el ${nombreEquipo(ultimo.rival)}`, icono: BarChart3 },
+                    { href: enlaceConPartido("/laboratorio/transiciones", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }), texto: "Sus robos", icono: Crosshair },
+                    { href: enlaceConPartido("/laboratorio/perdidas", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }), texto: "Sus pérdidas", icono: ArrowLeftRight },
+                  ]}
+                />
               ) : null}
               {/* 16/11/2026: lo que se hace con el dato: el siguiente partido y lo que hay en juego. */}
               {tabla && (proximo || enJuego) ? (

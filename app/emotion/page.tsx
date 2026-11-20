@@ -184,7 +184,6 @@ export default function EmotionPage() {
 
   const docEmocional = useMemo(() => normalizaDocEmocional(docCrudo), [docCrudo]);
   const rows = useMemo(() => aplicaEdiciones(rowsHoja, docEmocional), [rowsHoja, docEmocional]);
-  const editadosAqui = Object.keys(docEmocional.jugadores).length;
 
   /* 10/11/2026: la fecha de la última valoración editada, para que cada nota lleve su base temporal. */
   const fechaValoracion = useMemo(
@@ -553,21 +552,11 @@ export default function EmotionPage() {
                   )}
 
                   {/* Una línea discreta: qué parte de lo que se ve no sale de la hoja. */}
-                  {(editadosAqui > 0 || sinGuardar || estadoDoc === "error" || localOnly) && (
+                  {(sinGuardar || estadoDoc === "error" || localOnly) && (
                     <p className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-white/60" data-export-hide>
-                      {editadosAqui > 0 && (
-                        /* 10/11/2026: no son copias del aparato: la capa
-                           `emotion:valoraciones` está guardada para todo el
-                           cuerpo técnico. Un chip con fecha y «Ver». */
-                        <button
-                          type="button"
-                          onClick={() => setEditando(true)}
-                          className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-2.5 py-0.5 text-white/75 transition hover:border-[#C8A96B] hover:text-white"
-                        >
-                          {/* 17/11/2026 (ronda 19): sin la nota de origen («el resto de la hoja»), que es para el analista. */}
-                          <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Ver las valoraciones →</span>
-                        </button>
-                      )}
+                      {/* 20/11/2026 (ronda 4, juez de análisis): fuera el chip
+                          «Ver las valoraciones →»: abría lo mismo que «Editar
+                          valoraciones» y que el aviso «a revisar». */}
                       {/* 16/11/2026 (jueces): «Guardado HH:MM» no se enseña en
                           la lectura; sólo si algo está pendiente o falla. */}
                       {(sinGuardar || localOnly || (estadoDoc !== "saved" && estadoDoc !== "loading")) && (
@@ -588,15 +577,9 @@ export default function EmotionPage() {
                     Editar valoraciones
                   </button>
 
-                  <button
-                    onClick={openVideo}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-2 text-xs font-semibold text-[#E4C977] transition hover:border-[#C8A96B] hover:bg-[#C8A96B]/20"
-                  >
-                    <Play size={13} />
-                    Ver explicación
-                  </button>
-
-                  {/* 07/11/2026: lo secundario, en «Más»: dos botones menos en la cabecera. */}
+                  {/* 07/11/2026: lo secundario, en «Más»: dos botones menos en la cabecera.
+                      20/11/2026 (ronda 4, marketing): también «Ver explicación»;
+                      queda una acción principal, «Editar valoraciones». */}
                   <details className="relative">
                     <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-full border border-white/10 px-4 py-2 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white [&::-webkit-details-marker]:hidden">
                       Más
@@ -604,6 +587,15 @@ export default function EmotionPage() {
                     {/* 10/11/2026: fondo y letra del tema de día (antes, fondo
                         oscuro fijo con letra oscura del modo día: contraste 1,05). */}
                     <div className="absolute left-0 z-30 mt-2 flex w-56 flex-col sm:left-auto sm:right-0 gap-1 rounded-2xl border border-white/10 bg-[#0B1622] p-2 shadow-xl [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white">
+                      <button
+                        type="button"
+                        onClick={openVideo}
+                        className="inline-flex items-center gap-2 rounded-xl px-3 py-2 text-left text-xs font-medium text-white transition hover:bg-white/[0.06] [:root[data-theme=light]_&]:text-slate-900 [:root[data-theme=light]_&]:hover:bg-slate-100"
+                      >
+                        <Play size={13} />
+                        Ver explicación
+                      </button>
+
                       <button
                         onClick={() => setShowTeamAverage((v) => !v)}
                         aria-pressed={showTeamAverage}
@@ -658,7 +650,7 @@ export default function EmotionPage() {
                 caption={
                   loading
                     ? "Cargando datos"
-                    : `${labelFor(teamScore)} · sobre ${rows.length} jugadores`
+                    : `${labelFor(teamScore)} · de los ${rows.length} evaluados`
                 }
                 tone={loading ? undefined : toneFor(teamScore)}
               />
@@ -926,7 +918,7 @@ function SummaryTile({
       style={tone ? { borderColor: `${tone}45` } : undefined}
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="text-[10px] uppercase tracking-[.16em] text-white/45 sm:tracking-[.22em]">
+        <p className="text-[11px] uppercase tracking-[.16em] text-white/55 sm:tracking-[.2em]">
           {label}
         </p>
 
@@ -974,7 +966,7 @@ function RadarTooltip({
         {axis ? axis.label : label}
       </p>
 
-      {axis && <p className="mt-0.5 text-[10px] text-white/45">{axis.detail}</p>}
+      {axis && <p className="mt-0.5 text-[11px] text-white/55">{axis.detail}</p>}
 
       <div className="mt-2 space-y-1">
         {payload.map((entry) => (
@@ -1226,14 +1218,14 @@ function RadarPanel({
           {abierto && (
           <>
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[10px] uppercase tracking-[.18em] text-white/35">
+            <span className="text-[11px] uppercase tracking-[.16em] text-white/55">
               Jugadores
             </span>
 
             <button
               onClick={() => onChange([])}
               disabled={selected.length === 0}
-              className="inline-flex items-center gap-1 px-1 py-1.5 text-[11px] sm:py-0 sm:text-[10px] text-white/40 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/40"
+              className="inline-flex items-center gap-1 px-1 py-1.5 text-[11px] sm:py-0 text-white/55 transition hover:text-white disabled:opacity-30 disabled:hover:text-white/40"
             >
               <Eraser size={10} />
               Limpiar
@@ -1274,7 +1266,7 @@ function RadarPanel({
             )}
 
             {!loading && visiblePlayers.length === 0 && (
-              <span className="p-1 text-[10px] text-white/30">
+              <span className="p-1 text-[11px] text-white/50">
                 Sin resultados
               </span>
             )}
@@ -1287,7 +1279,7 @@ function RadarPanel({
                   key={name}
                   onClick={() => toggle(name)}
                   aria-pressed={active}
-                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] leading-none sm:px-2 sm:py-1 sm:text-[10px] transition ${
+                  className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1.5 text-[11px] leading-none sm:px-2 sm:py-1 transition ${
                     active
                       ? "border-white/30 bg-white/15 text-white"
                       : "border-white/10 bg-transparent text-white/55 hover:border-white/25 hover:text-white"
@@ -1453,7 +1445,7 @@ function RadarPanel({
                     </span>
                   </div>
 
-                  <p className="mt-0.5 truncate text-[10px] leading-tight text-white/55">
+                  <p className="mt-0.5 truncate text-[11px] leading-tight text-white/55">
                     {axis.label}
                   </p>
 

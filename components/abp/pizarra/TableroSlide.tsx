@@ -3141,7 +3141,8 @@ export function TableroSlide({
               top: maqueta.top,
               width: COLUMNA_PANEL - AIRE * 1.5,
               maxHeight: altoPanel,
-              backgroundColor: "rgba(15,32,54,.96)",
+              /* 20/11/2026 (jueces, ronda 4): opaco; con el ,96 el rótulo de oro se medía contra el papel (2,41). */
+              backgroundColor: "rgb(15,32,54)",
               border: "1px solid rgba(200,169,107,.32)",
               boxShadow: "0 18px 44px rgba(0,0,0,.5)",
             }}

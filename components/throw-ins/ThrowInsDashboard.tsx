@@ -59,7 +59,7 @@ import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
-import type { ClaveMetrica, Etiquetas } from "@/lib/abp/analisis";
+import { comparaCronologico, type ClaveMetrica, type Etiquetas } from "@/lib/abp/analisis";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { LecturaRapida } from "@/components/abp/LecturaRapida";
 import { ThrowInField } from "@/components/throw-ins/ThrowInField";
@@ -433,6 +433,61 @@ const produccionTasa = (g: Grupo) => g.produccion / g.n;
 
 type ConclusionesBanda = { titular?: string; items: string[] };
 
+/*
+| 20/11/2026 (jueces, ronda 4): el objetivo de «Qué entrenamos» salía igual
+| que el dato de hoy («hoy 39 % · objetivo 39,5 %»), porque con la temporada
+| entera «las jornadas anteriores» son casi las mismas filas. Ahora la meta es
+| el nivel de nuestros buenos partidos en ese mismo sitio: la tasa que se
+| alcanza en uno de cada tres partidos (percentil 67; en defensa, el 33). Si
+| no se separa al menos 3 puntos de hoy en el buen sentido, no vale de meta.
+*/
+type MetaBanda = { pct: number; logrados: number; partidos: number };
+
+function partidosDe(filas: RecordRow[]) {
+  const mapa = new Map<string, { jornada: JornadaAbp; filas: RecordRow[] }>();
+
+  filas.forEach((row) => {
+    const bruto = read(row, "JORNADA");
+    if (!bruto) return;
+    const uno = mapa.get(bruto) ?? { jornada: parseJornada(bruto), filas: [] };
+    uno.filas.push(row);
+    mapa.set(bruto, uno);
+  });
+
+  return [...mapa.values()].sort((a, b) => comparaCronologico(a.jornada, b.jornada));
+}
+
+function metaDePartidos(
+  filas: RecordRow[],
+  exito: (row: RecordRow) => boolean,
+  mejorAlto: boolean,
+  hoyPct: number,
+): MetaBanda | null {
+  const tasas = partidosDe(filas)
+    .filter((p) => p.filas.length >= 2)
+    .map((p) => (p.filas.filter(exito).length / p.filas.length) * 100)
+    .sort((a, b) => a - b);
+
+  if (tasas.length < 4) return null;
+
+  const q = mejorAlto ? 2 / 3 : 1 / 3;
+  const posicion = (tasas.length - 1) * q;
+  const bajo = Math.floor(posicion);
+  const pct = Math.round(tasas[bajo] + (tasas[Math.min(bajo + 1, tasas.length - 1)] - tasas[bajo]) * (posicion - bajo));
+  const vale = mejorAlto ? pct >= hoyPct + 3 : pct <= hoyPct - 3;
+
+  if (!vale) return null;
+
+  return {
+    pct,
+    logrados: tasas.filter((t) => (mejorAlto ? t >= pct : t <= pct)).length,
+    partidos: tasas.length,
+  };
+}
+
+const textoMeta = (meta: MetaBanda) =>
+  `${meta.pct} % (lo ${meta.logrados === 1 ? "logramos en 1" : `logramos en ${meta.logrados}`} de ${meta.partidos} partidos)`;
+
 /**
  * Las conclusiones de la pantalla de banda.
  *
@@ -482,16 +537,29 @@ function conclusionesDe(
 
   const frases: string[] = [];
 
-  /* El titular: volumen, cómo acaban y en qué. */
-  const titular = ofensivo
+  /*
+  | El recuento: volumen, cómo acaban y en qué. 20/11/2026 (jueces, ronda 4):
+  | ya no es el titular —tres cifras sin orden—; va de primera lectura y el
+  | titular lleva una sola cifra, la que sostiene la tarea. En la defensiva la
+  | ocasión no se cita aparte: la barra la cuenta junto al último tercio.
+  */
+  const recuento = ofensivo
     ? `${total} ${total === 1 ? "saque" : "saques"}: conservamos ${favorables} (${pctTexto(favorables, total)}) y ${resumen.produccion} ${
         resumen.produccion === 1 ? "llega" : "llegan"
-      } a último tercio${ocasiones ? `, ${ocasiones} de ${total} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""}` : ""}`
+      } a último tercio${ocasiones ? `, ${ocasiones} de ${total} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"})` : ""}` : ""}.`
     : `${total} ${total === 1 ? "saque" : "saques"} del rival: recuperamos ${favorables} de ${total} (${pctTexto(favorables, total)}${
         rangoRecuperado ? `; antes, de ${pctUno(rangoRecuperado[0])} a ${pctUno(rangoRecuperado[1])} por partido` : ""
-      }) y le ${resumen.produccion === 1 ? "llega" : "llegan"} ${resumen.produccion} a último tercio${
-        ocasiones ? `, ${ocasiones} de ${total} en ocasión${goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""}` : ""
-      }`;
+      }) y le ${resumen.produccion === 1 ? "llega" : "llegan"} ${resumen.produccion} a último tercio, ocasión o gol${
+        goles ? ` (${goles} ${goles === 1 ? "gol" : "goles"} en contra)` : ""
+      }.`;
+  let titular = ofensivo
+    ? `Conservamos ${favorables} de ${total} saques (${pctTexto(favorables, total)})`
+    : `Le llegan ${resumen.produccion} de ${total} saques a último tercio, ocasión o gol (${pctTexto(resumen.produccion, total)})`;
+  /* Las cuentas que usan el titular y los objetivos. */
+  const filaFavorable = (row: RecordRow) => esFavorable(parseResultado(read(row, "Resultado_Final")));
+  const filaProduce = (row: RecordRow) => esProduccion(parseResultado(read(row, "Resultado_Final")), mode);
+  /* La serie de partidos para la meta: la propia selección si tiene varios; si es un partido, los anteriores. */
+  const serieMeta = partidosDe(rows).length >= 4 ? rows : (anteriores ?? []);
 
   /* 2. Dónde y cómo funciona mejor (para nosotros). */
   const zonas = [
@@ -636,12 +704,10 @@ function conclusionesDe(
 
       if (retencionDe(peor) < global) {
         debil = peor;
-        frases.push(
-          /* 16/11/2026 (jueces, ronda 18): con pocos saques no es un «punto débil», es el dato. */
-          peor.n >= MUESTRA_BANDA
-            ? `Punto débil: ${nombre(peor.key, peor.valor)}, conservamos ${peor.favorables} de ${peor.n}.`
-            : `Donde menos conservamos: ${nombre(peor.key, peor.valor)}, ${peor.favorables} de ${peor.n}.${indicio(peor.n)}`,
-        );
+        /* 20/11/2026 (jueces, ronda 4): el punto débil es el titular, con su comparación. */
+        titular = `Donde menos conservamos es ${nombre(peor.key, peor.valor)}: ${peor.favorables} de ${peor.n} (${pctTexto(peor.favorables, peor.n)}), frente al ${pctTexto(favorables, total)} de todos los saques${
+          peor.n < MUESTRA_BANDA ? " · tendencia" : ""
+        }`;
       }
     }
   }
@@ -666,13 +732,26 @@ function conclusionesDe(
     | dato: la media de lo conservado en ese mismo sitio en las jornadas
     | anteriores, y no la de todo el campo.
     */
+    /*
+    | 20/11/2026 (jueces, ronda 4): con la temporada entera esa media era el
+    | propio dato de hoy. Orden: la media de antes si sube al menos 3 puntos;
+    | si no, el nivel de los buenos partidos ahí; si no, la mitad del camino
+    | hasta lo que conservamos en todos los saques.
+    */
+    const hoyDebil = (debil.favorables / debil.n) * 100;
     const mismoAntes = anteriores ? gruposDe(anteriores, debil.key, mode).find((g) => g.valor === debil!.valor) : undefined;
+    const pctAntes = mismoAntes && mismoAntes.n ? (mismoAntes.favorables / mismoAntes.n) * 100 : null;
+    const enDebil = (row: RecordRow) => valorDe(row, debil!.key) === debil!.valor;
+    const meta = metaDePartidos(serieMeta.filter(enDebil), filaFavorable, true, hoyDebil);
+    const camino = Math.round((hoyDebil + (favorables / total) * 100) / 2);
     const objetivoMismo =
-      mismoAntes && mismoAntes.n
-        ? ` · objetivo: ${pctUno((mismoAntes.favorables / mismoAntes.n) * 100)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes.favorables} de ${mismoAntes.n})`
-        : mediaRetencion !== null
-          ? ` · objetivo de referencia: ${pctUno(mediaRetencion)} conservados en todo el campo (${fuenteMedia})`
-          : "";
+      pctAntes !== null && pctAntes >= hoyDebil + 3
+        ? ` · objetivo: ${pctUno(pctAntes)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes!.favorables} de ${mismoAntes!.n})`
+        : meta
+          ? ` · objetivo: ${textoMeta(meta).replace(" (", ` conservados ahí (`)}`
+          : camino >= hoyDebil + 3
+            ? ` · objetivo: ${camino} % conservados ahí, la mitad del camino hasta el ${pctTexto(favorables, total)} de todos los saques`
+            : "";
 
     frases.push(
       `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}. Hoy conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)} (${pctTexto(debil.favorables, debil.n)}); se cuenta el balón conservado${objetivoMismo}.`,
@@ -705,11 +784,37 @@ function conclusionesDe(
       | objetivo: recuperar al menos la media de las jornadas anteriores.
       */
       frases.splice(3);
+      /* 20/11/2026 (ronda 4): la meta no puede ser el dato de hoy; ver metaDePartidos. */
+      const hoyRecuperado = (favorables / total) * 100;
+      const metaRobo = metaDePartidos(serieMeta, filaFavorable, true, hoyRecuperado);
+      const objetivoRobo =
+        mediaRetencion !== null && mediaRetencion >= hoyRecuperado + 3
+          ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; hoy ${pctUno(hoyRecuperado)})`
+          : metaRobo
+            ? ` · objetivo: al menos ${textoMeta(metaRobo)}; hoy ${pctUno(hoyRecuperado)}`
+            : "";
       frases.push(
-        `Orden para el próximo partido${robo.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${
-          mediaRetencion !== null ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; hoy ${pctUno((favorables / total) * 100)})` : ""
-        }.`,
+        `Orden para el próximo partido${robo.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${objetivoRobo}.`,
       );
+    }
+
+    /*
+    | 20/11/2026 (jueces, ronda 4): «¿Va a peor?» era la alerta de la semana y
+    | estaba a media página. Si los 3 últimos partidos le dejan llegar arriba al
+    | menos 10 puntos más que antes, es el titular.
+    */
+    const serie = partidosDe(rows);
+    if (serie.length >= 4) {
+      const ultimos = serie.slice(-3).flatMap((p) => p.filas);
+      const antes = serie.slice(0, -3).flatMap((p) => p.filas);
+      const pu = ultimos.length ? (ultimos.filter(filaProduce).length / ultimos.length) * 100 : 0;
+      const pa = antes.length ? (antes.filter(filaProduce).length / antes.length) * 100 : 0;
+
+      if (ultimos.length && antes.length && pu - pa >= 10) {
+        titular = `Va a peor: en los 3 últimos partidos le llegan a último tercio, ocasión o gol ${ultimos.filter(filaProduce).length} de ${ultimos.length} saques (${Math.round(pu)} %); antes, ${Math.round(pa)} %${
+          ultimos.length < MUESTRA_BANDA ? " · tendencia" : ""
+        }`;
+      }
     }
 
     /*
@@ -719,18 +824,24 @@ function conclusionesDe(
     */
     const mediaLlegan = anteriores && anteriores.length ? (resumenDe(anteriores, mode).produccion / anteriores.length) * 100 : null;
     if (resumen.produccion > 0) {
+      const hoyLlegan = (resumen.produccion / total) * 100;
+      const metaLlegan = metaDePartidos(serieMeta, filaProduce, false, hoyLlegan);
+      const objetivoLlegan =
+        mediaLlegan !== null && mediaLlegan <= hoyLlegan - 3
+          ? ` · objetivo: como mucho ${pctUno(mediaLlegan)} (${fuenteMedia})`
+          : metaLlegan
+            ? ` · objetivo: como mucho ${textoMeta(metaLlegan)}`
+            : "";
       frases.push(
-        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. Hoy le llegan ${resumen.produccion} de ${total} a último tercio (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio${
-          mediaLlegan !== null ? ` · objetivo: como mucho ${pctUno(mediaLlegan)} (${fuenteMedia})` : ""
-        }.`,
+        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. Hoy le llegan ${resumen.produccion} de ${total} a último tercio, ocasión o gol (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio o más${objetivoLlegan}.`,
       );
     }
   }
 
-  /* «Qué entrenamos» nunca se queda fuera del recorte. */
+  /* «Qué entrenamos» nunca se queda fuera del recorte; el recuento abre las lecturas. */
   const ordenQue = frases.find((f) => f.startsWith("Qué entrenamos"));
-  const restoFrases = frases.filter((f) => f !== ordenQue);
-  return { titular, items: ordenQue ? [...restoFrases.slice(0, 5), ordenQue] : frases.slice(0, 6) };
+  const restoFrases = [recuento, ...frases.filter((f) => f !== ordenQue)];
+  return { titular, items: ordenQue ? [...restoFrases.slice(0, 5), ordenQue] : restoFrases.slice(0, 6) };
 }
 
 /*
@@ -2209,6 +2320,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                               muestraMinima: MUESTRA_BANDA,
                               /* 17/11/2026 (jueces, ronda 20): la cifra clave, primero y destacada; el resto, a un toque. */
                               destacada: "produccion",
+                              /* 20/11/2026 (jueces, ronda 4): conservados (o recuperados) y ocasiones, siempre a la vista. */
+                              aLaVista: ["conserva", "ocasiones"],
                             }
                           : null
                       }

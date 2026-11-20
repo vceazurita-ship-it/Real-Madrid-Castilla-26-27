@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
+import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 
 /**
  * En obras · Escudos de la liga.
@@ -356,7 +357,25 @@ export default function EscudosPage() {
   const [busca, setBusca] = useState("");
   const plano = (t: string) => t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase();
   const consulta = plano(busca.trim());
-  const encontrados = consulta ? escudos.filter((e) => plano(`${e.equipo} ${nombreOficial(e.equipo)}`).includes(consulta)) : escudos;
+  /*
+  | 20/11/2026 (ronda 4, marketing): dos atajos junto al buscador —los que
+  | juegan la jornada y nuestro próximo rival— para llegar en un toque a los
+  | que tienen partido, con sus accesos.
+  */
+  const [filtro, setFiltro] = useState<"todos" | "jornada" | "rival">("todos");
+  const nuestroNombre = [...jornada.partidos.keys()].find(esNuestro) ?? "";
+  const proximoRival = nuestroNombre ? jornada.partidos.get(nuestroNombre)?.rival ?? "" : "";
+  const enJornada = escudos.filter((e) => jornada.partidos.has(e.equipo));
+  const filtrados =
+    filtro === "jornada" ? enJornada : filtro === "rival" ? escudos.filter((e) => e.equipo === proximoRival) : escudos;
+  const encontrados = consulta ? filtrados.filter((e) => plano(`${e.equipo} ${nombreOficial(e.equipo)}`).includes(consulta)) : filtrados;
+  const conFiltro = Boolean(consulta) || filtro !== "todos";
+
+  /* El Plan de partido sólo existe contra nuestros rivales: con su ID de la hoja RIVALES. */
+  const jornadasRivales = useJornadasRivales();
+  const hrefPlan = proximoRival
+    ? enlacesDelRival(jornadasRivales, proximoRival).find((e) => e.texto === "Plan de partido")?.href ?? "/match-preparation"
+    : "";
 
   /**
    * Arma el documento.
@@ -443,8 +462,7 @@ export default function EscudosPage() {
             {estado === "listo" && escudos.length > 0 ? (
               <p className="mt-2 text-[13px] text-white/70">
                 <strong className="font-semibold text-white">{escudos.length - faltan.length} escudos</strong> de BeSoccer
-                {fechaLarga(alDia) ? ` · actualizados el ${fechaLarga(alDia)}` : ""}
-                {/* 11/11/2026 (marketing): las diapositivas se cuentan una vez, en su propia cabecera. */}
+                {/* 20/11/2026 (ronda 4): la fecha va pegada a «Actualizar escudos», abajo. */}
               </p>
             ) : null}
 
@@ -473,10 +491,14 @@ export default function EscudosPage() {
                 type="button"
                 onClick={pideLista}
                 disabled={haciendo !== null || estado === "cargando"}
-                className="inline-flex min-h-11 items-center justify-center gap-1.5 self-center px-3 text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
+                className="inline-flex min-h-11 flex-wrap items-center justify-center gap-1.5 self-center px-3 text-[13px] text-white/60 underline-offset-2 transition hover:text-white hover:underline disabled:opacity-40 sm:self-auto"
               >
                 <RefreshCw size={14} className={estado === "cargando" ? "animate-spin" : undefined} />
                 {estado === "cargando" && testigo > 0 ? "Comprobando…" : "Actualizar escudos"}
+                {/* 20/11/2026 (ronda 4, marketing): de cuándo son, junto al botón que los pone al día. */}
+                {estado !== "cargando" && fechaLarga(alDia) ? (
+                  <span className="text-white/50">· al día del {fechaLarga(alDia)}</span>
+                ) : null}
               </button>
             </div>
 
@@ -560,7 +582,8 @@ export default function EscudosPage() {
 
                 {estado === "listo" ? (
                   <div className="space-y-5">
-                    <div className="relative max-w-sm">
+                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="relative w-full max-w-sm">
                       <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
                       <input
                         value={busca}
@@ -581,19 +604,45 @@ export default function EscudosPage() {
                         </button>
                       ) : null}
                     </div>
+                    {enJornada.length > 0 ? (
+                      <div role="group" aria-label="Filtrar los escudos" className="flex flex-wrap gap-1.5">
+                        {(
+                          [
+                            ["todos", `Todos · ${escudos.length}`],
+                            ["jornada", `Jornada ${jornada.numero} · ${enJornada.length}`],
+                            ...(proximoRival && escudos.some((e) => e.equipo === proximoRival) ? [["rival", `Próximo rival · ${proximoRival}`]] : []),
+                          ] as ["todos" | "jornada" | "rival", string][]
+                        ).map(([clave, texto]) => (
+                          <button
+                            key={clave}
+                            type="button"
+                            onClick={() => setFiltro(clave)}
+                            aria-pressed={filtro === clave}
+                            className={`inline-flex min-h-10 items-center rounded-full border px-3 text-[13px] font-semibold transition ${
+                              filtro === clave
+                                ? "border-[#C8A96B] bg-[#C8A96B] text-[#0B0F14]"
+                                : "border-white/20 text-white/75 hover:border-white/40 hover:text-white"
+                            }`}
+                          >
+                            {texto}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                    </div>
 
-                    {consulta && !encontrados.length ? (
+                    {conFiltro && !encontrados.length ? (
                       <p className="text-sm text-white/60">Ningún equipo coincide con «{busca.trim()}».</p>
                     ) : null}
 
-                    {Array.from({ length: consulta ? (encontrados.length ? 1 : 0) : hojas }, (_, h) => {
-                      const tanda = consulta ? encontrados : escudos.slice(h * 20, h * 20 + 20);
+                    {Array.from({ length: conFiltro ? (encontrados.length ? 1 : 0) : hojas }, (_, h) => {
+                      const tanda = conFiltro ? encontrados : escudos.slice(h * 20, h * 20 + 20);
 
                       return (
                         <div key={h}>
                           {/* Cada diapositiva con lo que lleva: «de AD Alcorcón a Gimnàstic de Tarragona» (11/11/2026). */}
                           <h3 className="mb-2 text-[12px] font-semibold text-white/70">
-                            {consulta ? (
+                            {conFiltro ? (
                               `${tanda.length} ${tanda.length === 1 ? "escudo" : "escudos"}`
                             ) : (
                               <>
@@ -686,20 +735,42 @@ export default function EscudosPage() {
                                     href="/quiniela"
                                     title={`Jornada ${jornada.numero} de la quiniela`}
                                     style={{ color: "#9CC3E6", borderColor: "rgba(156,195,230,0.35)" }}
-                                    className="-mt-1 rounded-full border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
+                                    /* 20/11/2026 (ronda 4, marketing): una sola línea con elipsis; el rival largo partía la píldora y descuadraba la fila. */
+                                    className="-mt-1 block max-w-full truncate whitespace-nowrap rounded-full border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
                                   >
                                     J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {jornada.partidos.get(uno.equipo)?.rival}
                                   </Link>
                                 ) : null}
                                 {/* 17/11/2026 (marketing): de su partido a su análisis, a un toque. */}
+                                {/* 20/11/2026 (ronda 4, marketing): a 12 px y en oro claro; y su ABP y, si es nuestro rival, el plan. */}
                                 {jornada.partidos.get(uno.equipo) && !esNuestro(uno.equipo) ? (
-                                  <BotonGolesEnVideo
-                                    equipo={uno.equipo}
-                                    title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}
-                                    className="text-center text-[11px] font-semibold text-[#E4CE9B] underline-offset-2 hover:underline"
-                                  >
-                                    ▶ Sus goles en vídeo
-                                  </BotonGolesEnVideo>
+                                  <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
+                                    <BotonGolesEnVideo
+                                      equipo={uno.equipo}
+                                      title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}
+                                      className="inline-flex min-h-8 items-center text-center text-[12px] font-bold text-[#F7D98B] underline underline-offset-2"
+                                    >
+                                      ▶ Sus goles
+                                    </BotonGolesEnVideo>
+                                    <Link
+                                      href={`/scout-rival-abp?equipo=${encodeURIComponent(uno.equipo)}`}
+                                      title={`El balón parado de ${uno.equipo}`}
+                                      style={{ color: "#F7D98B" }}
+                                      className="inline-flex min-h-8 items-center text-[12px] font-bold underline underline-offset-2"
+                                    >
+                                      ABP
+                                    </Link>
+                                    {uno.equipo === proximoRival && hrefPlan ? (
+                                      <Link
+                                        href={hrefPlan}
+                                        title={`El plan de partido contra ${uno.equipo}`}
+                                        style={{ color: "#F7D98B" }}
+                                        className="inline-flex min-h-8 items-center text-[12px] font-bold underline underline-offset-2"
+                                      >
+                                        Plan
+                                      </Link>
+                                    ) : null}
+                                  </div>
                                 ) : null}
                                 {/* El marco oro, explicado (10/11/2026). */}
                                 {esNuestro(uno.equipo) ? (

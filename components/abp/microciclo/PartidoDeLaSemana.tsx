@@ -58,6 +58,7 @@ export function PartidoDeLaSemana({
   escudo,
   hoy,
   minutos,
+  mediaMinutos,
   objetivo,
   porLado,
   enlaces,
@@ -73,6 +74,8 @@ export function PartidoDeLaSemana({
   /** «AAAA-MM-DD» de hoy, o vacío mientras no se sabe. */
   hoy: string;
   minutos: number;
+  /** La media de minutos de los micros anteriores con rival, y cuántos son. */
+  mediaMinutos?: { valor: number; n: number } | null;
   /** `diasEntreno`: sobre cuántos días se prorratea la referencia (90-100′ en 6). */
   objetivo: { minimo: number; maximo: number; diasEntreno?: number };
   porLado: { ofensivo: number; defensivo: number };
@@ -187,12 +190,13 @@ export function PartidoDeLaSemana({
           )}
 
           {anterior && (
-            <p className="mt-1 inline-flex items-center gap-1 text-[11px] text-white/40">
+            <p className="mt-1 inline-flex flex-wrap items-center gap-1 text-[11px] text-white/60">
               <Flag size={10} aria-hidden />
-              Viene de {anterior.rival} · {anterior.cuando}
+              {/* 20/11/2026 (jueces, ronda 4): «Viene de…» parecía el partido anterior del rival; es el nuestro. */}
+              Nuestro último partido: {anterior.rival} · {anterior.cuando}
               {/* 17/11/2026 (jueces, ronda 20): el análisis de aquel partido, a un toque (las pantallas abren en el último partido). */}
               <Link href="/setpieces" className="ml-1 font-semibold underline underline-offset-2" style={{ color: "var(--rmcf-gold-ink)" }}>
-                Ver su ABP
+                Nuestro ABP en aquel partido
               </Link>
             </p>
           )}
@@ -244,6 +248,8 @@ export function PartidoDeLaSemana({
             {/* 17/11/2026 (jueces, ronda 20): en una nota corta. */}
             Objetivo del cuerpo técnico: 90-100′ por 6 días de sesión
             {objetivo.diasEntreno < 6 ? ` · ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"} → ${objetivo.minimo}-${objetivo.maximo}′` : ""}
+            {/* 20/11/2026 (jueces, ronda 4): la referencia de las semanas ya planificadas, con cuántas son. */}
+            {mediaMinutos ? ` · media de ${mediaMinutos.n} ${mediaMinutos.n === 1 ? "micro anterior" : "micros anteriores"}: ${mediaMinutos.valor}′` : ""}
           </p>
         ) : null}
 

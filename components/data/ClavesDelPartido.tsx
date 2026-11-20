@@ -28,6 +28,7 @@ import { enlaceConPartido, type PartidoPost } from "@/lib/post-partido";
 import type { Robo } from "@/lib/transiciones/datos";
 import { usePartidosLaboratorio, zonaDeRobo } from "@/lib/transiciones/partidos-laboratorio";
 import type { DatosOpta } from "@/app/opta/_piezas/useOpta";
+import { useRemates } from "@/app/opta/_piezas/eventos";
 
 const coma = (v: number, d = 1) => v.toFixed(d).replace(".", ",");
 /** 18/11/2026 (ronda 22): el MISMO porcentaje, con un decimal, en las tres claves y en «Acción a acción». */
@@ -103,7 +104,27 @@ type Clave = {
   dibujo: ReactNode;
   ir: { texto: string; area?: string; href?: string };
   jugador?: { nombre: string; texto: string };
+  /** Una línea más bajo el detalle (p. ej. de qué ocasión salió el gol). */
+  extra?: ReactNode;
 };
+
+/*
+| 20/11/2026 (ronda 4, análisis): «ganamos 1-0 con menos xG» no decía de qué
+| ocasión salió el gol. Con los remates de Opta del partido: la calidad de
+| cada gol nuestro (baja por debajo de 0,1 de xG; clara desde 0,3).
+*/
+function CalidadDeNuestrosGoles({ datos, partido }: { datos: DatosOpta; partido: string }) {
+  const { remates } = useRemates(datos);
+  const goles = remates.filter((r) => r.partido === partido && r.gol && r.teamId === CASTILLA_OPTA);
+  if (!goles.length) return null;
+  const calidad = (x: number) => (x < 0.1 ? "de baja calidad" : x < 0.3 ? "de calidad media" : "clara");
+  const xg = (x: number) => x.toFixed(2).replace(".", ",");
+  const texto =
+    goles.length === 1
+      ? `El gol salió de una ocasión ${calidad(goles[0].xG)} (xG ${xg(goles[0].xG)}).`
+      : `Los ${goles.length} goles salieron de ocasiones de ${goles.map((g) => `${xg(g.xG)}`).join(", ")} de xG${goles.every((g) => g.xG < 0.1) ? ": todas de baja calidad" : ""}.`;
+  return <p className="mt-1.5 text-[12.5px] leading-snug text-white/70">{texto}</p>;
+}
 
 const COLOR_TONO = { bien: MEJOR, mal: PEOR, neutro: ORO } as const;
 
@@ -210,6 +231,7 @@ export function ClavesDelPartido({
           : undefined,
       tono: visto.gf > visto.gc ? "bien" : visto.gf < visto.gc ? "mal" : "neutro",
       dibujo: <DosBarras a={x1} b={x2} rotA="Castilla" rotB={rival} texto={(v) => coma(v)} />,
+      extra: datos && visto.gf > 0 ? <CalidadDeNuestrosGoles datos={datos} partido={visto.clave} /> : undefined,
       ir: { texto: "Ver nuestros remates", area: "remates" },
     });
   }
@@ -283,12 +305,18 @@ export function ClavesDelPartido({
             <p className="mt-1 text-[15px] font-semibold leading-snug text-white">{c.titular}</p>
             <div className="mt-2.5">{c.dibujo}</div>
             {c.detalle && <p className="mt-2 text-[12.5px] leading-snug text-white/65">{c.detalle}</p>}
+            {c.extra}
             {c.jugador && (
               <p className="mt-1.5 text-[12.5px] leading-snug text-white/70">
-                <Link href={fichaJugador(c.jugador.nombre)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                {/* 20/11/2026 (ronda 4, marketing): que se vea que el nombre abre su ficha completa. */}
+                <Link href={fichaJugador(c.jugador.nombre)} title={`Ficha completa de ${c.jugador.nombre} en Individual`} className="font-semibold text-[#C8A96B] underline decoration-[#C8A96B]/50 underline-offset-2 hover:decoration-[#C8A96B]">
                   {c.jugador.nombre}
                 </Link>
                 : {c.jugador.texto} ·{" "}
+                <Link href={fichaJugador(c.jugador.nombre)} className="underline underline-offset-2 hover:text-white">
+                  su ficha
+                </Link>{" "}
+                ·{" "}
                 <Link href={`${fichaJugador(c.jugador.nombre)}&pestana=seguimiento`} className="underline underline-offset-2 hover:text-white">
                   su seguimiento
                 </Link>

@@ -31,6 +31,8 @@ import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisi
 import { cuentaDias, esFilaDePartido, fechaIsoDeHoja } from "@/lib/microciclo/cuenta";
 import { diasPlanificados, mdALaVista, mdDelCalendario } from "@/lib/microciclo/semana-de-hoy";
 import { contenidoUnificado } from "@/lib/microciclo/contenidos";
+import { estadoDelDia } from "@/lib/sesion-dia/estado-dia";
+import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
@@ -38,6 +40,8 @@ import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/cal
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
 const NOSOTROS = "RM Castilla";
+/** Sin fechas: de useDiasConectados sólo se quieren los equipos (el almacén entero). */
+const SIN_FECHAS: string[] = [];
 
 /**
  * ¿Es día de partido? La hoja lo marca con «MD» y una tarea de competición.
@@ -447,6 +451,9 @@ export default function MicroCalendar() {
   | borde discontinuo y «planificado».
   */
   const { registro, fechasDePartido: fechasPartido, semana, hoy: hoyComun } = useSemanaDeHoy();
+  /* 20/11/2026 (jueces): el estado de cada día con la regla de /microcycles (lib/sesion-dia/estado-dia.ts): con equipos, hecha; la tarea que no casa, no se hizo. */
+  const { almacen: almacenEquipos } = useDiasConectados(SIN_FECHAS, { entreno: false });
+  const estadoDe = useCallback((key: string, minutos: number) => estadoDelDia(key, hoyComun || "", registro, almacenEquipos, minutos), [hoyComun, registro, almacenEquipos]);
 
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
@@ -520,6 +527,8 @@ export default function MicroCalendar() {
       /* 10/11/2026: los días de entreno con carga apuntada. Los planificados
          (sin minutos todavía) no bajan la media ni alargan la ventana. */
       let hechos = 0;
+      /* Entrenos con equipos hechos y sin minutos en la hoja todavía: hechos, aunque no entren en las medias de carga. */
+      let hechosSinCarga = 0;
       const siglas = new Set<string>();
       const porMd = new Map<string, { carga: number; dias: number }>();
       const dentro = new Map<string, { md?: string; fase?: string; tipo?: string; contenidoPrincipal?: string }[]>();
@@ -557,6 +566,8 @@ export default function MicroCalendar() {
         if (entreno.length > 0 && conCarga) {
           hechos += 1;
           ultimoDia = Math.max(ultimoDia, date.getDate());
+        } else if (entreno.length > 0 && estadoDe(key, 0).hecha) {
+          hechosSinCarga += 1;
         }
 
         const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
@@ -575,7 +586,9 @@ export default function MicroCalendar() {
       return {
         sesiones: entrenos,
         hechos,
-        planificados: Math.max(0, entrenos - hechos),
+        planificados: Math.max(0, entrenos - hechos - hechosSinCarga),
+        /** Los hechos para decirlo («6 hechos»), con o sin minutos; las medias van con `hechos`. */
+        hechosVista: hechos + hechosSinCarga,
         tareas,
         partidos,
         siglas,
@@ -586,7 +599,7 @@ export default function MicroCalendar() {
         cognitivaMedia: hechos > 0 ? Math.round(cognitiva / hechos) : 0,
       };
     },
-    [sessionDays, tasksByDay]
+    [sessionDays, tasksByDay, estadoDe]
   );
 
   const monthStats = useMemo(
@@ -633,7 +646,8 @@ export default function MicroCalendar() {
 
       if (ua <= 0) continue;
 
-      todos.push({ key, md: String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, ""), ua: Math.round(ua) });
+      /* 20/11/2026 (jueces): el MD del calendario, el mismo que la casilla (el 10/11 salía como MD-3 de la hoja y era MD+2). */
+      todos.push({ key, md: (mdDelCalendario(key, fechasPartido) || String(entreno[0]?.MD ?? "")).trim().toUpperCase().replace(/\s+/g, ""), ua: Math.round(ua) });
     }
 
     const suma = new Map<string, { ua: number; n: number }>();
@@ -656,7 +670,7 @@ export default function MicroCalendar() {
     });
 
     return { delMes, media };
-  }, [sessionDays, tasksByDay, active]);
+  }, [sessionDays, tasksByDay, active, fechasPartido]);
 
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
   const mesPrevio = useMemo(() => {
@@ -793,6 +807,15 @@ export default function MicroCalendar() {
   })();
 
   /*
+  | LA ORDEN Y SU PORQUÉ (20/11/2026, jueces). La alerta era un párrafo de
+  | cinco líneas: arriba queda la frase que manda hacer algo (la última de la
+  | lectura) y la explicación con sus cifras pasa al pie del gráfico.
+  */
+  const frasesCarga = lecturaCarga.split(/(?<=.)s+(?=[A-ZÁÉÍÓÚ])/).filter(Boolean);
+  const ordenCarga = frasesCarga.length > 1 ? frasesCarga.slice(1).join(" ") : frasesCarga[0] ?? lecturaCognitiva;
+  const porqueCarga = [frasesCarga.length > 1 ? frasesCarga[0] : "", ordenCarga === lecturaCognitiva ? "" : lecturaCognitiva].filter(Boolean).join(" ");
+
+  /*
   | EL TITULAR CON EL DATO (11/11/2026). Antes repetía la tarjeta ENTRENOS
   | («5 entrenos hechos + 3 planificados + 2 partidos y 3h 47'…»). Ahora:
   | «Noviembre: 8 entrenos (5 hechos) · 3h 47' · carga +17 % frente a octubre».
@@ -830,7 +853,7 @@ export default function MicroCalendar() {
     if (monthStats.sesiones === 0) return "";
     const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
     const mesAhora = MONTHS[active.month].toLowerCase();
-    const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechos} ${monthStats.hechos === 1 ? "hecho" : "hechos"}, ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"})` : ""}`;
+    const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"}, ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"})` : ""}`;
     const volumen = monthStats.minutos > 0 ? `${formatMinutes(monthStats.minutos)} de entreno` : "";
     const base =
       comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
@@ -918,10 +941,11 @@ export default function MicroCalendar() {
       franja={
         lecturaCarga || lecturaCognitiva || cargaDias.delMes.length >= 2 ? (
           <div className="space-y-3">
-            {lecturaCarga || lecturaCognitiva ? (
+            {/* 20/11/2026 (jueces): arriba, una frase de orden; el porqué, al pie del gráfico. */}
+            {ordenCarga ? (
               <p className="flex items-start gap-2 rounded-2xl border border-amber-400/35 bg-amber-400/[0.07] px-4 py-3 text-[14px] leading-snug text-white/85">
                 <AlertTriangle size={16} className="mt-0.5 shrink-0 text-amber-300" aria-hidden />
-                <span>{[lecturaCarga, lecturaCognitiva].filter(Boolean).join(" ")}</span>
+                <span>{ordenCarga}{cargaDias.delMes.length < 2 && porqueCarga ? ` ${porqueCarga}` : ""}</span>
               </p>
             ) : null}
             {cargaDias.delMes.length >= 2 ? (
@@ -931,9 +955,10 @@ export default function MicroCalendar() {
                 mes={MONTHS[active.month].toLowerCase()}
                 comparacion={
                   comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
-                    ? { antes: mesPrevio.stats.cargaMedia, ahora: monthStats.cargaMedia, mesAntes: MONTHS[mesPrevio.month].toLowerCase(), base: mesPrevio.completo ? "" : `1-${mesPrevio.hasta}` }
+                    ? { antes: mesPrevio.stats.cargaMedia, ahora: monthStats.cargaMedia, mesAntes: MONTHS[mesPrevio.month].toLowerCase(), base: mesPrevio.completo ? "" : `1-${mesPrevio.hasta}`, nAntes: mesPrevio.stats.hechos, nAhora: monthStats.hechos }
                     : null
                 }
+                pie={porqueCarga}
               />
             ) : null}
           </div>
@@ -944,7 +969,7 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Entrenos"
             value={monthStats.sesiones}
-            hint={`${monthStats.planificados > 0 ? `${monthStats.hechos} hechos y ${monthStats.planificados} planificados · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`${monthStats.planificados > 0 ? `${monthStats.hechosVista} hechos y ${monthStats.planificados} planificados · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
@@ -1047,10 +1072,15 @@ export default function MicroCalendar() {
         }
 
         const totalMinutes = dayTasks.reduce((s, t) => s + minutesOf(t), 0);
+        /* Los minutos de lo planificado no dicen que se hiciera: sólo cuentan los de la copia de lo hecho. */
+        const estadoDia = estadoDe(key, dayTasks.every((t) => t._plan) ? 0 : totalMinutes);
+        /* La tarea del plan que no se hizo no se cuenta como contenido del día: va tachada aparte. */
+        const noHechas = dayTasks.filter((t) => estadoDia.noHechas.has(String(t.Tarea ?? "").trim()));
+        const hechasDelDia = noHechas.length ? dayTasks.filter((t) => !noHechas.includes(t)) : dayTasks;
 
         // Minutos por contenido principal, ordenados de mayor a menor.
         const blocks = new Map<string, number>();
-        dayTasks.forEach((t) => {
+        hechasDelDia.forEach((t) => {
           /* Sin contenido principal se rotula con el tipo de tarea; sin ninguno, no se pinta. */
           const name = (t["Contenido Principal"] || t["Tipo Tarea"] || "").trim();
           blocks.set(name, (blocks.get(name) ?? 0) + minutesOf(t));
@@ -1069,7 +1099,7 @@ export default function MicroCalendar() {
            del creador de micros y de /calendar_general; el de la hoja, si no hay partido a la vista. */
         const md = esDiaDePartido(dayTasks) ? "MD" : mdDelCalendario(key, fechasPartido) || mdHoja;
         /* Todo el día sólo planificado (sin minutos ni copia de lo hecho): borde discontinuo. */
-        const soloPlan = dayTasks.every((t) => t._plan) || (totalMinutes === 0 && !esDiaDePartido(dayTasks));
+        const soloPlan = !estadoDia.hecha && (dayTasks.every((t) => t._plan) || (totalMinutes === 0 && !esDiaDePartido(dayTasks)));
 
         const partido = esDiaDePartido(dayTasks) ? String(dayTasks[0]?.Rival ?? "").trim() : "";
         const detallePartido = partido ? lineaPartido(key) : "";
@@ -1108,7 +1138,15 @@ export default function MicroCalendar() {
               {/* 10/11/2026: un entreno que aún no tiene minutos en la hoja es
                   un día planificado; se dice, para que el mes se lea igual de
                   principio a fin (la hoja no guarda minutos previstos). */}
-              {totalMinutes === 0 && !esDiaDePartido(dayTasks) && (
+              {totalMinutes === 0 && !esDiaDePartido(dayTasks) && estadoDia.hecha && (
+                <span
+                  className="whitespace-nowrap rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-300"
+                  title="Sesión hecha: tiene equipos en Jugadores sesión; la hoja aún no tiene sus minutos"
+                >
+                  hecha
+                </span>
+              )}
+              {totalMinutes === 0 && !esDiaDePartido(dayTasks) && !estadoDia.hecha && (
                 <span
                   className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-0.5 text-[10px] font-semibold text-white/60"
                   title="Entreno planificado: la hoja aún no tiene sus minutos ni su intensidad"
@@ -1190,6 +1228,11 @@ export default function MicroCalendar() {
                 </div>
               ))}
               </div>
+              {noHechas.length ? (
+                <p className="text-[11px] leading-tight text-white/50" title="Estaba en el plan y no se hizo (según los equipos de Jugadores sesión)">
+                  <span className="line-through decoration-white/40">{noHechas.map((t) => String(t["Contenido Principal"] || t["Tipo Tarea"] || t.Tarea || "").trim()).filter(Boolean).join(", ")}</span> · no se hizo
+                </p>
+              ) : null}
 
               {/* 16/11/2026 (jueces): el día de entreno abre su sesión en Microciclos, con su micro y su MD, desde la propia casilla. */}
               {!partido && Number(dayTasks[0]?.Micro) > 0 ? (
@@ -1457,6 +1500,10 @@ const COLOR_MD: Record<string, string> = {
   "MD-3": "#34D399",
   "MD-4": "#C8A96B",
   "MD-5": "#FB7185",
+  /* 20/11/2026 (jueces): los que faltaban; antes el MD+2 salía verde como un MD-3. */
+  "MD-6": "#F472B6",
+  "MD+1": "#94A3B8",
+  "MD+2": "#F97316",
 };
 
 /**
@@ -1470,11 +1517,14 @@ function BarrasCargaMes({
   media,
   mes,
   comparacion,
+  pie,
 }: {
   dias: { key: string; md: string; ua: number }[];
   media: Map<string, number>;
   mes: string;
-  comparacion: { antes: number; ahora: number; mesAntes: string; base: string } | null;
+  comparacion: { antes: number; ahora: number; mesAntes: string; base: string; nAntes?: number; nAhora?: number } | null;
+  /** 20/11/2026: el porqué de la orden de arriba, al pie del gráfico. */
+  pie?: string;
 }) {
   const max = Math.max(1, ...dias.map((d) => d.ua), ...dias.map((d) => media.get(d.md) ?? 0));
   const mds = [...new Set(dias.map((d) => d.md).filter(Boolean))].sort();
@@ -1500,7 +1550,11 @@ function BarrasCargaMes({
                   <span className="absolute inset-x-0 bottom-0 rounded-t-[3px]" style={{ height: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
                   {m ? <span className="absolute inset-x-[-2px] h-0.5 rounded-full" style={{ bottom: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
                 </div>
-                <span className="text-[10px] tabular-nums text-white/55">{Number(d.key.slice(8, 10))}</span>
+                {/* 20/11/2026 (jueces): el día y su MD («3 · −5»), no sólo el número. */}
+                <span className="text-center text-[11px] leading-none tabular-nums text-white/60">
+                  {Number(d.key.slice(8, 10))}
+                  {d.md ? <span className="block whitespace-nowrap pt-0.5 text-[10px] text-white/45">{d.md.replace(/^MD/, "")}</span> : null}
+                </span>
               </div>
             );
           })}
@@ -1510,12 +1564,15 @@ function BarrasCargaMes({
           {comparacion ? (
             <div className="space-y-1">
               {[
-                { rotulo: comparacion.mesAntes, ua: comparacion.antes, color: "rgb(var(--rmcf-ink-rgb) / .35)" },
-                { rotulo: mes, ua: comparacion.ahora, color: "#C8A96B" },
+                { rotulo: comparacion.mesAntes, ua: comparacion.antes, n: comparacion.nAntes, color: "rgb(var(--rmcf-ink-rgb) / .35)" },
+                { rotulo: mes, ua: comparacion.ahora, n: comparacion.nAhora, color: "#C8A96B" },
               ].map((b) => (
                 <div key={b.rotulo} className="text-[12px]">
                   <p className="flex justify-between gap-2 text-white/70">
-                    <span className="capitalize">{b.rotulo}</span>
+                    <span>
+                      <span className="capitalize">{b.rotulo}</span>
+                      {b.n ? <span className="text-white/50"> · {b.n} {b.n === 1 ? "entreno" : "entrenos"}</span> : null}
+                    </span>
                     <span className="tabular-nums font-semibold">{b.ua} UA</span>
                   </p>
                   <div className="h-2 overflow-hidden rounded-full bg-white/10">
@@ -1532,9 +1589,16 @@ function BarrasCargaMes({
                 {md}
               </span>
             ))}
+            {dias.some((d) => !d.md) ? (
+              <span className="inline-flex items-center gap-1">
+                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "rgb(var(--rmcf-ink-rgb) / .35)" }} aria-hidden />
+                fuera de micro
+              </span>
+            ) : null}
           </p>
         </div>
       </div>
+      {pie ? <p className="mt-3 border-t border-white/10 pt-2 text-[12px] leading-snug text-white/60">{pie}</p> : null}
     </section>
   );
 }

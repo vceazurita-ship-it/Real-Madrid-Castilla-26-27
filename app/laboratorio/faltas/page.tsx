@@ -39,7 +39,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { BarChart3, ClipboardList, Crosshair, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Users, Zap } from "lucide-react";
+import { BarChart3, ClipboardList, Crosshair, FileText, LayoutDashboard, List, Map as MapIcon, Shield, Swords, Users, Zap } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -47,7 +47,7 @@ import { cn } from "@/lib/utils";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
-import { ComparativaPartido, UMBRAL_TENDENCIA_PARTIDOS, numeroCorto } from "@/components/abp/ComparativaPartido";
+import { ComparativaPartido, UMBRAL_TENDENCIA_PARTIDOS, numeroCorto, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { ultimoPorFecha } from "@/lib/abp/ultimo-partido";
 import { PARTIDOS as PARTIDOS_ETIQUETADOS, type Falta, type LadoFalta } from "@/lib/faltas/datos";
@@ -568,45 +568,91 @@ export default function FaltasPage() {
   const comparativa = useMemo(() => (partido ? comparativaFaltas(partido, partidosVisibles) : null), [partido, partidosVisibles]);
 
   /* 29/10/2026: «Qué hacemos» al final de las conclusiones, con tarea y criterio de éxito (mismo formato que Robos y Pérdidas). */
+  /*
+  | 20/11/2026 (ronda 4, fútbol y análisis): la métrica de la semana ya no es
+  | siempre el total en contra. Como en Robos y Pérdidas, se elige la que se
+  | sale de la franja mínimo–máximo de los anteriores hacia su lado malo (la
+  | que más se sale); si ninguna se sale, «Sin alarma esta semana» con la más
+  | justa y sin tarea. La tendencia va en el titular, no sólo en el rótulo.
+  */
   const queHacemos = useMemo(() => {
-    const c = comparativa?.metricas.find((m) => m.clave === "contra");
+    if (!comparativa || !partido || comparativa.anteriores < 1) return null;
 
-    if (!comparativa || !c || c.actual === null || c.media === null || comparativa.anteriores < 1) return null;
-
-    const mas = c.actual > c.media;
-    /* 08/11/2026: la orden se apoya en el reparto por zonas de NUESTRAS
-       faltas (las en contra) y el objetivo dice de dónde sale la cifra. */
-    const nuestras = (partido?.faltas ?? []).filter((f) => f.lado === "defensivo");
-    const porZona = ["nuestro campo", "medio campo", "campo rival"]
-      .map((z) => ({ z, n: nuestras.filter((f) => sitioEnCampo(f).zona === z).length }))
-      .filter((x) => x.n > 0)
-      .sort((a, b) => b.n - a.n);
-    const reparto = porZona.length && nuestras.length
-      ? ` De las ${nuestras.length}, ${porZona.map((x) => `${x.n} en ${x.z}`).join(", ")}.`
-      : "";
-    /*
-    | 16/11/2026 (expertos, ronda 17): la zona sólo se nombra en la tarea si
-    | de verdad manda (la mitad o más, y sin empate): «medio campo» con 6 de
-    | 14, empatado con campo rival, no es una conclusión.
-    */
-    const [primera, segunda] = porZona;
-    const manda = primera && primera.n * 2 >= nuestras.length && (!segunda || primera.n > segunda.n) ? primera.z : "";
-    const n = comparativa.anteriores;
-    const rango = c.rango && c.rango[0] !== c.rango[1] ? `, de ${numeroCorto(c.rango[0])} a ${numeroCorto(c.rango[1])} en esos partidos` : "";
-    const media = decimal(c.media);
-
-    /* La misma forma que Robos y Pérdidas: rótulo, titular y tres líneas. */
-    return {
-      /* 17/11/2026 (ronda 19, marketing): la tendencia, en el rótulo y no sólo en el cuerpo. */
-      rotulo: `${mas ? "Lo que pide trabajo esta semana" : "Qué entrenamos para mantenerlo"}${n < UMBRAL_TENDENCIA_PARTIDOS ? ` · tendencia, media de ${n} ${n === 1 ? "partido" : "partidos"}` : ""}`,
-      titular: `${mas ? "Bajar de" : "No pasar de"} ${media} faltas en contra por partido: en la ${jornadaCorta(partido?.jornada ?? "")} (${partido?.rival ?? ""}), ${c.actual}`,
-      lineas: [
-        `Cometimos ${c.actual} frente a ${media} de media de los ${n} ${n === 1 ? "anterior" : "anteriores"}${rango}.${reparto}`,
-        `En el campo: tarea de defensa de duelos sin falta${manda ? ` en ${manda}` : ""}, contando las faltas que cometemos en cada serie.`,
-        `Criterio de éxito, ${mas ? "por debajo de" : "no pasar de"} ${media} faltas en contra en el próximo partido.`,
-      ],
+    const TAREAS: Record<string, { tarea: string; cuenta: string; lado: LadoFalta; zona?: string; distancia?: string }> = {
+      contra: { tarea: "defensa de duelos sin falta", cuenta: "las faltas que cometemos en cada serie", lado: "defensivo" },
+      "contra-frontal": { tarea: "defensa del pasillo central sin falta (temporizar, no entrar al cuerpo)", cuenta: "las faltas frontales que cometemos", lado: "defensivo", distancia: "frontal" },
+      "contra-nuestro": { tarea: "defensa en nuestro campo sin falta (temporizar y orientar a banda)", cuenta: "las faltas que cometemos en nuestro campo", lado: "defensivo", zona: "nuestro campo" },
+      "favor-frontal": { tarea: "ataque del pasillo central para provocar la falta frontal", cuenta: "las faltas frontales que nos hacen", lado: "ofensivo", distancia: "frontal" },
+      "favor-rival": { tarea: "conducción y regate en el último tercio para provocar falta", cuenta: "las faltas que nos hacen en campo rival", lado: "ofensivo", zona: "campo rival" },
+      defensores: { tarea: "sacar rápido la falta a favor, antes de que se arme su bloque", cuenta: "los defensores por delante en cada falta a favor", lado: "ofensivo" },
     };
-  }, [comparativa, partido]);
+
+    const candidatas = comparativa.metricas
+      .filter((m) => TAREAS[m.clave] && m.actual !== null && m.media !== null && (m.mejorAlto === true || m.mejorAlto === false))
+      .map((m) => {
+        const actual = m.actual as number;
+        const media = m.media as number;
+        const conFranja = Boolean(m.rango && m.rango[0] !== m.rango[1]);
+        const lo = conFranja && m.rango ? Math.min(m.rango[0], m.rango[1]) : null;
+        const hi = conFranja && m.rango ? Math.max(m.rango[0], m.rango[1]) : null;
+        const ancho = lo !== null && hi !== null ? Math.max(hi - lo, 1) : Math.max(Math.abs(media), 1);
+        /* Cuánto se sale hacia lo malo (en anchos de franja); <= 0 es dentro o hacia lo bueno. */
+        const fuera =
+          lo !== null && hi !== null
+            ? (m.mejorAlto ? lo - actual : actual - hi) / ancho
+            : (m.mejorAlto ? media - actual : actual - media) / ancho - 0.25;
+        /* Lo justo: cuánto se acerca a lo malo, frente a la media. */
+        const justo = (m.mejorAlto ? media - actual : actual - media) / ancho;
+        return { m, actual, media, lo, hi, fuera, justo };
+      });
+
+    if (candidatas.length === 0) return null;
+
+    type Candidata = (typeof candidatas)[number];
+    const peor = candidatas.filter((c) => c.fuera > 0).sort((a, b) => b.fuera - a.fuera)[0];
+    const n = comparativa.anteriores;
+    const jornada = jornadaCorta(partido.jornada);
+    const f = (x: number, m: MetricaComparada) => (m.formato ?? numeroCorto)(x);
+    const franja = (c: Candidata) => (c.lo !== null && c.hi !== null ? ` (de ${f(c.lo, c.m)} a ${f(c.hi, c.m)})` : "");
+    const tendenciaDe = (c: Candidata) => n < UMBRAL_TENDENCIA_PARTIDOS || Boolean(c.m.tendencia) || partidoDeOpta;
+    const deDonde = `media de ${n === 1 ? "un partido anterior" : `los ${n} anteriores`}`;
+
+    if (!peor) {
+      const justa = [...candidatas].sort((a, b) => b.justo - a.justo)[0];
+      const tend = tendenciaDe(justa);
+      return {
+        alarma: false,
+        rotulo: `Sin alarma esta semana${tend ? " · tendencia" : ""}`,
+        titular: `Lo más justo: ${justa.m.nombre.toLowerCase()}, ${f(justa.actual, justa.m)} frente a ${f(justa.media, justa.m)}${franja(justa)}`,
+        lineas: [`Ninguna cifra de la ${jornada} se sale de lo normal en los anteriores (${deDonde}). Sin tarea nueva; se vigila en el próximo partido.`],
+        ver: null as null | { lado: LadoFalta; pinchado: [string, string][]; texto: string },
+      };
+    }
+
+    const t = TAREAS[peor.m.clave];
+    const tend = tendenciaDe(peor);
+    const menosEsMejor = peor.m.mejorAlto === false;
+    /* El objetivo: volver dentro de lo normal (el borde de la franja), no la cifra de hoy. */
+    const objetivo = menosEsMejor ? (peor.hi ?? peor.media) : (peor.lo ?? peor.media);
+    const conVideo = partido.faltas.filter(
+      (x) => x.lado === t.lado && (!t.zona || sitioEnCampo(x).zona === t.zona) && (!t.distancia || x.distancia === t.distancia),
+    ).length;
+    const pinchado: [string, string][] = [];
+    if (t.zona) pinchado.push(["zona", t.zona]);
+    if (t.distancia) pinchado.push(["distancia", t.distancia]);
+
+    return {
+      alarma: true,
+      rotulo: `Lo que pide trabajo esta semana${tend ? " · tendencia" : ""}`,
+      titular: `${peor.m.nombre}: ${f(peor.actual, peor.m)} frente a ${f(peor.media, peor.m)} de media${franja(peor)} en la ${jornada} (${partido.rival})${tend ? " · tendencia" : ""}`,
+      lineas: [
+        `Se sale de lo normal hacia el lado malo${peor.m.porCada ? " (media por falta)" : ""}; la referencia es la ${deDonde}${tend ? (peor.m.tendencia ? ", con pocos casos: tendencia" : ", con pocos partidos detrás: tendencia") : ""}.`,
+        `En el campo: tarea de ${t.tarea}, contando ${t.cuenta}.`,
+        `Criterio de éxito, ${menosEsMejor ? "no pasar de" : "llegar al menos a"} ${f(objetivo, peor.m)} en el próximo partido (volver dentro de lo normal).`,
+      ],
+      ver: conVideo > 0 ? { lado: t.lado, pinchado, texto: `Ver ${conVideo === 1 ? "esa falta" : `las ${conVideo} faltas`} en vídeo` } : null,
+    };
+  }, [comparativa, partido, partidoDeOpta]);
 
   /*
   | Por jugador: con el lado y todo lo pinchado menos el propio jugador (así
@@ -819,9 +865,11 @@ export default function FaltasPage() {
                     ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}`, texto: `${masFaltas[0]}, el que más comete (${masFaltas[1]} de ${porLado.defensivo})`, icono: Users }
                     : { texto: "" },
                   masFaltas ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
-                  { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
                   /* 17/11/2026 (ronda 19): el balón parado del próximo rival (sus faltas a favor y en contra). */
                   proximoRivalFaltas ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `ABP del ${proximoRivalFaltas}`, icono: Shield } : { texto: "" },
+                  /* 20/11/2026 (ronda 4): y su plan, en el mismo orden que en robos y pérdidas. */
+                  proximoRivalFaltas ? { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `Plan contra el ${proximoRivalFaltas}`, icono: FileText } : { texto: "" },
+                  { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
                 ]}
               />
             ) : null}
@@ -1001,20 +1049,39 @@ export default function FaltasPage() {
               {/* 16/11/2026 (experto de fútbol): la orden de la semana, arriba y con
                   la misma forma que en Robos y Pérdidas (antes era la última conclusión). */}
               {queHacemos ? (
-                <div className="mt-4 rounded-2xl border border-amber-400/40 bg-amber-400/[0.06] px-4 py-3">
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-amber-300">{queHacemos.rotulo}</p>
+                <div className={cn("mt-4 rounded-2xl border px-4 py-3", queHacemos.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]")}>
+                  <p className={cn("text-[11px] font-semibold uppercase tracking-[0.16em]", queHacemos.alarma ? "text-amber-300" : "text-white/60")}>{queHacemos.rotulo}</p>
                   <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queHacemos.titular}</p>
                   {queHacemos.lineas.map((l, i) => (
                     <p key={i} className={`mt-1 text-sm leading-relaxed ${i === 0 ? "text-white/85" : "text-white/75"}`}>
                       {l}
                     </p>
                   ))}
+                  {/* 20/11/2026 (ronda 4, marketing): de la orden al vídeo de esas faltas, con el partido ya elegido. */}
+                  {queHacemos.ver ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const ver = queHacemos.ver!;
+                        limpia();
+                        setFiltro(ver.lado);
+                        if (ver.pinchado.length) alternaVarios(ver.pinchado);
+                        setVista("lista");
+                        setVistaPantalla("detalle");
+                      }}
+                      className="mr-2 mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                    >
+                      {queHacemos.ver.texto}
+                    </button>
+                  ) : null}
+                  {queHacemos.alarma ? (
                   <Link
                     href="/microcycles"
                     className="mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
                   >
                     Llevarla al microciclo
                   </Link>
+                  ) : null}
                 </div>
               ) : null}
 

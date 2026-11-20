@@ -1109,11 +1109,12 @@ function Banquillo({
 }) {
   return (
     <div className="mt-4 rounded-[22px] border border-white/10 bg-[#08131F]/70 px-3 pb-3 pt-2.5 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80">
-      <p className="mb-2 text-[10px] uppercase tracking-[.25em] text-white/40">Banquillo · evaluados fuera del once</p>
+      <p className="mb-2 text-[11px] uppercase tracking-[.2em] text-white/55">Banquillo · evaluados fuera del once</p>
       {/* 08/11/2026: el número blanco de cada ficha es el dorsal; sin rótulo se leía como nota. */}
       <p className="-mt-1 mb-2 text-[11px] text-white/45">El círculo blanco es el dorsal; la nota emocional va en el aro. Pulsa uno para ver su perfil, con su ficha y su seguimiento a un toque.</p>
 
-      <div className="flex flex-wrap justify-center gap-x-3 gap-y-3 sm:justify-start">
+      {/* 20/11/2026 (ronda 4, marketing): en cuadrícula, cada nombre bajo su foto y sin pisar al de al lado. */}
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(92px,1fr))] justify-items-center gap-x-2 gap-y-3 sm:grid-cols-[repeat(auto-fill,minmax(108px,1fr))]">
         {suplentes.map((c) => (
           <FichaJugador key={c.clave} c={c} pequena elegido={elegido === c.clave} onElegir={onElegir} />
         ))}
@@ -1172,7 +1173,7 @@ function LecturaDelOnce({
   if (evaluados.length === 0) {
     return (
       <aside className={TARJETA}>
-        <p className="text-[10px] uppercase tracking-[.25em] text-white/40">Lectura del once</p>
+        <p className="text-[11px] uppercase tracking-[.2em] text-white/55">Lectura del once</p>
         <p className="mt-3 text-sm leading-relaxed text-white/60">Pulsa un jugador del campo o del banquillo para ver su perfil emocional.</p>
       </aside>
     );
@@ -1198,7 +1199,7 @@ function LecturaDelOnce({
 
   return (
     <aside className={TARJETA}>
-      <p className="text-[10px] uppercase tracking-[.25em] text-white/40">
+      <p className="text-[11px] uppercase tracking-[.2em] text-white/55">
         Lectura del once{fecha ? ` · última valoración ${diaCorto(fecha.slice(0, 10))}` : ""}
       </p>
 
@@ -1207,7 +1208,8 @@ function LecturaDelOnce({
           {coma(media)}
         </span>
         <span className="pb-1 text-xs text-white/55">
-          media de {evaluados.length} de {titulares.length} titulares valorados · {bandFor(media).label}
+          {/* 20/11/2026 (ronda 4): la población y la base, en la propia cifra. */}
+          media de {evaluados.length === titulares.length ? `los ${titulares.length}` : `${evaluados.length} de ${titulares.length}`} titulares valorados · una valoración por jugador · {bandFor(media).label}
           {evaluados.length < 3 ? " · tendencia" : ""}
         </span>
       </div>
@@ -1228,7 +1230,7 @@ function LecturaDelOnce({
       {/* 07/11/2026: que «A trabajar» acabe en una tarea, con qué se cuenta
           y el objetivo (la media de la plantilla en ese eje). */}
       <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-relaxed text-white/75">
-        <p className="text-[10px] font-semibold uppercase tracking-[.2em] text-[#C8A96B]">Qué entrenamos</p>
+        <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-[#C8A96B]">Qué entrenamos</p>
         <p className="mt-1">
           <span className="font-semibold text-white">Tarea:</span> {TAREA_POR_EJE[flojo.axis.key].tarea}.
         </p>
@@ -1245,7 +1247,7 @@ function LecturaDelOnce({
 
       {alertas.length > 0 && (
         <div className="mt-4 rounded-2xl px-3 py-2.5" style={{ background: "rgba(255,77,94,.1)", boxShadow: "inset 0 0 0 1px rgba(255,77,94,.35)" }}>
-          <p className="text-[10px] font-semibold uppercase tracking-[.2em]" style={{ color: chipInk("#FF4D5E") }}>
+          <p className="text-[11px] font-semibold uppercase tracking-[.2em]" style={{ color: chipInk("#FF4D5E") }}>
             Han bajado
           </p>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
@@ -1282,7 +1284,8 @@ function LecturaDelOnce({
                     </span>
                   </button>
                   {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
-                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha"]} className="shrink-0 flex-nowrap" />
+                  {/* 20/11/2026 (ronda 4, dos jueces): también su seguimiento, para registrar la tarea de control emocional. */}
+                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} className="shrink-0 flex-nowrap" />
                   {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
                 </div>
               );
@@ -1424,7 +1427,7 @@ function PerfilJugador({
         ))}
       </div>
 
-      {teamAverage && <p className="mt-2 text-[10px] text-white/40">La raya es la media de la plantilla.</p>}
+      {teamAverage && <p className="mt-2 text-[11px] text-white/55">La raya es la media de la plantilla.</p>}
 
       {c.serie.length >= 2 && <Evolucion serie={c.serie} />}
 
@@ -1453,7 +1456,7 @@ function Evolucion({ serie }: { serie: { dia: string; media: number }[] }) {
 
   return (
     <div className="mt-5">
-      <p className="text-[10px] uppercase tracking-[.2em] text-white/40">Evolución de la media</p>
+      <p className="text-[11px] uppercase tracking-[.2em] text-white/55">Evolución de la media</p>
 
       <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 h-[70px] w-full" role="img" aria-label={serie.map((s) => `${diaCorto(s.dia)}: ${coma(s.media)}`).join(", ")}>
         <polyline
@@ -1465,7 +1468,7 @@ function Evolucion({ serie }: { serie: { dia: string; media: number }[] }) {
         ))}
       </svg>
 
-      <div className="flex justify-between text-[10px] tabular-nums text-white/40">
+      <div className="flex justify-between text-[11px] tabular-nums text-white/55">
         <span>{diaCorto(serie[0].dia)}</span>
         <span>{diaCorto(ultimo.dia)}</span>
       </div>

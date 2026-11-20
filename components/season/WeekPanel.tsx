@@ -10,6 +10,7 @@ import {
   History,
   ImageIcon,
   Loader2,
+  LineChart,
   Maximize2,
   Scan,
   UploadCloud,
@@ -17,6 +18,8 @@ import {
 } from "lucide-react";
 import type { PartidoNuestro } from "@/lib/castilla/calendario";
 import { rotuloPartido } from "@/lib/season/partido-semana";
+import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import { urlPostDelPartido } from "@/lib/post-partido";
 import { toast } from "sonner";
 import { CambioSemana } from "@/lib/season/fusion";
 import { SeasonArea, WeekData } from "@/lib/season/types";
@@ -74,6 +77,14 @@ export default function WeekPanel({
     url: string;
   } | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  /* 20/11/2026 (ronda 4, fútbol y marketing): el Plan de partido con el
+     rival ya elegido (?rival=ID de la hoja RIVALES, buscado por la fecha). */
+  const jornadasRivales = useJornadasRivales();
+  const hrefPlan =
+    (partido
+      ? enlacesDelRival(jornadasRivales, partido.rival, partido.cuando).find((e) => e.texto === "Plan de partido")?.href
+      : undefined) ?? "/match-preparation";
 
   const images = useMemo(() => week?.images ?? [], [week]);
   const pdfs = useMemo(() => week?.pdfs ?? [], [week]);
@@ -298,7 +309,7 @@ export default function WeekPanel({
               {partido && !partido.jugado ? (
                 <>
                   <Link
-                    href="/match-preparation"
+                    href={hrefPlan}
                     className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
                   >
                     <ClipboardCheck size={15} className="text-[#C8A96B]" aria-hidden />
@@ -321,13 +332,23 @@ export default function WeekPanel({
                   </Link>
                 </>
               ) : partido ? (
-                <Link
-                  href="/collective_history"
-                  className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
-                >
-                  <History size={15} className="text-[#C8A96B]" aria-hidden />
-                  Histórico de partidos
-                </Link>
+                <>
+                  {/* 20/11/2026 (ronda 4, fútbol): la semana jugada lleva a su análisis, con la fecha y el rival puestos. */}
+                  <Link
+                    href={urlPostDelPartido(partido.cuando, partido.rival)}
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <LineChart size={15} className="text-[#C8A96B]" aria-hidden />
+                    {`Análisis del partido J${partido.jornada}`}
+                  </Link>
+                  <Link
+                    href="/collective_history"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                  >
+                    <History size={15} className="text-[#C8A96B]" aria-hidden />
+                    Histórico de partidos
+                  </Link>
+                </>
               ) : null}
             </div>
           </div>
@@ -484,9 +505,7 @@ export default function WeekPanel({
         {tab === "upload" && vacia && (
           <div className="space-y-3">
           {/* 11/11/2026 (marketing): primero qué pasa, en una línea de titular; debajo la única acción y lo último subido. */}
-          <h3 className="text-lg font-semibold text-white/90">
-            {isCurrentWeek ? "Esta semana no hay material" : `La ${week.week.toLowerCase()} aún no tiene material`}
-          </h3>
+          {/* 20/11/2026 (ronda 4, marketing): fuera el titular de ausencia; queda la acción de subir. */}
           {/*
           | 30/10/2026: una fila —qué pasa y el único «Subir»— en vez del bloque
           | enorme de arrastre. «Lo último subido… · abrir la semana 9» se
@@ -498,8 +517,7 @@ export default function WeekPanel({
           <UploadZone
             id="zona-subida"
             compacta
-            /* 07/11/2026 (los tres jueces): sin frase negativa; sólo la invitación a subir. */
-            estado="Elige los archivos"
+            /* 20/11/2026 (ronda 4, análisis): un único botón; sin «Elige los archivos» delante. */
             boton={isCurrentWeek ? "Subir el material de esta semana" : "Subir"}
             type="todo"
             maxFiles={20}

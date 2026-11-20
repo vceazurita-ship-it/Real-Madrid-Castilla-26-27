@@ -1142,7 +1142,9 @@ export default function DashboardSeguimiento() {
 
           return { p, ultimos, falta: ultimos.length > 0 && !ultimos.some((s) => clean(s[campo])) };
         })
-        .filter((x) => x.falta)
+        /* 20/11/2026 (ronda 4, juez de fútbol): sin los que ya nombra el aviso
+           de arriba (sin seguimiento en 14 días): salían dos veces. */
+        .filter((x) => x.falta && !(aCero.length > 0 && aCeroIds.has(x.p.id)))
         .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), /* 17/11/2026 (ronda 20): la etiqueta dice su base: «0 de 1 · su único registro». */
         detalle: x.ultimos.length === 1 ? "0 de 1 · su único registro" : `0 de ${x.ultimos.length}` }));
 
@@ -1150,7 +1152,7 @@ export default function DashboardSeguimiento() {
         icon: Target,
         tone: "text-sky-400",
         text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}${
-          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus últimos registros (hasta 3) · ${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"}: anótalo en el próximo` : `: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
+          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus últimos registros (hasta 3) · ${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"}${aCero.length > 0 ? `, sin contar a los ${aCero.length} sin seguimiento del aviso de arriba` : ""}: anótalo en el próximo` :`: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
         }.`,
         jugadores: sinObjetivo.length ? sinObjetivo : undefined,
       });
@@ -1511,14 +1513,17 @@ export default function DashboardSeguimiento() {
                   /* 10/11/2026: la ventana dicha (el registro de la temporada
                      está en /calendar) y, con un filtro que deja menos de 15,
                      el aviso de que es tendencia. */
+                  /* 20/11/2026 (ronda 4, jueces): una línea con la base; la
+                     explicación, al pasar el ratón. Y todos los autores sin
+                     feedback, no los tres primeros (sumaban 111 de 118). */
+                  base={`${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 ? ` · ${cm((withFeedback / totalSessions) * 100)} %` : ""}${
+                    totalSessions > 0 && totalSessions < 15 ? " · tendencia" : ""
+                  }`}
                   hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} de ${totalSessions} con feedback escrito${
-                    totalSessions > 0 ? ` (${cm((withFeedback / totalSessions) * 100)} %)` : ""
-                  }${
                     sinFeedbackPorAutor.length > 0
-                      ? ` · sin feedback: ${sinFeedbackPorAutor
-                          .slice(0, 3)
-                          .map(([a, n]) => `${a} ${n}`)
-                          .join(", ")}`
+                      ? ` · sin feedback (${totalSessions - withFeedback}): ${sinFeedbackPorAutor.map(([a, n]) => `${a} ${n}`).join(", ")}${
+                          sinFeedbackPorAutor.reduce((t, [, n]) => t + n, 0) > totalSessions - withFeedback ? " (un registro compartido cuenta a cada autor)" : ""
+                        }`
                       : ""
                   }${totalSessions > 0 && totalSessions < 15 ? " · tendencia: menos de 15 registros" : ""}`}
                 />
@@ -1527,6 +1532,7 @@ export default function DashboardSeguimiento() {
                   icon={Users}
                   title="Con seguimiento"
                   value={`${cubiertos} de ${squadSize}`}
+                  base={`${cm(avgPerPlayer)} registros por jugador · mediana ${cm(medianaPorJugador)}`}
                   hint={`jugadores de campo del Castilla con algún registro en la temporada · ${cm(avgPerPlayer)} registros por jugador con seguimiento (mediana ${cm(medianaPorJugador)})`}
                   accent="#6E7F99"
                 />
@@ -1537,6 +1543,7 @@ export default function DashboardSeguimiento() {
                   icon={UserCheck}
                   title={`Cobertura · últimos ${DIAS_SIN_SEGUIMIENTO} días`}
                   value={`${cubiertos14} de ${squadSize}`}
+                  base={`${cm(coverage14)} % · temporada: ${cubiertos} de ${squadSize}`}
                   hint={`${cm(coverage14)} % de los jugadores de campo del Castilla con algún registro en los últimos ${DIAS_SIN_SEGUIMIENTO} días (la ventana del aviso) · en la temporada: ${cubiertos} de ${squadSize} (${cm(coverage)} %)`}
                   accent={coverage14 >= 80 ? "#10B981" : coverage14 >= 50 ? "#C8A96B" : "#EF4444"}
                   progress={coverage14}
@@ -1546,6 +1553,7 @@ export default function DashboardSeguimiento() {
                   icon={CalendarDays}
                   title={semanasCerradas.length >= 1 && weeklyData.length > 1 ? `Media semanal · ${semanasCerradas.length} sem. completas` : "Esta semana"}
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
+                  base={semanasCerradas.length >= 1 && weeklyData.length > 1 ? "registros por semana, de lunes a domingo" : undefined}
                   hint={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
                       ? `registros por semana: media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? "; la primera (si empezó a media semana) y la actual van aparte" : ""}`
@@ -1561,6 +1569,7 @@ export default function DashboardSeguimiento() {
                   value={`${cm(individualShare)} %`}
                   /* 30/10/2026: es la MODALIDAD (individual frente a grupal), no
                      el foco del objetivo; podía coincidir con «Defensivo». */
+                  base={`${filteredTracking.filter((x) => norm(x.MODALIDAD) === "individual").length} de ${totalSessions} individuales`}
                   hint={`modalidad individual: ${filteredTracking.filter((x) => norm(x.MODALIDAD) === "individual").length} de ${totalSessions} registros; el resto, grupales`}
                   accent="#8B5CF6"
                   progress={individualShare}
@@ -2609,19 +2618,35 @@ export default function DashboardSeguimiento() {
 
 /** Los jugadores que nombra una lectura: su ficha y, a un toque, su calendario y registrar (16/11/2026). */
 function JugadoresDeLectura({ jugadores }: { jugadores: { id: string; nombre: string; detalle: string }[] }) {
+  /* 20/11/2026 (ronda 4, dos jueces): con muchos, el mismo chip diez veces.
+     Si todos llevan la misma etiqueta, se dice una vez; y pasados seis, el
+     resto se pliega tras «ver los N». */
+  const comun = jugadores.length > 1 && jugadores.every((j) => j.detalle === jugadores[0].detalle) ? jugadores[0].detalle : null;
+  const chip = (j: { id: string; nombre: string; detalle: string }) => (
+    <li
+      key={j.id}
+      className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-white/[0.04] py-1 pl-2.5 pr-1"
+    >
+      <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white" />
+      {!comun && <span className="text-[11px] tabular-nums text-white/60">{j.detalle}</span>}
+      <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["calendario", "registrar"]} compacto />
+    </li>
+  );
+  const TOPE = 6;
+
   return (
-    <ul className="mt-2 flex min-w-0 flex-wrap gap-2">
-      {jugadores.map((j) => (
-        <li
-          key={j.id}
-          className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-white/[0.04] py-1 pl-2.5 pr-1"
-        >
-          <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white" />
-          <span className="text-[11px] tabular-nums text-white/60">{j.detalle}</span>
-          <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["calendario", "registrar"]} compacto />
-        </li>
-      ))}
-    </ul>
+    <div className="mt-2 min-w-0">
+      {comun && <p className="mb-1.5 text-[11px] tabular-nums text-white/60">Todos: {comun}</p>}
+      <ul className="flex min-w-0 flex-wrap gap-2">{jugadores.slice(0, TOPE).map(chip)}</ul>
+      {jugadores.length > TOPE && (
+        <details className="mt-2">
+          <summary className="cursor-pointer select-none text-[11px] font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+            Ver los {jugadores.length} ({jugadores.length - TOPE} más)
+          </summary>
+          <ul className="mt-2 flex min-w-0 flex-wrap gap-2">{jugadores.slice(TOPE).map(chip)}</ul>
+        </details>
+      )}
+    </div>
   );
 }
 
@@ -2697,12 +2722,14 @@ function BarrasSemanales({
         {semanaEnCurso && datos.some((d) => d.week === semanaEnCurso) && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-white/30" style={{ background: rayado }} />En curso</span>}
       </div>
       <div className="overflow-x-auto pb-1">
-        <div className="relative flex items-end gap-1 sm:gap-1.5" style={{ height: alto + 40, minWidth: datos.length * 26 }}>
+        <div className="relative flex items-end gap-1 sm:gap-1.5" style={{ height: alto + 58, minWidth: datos.length * 26 }}>
           {media > 0 && (
             <div className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed border-white/40" style={{ bottom: 22 + (media / tope) * alto }} aria-hidden />
           )}
-          {datos.map((d) => {
+          {datos.map((d, i) => {
             const enCurso = d.week === semanaEnCurso;
+            /* 20/11/2026 (ronda 4, jueces): la semana atípica, marcada en el propio gráfico. */
+            const pico = media > 0 && d.value === tope && d.value >= media * 1.5;
             const elegida = activa === d.week;
             const atenuada = Boolean(activa) && !elegida;
             const lunes = d.desde.split(" – ")[0].replace(/^lun /, "");
@@ -2717,14 +2744,23 @@ function BarrasSemanales({
                 aria-pressed={elegida}
                 title={`Semana del ${lunes}${enCurso ? " (en curso)" : ""}: ${d.value} registros (${d.individual} individuales, ${d.grupal} grupales) · ${d.jugadores} jugadores distintos`}
                 className={`group flex min-w-[22px] flex-1 flex-col items-center justify-end transition ${atenuada ? "opacity-40" : ""}`}
-                style={{ height: alto + 40 }}
+                style={{ height: alto + 58 }}
               >
-                <span className="mb-0.5 text-[11px] font-bold tabular-nums text-white/85">{d.value}</span>
+                <span className="mb-0.5 text-[11px] font-bold tabular-nums text-white/85">
+                  {d.value}
+                  {pico && <span className="block whitespace-nowrap text-[11px] font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">pico · {d.grupal >= d.value / 2 ? "grupal" : "individual"}</span>}
+                </span>
                 <span className={`flex w-full max-w-[48px] flex-col overflow-hidden rounded-t-md ${elegida ? "ring-2 ring-[#C8A96B]" : ""}`}>
                   <span className="block w-full bg-[#6E7F99]" style={{ height: hGru, backgroundImage: enCurso ? rayado : undefined }} />
                   <span className="block w-full" style={{ height: hInd, background: GOLD, backgroundImage: enCurso ? rayado : undefined }} />
                 </span>
-                <span className="mt-1 h-[18px] whitespace-nowrap text-[11px] tabular-nums text-white/55">{lunes.replace(/ \p{L}+$/u, "")}</span>
+                {/* 20/11/2026 (ronda 4, juez de fútbol): el mes en el primer lunes de cada mes (y en la primera barra). */}
+                <span className="mt-1 h-[18px] whitespace-nowrap text-[11px] tabular-nums text-white/55">
+                  {lunes.replace(/ \p{L}+$/u, "")}
+                  {(i === 0 || Number(lunes.match(/\d+/)?.[0] ?? 99) <= 7) && (
+                    <span className="ml-0.5 font-semibold text-white/75">{/ \p{L}+$/u.test(lunes) ? lunes.replace(/^\d+ /, "") : d.desde.split(" ").at(-1)}</span>
+                  )}
+                </span>
               </button>
             );
           })}
@@ -2755,6 +2791,7 @@ function StatCard({
   title,
   value,
   hint,
+  base,
   accent = GOLD,
   progress,
   delta,
@@ -2763,6 +2800,8 @@ function StatCard({
   title: string;
   value: ReactNode;
   hint?: string;
+  /** 20/11/2026 (ronda 4): una línea con la base; con ella, `hint` pasa al globo. */
+  base?: string;
   accent?: string;
   progress?: number;
   delta?: number;
@@ -2770,11 +2809,12 @@ function StatCard({
   const showDelta = typeof delta === "number" && delta !== 0;
 
   const DeltaIcon = !showDelta ? Minus : delta > 0 ? ArrowUp : ArrowDown;
+  const visible = base ?? hint;
 
   return (
-    <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/25">
+    <div className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 transition hover:border-white/25 ${base && hint ? "cursor-help" : ""}`} title={base && hint ? hint : undefined}>
       <div className="flex items-center justify-between">
-        <p className="text-[11px] uppercase tracking-wider text-white/40">
+        <p className="text-[11px] uppercase tracking-wider text-white/55">
           {title}
         </p>
 
@@ -2792,8 +2832,8 @@ function StatCard({
       </p>
 
       <div className="mt-2.5 flex items-center gap-2">
-        {hint && (
-          <span className="min-w-0 break-words text-[11px] leading-snug text-white/40">{hint}</span>
+        {visible && (
+          <span className="min-w-0 break-words text-[11px] leading-snug text-white/55">{visible}</span>
         )}
 
         {showDelta && (

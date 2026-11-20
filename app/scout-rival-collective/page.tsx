@@ -23,8 +23,50 @@ import { completaNombres, conNombresDeLaPlantilla, type FichaNombre } from "@/li
 | memoria («Hidalgo» → Fidalgo, «23. Javi J.» → 23 · Javi Jiménez). Una frase
 | que se queda en una coma («Interiores pueden perseguir,») acaba en punto.
 */
-const conPlantilla = (texto: string, nombres: string[], fichas: FichaNombre[]) =>
-  conNombresDeLaPlantilla(completaNombres(texto, nombres), fichas).replace(/[,;:]\s*$/, ".");
+const conPlantilla = (texto: string, nombres: string[], fichas: FichaConCompleto[]) =>
+  conNombresDeLaPlantilla(completaNombres(conPilaDeLaHoja(texto, fichas), nombres), fichas).replace(/[,;:]\s*$/, ".");
+
+/** La ficha con el nombre completo de la hoja (JUGADOR), además del corto de la plantilla. */
+type FichaConCompleto = FichaNombre & { completo?: string };
+
+const sinTildes = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/*
+| «Alberto» → «A. González» (20/11/2026, jueces de fútbol): el analista
+| escribe el nombre de pila y la plantilla lo abrevia, así que completaNombres
+| no lo encuentra. Se busca en el nombre completo de la hoja: si el nombre de
+| pila es de uno solo de la plantilla, va el corto de su ficha. Lo ambiguo
+| («Javi», dos en la plantilla) se queda como está.
+*/
+function conPilaDeLaHoja(texto: string, fichas: FichaConCompleto[]): string {
+  if (!texto || !fichas.some((f) => f.completo && f.completo !== f.nombre)) return texto;
+
+  const porPila = new Map<string, Set<string>>();
+
+  for (const f of fichas) {
+    for (const nombre of [f.completo ?? "", f.nombre]) {
+      const pila = nombre.trim().split(/\s+/)[0] ?? "";
+
+      if (pila.length < 3 || pila.endsWith(".")) continue;
+
+      const k = sinTildes(pila);
+
+      if (!porPila.has(k)) porPila.set(k, new Set());
+      porPila.get(k)!.add(f.nombre);
+    }
+  }
+
+  return texto.replace(/(?<![\p{L}\p{N}.])(\p{Lu}\p{L}{2,})(?![\p{L}\p{N}])(?!\s+\p{Lu})/gu, (pila: string) => {
+    const quien = porPila.get(sinTildes(pila));
+
+    if (!quien || quien.size !== 1) return pila;
+
+    const corto = [...quien][0];
+
+    /* Si el corto ya empieza por ese nombre, completaNombres hace el resto; si ya sale en el texto, no se repite. */
+    return sinTildes(corto).startsWith(sinTildes(pila)) || sinTildes(texto).includes(sinTildes(corto)) ? pila : corto;
+  });
+}
 import { comoNombre } from "@/lib/duelos-onces";
 import { formatea } from "@/lib/data-analisis/metricas";
 import { aJornada, claveFecha } from "@/lib/abp/jornada";
@@ -39,7 +81,9 @@ import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
-import { AmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
+import { EnlacesAmenaza, useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
 import { CambioModelo } from "@/components/rivals/CambioModelo";
 import { PresionSalida } from "@/components/rivals/PresionSalida";
@@ -53,7 +97,7 @@ import { TiraJornadas } from "@/components/rivals/TiraJornadas";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import { findInforme } from "@/lib/rivals/informe";
 import { useDuelosClave } from "@/hooks/useDuelosClave";
-import { dibujoDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
+import { dibujoDeLaTemporada, dibujoParecido } from "@/lib/rivals/posiciones-temporada";
 import { useEscudos } from "@/hooks/useEscudos";
 import { useLento } from "@/hooks/useLento";
 import { useAdmin } from "@/hooks/useAdmin";
@@ -192,6 +236,9 @@ const SIGLAS: { sigla: string; patron: RegExp; significado: string }[] = [
   { sigla: "EXI / EXD", patron: /(?<![\p{L}\d])EX[ID]s?(?![\p{L}\d])/u, significado: "extremo izquierdo / extremo derecho" },
   { sigla: "Interiores", patron: /(?<![\p{L}\d])[Ii]nteriores(?![\p{L}\d])/u, significado: "centrocampistas que juegan por delante del pivote, uno a cada lado (el 8 y el 10)" },
   { sigla: "Base", patron: /(?<![\p{L}\d])[Bb]ase(?![\p{L}\d])/u, significado: "en la salida, la base es el mediocentro que recibe de los centrales para iniciar" },
+  /* 20/11/2026 (jueces de fútbol): INT y «3ª altura» salían en las fases sin explicar. */
+  { sigla: "INT", patron: /(?<![\p{L}\d])INTs?(?![\p{L}\d])/u, significado: "interior (centrocampista por delante del pivote)" },
+  { sigla: "3ª altura", patron: /(?<![\p{L}\d])[123][ºªo]\s+altura(?![\p{L}\d])/u, significado: "las alturas son las líneas del rival: 1ª, sus delanteros; 2ª, sus medios; 3ª, su defensa" },
   { sigla: "1-4-1-3-2", patron: /(?<![\p{L}\d-])1-\d(?:-\d){2,3}(?![\p{L}\d-])/u, significado: "dibujo contando al portero (el «1-»): 1-4-2-3-1 es el 4-2-3-1" },
 ];
 
@@ -526,6 +573,8 @@ export default function ScoutRivalCollective() {
   const equipoActivo = String(rivalActivo?.EQUIPO ?? "");
   /* El mismo documento de BeSoccer que la tira de jornadas (se baja una vez por pestaña). */
   const informeRival = useRivalInforme({ alEntrar: true });
+  /* Su sistema en Wyscout y la amenaza en datos, la misma cuenta que /rivals y el Plan de partido (20/11/2026). */
+  const perfilesRival = useRivalPerfiles(equipoActivo);
 
   useEffect(() => {
     if (!equipoActivo) return;
@@ -564,17 +613,21 @@ export default function ScoutRivalCollective() {
   );
 
   /* Con el dorsal, para corregir lo que escribe el analista de memoria («23. Javi J.», «Hidalgo») (07/11/2026). */
-  const fichasRival = useMemo<FichaNombre[]>(
+  const fichasRival = useMemo<FichaConCompleto[]>(
     () =>
       plantillaRival
         .filter((f) => mismoClub(String(f.NOMBRE_EQUIPO ?? ""), equipoActivo))
         .map((f) => ({
           nombre: conTildes(comoNombre(String(f["NOMBRE DEPORTIVO"] ?? "").trim() || String(f.JUGADOR ?? "").trim())),
           dorsal: String(f.DORSAL ?? "").trim(),
+          completo: conTildes(String(f.JUGADOR ?? "").trim()),
         }))
         .filter((f) => f.nombre),
     [plantillaRival, equipoActivo],
   );
+
+  /* «Cómo nos hacen daño» en datos: quién le hace el xG y por dónde centra (la misma cuenta que el Plan de partido). */
+  const amenaza = useAmenazaDelRival(equipoActivo, nombresRival);
 
   /* Sus fichas de Plantillas rivales, para enlazar a cada jugador desde «Por dónde ataca». */
   const plantillaDelRival = useMemo(
@@ -988,12 +1041,25 @@ export default function ScoutRivalCollective() {
   | documento) y en /rivals «7 de 10» (las de la temporada). Ahora la misma
   | función que el campograma de /rivals, con la misma muestra.
   */
+  /*
+  | 20/11/2026 (jueces de fútbol): aquí decía «dato · BeSoccer» y /rivals
+  | sacaba el mismo «7 de 12» de Wyscout. Ahora el mismo orden que /rivals:
+  | el sistema más usado según Wyscout y, sin Wyscout, las alineaciones de BeSoccer.
+  */
   const dibujoMedido = (() => {
+    const primero = perfilesRival?.sistemas?.lista[0];
+
+    if (perfilesRival?.sistemas && primero && perfilesRival.sistemas.partidos > 0) {
+      const dibujo = dibujoParecido(primero.sistema) ?? primero.sistema.replace(/^1-(?=\d-\d)/, "");
+
+      return { dibujo, veces: primero.veces, de: perfilesRival.sistemas.partidos, fuente: "Wyscout" };
+    }
+
     const informe = findInforme(informeRival.doc, equipoActivo);
     const lectura = dibujoDeLaTemporada(informe);
 
     return lectura?.estructura && lectura.alineaciones > 0
-      ? { dibujo: lectura.estructura.replace(/^1-(?=\d-\d)/, ""), veces: lectura.veces, de: lectura.alineaciones }
+      ? { dibujo: lectura.estructura.replace(/^1-(?=\d-\d)/, ""), veces: lectura.veces, de: lectura.alineaciones, fuente: "BeSoccer" }
       : null;
   })();
   const dibujosEscritos = [
@@ -1614,12 +1680,48 @@ export default function ScoutRivalCollective() {
               {contexto.length > 0 && (
                 /* Cada cifra en su línea y dicha como en el vestuario (29/10/2026). */
                 <div className="mt-3 border-t border-[#C8A96B]/15 pt-2 text-sm text-white/85">
-                  <p className="text-xs text-white/55">Wyscout, frente a la liga{equiposLiga ? ` (sobre ${equiposLiga} equipos)` : ""}</p>
-                  <ul className="mt-1 space-y-0.5">
-                    {contexto.map((f) => (
-                      <li key={f.nombre}>{lineaEstilo(f)}</li>
-                    ))}
-                  </ul>
+                  <p className="text-xs text-white/60">Wyscout, frente a la mediana de la liga{equiposLiga ? ` (sobre ${equiposLiga} equipos)` : ""}</p>
+                  {/*
+                    Barras con la marca de la mediana (20/11/2026, jueces de
+                    análisis): antes eran líneas de texto. La barra llega a la
+                    mitad cuando el rival es igual que la mediana; el titular
+                    dice en qué se separa más.
+                  */}
+                  {(() => {
+                    const conDistancia = contexto
+                      .filter((f) => Number.isFinite(f.valor) && Number.isFinite(f.mediana) && f.mediana !== 0)
+                      .map((f) => ({ f, rel: f.valor / f.mediana - 1 }));
+                    const mayor = [...conDistancia].sort((a, b) => Math.abs(b.rel) - Math.abs(a.rel))[0];
+
+                    return (
+                      <>
+                        {mayor && Math.abs(mayor.rel) >= 0.05 && (
+                          <p className="mt-1 text-sm font-semibold text-white/90">
+                            Donde más se separa de la liga: {mayor.f.nombre === "PPDA" ? "la presión" : mayor.f.nombre.toLowerCase()} ({mayor.rel > 0 ? "+" : "−"}
+                            {Math.round(Math.abs(mayor.rel) * 100)} % sobre la mediana)
+                          </p>
+                        )}
+                        <ul className="mt-2 space-y-2">
+                          {contexto.map((f) => {
+                            const ancho = f.mediana > 0 ? Math.max(2, Math.min(100, (f.valor / (2 * f.mediana)) * 100)) : 0;
+
+                            return (
+                              <li key={f.nombre} className="min-w-0">
+                                {f.mediana > 0 && (
+                                  <span className="relative block h-2.5 rounded-full bg-white/10" aria-hidden>
+                                    <span className="absolute inset-y-0 left-0 rounded-full bg-[#C8A96B]" style={{ width: `${ancho}%` }} />
+                                    <span className="absolute -top-0.5 -bottom-0.5 left-1/2 w-0.5 bg-white/70" title="mediana de la liga" />
+                                  </span>
+                                )}
+                                <span className="mt-0.5 block text-[13px] leading-5 text-white/80">{lineaEstilo(f)}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        <p className="mt-1 text-[11px] text-white/55">La raya blanca es la mediana de la liga; la barra, el rival.</p>
+                      </>
+                    );
+                  })()}
                 </div>
               )}
               <Link href={enlacePlanDePartido(rivalActivo)} className="mt-3 inline-block text-sm font-semibold text-[#C8A96B] hover:underline">
@@ -1657,6 +1759,7 @@ export default function ScoutRivalCollective() {
                     {admin === true && contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
                       <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
+                    <FichasCitadas texto={conPlantilla(d.texto, nombresRival, fichasRival)} fichas={fichasRival} equipo={equipoActivo} rivalId={String(rivalActivo.ID ?? "")} />
                   </li>
                 ))}
               </ul>
@@ -1676,34 +1779,49 @@ export default function ScoutRivalCollective() {
             </section>
           )}
 
-          {!modoEdicion && rivalActivo && peligro.length > 0 && (
+          {/*
+            «Cómo nos hacen daño» en un solo bloque (20/11/2026, jueces de
+            análisis y marketing): antes salía dos veces, la del analista y la
+            del dato. Ahora primero el dato (Opta y Wyscout) y luego el vídeo,
+            cada frase con su fuente.
+          */}
+          {!modoEdicion && rivalActivo && (peligro.length > 0 || amenaza.length > 0) && (
             <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
-              <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-rose-300">
-                Cómo nos hacen daño
-                <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">del analista, tras ver sus partidos</span>
-              </p>
-              <ul className="mt-2 grid gap-3 md:grid-cols-3">
-                {peligro.map((d) => (
-                  <li key={d.campo} className="min-w-0">
-                    <a href={`#campo-${d.campo}`} className="text-[12px] font-semibold text-white/60 hover:text-rose-300 hover:underline">
-                      {d.rotulo} ↓
-                    </a>
-                    <p className="mt-0.5 text-sm leading-6 text-white/85">{conSiglas(sinPortero(sinErratas(conPlantilla(d.texto, nombresRival, fichasRival))))}</p>
-                    {/* 11/11/2026 (marketing): como en «Dónde hacerles daño», cada tarjeta acaba en lo nuestro. */}
-                    {d.queHacemos && (
-                      <p className="mt-1 text-sm leading-6 text-white/85">
-                        <b className="font-semibold text-rose-300">Qué hacemos (se deduce del campo):</b> {d.queHacemos}
-                      </p>
-                    )}
+              <p className="text-base font-bold text-rose-300">Cómo nos hacen daño</p>
+              <ul className={`mt-2 grid gap-3 ${peligro.length + amenaza.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+                {amenaza.map((p) => (
+                  <li key={p.clave} className="min-w-0">
+                    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/65">dato · Opta y Wyscout, temporada</span>
+                    <p className="mt-1 text-sm leading-6 text-white/85">{p.dato}.</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">
+                      <b className="font-semibold text-rose-300">Qué hacemos:</b> {p.orden.charAt(0).toUpperCase() + p.orden.slice(1)}.
+                    </p>
+                    <EnlacesAmenaza punto={p} equipo={equipoActivo} rivalId={String(rivalActivo.ID ?? "")} />
                   </li>
                 ))}
+                {peligro.map((d) => {
+                  const texto = conPlantilla(d.texto, nombresRival, fichasRival);
+
+                  return (
+                    <li key={d.campo} className="min-w-0">
+                      <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/65">vídeo · del analista</span>
+                      <a href={`#campo-${d.campo}`} className="ml-2 text-[12px] font-semibold text-white/65 hover:text-rose-300 hover:underline">
+                        {d.rotulo} ↓
+                      </a>
+                      <p className="mt-1 text-sm leading-6 text-white/85">{conSiglas(sinPortero(sinErratas(texto)))}</p>
+                      {/* 11/11/2026 (marketing): como en «Dónde hacerles daño», cada tarjeta acaba en lo nuestro. */}
+                      {d.queHacemos && (
+                        <p className="mt-1 text-sm leading-6 text-white/85">
+                          <b className="font-semibold text-rose-300">Qué hacemos (se deduce del campo):</b> {d.queHacemos}
+                        </p>
+                      )}
+                      <FichasCitadas texto={texto} fichas={fichasRival} equipo={equipoActivo} rivalId={String(rivalActivo.ID ?? "")} />
+                    </li>
+                  );
+                })}
               </ul>
-              <p className="mt-2 text-xs text-white/50">Lectura de vídeo, sin métrica detrás.</p>
             </section>
           )}
-
-          {/* La amenaza en datos, antes del embudo (17/11/2026, ronda 19, jueces de fútbol): quién le hace el xG y por dónde centra, cada uno con su orden. */}
-          {!modoEdicion && rivalActivo?.EQUIPO && <AmenazaDelRival equipo={rivalActivo.EQUIPO} rivalId={String(rivalActivo.ID ?? "")} nombres={nombresRival} />}
 
           {/*
             «Dibujo de referencia» (11/11/2026, jueces): antes «Contraste con
@@ -1714,12 +1832,12 @@ export default function ScoutRivalCollective() {
           {!modoEdicion && rivalActivo && dibujoMedido && dibujosEscritos.length > 0 && (
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
               <b className="text-white/80">Dibujo de referencia: {dibujoMedido.dibujo}</b>{" "}
-              <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · BeSoccer</span>
+              <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · {dibujoMedido.fuente}</span>
               {" · "}Salen en {dibujoMedido.dibujo} en {dibujoMedido.veces} de {dibujoMedido.de} partidos de liga (la misma cuenta que Plantillas rivales)
               {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo)
                 ? `; según el analista, se transforman en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}. Es el mismo equipo cambiando de forma en cada fase.`
                 : ", lo mismo que ve el analista en cada fase."}{" "}
-              <span className="text-white/45">Los dibujos se escriben sin contar al portero.</span>
+              <span className="text-white/55">Los dibujos se escriben sin contar al portero.</span>
             </p>
           )}
 
@@ -1869,10 +1987,22 @@ export default function ScoutRivalCollective() {
                 </h2>
 
                 {/* «Lectura del analista» una sola vez por fase, no en cada tarjeta (07/11/2026, marketing). */}
-                <p className="text-sm text-white/50">
+                <p className="text-sm text-white/60">
                   {section.subtitulo}
                   {!modoEdicion && " · lectura del analista tras ver sus partidos"}
                 </p>
+                {/* Las siglas de esta fase, explicadas la primera vez que salen (20/11/2026, jueces de fútbol). */}
+                {!modoEdicion && (() => {
+                  const texto = section.bloques.flatMap((b) => b.campos.map((f) => paraLeer(f.campo))).join("\n");
+                  const suyas = SIGLAS.filter((s) => s.patron.test(texto));
+
+                  return suyas.length > 0 ? (
+                    <p className="text-[13px] leading-5 text-white/60">
+                      <b className="font-semibold text-white/75">Siglas: </b>
+                      {suyas.map((s) => `${s.sigla}, ${s.significado}`).join(" · ")}
+                    </p>
+                  ) : null;
+                })()}
               </div>
 
               <div className="mt-6 grid grid-cols-1 items-start gap-6 xl:grid-cols-2">
@@ -2152,18 +2282,59 @@ function Campo({
           onChange={(e) => onChange(e.target.value)}
           className="w-full resize-y rounded-xl border border-amber-400/30 bg-black/40 p-3 text-sm leading-6 text-white outline-none focus:border-amber-400"
         />
-      ) : enDano ? (
-        <details>
-          <summary className="cursor-pointer select-none text-[13px] text-white/60">Ver el texto entero</summary>
-          <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-white/80">
-            {conSiglas(sinErratas(conPlantilla(contenido, nombres, fichas)))}
-          </p>
-        </details>
       ) : (
+        /* 20/11/2026 (jueces de fútbol): la tarjeta que sale arriba ya no se pliega; plegada sólo decía «Ver el texto entero». */
         <p className="whitespace-pre-wrap text-sm leading-6 text-white/80">
           {conSiglas(sinErratas(conPlantilla(contenido, nombres, fichas)))}
         </p>
       )}
     </div>
+  );
+}
+
+/*
+| Los jugadores que cita el analista, con su ficha (20/11/2026, jueces de
+| análisis y marketing): «Cristo Romero», «Chema Núñez» o «Javi Mier» llevan a
+| Scout individual con el rival ya elegido. Sólo los de la plantilla que salen
+| con su nombre entero; lo ambiguo no se enlaza.
+*/
+function FichasCitadas({ texto, fichas, equipo, rivalId }: { texto: string; fichas: FichaNombre[]; equipo: string; rivalId: string }) {
+  const llano = sinTildes(texto);
+  const citados = [
+    ...new Set(
+      fichas
+        .map((f) => f.nombre)
+        .filter((n) => {
+          if (n.length < 4) return false;
+
+          const k = sinTildes(n);
+          const i = llano.indexOf(k);
+
+          if (i < 0) return false;
+
+          /* Que sea el nombre suelto, no un trozo de otra palabra. */
+          const antes = llano[i - 1] ?? " ";
+          const despues = llano[i + k.length] ?? " ";
+
+          return !/[\p{L}\p{N}]/u.test(antes) && !/[\p{L}\p{N}]/u.test(despues);
+        }),
+    ),
+  ].slice(0, 4);
+
+  if (!citados.length) return null;
+
+  return (
+    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px] font-semibold" data-export-hide>
+      {citados.map((jugador) => (
+        <Link
+          key={jugador}
+          href={conRivalEnUrl(`/scout-rival-individual?${new URLSearchParams({ equipo, jugador }).toString()}`, { equipo, id: rivalId })}
+          className="hover:underline"
+          style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}
+        >
+          {jugador}: su ficha y vídeo ›
+        </Link>
+      ))}
+    </span>
   );
 }

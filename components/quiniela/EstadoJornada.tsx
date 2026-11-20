@@ -149,6 +149,7 @@ export function EstadoJornada({
   faltan = [],
   verCaritas,
   onVerCaritas,
+  apostar,
   children,
 }: {
   jornada: JornadaQuiniela;
@@ -171,6 +172,8 @@ export function EstadoJornada({
   faltan?: string[];
   verCaritas?: boolean;
   onVerCaritas?: () => void;
+  /** 20/11/2026 (ronda 4, marketing): en las últimas horas, el botón de apostar junto al plazo. */
+  apostar?: { href: string; texto: string };
   /** Lo que se despliega debajo (las caritas, la lista de quién juega). */
   children?: React.ReactNode;
 }) {
@@ -246,13 +249,21 @@ export function EstadoJornada({
             «Cierra el vie 20, 12:00 · faltan 3 días». */}
         {falta ? (
           <>
-            <strong className="text-[15px] font-semibold text-white">
+            <strong className={`${ultimasHoras ? "text-[18px] font-bold" : "text-[15px] font-semibold"} text-white`}>
               {ultimasHoras ? "Cierra hoy a las 12:00" : cierreEn ? `Cierra el ${cierreCorto(cierreEn)}, 12:00` : `Jornada ${numero} abierta`}
             </strong>
             <span className="font-semibold tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
               {` · ${falta}`}
             </span>
             {` · jornada ${numero}`}
+            {ultimasHoras && apostar ? (
+              <a
+                href={apostar.href}
+                className="ml-3 inline-flex min-h-10 items-center rounded-xl bg-[#C8A96B] px-4 align-middle text-[14px] font-semibold text-[#0B0F14] transition hover:brightness-110"
+              >
+                {apostar.texto}
+              </a>
+            ) : null}
           </>
         ) : (
           <>

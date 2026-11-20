@@ -129,8 +129,11 @@ function Contenido({ equipo }: { equipo: string }) {
         <Curva titulo="Pases por partido" nota="más es más balón" serie={serie} k="pases" decimales={0} />
       </div>
 
+      {/* La tabla repetía las fichas y las curvas (20/11/2026, jueces de fútbol): queda plegada, como la cuenta. */}
       {resto && (
-        <div className="mt-3 min-w-0 overflow-x-auto rounded-xl border border-white/10 bg-white/[0.02]">
+        <details className="mt-3 min-w-0 rounded-xl border border-white/10 bg-white/[0.02]">
+          <summary className="cursor-pointer select-none px-3 py-2 text-[13px] font-semibold text-white/65">Cómo se cuenta</summary>
+          <div className="min-w-0 overflow-x-auto">
           <table className="w-full min-w-[420px] text-left text-[12px] tabular-nums">
             <thead>
               <tr className="text-[11px] uppercase tracking-[0.12em] text-white/55">
@@ -160,7 +163,8 @@ function Contenido({ equipo }: { equipo: string }) {
           <p className="border-t border-white/10 px-3 py-2 text-[11px] leading-5 text-white/55">
             «Más reactivo» si el PPDA sube más de {UMBRAL_PPDA} y los pases bajan más de un {UMBRAL_PASES * 100} %; «más protagonista», al revés. Media de los partidos de cada bloque.
           </p>
-        </div>
+          </div>
+        </details>
       )}
     </section>
   );

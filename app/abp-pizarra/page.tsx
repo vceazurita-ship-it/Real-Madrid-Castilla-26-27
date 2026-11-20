@@ -3814,7 +3814,7 @@ export default function PizarraAbpPage() {
                       {/* 29/10/2026: la miniatura no deja leer los rótulos de las asignaciones; van también en texto. */}
                       {slide.fichas.length > 0 && (
                         <div className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-3">
-                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/45">
+                          <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70">
                             Asignaciones
                           </p>
 
@@ -4237,9 +4237,13 @@ function FichasSueltasPlegables({
     <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       <summary className="flex min-h-[44px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-xs font-medium text-white/70 sm:min-h-0">
         Poner fichas sueltas
-        <span className="font-normal text-white/50">
+        <span className="font-normal text-white/60">
           {enCampo > 0 ? `${enCampo} en esta diapositiva · ` : ""}
           {plantilla} jugadores para poner fuera de un puesto
+        </span>
+        {/* 20/11/2026 (jueces, ronda 4): qué hace, en una frase. */}
+        <span className="basis-full text-[11px] font-normal text-white/55">
+          Para dibujar a alguien que no tiene puesto en la jugada (un rechace, un hombre libre): se pincha y se coloca en el campo.
         </span>
       </summary>
       <div className="mt-3">{children}</div>
@@ -4996,7 +5000,8 @@ function ControlDeGazapos({
     : "";
 
   return (
-    <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+    /* 20/11/2026 (jueces, ronda 4): con avisos, abierto: «6 avisos» y sólo se veía uno. */
+    <details open={!limpio && avisos > 0 ? true : undefined} className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       {/* Un chip con el número de avisos, no un párrafo naranja de cuatro
           líneas (30/10/2026, expertos): la lista sale al desplegar. */}
       <summary className="flex min-h-[32px] cursor-pointer select-none flex-wrap items-center gap-2 text-xs font-medium text-white/70">

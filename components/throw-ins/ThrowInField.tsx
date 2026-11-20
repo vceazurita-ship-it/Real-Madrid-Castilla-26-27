@@ -331,7 +331,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 className="cursor-pointer"
                 role="button"
                 tabIndex={0}
-                aria-label={`${BANDA_LABEL[node.banda]}, ${zonaLabel(node.zona, mode)}, ${node.count} acciones. Pulsa para filtrar`}
+                aria-label={`${zonaLabel(node.zona, mode)}, ${BANDA_LABEL[node.banda].toLowerCase()}: ${node.count} saques, ${Math.round((node.favorables / node.count) * 100)} % ${isOffensive ? "conservados" : "recuperados"}, ${Math.round((node.produccion / node.count) * 100)} % ${isOffensive ? "a último tercio o más" : "le llegan a último tercio o más"}. Pulsa para filtrar`}
                 aria-pressed={resaltado}
                 opacity={apagado ? 0.35 : 1}
                 onClick={() => onFiltrar(paresDe(node.banda, node.zona))}
@@ -342,7 +342,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                   }
                 }}
               >
-                <title>{`${BANDA_LABEL[node.banda]} · ${zonaLabel(node.zona, mode)} · ${node.count} saques · Pulsa para filtrar`}</title>
+                <title>{`${zonaLabel(node.zona, mode)} · ${BANDA_LABEL[node.banda].toLowerCase()} · ${node.count} saques · ${Math.round((node.favorables / node.count) * 100)} % ${isOffensive ? "conservados" : "recuperados"} · Pulsa para filtrar`}</title>
                 <circle
                   cx={x}
                   cy={y}
@@ -538,14 +538,15 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         </p>
         {nodes.length ? (
           <div className="flex shrink-0 items-center gap-2">
-            <span>{isOffensive ? "Color: lo que producimos" : "Color: el peligro que nos hacen"}</span>
-            <span className="text-white/55">poco</span>
+            {/* 20/11/2026 (jueces, ronda 4): la escala con sus valores, no «poco» y «mucho». */}
+            <span>{isOffensive ? "Color: % que llega a último tercio o más" : "Color: % que le llega a último tercio o más"}</span>
+            <span className="tabular-nums text-white/60">0 %</span>
             <span
               className="h-2 w-24 rounded-full"
               style={{ background: `linear-gradient(90deg, ${heatColor(0, tono)}, ${heatColor(0.5, tono)}, ${heatColor(1, tono)})` }}
               aria-hidden
             />
-            <span className="text-white/55">mucho</span>
+            <span className="tabular-nums text-white/60">100 %</span>
           </div>
         ) : null}
       </div>

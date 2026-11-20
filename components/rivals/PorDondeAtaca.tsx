@@ -143,7 +143,20 @@ export function PorDondeAtaca({
         : ` Sólo por fuera (centros, regates y pases al área), reparte: ${parteIzq} % izquierda · ${100 - parteIzq} % derecha.`
       : "";
 
-  const nombre = (jugador: string, posicion: string, clase: string) => {
+  /* Su vídeo en Scout individual, con el jugador ya elegido (16/11/2026, ronda 18, fútbol). */
+  const botonVideo = (jugador: string, rotulo = "▶ Su vídeo") => (
+    <Link
+      key={jugador}
+      href={`/scout-rival-individual?${new URLSearchParams({ equipo, jugador }).toString()}`}
+      className="ml-1 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
+      title={`Los cortes de ${jugador} en Scout individual`}
+    >
+      {rotulo}
+    </Link>
+  );
+
+  /* Con `conVideo` a false, sin el «▶ Su vídeo» (las columnas de carriles lo ponen una vez por jugador al pie). */
+  const nombre = (jugador: string, posicion: string, clase: string, conVideo = true) => {
     const href = enlaces.mapa.get(jugador);
     /* Primero el de la plantilla; sin cruce, la sigla de Wyscout en castellano. */
     const puesto = enlaces.puestos.get(jugador) || puestoEnPalabras(posicion.split(",")[0]) || posicion.split(",")[0].trim();
@@ -156,9 +169,6 @@ export function PorDondeAtaca({
       </>
     );
 
-    /* Su vídeo en Scout individual, con el jugador ya elegido (16/11/2026, ronda 18, fútbol). */
-    const video = `/scout-rival-individual?${new URLSearchParams({ equipo, jugador }).toString()}`;
-
     return (
       <>
         {href ? (
@@ -167,14 +177,8 @@ export function PorDondeAtaca({
           </Link>
         ) : (
           <span className={clase}>{texto}</span>
-        )}{" "}
-        <Link
-          href={video}
-          className="ml-1 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
-          title={`Los cortes de ${jugador} en Scout individual`}
-        >
-          ▶ Su vídeo
-        </Link>
+        )}
+        {conVideo && <>{" "}{botonVideo(jugador)}</>}
       </>
     );
   };
@@ -269,13 +273,22 @@ export function PorDondeAtaca({
                   <Fila key={t.key} etiqueta={t.label} parte={parte.acciones[t.key]} total={total[t.key]}>
                     {parte.lider[t.key] && total[t.key] > 0 && (
                       <>
-                        {nombre(parte.lider[t.key]!.jugador, parte.lider[t.key]!.posicion, "font-semibold text-white/85")}
+                        {nombre(parte.lider[t.key]!.jugador, parte.lider[t.key]!.posicion, "font-semibold text-white/85", false)}
                         <span className="text-white/55"> · {pct(parte.lider[t.key]!.acciones, total[t.key])} % del equipo</span>
                       </>
                     )}
                   </Fila>
                 ))}
               </ul>
+              {(() => {
+                const jugadores = [...new Set(TIPOS_ACCION.map((t) => (total[t.key] > 0 ? parte.lider[t.key]?.jugador : undefined)).filter((j): j is string => Boolean(j)))];
+
+                return jugadores.length > 0 ? (
+                  <p className="mt-2 flex flex-wrap gap-1.5 border-t border-white/[0.08] pt-2">
+                    {jugadores.map((j) => botonVideo(j, `▶ ${j}`))}
+                  </p>
+                ) : null;
+              })()}
             </li>
           );
         })}

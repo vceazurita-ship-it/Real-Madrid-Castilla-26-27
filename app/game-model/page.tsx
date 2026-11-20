@@ -1285,16 +1285,24 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
       <p className="mt-0.5 text-xs text-gray-400">
         {/* 17/11/2026 (marketing): las dos poblaciones con su base, en una línea. */}
         {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de la temporada de los {c.equipos} equipos del
-        grupo ({formatea(c.mediana, c.unidad)}) · Castilla en sus {c.partidos} partidos: {formatea(c.temporada, c.unidad)} · toca
-        una barra para ver su partido
+        grupo ({formatea(c.mediana, c.unidad)}) · Castilla en sus {c.partidos} partidos: {formatea(c.temporada, c.unidad)} · eje
+        desde 0 · toca una barra para ver su partido
       </p>
 
-      <div className="relative mt-3 h-24 border-b border-white/15">
+      {/* 20/11/2026 (jueces): la mediana rotulada sobre su raya y la cifra encima de la barra elegida; el eje empieza en 0. */}
+      <div className="relative mt-6 h-24 border-b border-white/15">
         <div
           aria-hidden
           className="pointer-events-none absolute inset-x-0 z-10 h-0.5 translate-y-1/2 bg-sky-400"
           style={{ bottom: alto(c.mediana) }}
         />
+        <span
+          aria-hidden
+          className="pointer-events-none absolute right-0 z-10 -translate-y-1 rounded bg-[#0B0F14]/80 px-1 text-[11px] font-semibold tabular-nums text-sky-300"
+          style={{ bottom: alto(c.mediana) }}
+        >
+          mediana {formatea(c.mediana, c.unidad)}
+        </span>
         <div className="flex h-full items-end gap-[3px] sm:gap-1" role="group" aria-label={`${nombreCorto(c)} partido a partido`}>
           {serie.map((p, i) => {
             const ok = ladoBueno(c, p.valor);
@@ -1309,23 +1317,41 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
                 aria-label={`${p.jornada ? `J${p.jornada} · ` : ""}${p.rival}: ${formatea(p.valor, c.unidad)}`}
                 title={`${p.jornada ? `J${p.jornada} · ` : ""}${p.rival}: ${formatea(p.valor, c.unidad)}`}
                 className={cn(
-                  "min-w-0 flex-1 rounded-t-sm transition-opacity hover:opacity-80",
+                  "relative min-w-0 flex-1 rounded-t-sm transition-opacity hover:opacity-80",
                   ok ? "bg-[#C8A96B]" : "bg-amber-500/45",
                   activa && "outline outline-2 outline-offset-1 outline-sky-400",
                 )}
                 style={{ height: alto(p.valor) }}
-              />
+              >
+                {activa ? (
+                  <span className="pointer-events-none absolute -top-5 left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums text-white">
+                    {formatea(p.valor, c.unidad)}
+                  </span>
+                ) : null}
+              </button>
             );
           })}
         </div>
       </div>
       <div className="mt-1 flex gap-[3px] text-[11px] tabular-nums text-gray-400 sm:gap-1" aria-hidden>
         {serie.map((p, i) => (
+          /* 20/11/2026 (jueces): a 390 px salían «J…»; en estrecho, sólo el número y una de cada dos (la última siempre). */
           <span
             key={`${p.fecha}-e-${i}`}
-            className={cn("min-w-0 flex-1 truncate text-center", i === elegida && "font-semibold text-white")}
+            className={cn(
+              "min-w-0 flex-1 overflow-visible whitespace-nowrap text-center",
+              i === elegida && "font-semibold text-white",
+              serie.length > 8 && i !== serie.length - 1 && i !== elegida && (serie.length - 1 - i) % 2 === 1 && "max-sm:invisible",
+            )}
           >
-            {p.jornada ? `J${p.jornada}` : i + 1}
+            {p.jornada ? (
+              <>
+                <span className="sm:hidden">{p.jornada}</span>
+                <span className="max-sm:hidden">J{p.jornada}</span>
+              </>
+            ) : (
+              i + 1
+            )}
           </span>
         ))}
       </div>
@@ -1531,7 +1557,8 @@ function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
   if (!tieneDetalle(p)) {
     return (
       <>
-        <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-white lg:text-base">
+        {/* 20/11/2026 (jueces): el principio es el titular de la tarjeta y pesa más que la etiqueta «Innegociable». */}
+        <p className="whitespace-pre-wrap break-words text-base font-semibold leading-snug text-white lg:text-lg">
           {titulo}
         </p>
         <MedidaPrincipio p={p} />
@@ -1545,7 +1572,7 @@ function FichaPrincipio({ p, query }: { p: Principio; query: string }) {
   return (
     <>
     <details className="group" open={esClave(p.PRINCIPIO) || undefined}>
-      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-sm leading-relaxed text-white lg:text-base [&::-webkit-details-marker]:hidden">
+      <summary className="flex cursor-pointer list-none items-start justify-between gap-3 text-base font-semibold leading-snug text-white lg:text-lg [&::-webkit-details-marker]:hidden">
         <span className="min-w-0 break-words">{titulo}</span>
         <ChevronDown
           className="mt-0.5 h-4 w-4 shrink-0 text-[#C8A96B] transition-transform group-open:rotate-180"

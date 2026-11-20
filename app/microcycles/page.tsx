@@ -1467,8 +1467,28 @@ export default function Page() {
     ];
     const faltan = claves.length ? canon.filter((c) => !claves.some((k) => c.re.test(k))).map((c) => c.nombre) : [];
 
-    return { datos, global, total: work.length, conFase, enAnillo: datos.reduce((s, d) => s + d.valor, 0), faltan, principal: lista[0] ?? null };
-  }, [work]);
+    /*
+    | 20/11/2026 (jueces): «0 de 15» sin base no decía si es raro. Con la fase
+    | que falta, cuántas tareas de ella tiene de media un micro de la temporada
+    | (los demás micros, sin el partido): «media 2,1 en 21 micros».
+    */
+    const reFalta = canon.filter((c) => faltan.includes(c.nombre)).map((c) => c.re);
+    const porMicro = new Map<number, number>();
+
+    if (micro !== "ALL" && reFalta.length) {
+      for (const r of rows) {
+        if (String(r.micro) === micro || esFilaDePartido(r)) continue;
+        const partes = String(r.fase ?? "").split(/[,;/+]|\sy\s/).map((s) => s.trim()).filter(Boolean);
+        const peso = partes.length ? 1 / partes.length : 0;
+
+        porMicro.set(r.micro, (porMicro.get(r.micro) ?? 0) + partes.filter((p) => reFalta.some((re) => re.test(p))).length * peso);
+      }
+    }
+
+    const baseFaltan = porMicro.size >= 3 ? { media: [...porMicro.values()].reduce((s, n) => s + n, 0) / porMicro.size, micros: porMicro.size } : null;
+
+    return { datos, global, total: work.length, conFase, enAnillo: datos.reduce((s, d) => s + d.valor, 0), faltan, baseFaltan, principal: lista[0] ?? null };
+  }, [work, rows, micro]);
 
   const tipoMetrics = useMemo(() => groupBy("tipo", work), [work]);
 
@@ -3131,7 +3151,7 @@ export default function Page() {
                     className="order-3"
                     title={
                       repartoFases.faltan.length
-                        ? `Sin ${repartoFases.faltan.join(" ni ")} ${micro !== "ALL" ? "esta semana" : "en el periodo"}: 0 de ${repartoFases.total}`
+                        ? `Sin ${repartoFases.faltan.join(" ni ")} ${micro !== "ALL" ? "esta semana" : "en el periodo"}: 0 de ${repartoFases.total}${repartoFases.baseFaltan ? ` · un micro tiene de media ${fmt1(repartoFases.baseFaltan.media)} (${repartoFases.baseFaltan.micros} micros)` : ""}`
                         : repartoFases.principal
                           ? `Más peso: ${repartoFases.principal[0]} (${fmt1(repartoFases.principal[1])} de ${repartoFases.total} tareas)`
                           : "Reparto por fase de juego"

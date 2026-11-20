@@ -737,6 +737,8 @@ export default function ABPZoneMap({
             <p className="mt-1 text-[11px] leading-snug text-white/60">
               Base: {[conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"} con ocupación apuntada` : "", rematesConZona > 0 ? `${rematesConZona} ${rematesConZona === 1 ? "remate" : "remates"} con zona` : ""].filter(Boolean).join(" · ")}
               {rows.length > conOcupacion ? ` (de ${rows.length})` : ""}. Sólo las cuatro zonas del área; lo de fuera, bajo el campo.
+              {/* 20/11/2026 (jueces, ronda 4): «28 acciones con remate» y «29 remates» no son un error. */}
+              {rematesConZona > 0 ? " Se cuentan remates, no acciones: una acción puede tener dos (el rechace), por eso no coincide con las acciones con remate." : ""}
             </p>
           ) : null}
 

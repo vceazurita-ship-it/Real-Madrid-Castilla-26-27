@@ -308,6 +308,12 @@ export function MapaRemates({
         )}
       </div>
       )}
+      {/* 20/11/2026 (ronda 4, análisis): las tarjetas no siguen a «Sólo goles»; se dice. */}
+      {soloGoles && !lectura ? (
+        <p className="mt-1.5 text-[11px] leading-snug text-white/60">
+          Las cifras de arriba son de todos los remates{delPartido ? " del partido" : ""}; «{enContra ? "Sólo goles encajados" : "Sólo goles"}» filtra el campo y la lista.
+        </p>
+      ) : null}
 
       <div className="mt-3">
         <CampoOpta vertical mitad ariaLabel={ariaLabel} maxAlto={maxAlto}>

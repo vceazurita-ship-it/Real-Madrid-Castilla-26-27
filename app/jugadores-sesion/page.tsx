@@ -3597,6 +3597,15 @@ export default function JugadoresSesionPage() {
                       const falta = estadoTareas.findIndex((a) => !(tareaLista(a) && !a.some((x) => x.nivel === "aviso")));
                       const codigoFalta =
                         falta >= 0 ? (enlacePlan[falta] != null && planSesion[enlacePlan[falta] as number]?.codigo) || `Tarea ${falta + 1}` : "";
+                      /* 20/11/2026 (jueces): qué le falta en concreto, en pocas palabras («sin equipos», «faltan 3 por colocar»). */
+                      const queFalta = (() => {
+                        if (falta < 0 || !sesion.tareas[falta]) return "";
+                        if (!Object.values(sesion.tareas[falta].sitio).some((d) => d !== FUERA)) return "sin equipos";
+                        const aviso = (estadoTareas[falta] ?? []).find((x) => x.nivel === "error") ?? (estadoTareas[falta] ?? []).find((x) => x.nivel === "aviso");
+                        const corto = aviso ? aviso.texto.split(":")[0].trim() : "";
+                        return corto ? `${corto.charAt(0).toLowerCase()}${corto.slice(1)}` : "";
+                      })();
+                      const masFaltan = estadoTareas.filter((a) => !(tareaLista(a) && !a.some((x) => x.nivel === "aviso"))).length - 1;
 
                       return (
                         <span className="flex flex-col gap-1">
@@ -3618,10 +3627,12 @@ export default function JugadoresSesionPage() {
                               setVista("equipos");
                               irATarea(falta);
                             }}
-                            className="max-w-[240px] truncate text-left text-[11px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                            className="max-w-[280px] text-left text-[11px] font-semibold leading-snug text-[#C8A96B] underline-offset-2 hover:underline"
                             title={`Abrir ${codigoFalta} · ${sesion.tareas[falta].nombre}`}
                           >
-                            Falta {codigoFalta} · {sesion.tareas[falta].nombre} →
+                            Falta {codigoFalta} · {sesion.tareas[falta].nombre}
+                            {queFalta ? <span className="font-normal text-white/65">: {queFalta}</span> : null}
+                            {masFaltan > 0 ? <span className="font-normal text-white/55"> · y {masFaltan} más</span> : null} →
                           </button>
                         ) : null}
                         </span>
@@ -4979,12 +4990,8 @@ export default function JugadoresSesionPage() {
                       <summary className="flex cursor-pointer list-none items-center gap-2 px-4 py-3 text-[13px] font-semibold text-white/80 [&::-webkit-details-marker]:hidden">
                         {estadoTareas.some((s) => !tareaLista(s)) ? <AlertTriangle size={14} className="shrink-0 text-amber-300" /> : <Check size={14} className="shrink-0 text-emerald-300" />}
                         <span className="min-w-0 flex-1">
+                          {/* 20/11/2026 (jueces): lo que falta se dice una vez, arriba («Falta …»); aquí sólo el validador y el criterio. */}
                           Validador y criterio del reparto
-                          {estadoTareas.some((s, i) => i !== activa && !tareaLista(s)) && (
-                            <span className="ml-1.5 font-normal text-amber-200/80">
-                              · {(() => { const n = estadoTareas.filter((s, i) => i !== activa && !tareaLista(s)).length; return n === 1 ? "otra tarea por revisar" : `${n} tareas más por revisar`; })()}
-                            </span>
-                          )}
                         </span>
                         <ChevronRight size={14} className="shrink-0 text-white/40 transition group-open:rotate-90" />
                       </summary>
@@ -5026,35 +5033,6 @@ export default function JugadoresSesionPage() {
                       | nombres (30/10/2026): «ANALÍTICA (faltan 18 por colocar: …18
                       | nombres…)» pasa a «ANALÍTICA: sin equipos · Hacer equipos».
                       */}
-                      {estadoTareas.some((s, i) => i !== activa && !tareaLista(s)) && (
-                        <ul className="mt-3 space-y-1 border-t border-white/8 pt-2 text-[11px] text-white/55">
-                          {sesion.tareas
-                            .map((t, i) => ({ t, i, error: (estadoTareas[i] ?? []).find((a) => a.nivel === "error") }))
-                            .filter((x) => x.error && x.i !== activa)
-                            .map((x) => {
-                              const nadie = !Object.values(x.t.sitio).some((d) => d !== FUERA);
-                              const corto = x.error!.texto.split(":")[0].trim();
-
-                              return (
-                                <li key={x.t.id} className="flex min-w-0 flex-wrap items-baseline gap-x-1.5">
-                                  <b className="uppercase text-white/80">{x.t.nombre || `Tarea ${x.i + 1}`}</b>
-                                  <span>: {nadie ? "sin equipos" : `${corto.charAt(0).toLowerCase()}${corto.slice(1)}`}</span>
-                                  <span aria-hidden>·</span>
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      irATarea(x.i);
-                                      setElegido(null);
-                                    }}
-                                    className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
-                                  >
-                                    {nadie ? "Hacer equipos" : "Ir a la tarea"}
-                                  </button>
-                                </li>
-                              );
-                            })}
-                        </ul>
-                      )}
                       </div>
                     </details>
 

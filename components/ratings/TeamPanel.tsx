@@ -1085,7 +1085,7 @@ export function TeamPanel({
         <div className="min-w-0 overflow-x-auto">
           <table className={`w-full border-collapse text-sm ${todasCols ? "min-w-[960px]" : ""}`}>
             <thead>
-              <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.16em] text-white/35">
+              <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-white/55">
                 <th className="hidden px-4 py-3 text-left font-medium sm:table-cell">#</th>
                 <th className="sticky left-0 z-[1] bg-[#11161D] px-2 py-3 text-left font-medium max-sm:pl-4">Jugador</th>
                 <th className="px-2 py-3 text-center font-medium" title="Partidos con nota">PJ</th>
@@ -1093,11 +1093,11 @@ export function TeamPanel({
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Minutos de Valoraciones: 90′ por partido completo">Min</th>
                 <th className="px-2 py-3 text-left font-medium">Media</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Media ponderada por minutos">Pond.</th>
-                <th className="px-2 py-3 text-center font-medium" title="Media de los últimos 5 partidos">Forma</th>
-                <th className="px-2 py-3 text-center font-medium" title="Sus 3 últimas notas frente a las 3 anteriores">Tend.</th>
+                <th className="px-2 py-3 text-center font-medium" title="Forma: media de sus 5 últimos partidos con nota"><span className="cursor-help underline decoration-dotted underline-offset-2">Forma</span></th>
+                <th className="px-2 py-3 text-center font-medium" title="Tendencia: media de sus 3 últimas notas menos la de las 3 anteriores"><span className="cursor-help underline decoration-dotted underline-offset-2">Tend.</span></th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su mejor nota en sus PJ">Máx</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su peor nota en sus PJ">Mín</th>
-                <th className="px-4 py-3 text-center font-medium" title="Goles + asistencias">G+A</th>
+                <th className="px-4 py-3 text-center font-medium" title="Goles + asistencias en Valoraciones"><span className="cursor-help underline decoration-dotted underline-offset-2">G+A</span></th>
                 <th className="px-2 py-3 text-left font-medium"><span className="sr-only">Accesos</span></th>
               </tr>
             </thead>
@@ -1201,9 +1201,11 @@ export function TeamPanel({
                   {/* 17/11/2026 (ronda 19): de cada fila, a un toque, su
                       seguimiento, su fila de Comparativa y sus vídeos. */}
                   <td className="px-2 py-2.5">
+                    {/* 20/11/2026 (ronda 4, tres jueces): tres botones con rótulo en
+                        las 21 filas ensuciaban la tabla: sólo iconos, con su
+                        nombre al pasar el ratón y para el lector de pantalla. */}
                     <EnlacesJugador
-                      compacto
-                      rotuloAncho
+                      soloIconos
                       className="flex-nowrap"
                       jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
                       destinos={["seguimiento", "comparativa", "videos"]}
@@ -1305,12 +1307,19 @@ function desdeHasta(jugador: RankedPlayer): string {
 function lecturaTop(elegibles: RankedPlayer[]): ReactNode {
   if (elegibles.length < 2) return null;
 
-  const arriba = elegibles[0];
+  /* 20/11/2026 (ronda 4, juez de fútbol): la tarjeta de arriba premia al
+     mejor de campo y esta lectura abría con el portero. Ahora abre con el
+     mejor de campo, y si un portero va por encima se dice aparte. */
+  const campo = elegibles.filter((e) => !esPortero(e.player.posicion));
+  const arriba = campo[0] ?? elegibles[0];
+  const porteroDelante = elegibles[0] !== arriba && esPortero(elegibles[0].player.posicion) ? elegibles[0] : null;
   const abajo = elegibles[elegibles.length - 1];
 
   return (
     <>
-      {`Arriba «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′; ` +
+      {`Arriba, de campo, «${nombreVisible(arriba.player.nombre)}» con ${formatRating(arriba.summary.avg)} de nota en ${arriba.summary.minutes}′` +
+        (porteroDelante ? ` (el portero «${nombreVisible(porteroDelante.player.nombre)}» va por encima, con ${formatRating(porteroDelante.summary.avg)})` : "") +
+        `; ` +
         `el último de los ${elegibles.length} con ${MIN_FIABLE}+ partidos, «${nombreVisible(abajo.player.nombre)}», ` +
         `con ${formatRating(abajo.summary.avg)} en ${abajo.summary.minutes}′ (${formatRating(Math.round(arriba.summary.avg * 10) / 10 - Math.round(abajo.summary.avg * 10) / 10)} menos). ` +
         /* 08/11/2026 (jueces): que la lectura acabe en una acción. 16/11:
@@ -1346,10 +1355,15 @@ function lecturaLineas(
 
   /* 07/11/2026: fuera el «revisar ocasiones y último pase»: no salía de
      ningún dato. La lectura dice sólo lo que mide la nota. */
+  /* 20/11/2026 (ronda 4, juez de fútbol): la base iba detrás del nombre de
+     la línea de arriba y se leía como suya («Medios, 6 jugadores y 54 notas»
+     eran los de Ataque). Cada línea lleva ahora su propia base, sacada de su fila. */
+  const base = (l: { players: number; notas: number }) =>
+    `${l.players} ${l.players === 1 ? "jugador" : "jugadores"}, ${l.notas} ${l.notas === 1 ? "nota" : "notas"}`;
+
   return (
-    `«${abajo.name}», ${formatRating(abajo.value)} de nota: la línea más baja, ` +
-    `${formatRating(salto)} por debajo de «${arriba.name}» ` +
-    `(media de sus ${abajo.players} jugadores, ${abajo.notas} notas).`
+    `«${abajo.name}» (${base(abajo)}), ${formatRating(abajo.value)} de nota: la línea más baja, ` +
+    `${formatRating(salto)} por debajo de «${arriba.name}» (${formatRating(arriba.value)}; ${base(arriba)}).`
   );
 }
 

@@ -1166,7 +1166,7 @@ export default function AbpMicrocicloPage() {
       .filter(([clave, otro]) => clave !== claveActiva && Boolean(otro.rival))
       .map(([, otro]) => totalesDe(trabajosDelPlan(otro)));
 
-    const media = (campo: "carga" | "cargaCog") => {
+    const media = (campo: "carga" | "cargaCog" | "minutos") => {
       const con = otras.filter((una) => una[campo] > 0);
 
       return con.length
@@ -1174,7 +1174,8 @@ export default function AbpMicrocicloPage() {
         : null;
     };
 
-    return { carga: media("carga"), cargaCog: media("cargaCog") };
+    /* 20/11/2026 (jueces, ronda 4): también los minutos, para leer los de esta semana contra los micros anteriores. */
+    return { carga: media("carga"), cargaCog: media("cargaCog"), minutos: media("minutos") };
   }, [store.micros, claveActiva]);
 
   /* Los días que cuentan para el objetivo, y de dónde sale ese número. */
@@ -1363,6 +1364,32 @@ export default function AbpMicrocicloPage() {
       plan: jornadaRival ? enlacePlanDePartido(jornadaRival) : null,
     }),
     [jornadaRival, ventana.partido, plan.rival],
+  );
+
+  /*
+  | 20/11/2026 (jueces, ronda 4): cada ficha dice qué carencia ataca y con qué
+  | dato de la temporada (las mismas acciones que /setpieces, /setpieces_def y
+  | las de banda). De sus aspectos y lados, el más urgente con 3 acciones o más.
+  */
+  const datoDeTrabajo = useCallback(
+    (trabajo: Trabajo) => {
+      const suyas = filas.filter(
+        (fila) => trabajo.aspectos.includes(fila.aspecto.key) && trabajo.lados.includes(fila.lado) && fila.stats.acciones >= 3,
+      );
+      if (!suyas.length) return null;
+      const fila = [...suyas].sort((a, b) => (b.urgencia ?? 0) - (a.urgencia ?? 0))[0];
+      const { peligro, acciones, peligroPct } = fila.stats;
+      return `${aspectoLabelLado(fila.aspecto, fila.lado)} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: ${
+        fila.lado === "ofensivo" ? "peligro en" : "nos crean peligro en"
+      } ${peligro} de ${acciones} (${Math.round(peligroPct)} %)${acciones < 15 ? ", tendencia" : ""}`;
+    },
+    [filas],
+  );
+
+  /* El día de hoy dentro del microciclo, si cae en él (resaltado y atajo en el móvil). */
+  const diaDeHoy = useMemo(
+    () => (hoy ? (ventana.dias.find((dia) => dia.fecha.slice(0, 10) === hoy)?.clave ?? null) : null),
+    [hoy, ventana],
   );
 
   const puntosRevision = useMemo<PuntoRevision[]>(
@@ -1812,6 +1839,7 @@ export default function AbpMicrocicloPage() {
               escudo={escudoDe(ventana.partido?.rival || plan.rival)}
               hoy={hoy}
               minutos={totales.minutos}
+              mediaMinutos={mediaCargas.minutos}
               objetivo={objetivoSemana}
               porLado={totales.porLado}
               enlaces={enlaces}
@@ -1914,9 +1942,20 @@ export default function AbpMicrocicloPage() {
                   {/* 30/10/2026 (expertos): plegada en «Leyenda», no un párrafo de siglas encima del tablero. */}
                   {/* 07/11/2026 (jueces): siempre a la vista y corta; las fichas ya
                       dicen «ofensivo» y «defensivo» en palabras en todos los días. */}
-                  <p className="mb-2 text-[12px] leading-relaxed text-white/60">
+                  {/* 20/11/2026 (jueces, ronda 4): en el móvil iba antes del primer día y medía siete renglones: plegada en «Leyenda». */}
+                  <details className="mb-2 md:hidden">
+                    <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-full border border-white/12 px-3 py-1 text-[12px] font-semibold text-white/75">
+                      Leyenda
+                    </summary>
+                    <p className="mt-2 text-[12px] leading-relaxed text-white/60">
+                      PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea · borde ámbar = le falta intensidad o criterio de éxito
+                      <br />
+                      Al pie de cada día, carga = minutos × intensidad (1-10) y mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo.
+                    </p>
+                  </details>
+                  <p className="mb-2 hidden text-[12px] leading-relaxed text-white/60 md:block">
                     <span className="font-semibold text-white/75">Leyenda · </span>
-                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas
+                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea · borde ámbar = le falta intensidad o criterio de éxito
                     {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
                     <br />
                     <span className="font-semibold text-white/75">Al pie de cada día · </span>
@@ -1927,6 +1966,8 @@ export default function AbpMicrocicloPage() {
                     dias={planVisto.dias}
                     orden={ordenDias}
                     etiquetas={etiquetasDia}
+                    hoy={diaDeHoy}
+                    datoDe={datoDeTrabajo}
                     detalle={vistaSemana === "auto" ? "auto" : vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}
                     onCambiaMd={cambiaMd}

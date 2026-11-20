@@ -37,6 +37,7 @@ import {
 } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
+import { EVENTO_VER_ATRASADAS } from "@/components/portada/AvisoTareasPendientes";
 import ModulesExplorer from "@/components/ui/ModulesExplorer";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useMisTareas, useSesionesDelMicro } from "@/hooks/useMisTareas";
@@ -126,6 +127,21 @@ function TuDia() {
   );
 
   const abreTareas = () => window.dispatchEvent(new CustomEvent(EVENTO_ABRIR));
+  const abreAtrasadas = () => window.dispatchEvent(new CustomEvent(EVENTO_VER_ATRASADAS));
+
+  /* La misma tarea del mismo día, una vez (como la ventana de atrasadas). */
+  const atrasadas = useMemo(() => {
+    const vistas = new Set<string>();
+
+    return vencidas.filter((t) => {
+      const clave = `${t.texto.trim().toLowerCase()}|${t.fecha}`;
+
+      if (vistas.has(clave)) return false;
+      vistas.add(clave);
+
+      return true;
+    });
+  }, [vencidas]);
 
   const marca = (t: TareaDelDia, hecha: boolean) => {
     if (t.tipo === "auto") cambiaHechas((h) => alternaHechaAuto(h, t.clave, hecha));
@@ -231,18 +247,35 @@ function TuDia() {
       )}
 
       {/* Lo que no puede esperar: lo de días anteriores y los envíos. */}
-      {(vencidas.length > 0 || envios.length > 0) && (
+      {/*
+        20/11/2026 (ronda 4, los tres jueces): las atrasadas, por su nombre y su
+        día, en una franja que abre la ventana para marcarlas o pasarlas a hoy.
+        Ya no sale sola al entrar (tapaba la cabecera del partido).
+      */}
+      {atrasadas.length > 0 && (
+        <button
+          type="button"
+          onClick={abreAtrasadas}
+          className="relative mt-3 flex w-full min-w-0 items-start gap-2 rounded-xl border border-red-400/40 bg-red-500/10 px-3 py-2 text-left text-[13px] leading-snug text-red-200 transition hover:bg-red-500/20"
+        >
+          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-300" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <b className="font-semibold text-red-300">
+              {atrasadas.length === 1 ? "1 atrasada" : `${atrasadas.length} atrasadas`}
+            </b>
+            {" · "}
+            {atrasadas
+              .slice(0, 2)
+              .map((t) => `${t.texto} (${rotuloDia(t.fecha).split(" ")[0].slice(0, 3).toLowerCase()} ${Number(t.fecha.slice(8, 10))})`)
+              .join(", ")}
+            {atrasadas.length > 2 ? ` y ${atrasadas.length - 2} más` : ""}
+          </span>
+          <span className="shrink-0 self-center font-semibold text-red-300 underline underline-offset-2">Ver</span>
+        </button>
+      )}
+
+      {envios.length > 0 && (
         <div className="relative mt-3 flex flex-wrap gap-2">
-          {vencidas.length > 0 && (
-            <button
-              type="button"
-              onClick={abreTareas}
-              className="inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/10 px-3 py-1.5 text-[12.5px] font-semibold text-red-300 transition hover:bg-red-500/20"
-            >
-              <ShieldAlert className="h-3.5 w-3.5" />
-              {vencidas.length} {vencidas.length === 1 ? "pendiente" : "pendientes"} de días anteriores
-            </button>
-          )}
           {envios.map((t) => (
             <Link
               key={t.clave}
@@ -262,7 +295,8 @@ function TuDia() {
 
       <div className="relative mt-auto flex items-center justify-between gap-3 pt-4">
         <span className="text-[12px] text-white/55">
-          {pendientesHoy > 0 ? `${pendientesHoy} por hacer hoy` : tareasHoy.length ? "Todo lo de hoy, hecho" : `Hasta el partido ante ${semana.proximo.rival}`}
+          {/* 20/11/2026 (análisis): sin repetir «N por hacer hoy»; ya lo dice el anillo de arriba. */}
+          {pendientesHoy > 0 ? "" : tareasHoy.length ? "Todo lo de hoy, hecho" : `Hasta el partido ante ${semana.proximo.rival}`}
           {guardando ? " · guardando…" : ""}
         </span>
         <button

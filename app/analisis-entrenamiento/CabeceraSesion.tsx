@@ -14,6 +14,7 @@
  */
 
 import type { ComponentType, ReactNode } from "react";
+import Link from "next/link";
 import { Check, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
 
 const FOCO = "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-[#C8A96B]";
@@ -23,7 +24,7 @@ export type EstadoPaso = "hecho" | "ahora" | "pendiente" | "error";
 
 export type Paso = { nombre: string; estado: EstadoPaso; detalle?: string; onClick?: () => void };
 
-export type Siguiente = { texto: string; detalle?: string; icono?: ComponentType<{ size?: number; className?: string }>; onClick?: () => void; disabled?: boolean; ocupado?: boolean };
+export type Siguiente = { texto: string; detalle?: ReactNode; icono?: ComponentType<{ size?: number; className?: string }>; onClick?: () => void; disabled?: boolean; ocupado?: boolean };
 
 const fechaLarga = (f: string) => new Date(`${f}T12:00:00`).toLocaleDateString("es-ES", { weekday: "long", day: "numeric", month: "long" });
 
@@ -43,6 +44,7 @@ export function SelectorDia({
   mueve,
   derecha,
   conObjetivos,
+  pendientes,
 }: {
   fecha: string;
   hoy: string;
@@ -52,6 +54,8 @@ export function SelectorDia({
   derecha?: ReactNode;
   /** Los días con objetivos o análisis: llevan un punto (30/10/2026), para no entrar a ciegas. */
   conObjetivos?: Set<string>;
+  /** Entrenados y sin analizar (20/11/2026): llevan un aro naranja. */
+  pendientes?: Set<string>;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-2">
@@ -75,13 +79,16 @@ export function SelectorDia({
                   }
                 : undefined
             }
-            aria-label={`${fechaLarga(d)}${conObjetivos?.has(d) ? ", con objetivos" : ""}`}
-            title={`${fechaLarga(d)}${conObjetivos?.has(d) ? " · con objetivos" : ""}`}
+            aria-label={`${fechaLarga(d)}${pendientes?.has(d) ? ", entrenado y sin analizar" : conObjetivos?.has(d) ? ", con objetivos" : ""}`}
+            title={`${fechaLarga(d)}${pendientes?.has(d) ? " · entrenado y sin analizar" : conObjetivos?.has(d) ? " · con objetivos" : ""}`}
             className={`flex w-10 shrink-0 flex-col items-center rounded-lg py-1 text-xs leading-tight ${FOCO} ${d === fecha ? "bg-[#C8A96B] font-semibold text-black" : d === hoy ? "border border-[#C8A96B]/40 text-white/85" : "border border-white/12 text-white/60 hover:text-white"}`}
           >
             <span className="text-[10px] opacity-80">{DIAS[i]}</span>
             <span className="tabular-nums">{Number(d.slice(8))}</span>
-            <span aria-hidden className={`mt-0.5 h-1 w-1 rounded-full ${conObjetivos?.has(d) ? (d === fecha ? "bg-black/70" : "bg-[#C8A96B]") : "bg-transparent"}`} />
+            <span
+              aria-hidden
+              className={`mt-0.5 h-1.5 w-1.5 rounded-full ${pendientes?.has(d) ? (d === fecha ? "border border-black/70" : "border border-[#C8A96B]") : conObjetivos?.has(d) ? (d === fecha ? "bg-black/70" : "bg-[#C8A96B]") : "bg-transparent"}`}
+            />
           </button>
         ))}
         <button type="button" onClick={() => onFecha(mueve(fecha, 7))} aria-label="Semana siguiente" title="Semana siguiente" className={`shrink-0 rounded-lg border border-white/12 p-2 text-white/60 hover:text-white ${FOCO}`}>
@@ -107,6 +114,7 @@ export function CabeceraSesion({
   pasos,
   siguiente,
   secundario,
+  enlaces,
   children,
 }: {
   fecha: string;
@@ -119,6 +127,8 @@ export function CabeceraSesion({
   pasos: Paso[];
   siguiente: Siguiente | null;
   secundario?: ReactNode;
+  /** Ir al microciclo y a los equipos del día con la fecha ya elegida (20/11/2026). */
+  enlaces?: { href: string; texto: string }[];
   /** El progreso del análisis o lo que haya que avisar. */
   children?: ReactNode;
 }) {
@@ -142,6 +152,15 @@ export function CabeceraSesion({
           </div>
           {sesion ? <p className="text-sm text-white/70">{sesion}</p> : null}
           {fuente ? <p className="text-xs text-white/50">{fuente}</p> : null}
+          {enlaces?.length ? (
+            <p className="flex flex-wrap gap-x-3 gap-y-1 pt-0.5 text-xs">
+              {enlaces.map((e) => (
+                <Link key={e.href} href={e.href} className={`rounded font-semibold text-[#C8A96B] underline-offset-2 hover:underline ${FOCO}`}>
+                  {e.texto} →
+                </Link>
+              ))}
+            </p>
+          ) : null}
         </div>
 
         {siguiente ? (
@@ -192,7 +211,8 @@ export function CabeceraSesion({
               </span>
             </>
           );
-          const clase = `flex min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left ${p.estado === "ahora" ? "border-[#C8A96B]/40 bg-[#C8A96B]/[0.06]" : "border-white/[0.08]"}`;
+          /* 20/11/2026 (jueces): el paso de ahora resaltado; los hechos, apagados para que no compitan. */
+          const clase = `flex min-w-0 items-center gap-2 rounded-xl border px-2.5 py-2 text-left ${p.estado === "ahora" ? "border-[#C8A96B]/60 bg-[#C8A96B]/[0.10] ring-1 ring-[#C8A96B]/30" : p.estado === "hecho" ? "border-white/[0.06] opacity-60" : "border-white/[0.08]"}`;
 
           return (
             <li key={p.nombre} className="min-w-0" aria-current={p.estado === "ahora" ? "step" : undefined}>

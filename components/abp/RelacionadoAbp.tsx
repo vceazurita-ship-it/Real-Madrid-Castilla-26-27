@@ -164,12 +164,20 @@ export function RelacionadoAbp({
 
   const delProximo: Atajo[] = proximo
     ? [
-        {
-          href: enlaceAbpRival(proximo.rival),
-          texto: of ? "Cómo defiende su ABP" : "Cómo ataca su ABP",
-          title: `El balón parado de ${proximo.rival}`,
-          icono: "abp",
-        },
+        /* 20/11/2026 (jueces, ronda 4): desde el saque de banda, a SU saque de banda, no a córners y faltas. */
+        banda
+          ? {
+              href: `${enlaceAbpRival(proximo.rival)}&vista=banda`,
+              texto: "Su saque de banda",
+              title: `Los saques de banda de ${proximo.rival}, por zona`,
+              icono: "abp",
+            }
+          : {
+              href: enlaceAbpRival(proximo.rival),
+              texto: of ? "Cómo defiende su ABP" : "Cómo ataca su ABP",
+              title: `El balón parado de ${proximo.rival}`,
+              icono: "abp",
+            },
         {
           href: urlGolesDelEquipo(proximo.rival, of ? "contra" : "favor"),
           texto: of ? "▶ Cómo le marcan" : "▶ Sus goles en vídeo",

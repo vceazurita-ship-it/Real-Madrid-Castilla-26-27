@@ -124,6 +124,14 @@ function semanaDe(fecha: string) {
 
 const ddmm = (f: string) => f.split("-").reverse().slice(0, 2).join("/");
 
+/** «16, 18 y 19/11»: los días de una lista, con el mes del último. */
+const listaDias = (fs: string[]) => {
+  const n = fs.map((f) => String(Number(f.slice(8))));
+  const mes = fs.length ? `/${fs[fs.length - 1].slice(5, 7)}` : "";
+
+  return (n.length > 1 ? `${n.slice(0, -1).join(", ")} y ${n.at(-1)}` : n.join("")) + mes;
+};
+
 type Vista = "resumen" | "revisar" | "objetivos" | "jugador";
 
 /** Un parámetro de la dirección al montar (el mismo patrón que `usePestanaUrl`: una vez, sin efectos). */
@@ -439,6 +447,32 @@ export default function AnalisisEntrenamientoPage() {
     return () => clearTimeout(id);
   }, [historial, saltoHecho, hoyDia]);
 
+  /*
+  | ENTRENOS SIN ANALIZAR (20/11/2026, jueces). Se abría en el último día
+  | analizado (el 04/11) sin decir que el 16, el 18 y el 19 ya estaban
+  | entrenados y sin mirar. Son los días del registro con tareas, hasta hoy y
+  | posteriores al último análisis, que no tienen análisis: se avisan arriba con
+  | su botón y llevan su marca en la tira.
+  */
+  const sinAnalizar = useMemo(() => {
+    if (!Array.isArray(registro) || historial === null) return [];
+
+    const analizadosTodos = new Set(dias.filter((d) => d.analisis).map((d) => d.fecha));
+    const ultimo = [...analizadosTodos].reduce<string | null>((a, f) => (!a || f > a ? f : a), null);
+    const desde = ultimo ?? mueve(hoyDia, -14);
+    const candidatas = new Set<string>();
+
+    for (const t of registro) {
+      const f = fechaIsoDeHoja(t.fecha);
+
+      if (f && f > desde && f <= hoyDia) candidatas.add(f);
+    }
+
+    return [...candidatas].filter((f) => !analizadosTodos.has(f) && planDeRegistro(registro, f).length > 0).sort();
+  }, [registro, historial, dias, hoyDia]);
+  const pendientesTira = useMemo(() => new Set(sinAnalizar), [sinAnalizar]);
+  const masReciente = sinAnalizar.at(-1) ?? null;
+
   /* Los días con objetivos o análisis, para el punto de la tira. */
   const diasConObjetivos = useMemo(() => new Set(dias.filter((d) => d.analisis || d.sesion.objetivos.some((o) => o.objetivo.trim())).map((d) => d.fecha)), [dias]);
 
@@ -674,7 +708,12 @@ export default function AnalisisEntrenamientoPage() {
             : !analisis
               ? pedir(fallo || cortado ? "Volver a pedir el análisis" : "Pedir el análisis")
               : sinValidar.length
-                ? { texto: `Revisar ${sinValidar.length} ${sinValidar.length === 1 ? "acción" : "acciones"}`, icono: ListChecks, onClick: abreRevision, detalle: "Con su clip y con el teclado: 1 correcta, 2 mejorable, 3 descartar." }
+                ? { texto: `Revisar ${sinValidar.length} ${sinValidar.length === 1 ? "acción" : "acciones"}`, icono: ListChecks, onClick: abreRevision, detalle: (
+                    <>
+                      <span className="pointer-coarse:hidden">Con su clip y con el teclado: 1 correcta, 2 mejorable, 3 descartar.</span>
+                      <span className="hidden pointer-coarse:inline">Con su clip: toca Correcta, Mejorable o Descartar.</span>
+                    </>
+                  ) }
                 : cambiados
                   ? { ...pedir("Volver a analizar"), detalle: `${cambiados === 1 ? "Un objetivo es nuevo o ha cambiado" : `${cambiados} objetivos son nuevos o han cambiado`} desde el análisis.` }
                   : vivas.length
@@ -708,10 +747,21 @@ export default function AnalisisEntrenamientoPage() {
               onFecha={setFecha}
               mueve={mueve}
               conObjetivos={diasConObjetivos}
+              pendientes={pendientesTira}
               derecha={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
             />
 
-            {saltoDesdeHoy && fecha !== hoyDia ? (
+            {masReciente && fecha < masReciente ? (
+              <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-4 py-3">
+                <p className="min-w-0 flex-1 text-sm text-white/85">
+                  {sinAnalizar.length === 1 ? "Entrenamiento sin analizar" : "Entrenamientos sin analizar"}: <span className="font-semibold tabular-nums">{listaDias(sinAnalizar)}</span>
+                  {saltoDesdeHoy ? <span className="text-white/55"> · ahora se ve el {ddmm(fecha)}, último analizado</span> : null}
+                </p>
+                <Button icon={ClipboardCheck} tone="primary" onClick={() => setFecha(masReciente)}>
+                  Analizar el {ddmm(masReciente)}
+                </Button>
+              </div>
+            ) : saltoDesdeHoy && fecha !== hoyDia ? (
               <p className="-mt-2 text-xs text-white/55">
                 Último día analizado: {ddmm(fecha)}.{" "}
                 <button type="button" onClick={() => setFecha(hoyDia)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
@@ -727,6 +777,10 @@ export default function AnalisisEntrenamientoPage() {
               estado={diaVacio ? null : estadoChip}
               pasos={diaVacio ? [] : pasos}
               siguiente={diaVacio ? null : siguiente}
+              enlaces={[
+                ...(plan?.micro ? [{ href: `/microcycles?micro=${plan.micro}`, texto: `Ver micro ${plan.micro}` }] : []),
+                ...(planDelDia.length ? [{ href: `/jugadores-sesion?fecha=${fecha}`, texto: "Jugadores sesión" }] : []),
+              ]}
               secundario={<Button icon={RefreshCw} onClick={relee} title="Releer el análisis y el estado del ordenador del club" aria-label="Releer el análisis" />}
             >
               {enCurso && ordenador?.progreso ? (
@@ -956,7 +1010,7 @@ export default function AnalisisEntrenamientoPage() {
               <Cargando key={`resumen-${fecha}-${testigo}`} texto="Leyendo el análisis del día" onReintentar={relee} />
             ) : analisis && vivas.length ? (
               <div className="space-y-4">
-                {sinValidar.length ? (
+                {sinValidar.length > 0 && cuentasDia.validadas > 0 ? (
                   <div className="flex flex-wrap items-center gap-2 text-xs text-white/70">
                     <span>
                       {cuentasDia.validadas

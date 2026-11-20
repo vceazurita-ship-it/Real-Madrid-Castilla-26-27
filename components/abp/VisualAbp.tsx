@@ -311,6 +311,8 @@ export type ComparativaVisualDatos = {
   muestraMinima: number;
   /** 17/11/2026 (ronda 20): la fila clave, que va la primera y destacada; con ella, el resto se pliega. */
   destacada?: string;
+  /** 20/11/2026 (jueces, ronda 4): filas que van siempre a la vista, aunque no se juzguen mejor o peor. */
+  aLaVista?: string[];
 };
 
 type FilaComparada = { m: MetricaComparada; d: number; juicio: "mejor" | "peor" | "igual" | "tendencia" | null };
@@ -358,11 +360,11 @@ const ORO_PUNTO = "#C8A96B";
 | clave, va la primera y en grande; a la vista, además, las que se juzgan
 | mejor o peor; el resto, a un toque.
 */
-function ComparativaBarras({ filas, destacada }: { filas: FilaComparada[]; destacada?: string }) {
+function ComparativaBarras({ filas, destacada, siempre = [] }: { filas: FilaComparada[]; destacada?: string; siempre?: string[] }) {
   const [todas, setTodas] = useState(false);
   const clave = destacada ? filas.find((f) => f.m.clave === destacada) : undefined;
   const ordenadas = clave ? [clave, ...filas.filter((f) => f !== clave)] : filas;
-  const aLaVista = clave ? ordenadas.filter((f, i) => i === 0 || f.juicio === "mejor" || f.juicio === "peor") : ordenadas;
+  const aLaVista = clave ? ordenadas.filter((f, i) => i === 0 || f.juicio === "mejor" || f.juicio === "peor" || siempre.includes(f.m.clave)) : ordenadas;
   const vistas = todas || aLaVista.length >= ordenadas.length - 1 ? ordenadas : aLaVista;
   const ocultas = ordenadas.length - vistas.length;
   return (
@@ -541,7 +543,7 @@ export function VisualAbp({
           <TituloConclusion pregunta="¿Es lo de siempre?" fuente={`${comparativa.partido} · frente a ${comparativa.rotuloMedia}`}>
             {tituloComparada}
           </TituloConclusion>
-          <ComparativaBarras filas={filasComparadas} destacada={comparativa.destacada} />
+          <ComparativaBarras filas={filasComparadas} destacada={comparativa.destacada} siempre={comparativa.aLaVista} />
           <LeyendaComparativa />
         </Lamina>
       ) : null}

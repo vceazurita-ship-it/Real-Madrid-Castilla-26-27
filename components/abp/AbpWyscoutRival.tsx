@@ -132,7 +132,16 @@ export function ComoSeCuenta({ ambito }: { ambito: "abp" | "area" }) {
 | Si la API no trae los extremos, no sale.
 */
 /** `de`: en Área del rival, «mediana de los 20 equipos» (16/11/2026, ronda 18); en balón parado, «mediana» a secas como hasta ahora. */
-function BarraLiga({ fila, de }: { fila: Fila; de?: number }) {
+/*
+| 20/11/2026 (jueces, ronda 4): todas las barras iban en el mismo oro y «el
+| peor» se veía igual que el resto. En el balón parado del rival el color dice
+| si la cifra nos conviene a NOSOTROS: verde, sí; rojo, no; oro, cifra de
+| estilo o con poca muestra.
+*/
+const COLOR_NOS = (nos: boolean | null) =>
+  nos === true ? "var(--rmcf-rate-good, #15803D)" : nos === false ? "var(--rmcf-rate-low, #DC2626)" : "var(--rmcf-gold-ink, #C8A96B)";
+
+function BarraLiga({ fila, de, color }: { fila: Fila; de?: number; color?: string }) {
   const { minimo, maximo } = fila;
 
   if (minimo == null || maximo == null || !Number.isFinite(maximo) || maximo <= 0) return null;
@@ -149,7 +158,7 @@ function BarraLiga({ fila, de }: { fila: Fila; de?: number }) {
       aria-label={`${cifra1(fila.valor, fila.unidad)} frente a la mediana ${cifra1(fila.mediana, fila.unidad)} y ${rotuloElite} de la liga ${cifra1(elite, fila.unidad)}`}
     >
       <span className="relative block h-2 w-full rounded-full bg-white/10">
-        <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: pos(fila.valor), background: "var(--rmcf-gold-ink, #C8A96B)" }} />
+        <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: pos(fila.valor), background: color ?? "var(--rmcf-gold-ink, #C8A96B)" }} />
         <span className="absolute -top-1 h-4 w-0.5 -translate-x-1/2 rounded bg-white/50" style={{ left: pos(fila.mediana) }} />
         <span
           className="absolute -top-[3px] h-3.5 w-3.5 -translate-x-1/2 rotate-45 rounded-[2px]"
@@ -1052,6 +1061,14 @@ export function AbpWyscoutRival({
         })).filter((v) => v.favor || v.contra)
       : [];
   const enTarjeta = (fila: Fila) => !(volumen.length > 0 && VOLUMEN.includes(fila.nombre));
+  /* Cuántos saca el equipo en la temporada (por partido × partidos), la base de los lanzadores. */
+  const totalEquipo = (nombre: string) => {
+    const fila = volumen.find((v) => v.nombre === nombre)?.favor;
+    return fila?.partidos ? Math.round(fila.valor * fila.partidos) : null;
+  };
+  /* 20/11/2026 (jueces, ronda 4): cada nombre lleva a su ficha de scout con sus vídeos, con el rival ya elegido. */
+  const fichaYClips = (nombre: string) =>
+    `/scout-rival-individual?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(nombre)}`;
 
   /* La lectura de cada celda de volumen: con menos de 15 casos, tendencia sin flecha ni puesto. */
   const leeVolumen = (fila: Fila) => {
@@ -1310,7 +1327,8 @@ export function AbpWyscoutRival({
                             <span
                               className="block text-[11px]"
                               style={{
-                                color: lee.bueno === true ? "var(--rmcf-rate-good, #15803D)" : lee.bueno === false ? "var(--rmcf-rate-low, #DC2626)" : undefined,
+                                /* 20/11/2026 (ronda 4): el color, para nosotros (lo que le conviene a él, nos perjudica). */
+                                color: lee.bueno === true ? "var(--rmcf-rate-low, #DC2626)" : lee.bueno === false ? "var(--rmcf-rate-good, #15803D)" : undefined,
                               }}
                             >
                               {lee.bueno === true ? "▲ " : lee.bueno === false ? "▼ " : ""}
@@ -1325,7 +1343,7 @@ export function AbpWyscoutRival({
               </table>
               {flechasVolumen && (
                 <p className="mt-1 text-[11px] text-white/50">
-                  ▲ le conviene · ▼ no le conviene: más a favor es mejor para él, más en contra es peor.
+                  ▲ le conviene · ▼ no le conviene: más a favor es mejor para él, más en contra es peor. El color es para nosotros: verde, nos conviene; rojo, no.
                 </p>
               )}
             </div>
@@ -1342,6 +1360,7 @@ export function AbpWyscoutRival({
           {/* La leyenda antes de las tarjetas (16/11/2026, jueces de análisis), una sola vez. */}
           <p className="mb-2 text-[12px] text-white/60">
             En cada barra, la raya es la mediana de la liga y el rombo ◆, el mejor (en una cifra de estilo, el que más).
+            {ambito === "abp" ? " La flecha dice si a él le conviene; el color, si nos conviene a nosotros: verde, sí; rojo, no." : ""}
             {hayEstilo ? " Sin flecha: cifra de estilo, ni buena ni mala por sí misma; el puesto va de más a menos." : ""}
           </p>
 
@@ -1411,17 +1430,25 @@ export function AbpWyscoutRival({
                           )}
                         </span>
 
-                        <BarraLiga fila={fila} de={ambito === "area" ? nEquipos : undefined} />
+                        <BarraLiga
+                          fila={fila}
+                          de={ambito === "area" ? nEquipos : undefined}
+                          color={ambito === "abp" ? COLOR_NOS(bueno === null ? null : !bueno) : undefined}
+                        />
 
                         <span
                           className="w-full text-[12px]"
                           style={{
                             color:
-                              bueno === true
-                                ? "var(--rmcf-rate-good, #15803D)"
-                                : bueno === false
-                                  ? "var(--rmcf-rate-low, #DC2626)"
-                                  : undefined,
+                              ambito === "abp"
+                                ? bueno === null
+                                  ? undefined
+                                  : COLOR_NOS(!bueno)
+                                : bueno === true
+                                  ? "var(--rmcf-rate-good, #15803D)"
+                                  : bueno === false
+                                    ? "var(--rmcf-rate-low, #DC2626)"
+                                    : undefined,
                           }}
                         >
                           {bueno === true ? "▲ " : bueno === false ? "▼ " : ""}
@@ -1482,15 +1509,20 @@ export function AbpWyscoutRival({
                       <thead>
                         <tr className="text-left text-[11px] text-white/50">
                           <th className="py-0.5 pr-2 font-semibold">Jugador</th>
-                          <th className="py-0.5 pr-2 text-right font-semibold">Córners ≈</th>
-                          <th className="py-0.5 pr-2 text-right font-semibold">Faltas ≈</th>
+                          {/* 20/11/2026 (jueces, ronda 4): la base en la cabecera, de cuántos del equipo salen. */}
+                          <th className="py-0.5 pr-2 text-right font-semibold">Córners ≈{totalEquipo("Córners") ? ` · de ${totalEquipo("Córners")}` : ""}</th>
+                          <th className="py-0.5 pr-2 text-right font-semibold">Faltas ≈{totalEquipo("Faltas lanzadas") ? ` · de ${totalEquipo("Faltas lanzadas")}` : ""}</th>
                           <th className="py-0.5 text-right font-semibold">Partidos suyos</th>
                         </tr>
                       </thead>
                       <tbody>
                         {porLanzador.map((uno) => (
                           <tr key={uno.nombre} className="border-t border-white/[0.06]">
-                            <td className="py-1 pr-2">{uno.nombre}</td>
+                            <td className="py-1 pr-2">
+                              <Link href={fichaYClips(uno.nombre)} title={`${uno.nombre}: su ficha y sus vídeos`} className="hover:underline">
+                                {uno.nombre}
+                              </Link>
+                            </td>
                             <td className="py-1 pr-2 text-right tabular-nums">{uno.corner > 0 ? `≈${uno.corner}` : ""}</td>
                             <td className="py-1 pr-2 text-right tabular-nums">{uno.falta > 0 ? `≈${uno.falta}` : ""}</td>
                             <td className="py-1 text-right tabular-nums">{uno.partidos}</td>
@@ -1524,7 +1556,9 @@ export function AbpWyscoutRival({
                       <tr key={uno.clave} className="border-t border-white/[0.06]">
                         <td className="py-1 pr-2">
                           {uno.dorsal && <span className="mr-1 tabular-nums text-white/55">{uno.dorsal}</span>}
-                          {uno.nombre}
+                          <Link href={fichaYClips(uno.nombre)} title={`${uno.nombre}: su ficha y sus vídeos`} className="hover:underline">
+                            {uno.nombre}
+                          </Link>
                           {uno.fuera && <span className="ml-1 text-[11px] text-white/50">fuera del once</span>}
                         </td>
                         <td className="py-1 pr-2 text-right tabular-nums">{uno.altura ? `${uno.altura} cm${uno.alturaHoja ? ` · hoja ${uno.alturaHoja}` : ""}` : ""}</td>

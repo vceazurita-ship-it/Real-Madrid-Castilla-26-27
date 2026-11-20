@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { AlertTriangle, ListFilter, Loader2 } from "lucide-react";
+import Image from "next/image";
+import { AlertTriangle, FileText, ImageIcon, ListFilter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -12,11 +13,13 @@ import {
   inverso,
   poneSemana,
 } from "@/lib/season/fusion";
-import { FileKind, MonthData, SeasonArea } from "@/lib/season/types";
+import { FileKind, MonthData, SeasonArea, SeasonFile } from "@/lib/season/types";
 import {
   collectFiles,
   findWeekForDate,
   flattenWeeks,
+  humanFileName,
+  rangoFechas,
   seasonStats,
   weekHasFiles,
   weekRangeLabel,
@@ -151,9 +154,18 @@ export default function SeasonWorkspace({ area }: Props) {
           actual: week.id === currentWeek.id,
           fechas: week.start || week.end ? weekRangeLabel(week) : undefined,
           partido: partido ? rotuloPartido(partido) : undefined,
+          imagenes: week.images?.length ?? 0,
+          pdfs: week.pdfs?.length ?? 0,
         };
       });
   }, [season, currentWeek, calendario]);
+
+  /* 20/11/2026 (ronda 4, los tres jueces): las semanas que sí tienen material,
+     de la más reciente a la más antigua, para «Otras semanas». */
+  const semanasConMaterial = useMemo(
+    () => [...tiraSemanas].filter((s) => s.conMaterial).reverse(),
+    [tiraSemanas]
+  );
 
   const partidoSemanaAbierta = useMemo(
     () => partidoDeLaSemana(calendario, selectedWeek),
@@ -292,22 +304,78 @@ export default function SeasonWorkspace({ area }: Props) {
                 | despliega para buscar una semana futura o por fecha.
                 */}
 
-                <button
-                  type="button"
-                  onClick={() => setNavOpen((value) => !value)}
-                  aria-expanded={navOpen}
-                  className="mb-4 flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3 text-left xl:max-w-[380px]"
-                >
-                  {/* 11/11/2026: sin repetir «Semana N» (ya está en la tarjeta de la semana). */}
-                  <span className="min-w-0 text-sm text-white/65">
-                    Otras semanas
-                  </span>
+                {/*
+                | LO ÚLTIMO SUBIDO, A LA VISTA (20/11/2026, ronda 4, fútbol y
+                | marketing): la pantalla abría con una fila de números; ahora
+                | lo primero es el material —las últimas imágenes en miniatura y
+                | los últimos PDF con su nombre—, y cada uno abre su semana.
+                */}
+                <UltimoSubido
+                  imagenes={allImages}
+                  pdfs={allPdfs}
+                  onSelectWeek={(id) => selectWeek(id)}
+                />
 
-                  <span className="inline-flex shrink-0 items-center gap-2 text-sm text-[#C8A96B]">
-                    <ListFilter size={16} />
-                    {navOpen ? "Ocultar la lista" : "Buscar una semana"}
-                  </span>
-                </button>
+                {/*
+                | OTRAS SEMANAS (20/11/2026, análisis): las que tienen material,
+                | como tarjetas con su partido y lo que hay dentro; la lista
+                | completa por meses sigue a un toque, para una semana sin nada.
+                */}
+                <div className="mb-4 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="min-w-0 text-sm font-medium text-white/75">
+                      Otras semanas
+                    </span>
+
+                    <button
+                      type="button"
+                      onClick={() => setNavOpen((value) => !value)}
+                      aria-expanded={navOpen}
+                      className="inline-flex min-h-9 shrink-0 items-center gap-2 text-sm text-[#C8A96B]"
+                    >
+                      <ListFilter size={16} />
+                      {navOpen ? "Ocultar la lista" : "Todas, por meses"}
+                    </button>
+                  </div>
+
+                  {semanasConMaterial.length > 0 ? (
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+                      {semanasConMaterial.map((s) => (
+                        <button
+                          key={s.id}
+                          type="button"
+                          onClick={() => selectWeek(s.id)}
+                          aria-current={s.id === selectedWeekId ? "true" : undefined}
+                          className={`min-w-0 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/60 hover:bg-white/[0.04] ${
+                            s.id === selectedWeekId ? "border-[#C8A96B]/70 bg-[#C8A96B]/[0.08]" : "border-white/10"
+                          }`}
+                        >
+                          <span className="block text-[13.5px] font-semibold text-white/90">
+                            {s.nombre}
+                            {s.fechas ? <span className="font-normal text-white/60"> · {s.fechas}</span> : null}
+                          </span>
+                          {s.partido ? (
+                            <span className="block truncate text-[12px] text-white/70">{s.partido}</span>
+                          ) : null}
+                          <span className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-white/70">
+                            {s.imagenes ? (
+                              <span className="inline-flex items-center gap-1">
+                                <ImageIcon size={12} className="text-[#C8A96B]" aria-hidden />
+                                {s.imagenes === 1 ? "1 imagen" : `${s.imagenes} imágenes`}
+                              </span>
+                            ) : null}
+                            {s.pdfs ? (
+                              <span className="inline-flex items-center gap-1">
+                                <FileText size={12} className="text-[#C8A96B]" aria-hidden />
+                                {`${s.pdfs} PDF`}
+                              </span>
+                            ) : null}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
 
                 <div className={`grid items-start gap-6 ${navOpen ? "xl:grid-cols-[380px_1fr]" : ""}`}>
                   <div
@@ -353,6 +421,68 @@ export default function SeasonWorkspace({ area }: Props) {
         />
       )}
     </main>
+  );
+}
+
+/** Las últimas imágenes y PDF de la temporada, cada uno abre su semana. */
+function UltimoSubido({
+  imagenes,
+  pdfs,
+  onSelectWeek,
+}: {
+  imagenes: SeasonFile[];
+  pdfs: SeasonFile[];
+  onSelectWeek: (weekId: number) => void;
+}) {
+  const ultimos = [...imagenes, ...pdfs]
+    .sort((a, b) => b.weekId - a.weekId || (a.kind === b.kind ? 0 : a.kind === "images" ? -1 : 1))
+    .slice(0, 6);
+
+  if (!ultimos.length) return null;
+
+  return (
+    <section aria-label="Lo último subido" className="mb-6">
+      <h2 className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.14em] text-white/70">
+        Lo último subido
+      </h2>
+
+      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
+        {ultimos.map((f, i) => {
+          const nombre = humanFileName(f.url, f.kind === "images" ? `Imagen ${i + 1}` : "Documento");
+
+          return (
+            <button
+              key={`${f.url}-${i}`}
+              type="button"
+              onClick={() => onSelectWeek(f.weekId)}
+              title={`${nombre} · ${f.week}${rangoFechas(f.start, f.end) ? ` (${rangoFechas(f.start, f.end)})` : ""}`}
+              className="group w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/10 bg-[#11161D] text-left transition hover:border-[#C8A96B]/60 sm:w-[170px]"
+            >
+              <span className="relative block aspect-[4/3] bg-[#0B0F14]">
+                {f.kind === "images" ? (
+                  <Image
+                    src={f.url}
+                    alt={nombre}
+                    fill
+                    sizes="170px"
+                    className="object-cover transition duration-300 group-hover:scale-[1.03]"
+                  />
+                ) : (
+                  <span className="flex h-full flex-col items-center justify-center gap-1.5 px-3 text-center">
+                    <FileText size={30} className="text-[#C8A96B]" aria-hidden />
+                    <span className="line-clamp-2 text-[12px] font-medium leading-tight text-white/80">{nombre}</span>
+                  </span>
+                )}
+              </span>
+              <span className="block px-2.5 py-1.5">
+                <span className="block text-[12.5px] font-semibold text-white/90">{f.week}</span>
+                {rangoFechas(f.start, f.end) ? <span className="block text-[11.5px] text-white/60">{rangoFechas(f.start, f.end)}</span> : null}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </section>
   );
 }
 

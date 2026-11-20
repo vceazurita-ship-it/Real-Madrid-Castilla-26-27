@@ -53,9 +53,18 @@ export function RevisionSemana({
   | su tono.
   */
   const orden: Record<TonoRevision, number> = { alerta: 0, aviso: 1, bien: 2 };
-  const ordenados = [...puntos].sort(
-    (a, b) => orden[a.tono] - orden[b.tono] || Number(b.id === "minutos") - Number(a.id === "minutos"),
-  );
+  /*
+  | 20/11/2026 (jueces, ronda 4): dentro de cada tono, por impacto: lo que
+  | mueve el partido (minutos, carencias del análisis, el MD-1) antes que lo
+  | que falta de rellenar en una ficha.
+  */
+  const impacto = (punto: PuntoRevision) => {
+    const id = punto.id.startsWith("urgente-") ? "urgentes" : punto.id;
+    const lista = ["vacia", "minutos", "sin-tiempo", "fuera", "urgentes", "reparto-carencias", "md1-carga", "md1-estreno", "pico", "sin-carga", "video", "lados", "sin-exito"];
+    const i = lista.indexOf(id);
+    return i < 0 ? lista.length : i;
+  };
+  const ordenados = [...puntos].sort((a, b) => orden[a.tono] - orden[b.tono] || impacto(a) - impacto(b));
   /*
   | 07/11/2026 (jueces): lo que hay que mirar sale entero —«Ver 1 más» no
   | decía cuál— y lo que ya está bien es lo único que se pliega. Y una tarea
@@ -73,12 +82,18 @@ export function RevisionSemana({
   | la semana. Sale el principal entero y, debajo, los títulos de los demás en
   | una línea que despliega la lista.
   */
+  /*
+  | 20/11/2026 (jueces, ronda 4): sólo el primero salía con su acción y los
+  | demás eran una línea de títulos («También: …»). Ahora el principal va
+  | entero y los demás, en una fila corta cada uno con su botón; lo que ya
+  | está bien y el detalle de los demás, tras «Ver más».
+  */
   const avisos = ordenados.filter((punto) => punto.tono !== "bien");
   const TOPE = 1;
-  const visibles = todos ? ordenados : avisos.slice(0, TOPE);
-  const avisosOcultos = todos ? 0 : Math.max(0, avisos.length - TOPE);
+  const visibles = todos ? ordenados : avisos;
+  const avisosOcultos = 0;
   const bienOcultos = todos ? 0 : ordenados.length - avisos.length;
-  const ocultos = avisosOcultos + bienOcultos;
+  const ocultos = avisosOcultos + bienOcultos + (todos ? 0 : Math.max(0, avisos.length - TOPE));
   const yaAbre = new Set<unknown>();
   const abreUnaVez = new Map<string, boolean>();
 
@@ -101,8 +116,9 @@ export function RevisionSemana({
     >
       {visibles.length > 0 && (
       <ul className="divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02]">
-        {visibles.map((punto) => {
+        {visibles.map((punto, indice) => {
           const { Icono, clase, etiqueta } = ICONO[punto.tono];
+          const compacto = !todos && indice >= TOPE;
 
           const abre =
             punto.dia && punto.trabajo && abreUnaVez.get(punto.id)
@@ -118,9 +134,9 @@ export function RevisionSemana({
                 <Icono size={15} className={`mt-0.5 shrink-0 ${clase}`} aria-label={etiqueta} />
 
                 <div className="min-w-0 flex-1">
-                  <p className="text-[12.5px] font-semibold leading-snug text-white">{punto.titulo}</p>
+                  <p className={`${compacto ? "text-[12px] font-medium" : "text-[12.5px] font-semibold"} leading-snug text-white`}>{punto.titulo}</p>
 
-                  <p className="mt-0.5 whitespace-pre-line text-[11.5px] leading-snug text-white/60">{punto.detalle}</p>
+                  {!compacto && <p className="mt-0.5 whitespace-pre-line text-[11.5px] leading-snug text-white/60">{punto.detalle}</p>}
                 </div>
               </div>
 
@@ -184,16 +200,28 @@ export function RevisionSemana({
                       </button>
                     )}
 
-                    {punto.falta && (
-                      <button
-                        type="button"
-                        onClick={() => onPlanificar(punto.falta as NonNullable<PuntoRevision["falta"]>)}
-                        className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-2 py-0.5 text-[11px] font-medium text-white/65 transition hover:border-white/25 hover:text-white"
-                      >
-                        <Plus size={10} aria-hidden />
-                        Añadir a la semana
-                      </button>
-                    )}
+                    {punto.faltas && punto.faltas.length > 1
+                      ? punto.faltas.map((falta) => (
+                          <button
+                            key={`${falta.aspecto}-${falta.lado}`}
+                            type="button"
+                            onClick={() => onPlanificar({ aspecto: falta.aspecto, lado: falta.lado })}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-2 py-0.5 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-9"
+                          >
+                            <Plus size={10} aria-hidden />
+                            Crear tarea · {falta.rotulo}
+                          </button>
+                        ))
+                      : punto.falta && (
+                          <button
+                            type="button"
+                            onClick={() => onPlanificar(punto.falta as NonNullable<PuntoRevision["falta"]>)}
+                            className="inline-flex items-center gap-1 rounded-lg border border-white/12 px-2 py-0.5 text-[11px] font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-9"
+                          >
+                            <Plus size={10} aria-hidden />
+                            Crear la tarea en la semana
+                          </button>
+                        )}
                   </div>
                 )}
             </li>
@@ -202,12 +230,6 @@ export function RevisionSemana({
       </ul>
       )}
 
-      {/* Los títulos de los avisos plegados, en una línea, para saber qué hay dentro sin abrirlo. */}
-      {!todos && avisosOcultos > 0 && (
-        <p className="mt-2 text-[11.5px] leading-snug text-white/60">
-          También: {avisos.slice(TOPE).map((punto) => punto.titulo).join(" · ")}
-        </p>
-      )}
 
       {/* Lo que no cabe en las tres primeras tarjetas va dentro de «Ver N más», con la misma tarjeta, no en líneas sueltas. */}
       {(ocultos > 0 || todos) && ordenados.length > 1 && (
@@ -220,8 +242,8 @@ export function RevisionSemana({
           {todos
             ? "Ver menos"
             : [
-                avisosOcultos ? `Ver ${avisosOcultos} ${avisosOcultos === 1 ? "aviso más" : "avisos más"}` : "",
-                bienOcultos ? `${avisosOcultos ? "y lo" : "Ver lo"} que ya está bien (${bienOcultos})` : "",
+                avisos.length > TOPE ? "Ver el detalle de cada aviso" : "",
+                bienOcultos ? `${avisos.length > TOPE ? "y lo" : "Ver lo"} que ya está bien (${bienOcultos})` : "",
               ]
                 .filter(Boolean)
                 .join(" ")}

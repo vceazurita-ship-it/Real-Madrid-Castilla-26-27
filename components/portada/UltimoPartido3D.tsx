@@ -104,32 +104,49 @@ export function UltimoPartido3D() {
   */
   const remX = n(x.ShtIncBl);
   const remY = n(y.ShtIncBl);
-  const enRemates = (xg: unknown, rem: number) => `${coma(n(xg))} goles esperados${rem > 0 ? ` en ${rem} remates` : ""}`;
+  /* El post de ESTE partido (fecha y rival), y el «Con los mapas» del mismo id. */
+  const fechaIso = doc.fecha ? String(doc.fecha).slice(0, 10) : "";
+  const hrefPost = fechaIso ? urlPostDelPartido(fechaIso, nom(y)) : "/data-analisis?area=post";
+  /*
+  | 20/11/2026 (ronda 4, análisis y marketing): las tres claves, en fichas
+  | cortas —el tema, el dato en negrita, su base y la acción al final— en vez
+  | de tres frases largas en gris. Cada ficha abre su análisis con el partido
+  | ya elegido: ocasiones y presión, el post de este partido; el balón
+  | parado, el mismo partido con sus mapas (córners y faltas).
+  */
+  const enRemates = (xg: unknown, rem: number, quien: string) => `${coma(n(xg))} xG ${quien}${rem > 0 ? ` en ${rem} remates` : ""}`;
   const tieneAbp = typeof x.xGSetPly === "number" && typeof y.xGSetPly === "number";
-  const claves: { dato: string; entrenar: string }[] = [
-    dxg <= -0.15
-      ? { dato: `Concedimos ${enRemates(y.ExpG, remY)} suyos; generamos ${enRemates(x.ExpG, remX)}.`, entrenar: "defensa del área: vigilancias y segunda jugada" }
-      : dxg >= 0.15
-        ? { dato: `Generamos ${enRemates(x.ExpG, remX)}; concedimos ${enRemates(y.ExpG, remY)} suyos.`, entrenar: "mantener las llegadas al área y afinar la última acción" }
-        : { dato: `Ocasiones igualadas: ${enRemates(x.ExpG, remX)} nuestros y ${enRemates(y.ExpG, remY)} suyos.`, entrenar: "finalización: el detalle decidió" },
+  const hrefMapas = `/data-analisis?area=directo&partido=${ultimo}`;
+  const claves: { tema: string; dato: string; base: string; entrenar: string; href: string }[] = [
+    {
+      tema: "Ocasiones",
+      dato: dxg <= -0.15 ? "Concedimos más de lo que generamos" : dxg >= 0.15 ? "Generamos más de lo que concedimos" : "Ocasiones igualadas",
+      base: `${enRemates(x.ExpG, remX, "nuestros")} · ${enRemates(y.ExpG, remY, "suyos")}`,
+      entrenar: dxg <= -0.15 ? "defensa del área: vigilancias y segunda jugada" : dxg >= 0.15 ? "mantener las llegadas y afinar la última acción" : "finalización: el detalle decidió",
+      href: hrefPost,
+    },
     ...(n(x.PPDA) > 0 && n(y.PPDA) > 0
       ? [
-          n(x.PPDA) > n(y.PPDA)
-            ? { dato: `Presión: dejamos dar ${coma(n(x.PPDA), 1)} pases por acción defensiva, frente a ${coma(n(y.PPDA), 1)} del rival (menos es más presión).`, entrenar: "presionamos menos que ellos: presión tras pérdida y altura del bloque" }
-            : { dato: `Presión: dejamos dar ${coma(n(x.PPDA), 1)} pases por acción defensiva, frente a ${coma(n(y.PPDA), 1)} del rival (menos es más presión).`, entrenar: "presionamos más que ellos: sostenerla sin partirnos" },
+          {
+            tema: "Presión",
+            dato: n(x.PPDA) > n(y.PPDA) ? "Presionamos menos que ellos" : "Presionamos más que ellos",
+            base: `PPDA ${coma(n(x.PPDA), 1)} nuestro y ${coma(n(y.PPDA), 1)} suyo (menos es más presión)`,
+            entrenar: n(x.PPDA) > n(y.PPDA) ? "presión tras pérdida y altura del bloque" : "sostenerla sin partirnos",
+            href: hrefPost,
+          },
         ]
       : []),
     {
-      dato: `Balón parado: ${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos${tieneAbp ? ` (xG a balón parado ${coma(n(x.xGSetPly))} y ${coma(n(y.xGSetPly))})` : ""}.`,
+      tema: "Balón parado",
+      dato: `${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos`,
+      base: tieneAbp ? `xG a balón parado: ${coma(n(x.xGSetPly))} nuestro y ${coma(n(y.xGSetPly))} suyo` : "",
       entrenar: n(y.Corners) > n(x.Corners) ? "defensa del córner: marcas y rechace" : "nuestros córners: primer palo y segunda jugada",
+      href: hrefMapas,
     },
   ];
   const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: f.teamId === CASTILLA_OPTA ? "Castilla" : nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
   const fecha = doc.fecha ? diaCorto(String(doc.fecha)) : "";
   const marcador = `${nom(loc)} ${String(loc.Goal ?? "")}-${String(vis.Goal ?? "")} ${nom(vis)}`;
-  /* El post de ESTE partido (fecha y rival), y el «Con los mapas» del mismo id. */
-  const fechaIso = doc.fecha ? String(doc.fecha).slice(0, 10) : "";
-  const hrefPost = fechaIso ? urlPostDelPartido(fechaIso, nom(y)) : "/data-analisis?area=post";
   /* Las tres ocasiones más claras del partido (de los dos), con su vídeo en Opta. */
   const ocasiones = fechaIso
     ? leeEventos(doc.eventos)
@@ -196,22 +213,22 @@ export function UltimoPartido3D() {
         </div>
       </div>
 
-      <ul className="mt-4 grid gap-1.5">
+      <ul className={`mt-4 grid gap-2 ${claves.length === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
         {claves.map((c) => (
-          <li key={c.dato}>
+          <li key={c.tema} className="min-w-0">
             <Link
-              href={hrefPost}
-              className="portada-celda portada-viva group flex min-w-0 items-start gap-2.5 px-3 py-2.5 text-[14px] leading-snug text-white/80"
-              title="Abre el análisis de este partido"
+              href={c.href}
+              className="portada-celda portada-viva group flex h-full min-w-0 flex-col px-3 py-2.5 leading-snug"
+              title={c.href === hrefPost ? "Abre el análisis de este partido" : "Abre este partido con sus mapas"}
             >
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
-              <span className="min-w-0 flex-1">
-                {c.dato}{" "}
-                <span className="font-semibold text-white">
-                  <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {c.entrenar}
-                </span>
+              <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-white/60">{c.tema}</span>
+              <span className="mt-0.5 text-[15px] font-bold text-white">{c.dato}</span>
+              {c.base ? <span className="mt-0.5 text-[12.5px] text-white/65">{c.base}</span> : null}
+              <span className="mt-auto flex items-start gap-1 pt-1.5 text-[13px] font-semibold text-white/90">
+                <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span>
+                <span className="min-w-0 flex-1">{c.entrenar}</span>
+                <ArrowRight size={14} className="mt-0.5 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" aria-hidden />
               </span>
-              <ArrowRight size={14} className="mt-1 shrink-0 text-white/40 transition-transform group-hover:translate-x-0.5" aria-hidden />
             </Link>
           </li>
         ))}
@@ -220,7 +237,11 @@ export function UltimoPartido3D() {
       {/* 17/11/2026 (ronda 21, análisis): las jugadas en vídeo (Opta), las tres ocasiones más claras del partido. */}
       {ocasiones.length > 0 && (
         <div className="mb-4 mt-3 flex flex-wrap items-center gap-2">
-          <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">Las ocasiones más claras, en vídeo</span>
+          {/* 20/11/2026 (ronda 4, fútbol): con xG de 0,1-0,2 no son «las más claras»; se dice lo que son y sobre cuántos remates. */}
+          <span className="text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+            Las ocasiones con más goles esperados, en vídeo
+            {remX + remY > 0 ? <span className="normal-case tracking-normal text-white/55"> · de {remX} y {remY} remates</span> : null}
+          </span>
           {ocasiones.map((e) => {
             /* 18/11/2026 (ronda 23, fútbol): de qué equipo es cada una («Castilla · Pol Fortuny», «Gimnàstic · Pere»). */
             const equipo = e.teamId === CASTILLA_OPTA ? "Castilla" : corto(y);

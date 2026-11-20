@@ -505,18 +505,26 @@ export default function Calendar() {
                     const mes = MONTHS[monthStats.mesPrevio].toLowerCase();
                     const dif = monthStats.total - monthStats.anterior;
                     const referencia = monthStats.enCurso ? `${mes} al mismo día` : mes;
+                    /* 20/11/2026 (ronda 4, juez de fútbol): una línea con la
+                       comparación («+11 frente a octubre al mismo día»); la
+                       temporada y los de otros equipos, al pasar el ratón. */
                     const comparado =
                       dif === 0
                         ? `igual que ${referencia} (${monthStats.anterior})`
-                        : `${Math.abs(dif)} ${dif > 0 ? "más" : "menos"} que ${referencia} (${monthStats.anterior})`;
-
-                    return `jugadores de campo del Castilla · ${comparado}${
+                        : `${dif > 0 ? "+" : "−"}${Math.abs(dif)} frente a ${referencia} (${monthStats.anterior})`;
+                    const detalle = `Jugadores de campo del Castilla, sin porteros${
                       monthStats.programados > 0 ? ` · ${monthStats.programados} programado${monthStats.programados === 1 ? "" : "s"} después de hoy, aparte` : ""
                     } · temporada 26/27: ${temporadaCastilla} registros${
                       temporadaFuera > 0 || monthStats.deFueraEnMes > 0
-                        ? ` (otros equipos —RMC, juvenil y demás licencias que entrenan con nosotros—, aparte: ${monthStats.deFueraEnMes} este mes, ${temporadaFuera} en la temporada)`
+                        ? ` · otros equipos (RMC, juvenil y demás licencias que entrenan con nosotros), aparte: ${monthStats.deFueraEnMes} este mes, ${temporadaFuera} en la temporada`
                         : ""
                     }`;
+
+                    return (
+                      <span title={detalle} className="cursor-help">
+                        {comparado}
+                      </span>
+                    );
                   })()
             }
           />
@@ -652,7 +660,7 @@ export default function Calendar() {
           <Link
             href={partido.jugado ? "/data-analisis?area=post" : `/rivals?equipo=${encodeURIComponent(partido.rival)}`}
             onClick={(e) => e.stopPropagation()}
-            className="block truncate rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline"
+            className="line-clamp-2 break-words rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-sky-300 underline-offset-2 hover:underline"
             title={`Partido · J${partido.jornada} · ${rotuloPartido(partido)} · ${partido.jugado ? "abrir su análisis" : "abrir el rival"}`}
           >
             ⚽ {rotuloPartido(partido)} →
@@ -673,8 +681,23 @@ export default function Calendar() {
               : {};
         }
 
-        const visible = daySessions.slice(0, MAX_VISIBLE_PER_DAY);
-        const hidden = daySessions.length - visible.length;
+        /* 20/11/2026 (ronda 4, juez de fútbol): el mismo jugador, el mismo
+           tipo y el mismo autor en un día salía en dos tarjetas iguales
+           («Á. Leiva» dos veces el 18/11): va en una, con «×2». */
+        const grupos: { session: (typeof daySessions)[number]; n: number }[] = [];
+        const porClave = new Map<string, { session: (typeof daySessions)[number]; n: number }>();
+        for (const session of daySessions) {
+          const clave = `${session.ID_JUGADOR}|${strategyKey(session.ESTRATEGIA)}|${(session.QUIEN ?? "").trim().toUpperCase()}`;
+          const ya = porClave.get(clave);
+          if (ya) ya.n += 1;
+          else {
+            const g = { session, n: 1 };
+            porClave.set(clave, g);
+            grupos.push(g);
+          }
+        }
+        const visible = grupos.slice(0, MAX_VISIBLE_PER_DAY);
+        const hidden = daySessions.length - visible.reduce((t, g) => t + g.n, 0);
 
         return {
           hasContent: true,
@@ -682,21 +705,23 @@ export default function Calendar() {
              antes los recortaba y el 4/11 decía 6 y enseñaba 2. */
           crece: true,
           onClick: () => setSelectedKey(key),
+          /* 20/11/2026 (ronda 4): las dos insignias se reparten en renglones
+             si no caben; el «MD-1» de hoy pisaba el número y el borde. */
           badges: (
-            <>
+            <span className="flex min-w-0 flex-wrap items-center justify-end gap-1">
             {marcaMd}
             <span className="whitespace-nowrap rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">
               {daySessions.length}
-              <span className="hidden md:inline">
+              <span className="hidden xl:inline">
                 {daySessions.length === 1 ? " seguimiento" : " seguimientos"}
               </span>
             </span>
-            </>
+            </span>
           ),
           children: (
             <>
               {marcaPartido}
-              {visible.map((session, index) => {
+              {visible.map(({ session, n }, index) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
 
@@ -720,23 +745,20 @@ export default function Calendar() {
                     )}
                   >
                     {key > hoyKey && (
-                      <p className="text-[8px] font-semibold uppercase tracking-wide text-white/60 md:text-[9px]">Programado</p>
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-white/60">Programado</p>
                     )}
                     {/* 07/11/2026: el tipo lo dice la franja de color (y la
-                        leyenda); en texto sólo en el globo, para no repetirlo. */}
+                        leyenda); en texto sólo en el globo, para no repetirlo.
+                        20/11/2026 (ronda 4, juez de análisis): el autor ya no
+                        va en letra diminuta en cada tarjeta: al pasar el ratón
+                        y al abrir el día. Todas las tarjetas, un renglón. */}
                     <p
-                      className="truncate text-[9px] font-semibold md:text-[11px]"
-                      title={`${style.label}${session.QUIEN ? ` · ${session.QUIEN}` : ""}`}
+                      className="flex min-w-0 items-baseline gap-1 text-[11px] font-semibold"
+                      title={`${style.label}${session.QUIEN?.trim() ? ` · ${session.QUIEN.trim()}` : ""}${n > 1 ? ` · ${n} registros iguales ese día (¿duplicado?)` : ""}`}
                     >
-                      {nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}
+                      <span className="truncate">{nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}</span>
+                      {n > 1 && <span className="shrink-0 tabular-nums text-white/60">×{n}</span>}
                     </p>
-
-                    {/* 16/11/2026 (jueces): sin autor escrito, la segunda
-                        línea dice el tipo; la tarjeta no queda con hueco. */}
-                    {/* 17/11/2026 (ronda 19): sin autor, nada (el tipo ya lo dice la franja). */}
-                    {session.QUIEN?.trim() && (
-                      <p className="truncate text-[10px] text-white/60 md:text-[11px]">{session.QUIEN.trim()}</p>
-                    )}
                   </div>
                 );
               })}
@@ -771,7 +793,7 @@ export default function Calendar() {
         <div className="px-4 pb-4 md:px-8">
           <p className="text-xs leading-relaxed text-white/55">
             La franja de color de cada tarjeta dice el tipo (la leyenda está
-            sobre el calendario); debajo del nombre, quién lo hizo. En azul, el
+            sobre el calendario); quién lo hizo, al pasar el ratón o al abrir el día, y «×2» si el mismo registro sale dos veces. En azul, el
             día de partido con su rival y su resultado. Pulsar un día abre todos
             sus registros; pulsar una tarjeta, la ficha del jugador.
           </p>

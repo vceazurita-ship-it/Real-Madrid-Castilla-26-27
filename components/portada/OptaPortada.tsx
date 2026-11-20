@@ -140,7 +140,7 @@ export function OptaPortada() {
   const hasta = hastaElPartido(opta.meta, opta.partidos);
   const deCuantos = nuestro[0]?.pos.deCuantos ?? 0;
   const jugados = partidosDe(opta.partidos, CASTILLA_OPTA).length;
-  const conclusiones = rival ? lecturas(nuestro, suyo, rival, baseAbp(filaSuya, jugadosSuyos).texto, jugados, jugadosSuyos) : [];
+  const conclusiones = rival ? lecturas(nuestro, suyo, rival, baseAbp(filaSuya, jugadosSuyos).texto) : [];
   const poblacion = grupoDe(deCuantos);
 
   /*
@@ -172,10 +172,11 @@ export function OptaPortada() {
       <CabeceraBloque
         icono={Database}
         titulo={rival ? `${rival} frente a nosotros` : "El Castilla en el grupo"}
-        sub={`Opta · media por partido en ${jugados} ${jugados === 1 ? "partido" : "partidos"} · puesto en el ${poblacion}`}
+        /* 20/11/2026 (ronda 4, análisis): la población y la base, una sola vez aquí; ni el sello, ni los titulares, ni las lecturas las repiten. */
+        sub={`Opta · media por partido y puesto en el ${poblacion} · ${jugados} ${jugados === 1 ? "partido" : "partidos"}${rival && jugadosSuyos && jugadosSuyos !== jugados ? ` (${rival}, ${jugadosSuyos})` : ""}`}
         accion={
           <p className="flex flex-wrap items-center gap-2 text-[12px] text-white/60">
-            <SelloFuente fuente="opta" poblacion={poblacion} hasta={hasta ? `hasta el ${hasta}` : undefined} />
+            <SelloFuente fuente="opta" hasta={hasta ? `hasta el ${hasta}` : undefined} />
           </p>
         }
       />
@@ -188,6 +189,7 @@ export function OptaPortada() {
             <p className="mt-1.5 text-[14px] font-semibold leading-snug text-white">
               <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {principal.orden}
             </p>
+            <EnlaceLectura lectura={principal} rival={rival} hrefFila={hrefFila} abreFila={abreFila} />
           </div>
         </div>
       ) : null}
@@ -207,14 +209,14 @@ export function OptaPortada() {
           ) : null}
           <span className="inline-flex items-center gap-1.5">
             <span aria-hidden className="h-3 w-px bg-white/40" />
-            mediana del {poblacion}
+            mediana del grupo
           </span>
           <span className="ml-auto font-semibold text-white/60">a la derecha, mejor →</span>
         </div>
         {/* 18/11/2026 (ronda 23, fútbol): de dónde sale cada cifra, para que no choque con la media «de los otros 11» del post del partido. */}
+        {/* 20/11/2026: los partidos de cada uno ya van en la cabecera; aquí sólo de dónde sale la cifra. */}
         <p className="mt-1.5 text-[12px] leading-snug text-white/60">
-          Cifras: media por partido de la temporada, con todos sus partidos de Opta · Castilla, {jugados} {jugados === 1 ? "partido" : "partidos"}
-          {rival && jugadosSuyos ? ` · ${rival}, ${jugadosSuyos} ${jugadosSuyos === 1 ? "partido" : "partidos"}` : ""}
+          Media por partido de la temporada, con todos sus partidos de Opta.
         </p>
 
         <ul className="mt-3 divide-y divide-white/[0.06]">
@@ -300,6 +302,7 @@ export function OptaPortada() {
               <p className="mt-1.5 text-[13.5px] font-semibold leading-snug text-white/90">
                 <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {c.orden}
               </p>
+              <EnlaceLectura lectura={c} rival={rival} hrefFila={hrefFila} abreFila={abreFila} />
             </div>
           ))}
         </div>
@@ -378,6 +381,29 @@ function Valor({ x, color }: { x: FilaLab; color: string }) {
 
 type Lectura = { a: string; titular: string; base: string; orden: string; color: string; peso: number; tendencia: boolean };
 
+/**
+ * A un toque, la pantalla de cada lectura (20/11/2026, ronda 4, marketing):
+ * el balón parado, a ABP del rival con él ya elegido; el resto, a su equipo
+ * en Análisis de datos (presión, peligro y solidez se ven allí).
+ */
+function EnlaceLectura({ lectura, rival, hrefFila, abreFila }: { lectura: Lectura; rival: string; hrefFila: string; abreFila: () => void }) {
+  const abp = lectura.a === "xGSetPly";
+  const href = abp ? `/scout-rival-abp?equipo=${encodeURIComponent(rival)}` : hrefFila;
+  const texto = abp ? `El ABP de ${rival}` : lectura.a === "PPDA" ? `Cómo presiona ${rival}` : `${rival}, en Análisis de datos`;
+
+  return (
+    <Link
+      href={href}
+      onClick={() => (abp ? trackModuleVisit("/scout-rival-abp") : abreFila())}
+      className="group mt-1.5 inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold"
+      style={{ color: "var(--rmcf-gold-ink)" }}
+    >
+      {texto}
+      <ChevronRight className="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5" aria-hidden />
+    </Link>
+  );
+}
+
 /** Qué quiere decir cada métrica del rival cuando es de las mejores o de las peores del grupo. */
 /* 18/11/2026 (ronda 22, fútbol): cada lectura con su orden: qué hacemos contra eso. */
 const FRASES: Record<string, { fuerte: string; flojo: string; ordenFuerte: string; ordenFlojo: string }> = {
@@ -413,7 +439,7 @@ const FRASES: Record<string, { fuerte: string; flojo: string; ordenFuerte: strin
  * las más extremas, con la nuestra al lado. Si ninguna se sale de la media,
  * no se dice nada (la tabla ya lo cuenta).
  */
-function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTendencia: string, jugados: number, jugadosSuyos: number): Lectura[] {
+function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTendencia: string): Lectura[] {
   const salen: Lectura[] = [];
 
   for (const r of suyo) {
@@ -431,13 +457,14 @@ function lecturas(nuestro: FilaLab[], suyo: FilaLab[], rival: string, baseTenden
     const decimales = 1;
     const unidad = r.a === "PPDA" ? "pases por acción defensiva" : "xG por partido";
     /* 18/11/2026 (ronda 23): cada media con su base («nuestra media, 11,9 en 12 partidos»). */
-    const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · nuestra media, ${coma(n.pos.valor, decimales)} en ${jugados} ${jugados === 1 ? "partido" : "partidos"} (${n.pos.puesto}.º)` : "";
+    /* 20/11/2026 (ronda 4, análisis): sin «en 12 partidos» en cada frase; la base va una vez en la cabecera. */
+    const nuestra = n?.pos.puesto && n.pos.valor != null ? ` · la nuestra, ${coma(n.pos.valor, decimales)} (${n.pos.puesto}.º)` : "";
 
     salen.push({
       a: r.a,
       /* 17/11/2026 (ronda 21, análisis): la población con la misma fórmula que el subtítulo y la leyenda. */
-      titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º del ${grupoDe(deCuantos)}`,
-      base: `${rival}, ${coma(valor, decimales)} ${unidad}${jugadosSuyos ? ` en ${jugadosSuyos} ${jugadosSuyos === 1 ? "partido" : "partidos"}` : ""}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
+      titular: `${fuerte ? frase.fuerte : frase.flojo}: ${puesto}.º de ${deCuantos}`,
+      base: `${rival}, ${coma(valor, decimales)} ${unidad}${nuestra}${ES_TENDENCIA.has(r.a) && baseTendencia ? ` · tendencia: ${baseTendencia}` : ""}`,
       orden: fuerte ? frase.ordenFuerte : frase.ordenFlojo,
       tendencia: ES_TENDENCIA.has(r.a),
       /* Lo que es una amenaza del rival, en naranja; por donde se le puede hacer daño, en verde. */

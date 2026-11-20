@@ -23,6 +23,33 @@ const URL_HISTORICO = "/api/ratings/load";
 
 type CargaHistorico = { success?: boolean; season?: RatingsSeason };
 
+/*
+| 20/11/2026 (ronda 4, juez de fútbol): la ficha individual se quedaba con la
+| copia vieja del aparato (9 partidos) mientras /ratings y el Dashboard ya iban
+| por 12: `traeJson` renueva la copia por detrás, pero quien ya la había
+| pintado no se enteraba. Si lo que se enseñó salió de la copia, se vuelve a
+| pedir al servidor y se pinta lo nuevo. Sin red no se tira la copia.
+*/
+function habiaCopia(): boolean {
+  try {
+    return typeof window !== "undefined" && window.localStorage.getItem(`rmcf-hoja:${URL_HISTORICO}`) !== null;
+  } catch {
+    return false;
+  }
+}
+
+function revalida(aplica: (season: RatingsSeason) => void) {
+  if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+
+  traeJson<CargaHistorico>(URL_HISTORICO, { forzar: true })
+    .then((payload) => {
+      if (payload?.success && payload.season) aplica(payload.season);
+    })
+    .catch(() => {
+      /* Lo ya pintado sigue valiendo. */
+    });
+}
+
 /**
  * Sólo el histórico, sin el calendario de partidos.
  *
@@ -35,6 +62,7 @@ export function useRatingsSeason() {
 
   useEffect(() => {
     let vivo = true;
+    const deCopia = habiaCopia();
 
     traeJson<CargaHistorico>(URL_HISTORICO)
       .then((payload) => {
@@ -49,6 +77,11 @@ export function useRatingsSeason() {
 
         console.error("No se pudo cargar el histórico de valoraciones", error);
         setLoading(false);
+      })
+      .finally(() => {
+        if (vivo && deCopia) revalida((fresca) => {
+          if (vivo) setSeason(fresca);
+        });
       });
 
     return () => {
@@ -97,6 +130,7 @@ export function useRatings() {
 
       try {
         /* Recargar a mano (`reloadKey`) salta la copia del aparato. */
+        const deCopia = reloadKey === 0 && habiaCopia();
         const ratings = await traeJson<CargaHistorico>(URL_HISTORICO, { forzar: reloadKey > 0 });
 
         if (controller.signal.aborted) return;
@@ -104,6 +138,11 @@ export function useRatings() {
         if (ratings?.success && ratings.season) setSeason(ratings.season);
 
         setStatus("ready");
+
+        /* Lo de la copia se pinta ya y se confirma con el servidor (20/11/2026). */
+        if (deCopia) revalida((fresca) => {
+          if (!controller.signal.aborted) setSeason(fresca);
+        });
       } catch {
         if (controller.signal.aborted) return;
 

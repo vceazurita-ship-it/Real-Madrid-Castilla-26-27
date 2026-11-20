@@ -172,7 +172,9 @@ export const nombreLargo = (axis: { detail: string }) => axis.detail.replace(/\s
 export const SCALE = [
   { min: 8.5, tone: "#3BEA9A", label: "ÉLITE" },
   { min: 7.5, tone: "#36DAFF", label: "ALTA" },
-  { min: 6.5, tone: "#8D7CFF", label: "MEDIA" },
+  /* 20/11/2026 (ronda 4, juez de fútbol): «MEDIA» chocaba con la media
+     (promedio): «7,1 media de 11 titulares · MEDIA». La franja es «CORRECTA». */
+  { min: 6.5, tone: "#8D7CFF", label: "CORRECTA" },
   { min: 0, tone: "#FFB84D", label: "MEJORABLE" },
 ];
 

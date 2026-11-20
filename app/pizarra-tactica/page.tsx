@@ -1150,6 +1150,13 @@ function BoardEditor({
         </div>
       </div>
 
+      {/*
+        La tira de accesos del rival bajo la cabecera, como en el resto de
+        pantallas del rival (20/11/2026, jueces de análisis y marketing): Sus
+        goles en vídeo, Cómo le marcan, Plan, Plantilla, ABP… con el rival puesto.
+      */}
+      {rivalDelTablero && !enPantallaCompleta && <AccesosDelRival equipo={rivalDelTablero} aqui="/pizarra-tactica" />}
+
       {!deLaSemana && (
         <p className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60" aria-label="Leyenda de colores">
           <span className="inline-flex items-center gap-1.5">
@@ -1166,7 +1173,16 @@ function BoardEditor({
           <span className="font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">Onces de la semana</span>
           {/* En el móvil, en su propia fila: al lado de los botones se quedaba en una palabra por renglón. */}
           {/* Tres renglones (16/11/2026, ronda 17): nuestro once, el suyo con su etiqueta, y cómo se cambia. */}
-          <span className="min-w-0 space-y-0.5 sm:flex-1">
+          {/*
+            Plegado (20/11/2026, jueces de análisis y marketing): de dónde
+            sale cada once se lee al abrir; a la vista, cómo se cambia y una
+            sola acción principal, «Rellenar otra vez».
+          */}
+          <span className="min-w-0 sm:flex-1">
+            {doc.semanaOnces && <b className="block font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>}
+            <details className="min-w-0">
+              <summary className="cursor-pointer select-none text-white/65 hover:text-white">De dónde sale cada once</summary>
+              <span className="mt-1 block space-y-0.5">
             {fuentes ? (
               <>
                 <span className="block"><b className="font-semibold text-white/85">Castilla</b>, hacia la derecha: {fuentes.nuestra}.</span>
@@ -1198,10 +1214,8 @@ function BoardEditor({
                   : "Se rellenan solos cada semana con nuestro último once y el teórico del rival."}
               </span>
             )}
-            {doc.semanaOnces && <b className="block font-semibold text-white/85">Toca dos veces una ficha para cambiar al jugador.</b>}
-            {/* La tira de accesos del rival (16/11/2026, ronda 18): Plan, Duelos, Pizarra ABP… con este rival puesto. */}
-            {/* Ronda 20 (17/11/2026): tres a la vista y el resto, con los vídeos, tras «Ir a…»: en el móvil ocupaba media pantalla antes del campo. */}
-            {rivalDelTablero && <AccesosDelRival equipo={rivalDelTablero} aqui="/pizarra-tactica" className="mt-1.5" principales={["/match-preparation", "/duelos", "/rivals"]} videosEnMas />}
+              </span>
+            </details>
           </span>
           {/*
             16/11/2026 (marketing): arriba sólo el tablero y las acciones. Las
@@ -1393,7 +1407,7 @@ function BoardEditor({
           fichas
             .filter((t) => t.kind === kind && (t.nombre ?? "").trim())
             .sort((a, b) => (Number(a.label) || 99) - (Number(b.label) || 99))
-            .map((t) => `${t.label} ${t.nombre}`)
+            .map((t) => `${t.label} ${sinMayusculas(t.nombre ?? "")}`)
             .join(" · ");
         const nuestro = lado("home");
         const suyo = lado("away");
@@ -1444,6 +1458,19 @@ function BoardEditor({
       <style>{`@media (max-width: 639px) { body:has([data-lienzo-pizarra="a-la-vista"]) [data-menu-flotante] { opacity: 0; pointer-events: none; transform: translateY(16px); transition: opacity .2s, transform .2s; } }`}</style>
     </div>
   );
+}
+
+/*
+| «USSE DIAO» → «Usse Diao» (20/11/2026, jueces de fútbol): la hoja de los
+| rivales viene en mayúsculas; en el campo ya se escribía como en el resto de
+| la app y al pie, no. La misma regla que la ficha del campo.
+*/
+function sinMayusculas(nombre: string) {
+  const limpio = nombre.trim().replace(/\s+/g, " ");
+
+  return limpio && limpio === limpio.toUpperCase() && /\p{Lu}{2}/u.test(limpio)
+    ? limpio.toLowerCase().replace(/(^|[\s.'-])(\p{L})/gu, (_, antes: string, letra: string) => antes + letra.toUpperCase())
+    : limpio;
 }
 
 const DIAS_SEMANA = ["domingo", "lunes", "martes", "miércoles", "jueves", "viernes", "sábado"];

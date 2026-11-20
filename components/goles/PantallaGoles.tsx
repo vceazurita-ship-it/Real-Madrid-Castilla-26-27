@@ -33,6 +33,8 @@ import { GraficasTipologia, type GolConTipo } from "@/components/goles/GraficasT
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { NubeGoles } from "@/components/goles/NubeGoles";
 import { GolesCampoVideo } from "@/components/goles/GolesCampoVideo";
+import { useOpta } from "@/app/opta/_piezas/useOpta";
+import { fechaCorta as fechaCortaOpta } from "@/lib/opta-analisis";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { avisoMuestra, loImportante, lecturaBalance, lecturaCondicion, lecturaFranjas, lecturaPrimero, lecturaTipologia, tramoLargo, tramosClave } from "@/lib/goles/lecturas";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
@@ -108,6 +110,22 @@ const pct = (n: number, d: number) => (d > 0 ? `${Math.round((n / d) * 100)} %` 
 function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: number; ligaPP: number; ligaContraPP: number; partidos: number }[] }) {
   const max = Math.max(0.01, ...filas.flatMap((f) => [media(f.gf, f.partidos), media(f.gc, f.partidos), f.ligaPP, f.ligaContraPP]));
   const alto = (v: number) => `${Math.max(0, Math.min(100, (v / max) * 100))}%`;
+  /*
+  | 20/11/2026 (ronda 4, análisis): el tramo que más pesa (el del titular) con
+  | menos de 5 goles se marca como tendencia en la propia barra, no sólo en el
+  | titular.
+  */
+  const tope = (clave: "gf" | "gc") => {
+    const m = Math.max(0, ...filas.map((f) => f[clave]));
+    return m > 0 && m < 5 ? m : null;
+  };
+  const topeF = tope("gf");
+  const topeC = tope("gc");
+  const tendencias = [
+    ...filas.filter((f) => topeF !== null && f.gf === topeF).map((f) => `${f.franja.nombre} a favor (${f.gf})`),
+    ...filas.filter((f) => topeC !== null && f.gc === topeC).map((f) => `${f.franja.nombre} en contra (${f.gc})`),
+  ];
+  const hayDescuento = filas.some((f) => f.franja.descuento);
 
   const fila = (aFavor: boolean) => (
     <div className={`flex h-24 gap-1 sm:gap-2 ${aFavor ? "items-end" : "items-start"}`}>
@@ -117,16 +135,18 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
         const liga = aFavor ? f.ligaPP : f.ligaContraPP;
         const color = aFavor ? ORO : PEOR;
         const descanso = i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1;
+        const esTendencia = aFavor ? topeF !== null && f.gf === topeF : topeC !== null && f.gc === topeC;
 
         return (
           <div key={f.franja.clave} className={`relative flex h-full min-w-0 flex-1 justify-center ${aFavor ? "items-end" : "items-start"} ${descanso ? "border-l border-dashed border-white/20 pl-1 sm:pl-2" : ""}`}>
             <div
               className={`relative w-3/5 max-w-[34px] transition-[height] duration-500 ${aFavor ? "rounded-t" : "rounded-b"}`}
-              style={{ height: alto(pp), backgroundColor: color, opacity: goles ? 1 : 0.25, minHeight: 2 }}
-              title={`${f.franja.nombre} · ${aFavor ? "a favor" : "en contra"}: ${goles} (${fmt(pp)} por partido; liga ${fmt(liga)})`}
+              style={{ height: alto(pp), backgroundColor: color, opacity: goles ? 1 : 0.25, minHeight: 2, ...(esTendencia ? { outline: `1.5px dashed ${tinta(0.7)}`, outlineOffset: 2 } : {}) }}
+              title={`${f.franja.nombre} · ${aFavor ? "a favor" : "en contra"}: ${goles} (${fmt(pp)} por partido; liga ${fmt(liga)})${esTendencia ? " · tendencia, menos de 5 goles" : ""}`}
             >
-              <span className={`absolute left-1/2 -translate-x-1/2 text-[11px] font-semibold tabular-nums ${aFavor ? "-top-4" : "-bottom-4"}`} style={{ color: goles ? color : tinta(0.3) }}>
+              <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums ${aFavor ? "-top-4" : "-bottom-4"}`} style={{ color: goles ? color : tinta(0.3) }}>
                 {goles}
+                {esTendencia ? "*" : ""}
               </span>
             </div>
             <div
@@ -142,7 +162,7 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
 
   return (
     <div className="min-w-0">
-      <p className="mb-5 text-[10px] uppercase tracking-[0.16em]" style={{ color: ORO }}>
+      <p className="mb-5 text-[11px] uppercase tracking-[0.16em]" style={{ color: ORO }}>
         Goles a favor
       </p>
       {fila(true)}
@@ -150,19 +170,22 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
         {filas.map((f, i) => (
           <span
             key={f.franja.clave}
-            className={`min-w-0 flex-1 truncate text-center text-[10px] tabular-nums ${f.franja.descuento ? "font-semibold text-[#C8A96B]" : "text-white/55"} ${i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1 ? "border-l border-dashed border-white/20" : ""}`}
+            className={`min-w-0 flex-1 truncate text-center text-[11px] tabular-nums ${f.franja.descuento ? "font-semibold text-[#C8A96B]" : "text-white/55"} ${i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1 ? "border-l border-dashed border-white/20" : ""}`}
           >
             {f.franja.nombre}
           </span>
         ))}
       </div>
       {fila(false)}
-      <p className="mt-5 text-[10px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
+      <p className="mt-5 text-[11px] uppercase tracking-[0.16em]" style={{ color: PEOR }}>
         Goles en contra
       </p>
 
-      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/50">
+      <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-white/60">
         <span>La altura es por partido; el número, los goles.</span>
+        {/* 20/11/2026 (ronda 4, marketing): qué son las columnas del añadido, en el gráfico. */}
+        {hayDescuento ? <span>45+′ y 90+′: los goles en el tiempo añadido de cada parte.</span> : null}
+        {tendencias.length ? <span>* Tendencia, menos de 5 goles: {tendencias.join(" y ")}.</span> : null}
         <span className="inline-flex items-center gap-1.5">
           <span className="w-4 border-t-2 border-dashed" style={{ borderColor: tinta(0.5) }} /> Lo que marca (o encaja) un equipo medio de la liga
         </span>
@@ -183,7 +206,7 @@ function Tabla({ cabeza, filas, pie, ocultaMovil = [] }: { cabeza: string[]; fil
     <div className="min-w-0 overflow-x-auto">
       <table className={`w-full text-sm ${ocultaMovil.length ? "sm:min-w-[420px]" : "min-w-[420px]"}`}>
         <thead>
-          <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
+          <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-white/40">
             {cabeza.map((c, i) => (
               <th key={i} className={`px-3 py-2 font-medium ${i === 0 ? "text-left" : "text-right"}${oculta(i)}`}>
                 {c}
@@ -203,7 +226,7 @@ function Tabla({ cabeza, filas, pie, ocultaMovil = [] }: { cabeza: string[]; fil
               </tr>
             ) : (
               <tr key={i} className="bg-white/[0.05]">
-                <td colSpan={cabeza.length} className="px-3 py-1.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-white/60">
+                <td colSpan={cabeza.length} className="px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/60">
                   {fila.seccion}
                 </td>
               </tr>
@@ -315,6 +338,20 @@ export function PantallaGoles() {
   */
   const [agotado, setAgotado] = useState(false);
   const sinPartidos = !(doc.partidos ?? []).length;
+  /*
+  | 20/11/2026 (ronda 4, análisis): Opta y BeSoccer no llegan a la misma fecha.
+  | La cabecera lleva el sello de las dos: hasta qué día llega Opta (el último
+  | partido de su evento a evento) y hasta qué jornada BeSoccer.
+  */
+  const { datos: optaDatos } = useOpta();
+  const optaHasta = useMemo(() => {
+    let ultima = "";
+    for (const f of optaDatos?.partidos ?? []) {
+      const v = String((f as Record<string, unknown>).fecha ?? "");
+      if (/^\d{4}-\d{2}-\d{2}/.test(v) && v > ultima) ultima = v;
+    }
+    return ultima ? fechaCortaOpta(ultima) : "";
+  }, [optaDatos]);
 
   useEffect(() => {
     if (status !== "loading" || !sinPartidos) return;
@@ -915,6 +952,22 @@ export function PantallaGoles() {
               comparado={rivalEnLista && rivalEnLista !== equipo ? rivalEnLista : undefined}
               alPulsar={(e) => setEquipo(e)}
             />
+            {/* 20/11/2026 (ronda 4, marketing): en el campo sólo llevan nombre el elegido, el comparado y los extremos; la lista entera, aquí. */}
+            <details className="mt-2">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55 hover:text-white/75">Los {nubeLiga.length} equipos, uno a uno</summary>
+              <ol className="mt-2 grid gap-x-4 gap-y-0.5 text-[12px] tabular-nums text-white/70 sm:grid-cols-2">
+                {[...nubeLiga]
+                  .sort((a, b) => b.x - b.y - (a.x - a.y) || a.equipo.localeCompare(b.equipo, "es"))
+                  .map((p) => (
+                    <li key={p.equipo} className={p.equipo === equipo ? "font-semibold text-white" : ""}>
+                      <button type="button" onClick={() => setEquipo(p.equipo)} className="text-left hover:underline">
+                        {nombreEquipo(p.equipo)}
+                      </button>
+                      : {fmt(p.x)} a favor y {fmt(p.y)} en contra por partido
+                    </li>
+                  ))}
+              </ol>
+            </details>
           </Lamina>
         ) : null}
       </div>
@@ -1027,12 +1080,18 @@ export function PantallaGoles() {
         // eslint-disable-next-line @next/next/no-img-element
         crest={escudo ? <img src={escudo} alt="" className="h-9 w-9 shrink-0 object-contain" /> : undefined}
         lead={
+          <>
+          <span className="block text-[12px] font-semibold text-white/70">
+            BeSoccer hasta la J{jHasta}
+            {optaHasta ? ` · Opta hasta el ${optaHasta}` : ""}
+          </span>
           <Explicativo>
             Goles de {nombreEquipo(equipo)} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros
             partidos (Hudl). Jornadas {jDesde} a {jHasta}
             {jUltimaEquipo > 0 && jUltimaEquipo < jHasta ? ` (los datos de ${nombreEquipo(equipo)} llegan hasta la J${jUltimaEquipo})` : ""}
             {doc.actualizado ? ` · actualizado el ${new Date(doc.actualizado).toLocaleDateString("es-ES", { day: "numeric", month: "long" })}` : ""}.
           </Explicativo>
+          </>
         }
       />
 
@@ -1067,7 +1126,7 @@ export function PantallaGoles() {
           onChange={(v) => setEquipo(v)}
         />
         <div className="min-w-0">
-          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Condición</span>
+          <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">Condición</span>
           <Segmented<Lugar> ariaLabel="Condición" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
         </div>
       </div>
@@ -1085,7 +1144,7 @@ export function PantallaGoles() {
 
       <div className="mt-3 flex min-w-0 flex-wrap items-end gap-3">
         <div className="min-w-0">
-          <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Franjas de</span>
+          <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">Franjas de</span>
           <Segmented<string>
             ariaLabel="Tamaño de las franjas"
             value={cortes.trim() ? "" : String(tamano)}
@@ -1100,7 +1159,7 @@ export function PantallaGoles() {
             descuentos, que un entrenador casi nunca toca, aquí dentro. */}
           <div className="flex min-w-0 flex-wrap items-end gap-3">
             <label className="block min-w-0">
-              <span className="mb-1.5 block text-[10px] uppercase tracking-[0.16em] text-white/40">Tramos a medida (minutos de corte)</span>
+              <span className="mb-1.5 block text-[11px] uppercase tracking-[0.16em] text-white/40">Tramos a medida (minutos de corte)</span>
               <input
                 value={cortes}
                 onChange={(e) => setCortes(e.target.value)}
@@ -1159,7 +1218,7 @@ export function PantallaGoles() {
           {vistaVer === "resumen" ? (
             <>
           <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1.5">
-            <span className="text-[10px] uppercase tracking-[0.16em] text-white/40">Partidos</span>
+            <span className="text-[11px] uppercase tracking-[0.16em] text-white/40">Partidos</span>
             <Segmented<Lugar> ariaLabel="Partidos en casa o fuera" value={lugar} onChange={setLugar} options={OPCIONES_LUGAR} />
           </div>
           {jugadosCalendario > delEquipo.length ? (
@@ -1298,8 +1357,8 @@ export function PantallaGoles() {
                     {/* 16/11/2026 (experto de fútbol): «tendencia» en la columna del
                         nombre, no bajo el número (a 390 px descuadraba la fila); y en
                         el móvil, donde no caben G, E y P, el balance en la misma celda. */}
-                    {e.n < 5 ? <span className="block text-[10px] font-normal text-white/55">tendencia</span> : null}
-                    <span className="block text-[10px] font-normal text-white/55 sm:hidden">
+                    {e.n < 5 ? <span className="block text-[11px] font-normal text-white/55">tendencia</span> : null}
+                    <span className="block text-[11px] font-normal text-white/55 sm:hidden">
                       {e.G}G {e.E}E {e.P}P
                     </span>
                   </span>,
@@ -1448,7 +1507,7 @@ export function PantallaGoles() {
               <div className="min-w-0 overflow-x-auto">
                 <table className="w-full min-w-[360px] text-sm">
                   <thead>
-                    <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
+                    <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-white/40">
                       <th className="px-3 py-2 text-left font-medium">Cómo llega el gol</th>
                       <th className="px-3 py-2 text-left font-medium" style={{ color: ORO }}>
                         A favor ({tipologia.totalFavor})
@@ -1504,7 +1563,7 @@ export function PantallaGoles() {
               </div>
 
               <div className="min-w-0 space-y-3">
-                <p className="text-[10px] uppercase tracking-[0.16em] text-white/40">Penaltis y goles en propia puerta: toda la liga</p>
+                <p className="text-[11px] uppercase tracking-[0.16em] text-white/40">Penaltis y goles en propia puerta: toda la liga</p>
                 <Tabla
                   cabeza={["", "Penalti", "Propia puerta", "Resto"]}
                   filas={[
@@ -1589,7 +1648,7 @@ export function PantallaGoles() {
             <div className="hidden min-w-0 overflow-x-auto md:block">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b border-white/10 text-[10px] uppercase tracking-[0.14em] text-white/40">
+                  <tr className="border-b border-white/10 text-[11px] uppercase tracking-[0.14em] text-white/40">
                     <th className="px-3 py-2 text-left font-medium">J.</th>
                     <th className="px-3 py-2 text-left font-medium">Partido</th>
                     <th className="px-3 py-2 text-right font-medium">Min.</th>

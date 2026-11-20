@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { BellRing, Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
+import { BellOff, BellRing, Loader2, Plus, RotateCw, TriangleAlert } from "lucide-react";
 
 import ConfirmDialog from "@/components/season/ConfirmDialog";
 import { confirmar } from "@/lib/avisos";
@@ -257,6 +257,13 @@ export default function GestorAlertas() {
   /* 17/11/2026 (ronda 20, fútbol): las caducadas se cuentan en el aviso de arriba, que al pie no se veían. */
   const nCaducadas = ahora > 0 ? alertas.filter((a) => !a.activa && !reactivable(a)).length : 0;
 
+  /* A cuántas personas distintas avisarían las que se pueden reactivar. */
+  const personasAlReactivar = new Set(
+    alertas
+      .filter((a) => !a.activa && reactivable(a))
+      .flatMap((a) => a.destinatarios.map((d) => d.trim().toLowerCase()).filter(Boolean)),
+  ).size;
+
   /* Si todas están silenciadas: la que saldría antes al reactivarlas. */
   const primeraAlReactivar = (() => {
     if (ahora === 0) return null;
@@ -342,24 +349,43 @@ export default function GestorAlertas() {
         | títulos de «Silenciadas (3)» y «Caducadas (1)», debajo.
         */
         /* 17/11/2026 (fútbol): es lo único urgente de la pantalla; con borde, icono y titular, no el mismo peso que el resto. */
-        <div className="rounded-2xl border border-amber-400/50 bg-amber-500/15 px-4 py-3.5 text-[14px] leading-relaxed text-amber-200">
-          <p className="flex items-center gap-2 text-[15px] font-bold">
-            <TriangleAlert className="h-5 w-5 shrink-0 text-amber-400" aria-hidden />
-            {nSilenciadas > 0 ? "Ahora no sale ningún correo" : "Ninguna alerta va a salir"}
+        /*
+        | 20/11/2026 (ronda 4, los tres jueces): un solo estado, en neutro y
+        | sin el titular de alarma («Ahora no sale ningún correo»): cuántas
+        | están silenciadas, cuántos correos saldrían a cuántas personas y
+        | cuándo el primero. Sin repetir el nombre de la primera tarea, que ya
+        | está en su tarjeta.
+        */
+        <div className="rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-3.5 text-[14px] leading-relaxed text-white/80">
+          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px] font-bold text-white/90">
+            <BellOff className="h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
+            {nSilenciadas > 0
+              ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
+              : nCaducadas === 1
+                ? "1 caducada"
+                : `${nCaducadas} caducadas`}
+            {primeraAlReactivar && nSilenciadas > 0 ? (
+              <span className="font-semibold text-white/80">· próxima, {cuandoRelativo(primeraAlReactivar.cuando, ahora).replace(/^el /, "")}</span>
+            ) : null}
           </p>
           <p className="mt-1">
-            <b className="font-semibold">
-              {/* 11/11/2026 (fútbol y marketing): qué pasa y qué pasaría, en una frase. */}
-              {primeraAlReactivar && nSilenciadas > 0
-                ? nSilenciadas === 1
-                  ? `1 alerta silenciada. Si la reactivas, sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
-                  : `${nSilenciadas} alertas silenciadas. Si las reactivas, la primera («${tituloLegible(primeraAlReactivar.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""))}») sale ${cuandoRelativo(primeraAlReactivar.cuando, ahora)}.`
-                : nSilenciadas > 0
-                  ? `${nSilenciadas === 1 ? "La tarea está silenciada" : `Las ${nSilenciadas} están silenciadas`} hasta reactivarlas.`
-                  : "Hay que ponerles fecha nueva."}
-            </b>
+            {nSilenciadas > 0 ? (
+              <>
+                Si las reactivas saldrían{" "}
+                <b className="font-semibold text-white/90">
+                  {nSilenciadas === 1 ? "1 correo" : `${nSilenciadas} correos`}
+                </b>{" "}
+                a{" "}
+                <b className="font-semibold text-white/90">
+                  {personasAlReactivar === 1 ? "1 persona" : `${personasAlReactivar} personas`}
+                </b>
+                .
+              </>
+            ) : (
+              "Necesitan fecha nueva para volver a salir."
+            )}
             {nCaducadas > 0 && nSilenciadas > 0 ? (
-              <span>{nCaducadas === 1 ? " Y 1 caducada que necesita fecha nueva (abajo)." : ` Y ${nCaducadas} caducadas que necesitan fecha nueva (abajo).`}</span>
+              <span>{nCaducadas === 1 ? " 1 caducada, plegada al pie." : ` ${nCaducadas} caducadas, plegadas al pie.`}</span>
             ) : null}
           </p>
 
@@ -470,7 +496,7 @@ export default function GestorAlertas() {
         </div>
       ) : (
         <>
-        <SemanaDeAlertas alertas={alertas} />
+        <SemanaDeAlertas alertas={alertas} partidos={partidos} ahora={ahora} />
         <ListaAlertas
           alertas={alertas}
           comprobando={comprobando}
@@ -590,50 +616,98 @@ function conFechaDePartido(
 }
 
 /**
- * LA SEMANA DE LAS ALERTAS (17/11/2026, ronda 20, los tres jueces): en una
- * línea de siete días, de MD-6 al partido, dónde cae cada tarea atada al
- * partido, para ver qué sale cuándo sin leer las tarjetas. Oro, la que va a
- * salir; apagada, la silenciada. Sólo con sitio (pantalla de Tareas y
- * alertas, no el panel del botón) y sólo si hay alguna atada al partido.
+ * LA SEMANA DE LAS ALERTAS (17/11/2026, ronda 20; rehecha el 20/11/2026,
+ * ronda 4, los tres jueces): una línea de tiempo con SÓLO los días que tienen
+ * alguna tarea atada al partido —antes eran siete columnas y seis vacías— y
+ * el partido al final. Cada pastilla lleva la hora a la que sale y abre su
+ * tarjeta. La silenciada, con borde discontinuo y la campana tachada. Sale
+ * también en el móvil (antes se escondía por debajo de 3xl).
  */
-function SemanaDeAlertas({ alertas }: { alertas: Alerta[] }) {
+function SemanaDeAlertas({
+  alertas,
+  partidos,
+  ahora,
+}: {
+  alertas: Alerta[];
+  partidos: PartidoParaAlerta[];
+  ahora: number;
+}) {
   const delPartido = alertas.filter((a) => a.repeticion === "partido");
 
   if (!delPartido.length) return null;
 
-  const dias = [6, 5, 4, 3, 2, 1, 0];
   const nombre = (a: Alerta) => tituloLegible(a.titulo.replace(/^RMCF\s*[-–—·:]\s*/i, ""));
+  const diasDe = (a: Alerta) => Math.max(0, Math.round(a.diasAntesDelPartido ?? 2));
+
+  /* Cuándo sale: la viva, su fecha; la silenciada, la que tendría al reactivarla. */
+  const salida = (a: Alerta): Date | null => {
+    if (a.activa) {
+      const d = new Date(a.proximoEnvio);
+      return Number.isNaN(d.getTime()) ? null : d;
+    }
+    return ahora > 0 ? saldriaSiSeReactiva(a, partidos, new Date(ahora))?.cuando ?? null : null;
+  };
+  const hora = (d: Date | null) => (d ? d.toLocaleTimeString("es-ES", { hour: "2-digit", minute: "2-digit" }) : "");
+  const dia = (d: Date | null) =>
+    d ? d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "") : "";
+
+  const dias = [...new Set(delPartido.map(diasDe))].sort((a, b) => b - a);
+
+  /* Lleva a la tarjeta, abriendo su grupo plegado si hace falta. */
+  const abrir = (a: Alerta) => {
+    const el = document.getElementById(`alerta-${a.id}`);
+    if (!el) return;
+    const grupo = el.closest("details");
+    if (grupo && !grupo.open) grupo.open = true;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   return (
-    <div className="hidden @3xl:block" aria-label="Las tareas atadas al partido, día a día">
+    <section aria-label="Las tareas atadas al partido, día a día">
       <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">La semana del partido · cuándo sale cada una</p>
-      <ol className="grid grid-cols-7 gap-1.5">
+      <ol className="flex flex-col gap-1.5 @3xl:flex-row @3xl:flex-wrap @3xl:items-stretch">
         {dias.map((d) => {
-          const del = delPartido.filter((a) => Math.max(0, Math.round(a.diasAntesDelPartido ?? 2)) === d);
+          const del = delPartido
+            .filter((a) => diasDe(a) === d)
+            .sort((x, y) => (salida(x)?.getTime() ?? Infinity) - (salida(y)?.getTime() ?? Infinity));
+          const fecha = dia(salida(del[0]));
 
           return (
-            <li
-              key={d}
-              className={`min-w-0 rounded-2xl border p-2.5 ${d === 0 ? "border-[#C8A96B]/50 bg-[#C8A96B]/10" : "border-white/10 bg-white/[0.03]"}`}
-            >
-              <p className={`text-[12px] font-bold uppercase tracking-[0.08em] ${d === 0 ? "text-[#C8A96B]" : "text-white/60"}`}>{d === 0 ? "MD" : `MD-${d}`}</p>
-              <ul className="mt-1.5 space-y-1">
+            <li key={d} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5 @3xl:min-w-[220px] @3xl:flex-1">
+              <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/70">
+                {d === 0 ? "MD" : `MD-${d}`}
+                {fecha ? <span className="ml-1.5 font-semibold normal-case tracking-normal text-white/60">{fecha}</span> : null}
+              </p>
+              <ul className="mt-1.5 flex flex-wrap gap-1.5">
                 {del.map((a) => (
-                  <li
-                    key={a.id}
-                    title={a.activa ? "Va a salir" : "Silenciada"}
-                    className={`rounded-lg px-2 py-1 text-[12.5px] font-semibold leading-tight [overflow-wrap:anywhere] ${
-                      a.activa ? "bg-[#C8A96B] text-[#0B0F14]" : "border border-white/15 text-white/70"
-                    }`}
-                  >
-                    {nombre(a)}
+                  <li key={a.id} className="min-w-0">
+                    <button
+                      type="button"
+                      onClick={() => abrir(a)}
+                      title={a.activa ? "Va a salir · abrir su tarjeta" : "Silenciada · abrir su tarjeta"}
+                      className={`inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[12.5px] font-semibold leading-tight [overflow-wrap:anywhere] transition ${
+                        a.activa
+                          ? "bg-[#C8A96B] text-[#0B0F14] hover:brightness-110"
+                          : "border border-dashed border-white/30 text-white/60 hover:border-white/50 hover:text-white/85"
+                      }`}
+                    >
+                      {a.activa ? <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <BellOff className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                      {hora(salida(a)) ? <span className="tabular-nums">{hora(salida(a))}</span> : null}
+                      <span className="min-w-0">{nombre(a)}</span>
+                      {a.activa ? null : <span className="sr-only">(silenciada)</span>}
+                    </button>
                   </li>
                 ))}
               </ul>
             </li>
           );
         })}
+        {!dias.includes(0) ? (
+          <li className="flex min-w-0 items-center rounded-2xl border border-[#C8A96B]/50 bg-[#C8A96B]/10 px-3 py-2.5 @3xl:flex-none">
+            <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#C8A96B]">MD · el partido</p>
+          </li>
+        ) : null}
       </ol>
-    </div>
+    </section>
   );
 }

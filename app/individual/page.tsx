@@ -1650,7 +1650,7 @@ function LineaRinde({ rinde }: { rinde?: Rinde }) {
   const pct = rinde.posibles > 0 ? Math.round((rinde.minutos / rinde.posibles) * 100) : null;
 
   return (
-    <span className="flex min-w-0 items-center gap-2 whitespace-nowrap text-[11px] tabular-nums text-white/65">
+    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[11px] tabular-nums text-white/65">
       {rinde.ultimas3 !== null && (
         <span
           title={`Nota media de sus ${rinde.nUltimas} últimos partidos con nota (Valoraciones)`}
@@ -1661,11 +1661,15 @@ function LineaRinde({ rinde }: { rinde?: Rinde }) {
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(rinde.ultimas3) }} />
           <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
           <span>últ. {rinde.nUltimas}</span>
+          {/* 20/11/2026 (ronda 4): con menos de tres notas, tendencia. */}
+          {rinde.nUltimas < 3 && <span title="Menos de tres partidos con nota: tendencia">· tend.</span>}
         </span>
       )}
+      {/* 20/11/2026 (ronda 4, jueces): la base entera, como en el Dashboard
+          («702′ de 1080′»), y no un porcentaje suelto; la fuente al pasar. */}
       {pct !== null && (
-        <span title={`${rinde.minutos}′ de ${rinde.posibles}′ posibles (partidos de Valoraciones, 90′ cada uno)`}>
-          {pct} % min.
+        <span title={`${rinde.minutos}′ de ${rinde.posibles}′ posibles (${pct} %) · minutos de Valoraciones (BeSoccer, 90′ por partido); el Dashboard de plantilla cuenta los de Wyscout`}>
+          {rinde.minutos}′ de {rinde.posibles}′
         </span>
       )}
     </span>
@@ -1741,44 +1745,35 @@ function PlayerCard({
 
 
         {player.externo && (
-          <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[10px] font-bold uppercase text-black">
+          <span className="absolute right-1.5 top-1.5 rounded-full bg-[#C8A96B] px-1.5 py-0.5 text-[11px] font-bold uppercase text-black">
             Otro equipo
           </span>
         )}
 
-        {player.score > 0 ? (
-          <span
-            title={detalleFicha}
-            className="absolute left-1.5 top-1.5 rounded-full border px-1.5 py-0.5 text-[11px] font-semibold tabular-nums backdrop-blur"
-            /* Este distintivo va siempre sobre un velo negro encima de la
-               foto, en los dos temas: mantiene la escala luminosa. */
-            style={{
-              color: scoreColorHex(player.score),
-              borderColor: `${scoreColorHex(player.score)}55`,
-              /* 0,78 y no 0,55 (19/10/2026): sobre el fondo claro de la foto
-                 en modo día, el velo al 55 % quedaba gris y el oro no pasaba
-                 de 2,4:1. */
-              background: "rgba(0,0,0,0.78)",
-            }}
-          >
-            {/* 08/11/2026: «7,6 · 5/5» no decía qué era el 5/5. Se rotula
-                «scout» y el número de competencias sólo sale si faltan. */}
-            <span className="font-normal opacity-80">scout </span>
-            {coma(player.score)}
-            {valoradas.length < METRICS.length && (
-              <span className="font-normal opacity-80"> · {valoradas.length} de {METRICS.length} competencias</span>
-            )}
-            {pocas && <span className="font-normal opacity-80"> · tendencia</span>}
-          </span>
-        ) : null /* 05/11/2026: sin ficha no se rotula (lo que no tiene dato no se nombra). */}
+        {/* 20/11/2026 (ronda 4, tres jueces): la nota del scout ya no va sobre
+            la foto (contraste 1,8 en modo día): baja a la franja del nombre,
+            en tinta sobre fondo sólido, como en la lista del móvil. Sin ficha
+            no se rotula (lo que no tiene dato no se nombra). */}
       </div>
 
       {/* 07/11/2026: nombre y puesto en una franja sólida bajo la foto; sobre
           la camiseta (clara en modo día o con patrocinador) no se leían. */}
       <div className="min-w-0 px-2.5 pt-2">
-        <h3 className="truncate text-sm font-semibold leading-tight">
-          {nombreVisible(player.name)}
-        </h3>
+        <div className="flex min-w-0 items-baseline justify-between gap-2">
+          <h3 className="truncate text-sm font-semibold leading-tight">
+            {nombreVisible(player.name)}
+          </h3>
+          {player.score > 0 && (
+            <span title={detalleFicha} className="inline-flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-white/65">
+              <span aria-hidden className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: scoreColorHex(player.score) }} />
+              <span><span className="sr-only">Nota del </span>scout</span>
+              <span className="font-semibold text-white">{coma(player.score)}</span>
+              {/* Con menos de tres competencias, «tendencia»; cuántas, al pasar. */}
+              {pocas && <span>· tend.</span>}
+              {valoradas.length < METRICS.length && <span className="sr-only">, {valoradas.length} de {METRICS.length} competencias</span>}
+            </span>
+          )}
+        </div>
 
         <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/55">
           {player.puesto}
@@ -1802,7 +1797,8 @@ function PlayerCard({
           <EnlacesJugador jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }} destinos={["notas", "comparativa"]} />
           <EnlacesJugador
             jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
-            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "seguimiento"]}
+            /* 20/11/2026 (ronda 4): también su calendario de seguimiento, ya elegido. Los porteros llevan el suyo con su entrenador. */
+            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "seguimiento", "calendario"]}
             soloIconos
           />
         </div>
@@ -3865,7 +3861,7 @@ export default function IndividualPage() {
                   {posiblesValoraciones > 0 && (
                     <span className="inline-flex items-center gap-1.5">
                       <Star size={12} className="shrink-0 text-[#C8A96B]" />
-                      En cada ficha: «últ. 3», media de sus 3 últimas notas · «% min.», de los {posiblesValoraciones}′ posibles (Valoraciones)
+                      En cada ficha: «últ. 3», media de sus 3 últimas notas (con menos, «tend.») · sus minutos de los {posiblesValoraciones}′ posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout) · «scout», la nota de su ficha de scout
                     </span>
                   )}
                 </p>

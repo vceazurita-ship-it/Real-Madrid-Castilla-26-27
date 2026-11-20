@@ -129,6 +129,8 @@ export type PuntoRevision = {
   trabajo?: Trabajo;
   /** Para proponer una tarea de lo que falta. */
   falta?: { aspecto: AspectoKey; lado: AbpLado };
+  /** 20/11/2026 (jueces, ronda 4): con dos carencias, un «Crear tarea» por cada una. */
+  faltas?: { aspecto: AspectoKey; lado: AbpLado; rotulo: string }[];
   /**
    * 16/11/2026 (jueces, ronda 18): cuando el punto habla de varias tareas
    * («3 tareas sin criterio»), todas, para un botón por tarea.
@@ -538,8 +540,16 @@ export function revisaSemana({
     .slice(0, 2);
 
   const carencias: PuntoRevision[] = [];
+  /* La cifra de cada carencia, para el título conjunto: «(3 de 11 con peligro)». */
+  const cifraCarencia = new Map<string, string>();
 
   for (const fila of olvidadas) {
+    if (fila.stats.acciones > 0) {
+      cifraCarencia.set(
+        `urgente-${fila.aspecto.key}-${fila.lado}`,
+        `${fila.stats.peligro} de ${fila.stats.acciones} con peligro${fila.lado === "defensivo" ? " suyo" : ""}`,
+      );
+    }
     carencias.push({
       id: `urgente-${fila.aspecto.key}-${fila.lado}`,
       tono: "aviso",
@@ -577,11 +587,15 @@ export function revisaSemana({
   if (carencias.length === 2) {
     const [a, b] = carencias;
     const nombre = (p: PuntoRevision) => p.titulo.replace(/: no entran en la semana$/, "");
+    /* 20/11/2026 (jueces, ronda 4): con su métrica en el propio título. */
+    const conCifra = (p: PuntoRevision) => `${nombre(p).toLowerCase()}${cifraCarencia.get(p.id) ? ` (${cifraCarencia.get(p.id)})` : ""}`;
+    const faltas = [a, b].flatMap((p) => (p.falta ? [{ ...p.falta, rotulo: nombre(p) }] : []));
 
     puntos.push({
       id: "urgentes",
       tono: "aviso",
-      titulo: `Dos carencias sin tarea: ${nombre(a).toLowerCase()} y ${nombre(b).toLowerCase()}`,
+      titulo: `Dos carencias sin tarea: ${conCifra(a)} y ${conCifra(b)}`,
+      ...(faltas.length > 1 ? { faltas } : {}),
       /* Un renglón por carencia (la tarjeta respeta el salto de línea). */
       detalle: `${nombre(a)}. ${a.detalle}\n${nombre(b)}. ${b.detalle}`,
       falta: a.falta ?? b.falta,

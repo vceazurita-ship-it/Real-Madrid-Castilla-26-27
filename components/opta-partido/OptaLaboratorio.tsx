@@ -241,35 +241,65 @@ export function ContrasteOpta({
   if (!delPartido) return null;
   const f = delPartido.fila;
 
+  /*
+  | 20/11/2026 (ronda 4, análisis y marketing): la cuenta del vídeo frente a la
+  | de Opta era un párrafo largo encima del campo. Ahora es una nota plegable
+  | bajo el mapa: dos filas (aquí y Opta) con su cifra; el porqué, dentro.
+  */
+  const filas: { rotulo: string; cifra: string; es: string }[] = [];
   if (modo === "robos") {
     const rec = cifra(f, "Recovery");
     const int = cifra(f, "Int");
     if (rec == null) return null;
-    return (
-      <p className={`${className} rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70`}>
-        <b className="text-white/85">Aquí, {aqui} robos</b>{" "}
-        {deOpta
-          ? "del evento a evento de Opta de este partido: entradas ganadas, intercepciones y balones ganados con el balón en juego, sin balón parado."
-          : "vistos en el vídeo (entrada, intercepción o balón ganado apretando)."}{" "}
-        {/* 17/11/2026 (ronda 21): Análisis de datos ya da esta misma cifra; la otra es el agregado de Opta. */}
-        Análisis de datos cuenta igual. <b className="text-white/85">El total agregado de Opta, {rec} recuperaciones</b>
-        {int != null ? ` y ${int} intercepciones aparte` : ""}: la recuperación de Opta es quedarse un balón suelto o uno que da el rival. No es la misma cuenta.
-      </p>
+    filas.push(
+      {
+        rotulo: deOpta ? "Aquí (evento a evento de Opta)" : "Aquí (vídeo)",
+        cifra: `${aqui} robos`,
+        es: deOpta
+          ? "Entradas ganadas, intercepciones y balones ganados con el balón en juego, sin balón parado. Análisis de datos cuenta igual."
+          : "Entrada, intercepción o balón ganado apretando, vistos en el vídeo. Análisis de datos cuenta igual.",
+      },
+      {
+        rotulo: "Total agregado de Opta",
+        cifra: `${rec} recuperaciones${int != null ? ` + ${int} intercepciones` : ""}`,
+        es: "La recuperación de Opta es quedarse un balón suelto o uno que da el rival: no es la misma cuenta.",
+      },
+    );
+  } else {
+    const total = cifra(f, "PossLost");
+    const propio = cifra(f, "PsLostD3");
+    if (total == null) return null;
+    filas.push(
+      {
+        rotulo: deOpta ? "Aquí (evento a evento de Opta)" : "Aquí (vídeo)",
+        cifra: `${aqui} pérdidas`,
+        es: deOpta
+          ? "Sólo las que cambian la posesión en juego (sin remates, despejes ni balón parado). Análisis de datos cuenta igual."
+          : "El balón que teníamos y pasa al rival en juego, visto en el vídeo. Análisis de datos cuenta igual.",
+      },
+      {
+        rotulo: "Total agregado de Opta",
+        cifra: `${total}${propio != null ? ` (${propio} en nuestro tercio)` : ""}`,
+        es: "Suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera.",
+      },
     );
   }
-
-  const total = cifra(f, "PossLost");
-  const propio = cifra(f, "PsLostD3");
-  if (total == null) return null;
   return (
-    <p className={`${className} rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70`}>
-      <b className="text-white/85">Aquí, {aqui} pérdidas</b>:{" "}
-      {deOpta
-        ? "sobre el mismo dato de Opta, sólo las que cambian la posesión en juego (sin remates, despejes ni balón parado)."
-        : "todas las vistas en el vídeo, sólo el balón que teníamos y pasa al rival en juego."}{" "}
-      Análisis de datos cuenta igual. <b className="text-white/85">El total agregado de Opta, {total}</b>
-      {propio != null ? ` (${propio} en nuestro tercio)` : ""}: suma cada pase que no llega, cada regate perdido y cada balón robado, aunque salga fuera. Por eso las dos cifras no coinciden.
-    </p>
+    <details className={`${className} rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-relaxed text-white/70`}>
+      <summary className="cursor-pointer select-none font-semibold text-white/80">
+        ¿Por qué no coincide con Opta? Aquí {filas[0].cifra} · Opta {filas[1].cifra}
+      </summary>
+      <dl className="mt-2 space-y-1.5">
+        {filas.map((x) => (
+          <div key={x.rotulo} className="grid min-w-0 gap-0.5 sm:grid-cols-[14rem_minmax(0,1fr)] sm:gap-3">
+            <dt className="text-white/85">
+              {x.rotulo}: <b className="tabular-nums">{x.cifra}</b>
+            </dt>
+            <dd>{x.es}</dd>
+          </div>
+        ))}
+      </dl>
+    </details>
   );
 }
 

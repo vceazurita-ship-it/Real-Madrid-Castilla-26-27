@@ -186,7 +186,8 @@ export function ProximoPartido() {
     };
   }, [hoy]);
 
-  const sesionDeHoy = contenidosHoy?.fecha === hoy ? contenidosHoy.lista : [];
+  /* 20/11/2026 (ronda 4, fútbol): «ABP» siempre en mayúsculas («Abp · Plan de partido…» venía así de la hoja). */
+  const sesionDeHoy = contenidosHoy?.fecha === hoy ? contenidosHoy.lista.map((s) => s.replace(/abp/gi, "ABP")) : [];
 
   const diaDeHoy = semana.find((dia) => dia.fecha === hoy) ?? null;
 
@@ -649,11 +650,15 @@ export function ProximoPartido() {
                 { href: conEquipo("/scout-rival-abp"), texto: "ABP rival", title: `El balón parado de ${nombreRival}, a favor y en contra` },
                 { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado del partido contra ${nombreRival}` },
                 { href: conAmbos("/duelos"), texto: "Duelos", title: `Nuestro once contra el de ${nombreRival}, puesto a puesto` },
-                /* 17/11/2026: «Sus jugadores», no «Individual» (se confundía con nuestras fichas de «Atajos»). */
-                { href: conAmbos("/scout-rival-individual"), texto: "Sus jugadores", title: `Los vídeos de los jugadores de ${nombreRival}` },
+                /* 20/11/2026 (ronda 4, fútbol): fuera «Sus jugadores»; repetía la plantilla del rival (el botón azul). */
                 /* Antes, un botón suelto al pie de la portada sin contexto (30/10/2026). */
                 ...(admin ? [{ href: "/coding?ambito=rival", texto: "Coding", title: `Marcar y cortar los clips de ${nombreRival}` }] : []),
-              ].filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
+              ]
+                .filter((atajo) => !yaHoy.has(modulo(atajo.href)) && !enBotones.has(modulo(atajo.href)))
+                /* 20/11/2026 (ronda 4, fútbol): con el ABP del día ya arriba, el microciclo de ABP no compite con él. */
+                .filter((atajo) => !(yaHoy.has("/abp-pizarra") && modulo(atajo.href) === "/abp-microciclo"))
+                /* Y en el orden de la semana (MD-4 → MD): lo que se prepara antes, antes. */
+                .sort((a, b) => (ORDEN_MD[modulo(a.href)] ?? 9) - (ORDEN_MD[modulo(b.href)] ?? 9))
             : [];
 
           if (!deHoy.length && !delRival.length && !nombreRival) return null;
@@ -708,7 +713,8 @@ export function ProximoPartido() {
                   ) : (
                     "Preparar el partido"
                   ),
-                  [...deHoy.map((a) => ({ ...a, hoy: true })), ...delRival],
+                  /* 20/11/2026 (ronda 4, fútbol): seis accesos como mucho; lo de hoy, primero. */
+                  [...deHoy.map((a) => ({ ...a, hoy: true })), ...delRival].slice(0, 6),
                 )}
             </div>
           );
@@ -769,6 +775,18 @@ function Escudos({
 
 /** El módulo que se cuenta en el acceso rápido es la ruta, sin el rival. */
 const modulo = (href: string) => href.split("?")[0];
+
+/* En qué día de la semana se usa cada pantalla (20/11/2026, ronda 4): ordena la botonera. */
+const ORDEN_MD: Record<string, number> = {
+  "/scout-rival-collective": 1,
+  "/scout-rival-abp": 2,
+  "/abp-microciclo": 3,
+  "/duelos": 4,
+  "/match-preparation": 5,
+  "/abp-pizarra": 6,
+  "/pizarra-tactica": 7,
+  "/desplazamiento": 8,
+};
 
 /**
  * Un acceso de la lista «Hoy toca» / «Más del rival» (16/11/2026, rediseño):

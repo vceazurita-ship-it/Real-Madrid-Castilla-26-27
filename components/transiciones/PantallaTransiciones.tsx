@@ -58,6 +58,8 @@ import {
   Users,
   ClipboardList,
   Video,
+  Shield,
+  FileText,
 } from "lucide-react";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
@@ -1410,14 +1412,23 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
     const f = m.formato ?? numeroCorto;
     const d = m.actual - m.media;
+    /*
+    | 20/11/2026 (ronda 4, análisis): «Objetivo, mantenerse por debajo del
+    | 58,2 %» era la media sin tarea ni qué contar. Ahora cada caso dice la
+    | tarea del campo, qué se cuenta y el criterio con la franja de los
+    | anteriores (no sólo la media).
+    */
+    const nRef = comparativa.anteriores.n;
+    const franja = m.rango && m.rango[0] !== m.rango[1] ? ` (de ${f(Math.min(m.rango[0], m.rango[1]))} a ${f(Math.max(m.rango[0], m.rango[1]))} en los ${nRef} anteriores)` : "";
+    const tarea = "Tarea: contrapresión en los 5 segundos siguientes a la pérdida, contando de cada pérdida si el rival consigue salir hacia delante.";
 
     if (Math.abs(d) < 2) {
-      return `El rival sale hacia delante en el ${f(m.actual)} de las pérdidas que juega, igual que la media (${f(m.media)}): la contrapresión tras pérdida rinde como siempre. Objetivo para el próximo partido, bajar del ${f(m.media)}.`;
+      return `El rival sale hacia delante en el ${f(m.actual)} de las pérdidas que juega, igual que la media (${f(m.media)}): la contrapresión rinde como siempre. ${tarea} Criterio de éxito, bajar del ${f(m.media)}${franja}.`;
     }
 
     return d > 0
-      ? `El rival sale hacia delante en el ${f(m.actual)}, por encima de la media (${f(m.media)}): nos sorprende tras perder. Objetivo para el próximo partido, bajar del ${f(m.media)} con contrapresión en los 5 segundos siguientes.`
-      : `El rival sale hacia delante en el ${f(m.actual)}, por debajo de la media (${f(m.media)}): la contrapresión funcionó. Objetivo, mantenerse por debajo del ${f(m.media)}.`;
+      ? `El rival sale hacia delante en el ${f(m.actual)}, por encima de la media (${f(m.media)}): nos sorprende tras perder. ${tarea} Criterio de éxito, volver por debajo del ${f(m.media)}${franja}.`
+      : `El rival sale hacia delante en el ${f(m.actual)}, por debajo de la media (${f(m.media)}): la contrapresión funcionó. Sin tarea nueva: se repite la contrapresión de los 5 segundos y se cuenta igual. Criterio, seguir por debajo de la media${franja}.`;
   }, [modo, comparativa]);
 
   /* ------------------------------------------------------------------ */
@@ -1533,6 +1544,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     /* 17/11/2026 (ronda 19, análisis y marketing): y su seguimiento y sus percentiles, con él ya elegido. */
     masDeTodos ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
     masDeTodos ? { href: `/data-analisis?area=individual&jugador=${encodeURIComponent(masDeTodos[0])}`, texto: "Sus percentiles", icono: BarChart3 } : { texto: "" },
+    /* 20/11/2026 (ronda 4): el balón parado y el plan del próximo rival, en el mismo orden que en faltas. */
+    proximoRivalLab ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalLab)}`, texto: `ABP del ${proximoRivalLab}`, icono: Shield } : { texto: "" },
+    proximoRivalLab ? { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalLab)}`, texto: `Plan contra el ${proximoRivalLab}`, icono: FileText } : { texto: "" },
     /* El próximo rival, en su ficha de goles: cómo le marcan (17/11/2026). */
     /* 18/11/2026: en el pop-up de la portada, sin salir del laboratorio. */
     proximoRivalLab ? { golesEnVideo: { equipo: proximoRivalLab, lado: modo === "robos" ? ("contra" as const) : ("favor" as const) }, texto: modo === "robos" ? `Cómo le marcan al ${proximoRivalLab}` : `Cómo marca el ${proximoRivalLab}`, icono: Video } : { texto: "" },
@@ -1549,18 +1563,6 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         <TituloConclusion pregunta={modo === "robos" ? "¿Dónde robamos?" : "¿Dónde perdemos el balón?"} fuente={`${fuenteVista} · ${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad}`}>
           {tituloCampo}
         </TituloConclusion>
-      ) : null}
-      {/* 17/11/2026 (ronda 20, fútbol y marketing): por qué no coincide con
-          Análisis de datos, como pie del campo y con las dos cifras; si el
-          partido sale de Opta, dice qué filtra esta pantalla sobre su dato. */}
-      {enVisual && partidoElegido ? (
-        <ContrasteOpta
-          modo={modo}
-          partido={{ rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada }}
-          aqui={base.length}
-          deOpta={elegidoDeOpta}
-          className="-mt-1 mb-2"
-        />
       ) : null}
       <Panel
         title={modo === "robos" ? "Dónde robamos" : "Dónde perdemos el balón"}
@@ -1637,6 +1639,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 <span className="inline-flex items-center gap-1.5">
                   <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
                 </span>
+                {/* 20/11/2026 (ronda 4, marketing): como en faltas, que se sepa que cada punto abre su vídeo. */}
+                <span className="font-semibold">Toca un punto: su vídeo, Hudl y su fila</span>
                 {/* 17/11/2026 (ronda 19, análisis y marketing): la flecha explicada y la base de las cifras. */}
                 <span>
                   Cifra de cada zona: «3↑ · 5» son 3 que salen hacia delante (↑) y 5 que no · {paraCampo.length - sinSitio} de {paraCampo.length} en el campo
@@ -1651,6 +1655,17 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
           />
         )}
       </Panel>
+      {/* 17/11/2026 (ronda 20): por qué no coincide con Análisis de datos y con
+          Opta. 20/11/2026 (ronda 4): bajo el mapa y plegada; la pantalla abre
+          con la conclusión, no con el método. */}
+      {enVisual && partidoElegido ? (
+        <ContrasteOpta
+          modo={modo}
+          partido={{ rival: partidoElegido.rival, fecha: partidoElegido.fecha, jornada: partidoElegido.jornada }}
+          aqui={base.length}
+          deOpta={elegidoDeOpta}
+        />
+      ) : null}
     </div>
   );
 
@@ -1808,7 +1823,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               <BarrasFrenteAMedia
                 metricas={comparativa.metricas}
                 anteriores={comparativa.anteriores.n}
-                titulo={`${comparativa.jornada} (${comparativa.rival}${comparativa.deOpta ? ", Opta" : ""}) frente a los anteriores`}
+                /* 20/11/2026 (ronda 4, análisis): cuántos de los anteriores son de Opta, en el título (cuentan distinto). */
+                titulo={`${comparativa.jornada} (${comparativa.rival}${comparativa.deOpta ? ", Opta" : ""}) frente a los ${comparativa.anteriores.n} anteriores${comparativa.anteriores.opta ? ` (${comparativa.anteriores.opta} de Opta, que cuenta distinto)` : ""}`}
                 pie={`Los anteriores: ${comparativa.anteriores.n - comparativa.anteriores.opta} del vídeo etiquetado${comparativa.anteriores.opta ? ` y ${comparativa.anteriores.opta} de Opta` : ""}.${comparativa.deOpta ? " Este partido sale de Opta: fuentes distintas, se lee como tendencia." : ""}`}
                 tendencia={comparativa.deOpta}
               />

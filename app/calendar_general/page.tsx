@@ -36,6 +36,8 @@ import { EnlacesDelRival, enlacesDelRival, useJornadasRivales } from "@/componen
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { enlaceAnalisis, enlaceSesion } from "@/lib/sesion-dia/conexion";
 import { diasPlanificados, mdALaVista, mdDelCalendario, mdDelDia } from "@/lib/microciclo/semana-de-hoy";
+import { estadoDelDia } from "@/lib/sesion-dia/estado-dia";
+import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { contenidoUnificado } from "@/lib/microciclo/contenidos";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
@@ -106,6 +108,8 @@ type SesionDia = {
   porFase?: Record<string, number>;
   /** Sólo planificada: de la hoja publicada, aún sin minutos ni copia de lo hecho (16/11/2026). */
   planificado?: boolean;
+  /** Lo del plan que no se hizo (con equipos hechos): «Juego de Posesión». */
+  noHechas?: string[];
   /** 17/11/2026 (r20): la carga (UA = minutos × intensidad) de las tareas con las dos cosas, y cuántas son de cuántas. */
   ua?: number;
   conCarga?: number;
@@ -117,6 +121,9 @@ type SesionDia = {
 | contar Global, con los mismos colores que /micro_calendar, para que las dos
 | lecturas del mes coincidan.
 */
+/** Sin fechas: de useDiasConectados sólo se quieren los equipos (el almacén entero). */
+const SIN_FECHAS: string[] = [];
+
 const FASES_COLOR: { re: RegExp; clave: string; label: string; dot: string }[] = [
   { re: /(\bTR\b|TRANSICI).*OFENS|OFENS.*(\bTR\b|TRANSICI)/, clave: "TRO", label: "Transición ofensiva", dot: "bg-sky-400" },
   { re: /(\bTR\b|TRANSICI).*DEFENS|DEFENS.*(\bTR\b|TRANSICI)/, clave: "TRD", label: "Transición defensiva", dot: "bg-orange-400" },
@@ -327,11 +334,22 @@ export default function CalendarGeneralPage() {
     return mapa;
   }, [registro]);
 
+  /*
+  | 20/11/2026 (jueces): el estado de cada día con la regla de /microcycles
+  | (lib/sesion-dia/estado-dia.ts). El 16-19/11 salían «Planificada» con la
+  | semana ya entrenada, y el 16 enseñaba el Juego de Posesión que no se hizo:
+  | con equipos, la sesión está hecha y la tarea que no casa no cuenta.
+  */
+  const { almacen: almacenEquipos } = useDiasConectados(SIN_FECHAS, { entreno: false });
+
   const sesionesDia = useMemo(() => {
     const mapa = new Map(sesionesHechas);
 
     diasPlanificados(registro, new Set(mapa.keys())).forEach((filas, key) => {
-      const entreno = filas.filter((f) => !esFilaDePartido({ md: f.md, fase: f.fase, tipo: f.tipoTarea, contenidoPrincipal: f.contenidoPrincipal }));
+      const todas = filas.filter((f) => !esFilaDePartido({ md: f.md, fase: f.fase, tipo: f.tipoTarea, contenidoPrincipal: f.contenidoPrincipal }));
+      const estado = hoyKey ? estadoDelDia(key, hoyKey, registro, almacenEquipos) : null;
+      const noHechas = estado?.noHechas.size ? todas.filter((f) => estado.noHechas.has(String(f.tarea ?? "").trim())) : [];
+      const entreno = noHechas.length ? todas.filter((f) => !noHechas.includes(f)) : todas;
 
       if (!entreno.length) return;
 
@@ -351,12 +369,16 @@ export default function CalendarGeneralPage() {
         principal: Object.entries(porContenido).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "",
         porContenido,
         porFase,
-        planificado: true,
+        planificado: !estado?.hecha,
+        noHechas: noHechas.map((f) => contenidoUnificado((f.contenidoPrincipal || f.tipoTarea || f.tarea || "").trim())).filter(Boolean),
+        ua: entreno.reduce((s, f) => s + (Number(f.carga) || 0), 0) || undefined,
+        conCarga: entreno.filter((f) => Number(f.carga) > 0).length,
+        tareas: entreno.length,
       });
     });
 
     return mapa;
-  }, [sesionesHechas, registro]);
+  }, [sesionesHechas, registro, hoyKey, almacenEquipos]);
 
   useEffect(() => {
     let vivo = true;
@@ -1296,8 +1318,13 @@ export default function CalendarGeneralPage() {
                       <span className="min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
                     </p>
                     <p className="text-[10px] text-white/60 md:text-[10px]">
-                      {sesionDia.planificado || sesionDia.minutos <= 0 ? "Planificada" : `Sesión · ${formatMinutes(sesionDia.minutos)}`}
+                      {sesionDia.planificado ? "Planificada" : sesionDia.minutos > 0 ? `Sesión · ${formatMinutes(sesionDia.minutos)}` : "Sesión hecha"}
                     </p>
+                    {sesionDia.noHechas?.length ? (
+                      <p className="text-[10px] leading-tight text-white/50 md:text-[11px]" title="Estaba en el plan y no se hizo (según los equipos de Jugadores sesión)">
+                        <span className="line-through decoration-white/40">{sesionDia.noHechas.join(", ")}</span> · no se hizo
+                      </p>
+                    ) : null}
                     {/* 17/11/2026 (r20, jueces): la carga del entreno hecho, con su base al pasar por encima. */}
                     {!sesionDia.planificado && sesionDia.ua ? (
                       <p
@@ -1367,7 +1394,7 @@ export default function CalendarGeneralPage() {
                       {/* 17/11/2026 (r20, jueces): sus goles en vídeo y su ABP, con el rival ya elegido. */}
                       <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
                         {enlacesDelRival(jornadasRivales, auto.rival, auto.fecha)
-                          .filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo")
+                          .filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo" || e.texto === "Su plantilla")
                           .map((e) =>
                             /* 18/11/2026: «Sus goles» abre el pop-up de la portada, sin salir del calendario. */
                             e.golesEnVideo ? (
@@ -1396,21 +1423,22 @@ export default function CalendarGeneralPage() {
                   ) : (
                   /* 16/11/2026: el viaje es un renglón ligero (punto morado, sin caja) para
                      que el partido mande en la casilla; ida, traslado y vuelta por su nombre. */
+                  /* 20/11/2026 (jueces): chip visible, con la hora delante y en dos líneas como mucho (el 13/11 se cortaba). */
                   <p
                     key={auto.id}
                     title={[auto.titulo, auto.detalle, auto.hora].filter(Boolean).join(" · ")}
-                    className="flex min-w-0 items-start gap-1 px-0.5 text-[10px] leading-tight text-white/70 md:text-[10px]"
+                    className="flex min-w-0 items-start gap-1 rounded-md border border-purple-400/30 bg-purple-400/10 px-1 py-0.5 text-[10px] leading-tight text-white/80 md:text-[11px]"
                   >
                     <span aria-hidden className={cn("mt-[3px] h-1.5 w-1.5 shrink-0 rounded-full", AUTO_THEMES[auto.clase].dot)} />
                     {/* 16/11/2026 (jueces): el viaje abre su desplazamiento desde la casilla. */}
                     <Link
                       href={auto.enlace || "/desplazamiento"}
                       onClick={(e) => e.stopPropagation()}
-                      className="min-w-0 break-words underline decoration-white/25 decoration-dotted underline-offset-2 hover:text-white"
+                      className="line-clamp-2 min-w-0 break-words hover:text-white hover:underline"
                     >
+                      {auto.hora ? <span className="font-semibold tabular-nums">{auto.hora.charAt(0).toUpperCase() + auto.hora.slice(1)} · </span> : null}
                       {/* El rival con el mismo nombre corto que el partido de la casilla. */}
                       {auto.titulo.replace(/^(Viaje a|Regreso de|Vuelta de) (.+)$/, (_, que: string, quien: string) => `${que} ${nombreCorto(quien)}`)}
-                      {auto.hora ? <span className="text-white/55"> · {auto.hora}</span> : null}
                       <span aria-hidden className="text-[#C8A96B]"> →</span>
                     </Link>
                   </p>

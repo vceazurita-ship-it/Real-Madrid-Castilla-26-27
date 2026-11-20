@@ -4280,6 +4280,26 @@ export default function RivalPlayersPage() {
                     >
                       {teams.length - (proximo ? 1 : 0)} <span className="text-lg leading-none">›</span>
                     </button>
+                    {/* «Ir a rival» (20/11/2026, jueces de análisis): con 18 en la fila, cualquiera a un toque y ya elegido. */}
+                    <select
+                      aria-label="Ir a un rival"
+                      value=""
+                      onChange={(e) => {
+                        if (!e.target.value) return;
+                        setSelectedTeam(e.target.value);
+                        setCambiandoEquipo(false);
+                        setSearch("");
+                      }}
+                      className="hidden h-9 shrink-0 rounded-full border border-white/15 bg-[#0F141B] px-3 text-[12px] font-semibold text-white/75 outline-none transition hover:border-white/30 sm:block"
+                    >
+                      <option value="">Ir a rival…</option>
+                      {teams.map((team) => (
+                        <option key={team.name} value={team.name}>
+                          {team.name}
+                          {jornadaDeEquipo(ordenRivales, team.name) ? ` · ${jornadaDeEquipo(ordenRivales, team.name)!.etiqueta}` : ""}
+                        </option>
+                      ))}
+                    </select>
                   </>
                 );
               })()}

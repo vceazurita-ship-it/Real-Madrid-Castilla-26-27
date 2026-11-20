@@ -25,6 +25,7 @@ import {
   FileText,
   FileUp,
   Layers,
+  Presentation,
   Trash2,
   Upload,
 } from "lucide-react";
@@ -131,6 +132,8 @@ export function RepositorioCultura({
     [enlazaUrl],
   );
   const [visor, setVisor] = useState<number | null>(null);
+  /* 20/11/2026 (guionista): la vista previa, plegada; se abre con «Ver el documento» o al saltar a una diapositiva. */
+  const [verDocumento, setVerDocumento] = useState(false);
   const [pendiente, setPendiente] = useState<Pendiente | null>(null);
 
   const entrada = useRef<HTMLInputElement>(null);
@@ -290,7 +293,8 @@ export function RepositorioCultura({
   | administrador. Con un documento repetía el título y la descripción que ya
   | dicen la cabecera de la pantalla y la ficha.
   */
-  const conEstanteria = admin === true || documentos.length > 1;
+  /* 20/11/2026: la subida del administrador ya no va en esta columna (va plegada al final). */
+  const conEstanteria = documentos.length > 1;
 
   /* Con un solo documento la lista repetía la cabecera del panel (30/10/2026). */
   const conLista = documentos.length > 1;
@@ -405,75 +409,6 @@ export function RepositorioCultura({
           </div>
           )}
 
-          {/* ==================== SUBIR EL BRUTO ==================== */}
-
-          {admin === true && (
-          <div className="min-w-0 max-lg:order-3">
-          <Panel
-            title="Subir el bruto"
-            subtitle="El HTML de la presentación, tal y como se redactó"
-            icon={FileUp}
-          >
-            <div
-              onDragOver={(evento) => evento.preventDefault()}
-              onDrop={alSoltar}
-              className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-6 text-center transition hover:border-[#C8A96B]/40"
-            >
-              <Upload size={18} className="mx-auto text-white/30" />
-
-              <p className="mt-2 text-xs leading-relaxed text-white/45">
-                Suelta aquí el fichero <code className="text-white/70">.html</code>{" "}
-                del documento, o búscalo.
-              </p>
-
-              <div className="mt-3 flex justify-center">
-                <Button
-                  tone="primary"
-                  icon={FileUp}
-                  onClick={() => entrada.current?.click()}
-                >
-                  Elegir el fichero
-                </Button>
-              </div>
-
-              <input
-                ref={entrada}
-                type="file"
-                accept=".html,.htm,text/html"
-                className="hidden"
-                onChange={(evento) => {
-                  const fichero = evento.target.files?.[0];
-
-                  if (fichero) void leeFichero(fichero);
-
-                  /* Para que subir dos veces el mismo fichero vuelva a
-                     disparar el `change`. */
-                  evento.target.value = "";
-                }}
-              />
-            </div>
-
-            <p className="mt-3 text-[11px] leading-relaxed text-white/35">
-              Se leen las diapositivas del bruto —el valor de cada portada y las
-              conductas de cada tarjeta—, se quitan las marcas{" "}
-              <code>[cite: …]</code> y el «INADMISIBLE:» de cabeza, y el
-              documento se redibuja con la plantilla del club. El texto no se
-              retoca.
-            </p>
-          </Panel>
-          </div>
-          )}
-
-          {admin === true && !previa && (
-            <div className="min-w-0 max-lg:order-3">
-            <Notice title="Cómo crece la estantería">
-              Lo que se sube aquí queda guardado para todo el cuerpo técnico.
-              Los documentos publicados en el código no se pueden borrar, pero
-              sí corregir: sube uno con el mismo número y título y pisará al
-              anterior.
-            </Notice>
-            </div>
-          )}
         </div>
         )}
 
@@ -575,6 +510,11 @@ export function RepositorioCultura({
               <ExportaCultura
                 documento={aLaVista}
                 barra={barra}
+                delante={
+                  <Button tone="primary" icon={Presentation} onClick={() => setVisor(hojaActiva)}>
+                    Proyectar
+                  </Button>
+                }
                 titulo={`${documento?.numero} · ${documento?.titulo}`}
                 subtitulo={[
                   documento?.temporada && `Temporada ${documento.temporada}`,
@@ -602,6 +542,20 @@ export function RepositorioCultura({
             {antesDeLaVista}
 
             <div id="vista-previa-cultura" className="scroll-mt-24">
+            {!(verDocumento || previa || (enlazaUrl && desdeAncla >= 0)) ? (
+              <button
+                type="button"
+                onClick={() => setVerDocumento(true)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-left text-sm font-semibold text-white/85 transition hover:border-[#C8A96B]/50 hover:text-white"
+              >
+                <span className="inline-flex items-center gap-2">
+                  <Layers size={16} aria-hidden />
+                  Ver el documento
+                  <span className="font-normal text-white/55">· {totalHojas} diapositivas</span>
+                </span>
+                <ChevronRight size={16} aria-hidden />
+              </button>
+            ) : (
             <Panel
               title="Vista previa"
               subtitle="Lo mismo que se descarga"
@@ -714,6 +668,7 @@ export function RepositorioCultura({
               </div>
 
             </Panel>
+            )}
             </div>
 
             {visor !== null && visor < totalHojas && (
@@ -735,6 +690,84 @@ export function RepositorioCultura({
           </div>
         )}
       </div>
+
+      {/* 20/11/2026 (marketing): subir y corregir documentos, al final y plegado; lo primero que ve el cuerpo técnico son los valores. */}
+      {admin === true && (
+        <details className="mt-6 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-white/75">Añadir o corregir un documento (administrador)</summary>
+          <div className="mt-3 grid min-w-0 gap-4 lg:grid-cols-2">
+          {/* ==================== SUBIR EL BRUTO ==================== */}
+
+          {admin === true && (
+          <div className="min-w-0 ">
+          <Panel
+            title="Subir el bruto"
+            subtitle="El HTML de la presentación, tal y como se redactó"
+            icon={FileUp}
+          >
+            <div
+              onDragOver={(evento) => evento.preventDefault()}
+              onDrop={alSoltar}
+              className="rounded-xl border border-dashed border-white/15 bg-white/[0.02] px-4 py-6 text-center transition hover:border-[#C8A96B]/40"
+            >
+              <Upload size={18} className="mx-auto text-white/30" />
+
+              <p className="mt-2 text-xs leading-relaxed text-white/45">
+                Suelta aquí el fichero <code className="text-white/70">.html</code>{" "}
+                del documento, o búscalo.
+              </p>
+
+              <div className="mt-3 flex justify-center">
+                <Button
+                  tone="primary"
+                  icon={FileUp}
+                  onClick={() => entrada.current?.click()}
+                >
+                  Elegir el fichero
+                </Button>
+              </div>
+
+              <input
+                ref={entrada}
+                type="file"
+                accept=".html,.htm,text/html"
+                className="hidden"
+                onChange={(evento) => {
+                  const fichero = evento.target.files?.[0];
+
+                  if (fichero) void leeFichero(fichero);
+
+                  /* Para que subir dos veces el mismo fichero vuelva a
+                     disparar el `change`. */
+                  evento.target.value = "";
+                }}
+              />
+            </div>
+
+            <p className="mt-3 text-[11px] leading-relaxed text-white/35">
+              Se leen las diapositivas del bruto —el valor de cada portada y las
+              conductas de cada tarjeta—, se quitan las marcas{" "}
+              <code>[cite: …]</code> y el «INADMISIBLE:» de cabeza, y el
+              documento se redibuja con la plantilla del club. El texto no se
+              retoca.
+            </p>
+          </Panel>
+          </div>
+          )}
+
+          {admin === true && !previa && (
+            <div className="min-w-0 ">
+            <Notice title="Cómo crece la estantería">
+              Lo que se sube aquí queda guardado para todo el cuerpo técnico.
+              Los documentos publicados en el código no se pueden borrar, pero
+              sí corregir: sube uno con el mismo número y título y pisará al
+              anterior.
+            </Notice>
+            </div>
+          )}
+          </div>
+        </details>
+      )}
     </div>
   );
 }

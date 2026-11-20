@@ -85,13 +85,14 @@ export function BarrasFrenteAMedia({
           const pos = (v: number) => `${Math.max(0, Math.min(100, (v / tope) * 100))}%`;
           const j = juicio(m);
           const b = baseDe(m);
-          const esTendencia = tendencia || (b != null && b < UMBRAL_MUESTRA);
+          /* 20/11/2026 (ronda 4, marketing): la fila con pocos casos (p. ej. 4 faltas en nuestro campo) también dice «tendencia». */
+          const esTendencia = tendencia || Boolean(m.tendencia) || (b != null && b < UMBRAL_MUESTRA);
           const fuerte = j.palabra === "mejor" || j.palabra === "peor";
           const palabra = j.palabra ? `${j.palabra}${esTendencia ? ", tendencia" : ""}` : "";
           const sentido = m.mejorAlto === true ? "▲ más es mejor" : m.mejorAlto === false ? "▼ menos es mejor" : "estilo, sin veredicto";
 
           return (
-            <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,14rem)_minmax(0,1fr)_8.5rem] sm:items-center sm:gap-3">
+            <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6.5rem_9.5rem] sm:items-center sm:gap-3">
               <span className="min-w-0 text-[13px] font-medium leading-tight text-white/85">
                 {m.nombre}
                 {sentido ? <span className="ml-1.5 text-[11px] font-normal text-white/55">{sentido}</span> : null}
@@ -101,22 +102,22 @@ export function BarrasFrenteAMedia({
                 <span className="absolute inset-y-[3px] left-0 rounded-full" style={{ width: pos(m.actual!), background: j.color }} />
                 <span className="absolute -inset-y-1 w-[2px] rounded bg-white/80" style={{ left: pos(m.media!) }} />
               </span>
-              <span className="flex items-baseline justify-between gap-2 text-[12px] sm:justify-end">
+              <span className="flex items-baseline gap-2 whitespace-nowrap text-[12px] sm:justify-end">
                 <span className="font-semibold tabular-nums text-white">{f(m.actual!)}</span>
-                <span className="text-white/60">
-                  media {f(m.media!)}
-                  {palabra ? (
-                    <b className="ml-1 font-semibold" style={{ color: j.color === ORO ? "var(--rmcf-gold-ink)" : j.color }}>
-                      · {palabra}
-                    </b>
-                  ) : null}
-                </span>
+                <span className="tabular-nums text-white/60">media {f(m.media!)}</span>
               </span>
-              {fuerte && (rango || b != null) ? (
-                <span className="text-[11px] leading-snug text-white/55 sm:col-start-2 sm:col-end-4">
-                  {rango ? `Fuera de lo normal en los ${anteriores} anteriores (de ${f(rango[0])} a ${f(rango[1])})` : ""}
-                  {rango && b != null ? " · " : ""}
-                  {b != null ? `sobre ${b} acciones de este partido` : ""}
+              {/* 20/11/2026 (ronda 4, marketing): la palabra en su columna fija;
+                  pegada al número rompía en tres líneas. */}
+              <span className="min-w-0 text-[12px] font-semibold leading-tight" style={{ color: j.color === ORO ? "var(--rmcf-gold-ink)" : j.color }}>
+                {palabra}
+              </span>
+              {/* 20/11/2026 (ronda 4, análisis): la regla junto a cada cifra, no
+                  sólo al pie: dentro de la franja de los anteriores es lo normal. */}
+              {rango || (fuerte && b != null) ? (
+                <span className="text-[11px] leading-snug text-white/60 sm:col-start-2 sm:col-end-5">
+                  {rango ? `${fuerte ? "Fuera de lo normal" : "Lo normal"}: de ${f(rango[0])} a ${f(rango[1])} en los ${anteriores} anteriores` : ""}
+                  {rango && fuerte && b != null ? " · " : ""}
+                  {fuerte && b != null ? `sobre ${b} acciones de este partido` : ""}
                 </span>
               ) : null}
             </li>

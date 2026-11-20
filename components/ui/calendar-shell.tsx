@@ -106,7 +106,7 @@ export function CalendarStat({
 }) {
   return (
     <div className="min-w-0 rounded-2xl border border-white/10 bg-[#11161D] px-3 py-2 sm:px-4 sm:py-3">
-      <p className="text-[10px] uppercase tracking-[0.2em] text-white/40">
+      <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">
         {label}
       </p>
 

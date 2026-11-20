@@ -70,18 +70,31 @@ function Contenido({ equipo }: { equipo: string }) {
           : `Hacen falta ${MIN_PARTIDOS} partidos suyos con dato para trazar la recta.`;
 
   const diferencia = venimos && bloqueBajo ? bloqueBajo.pases - venimos.pases : null;
+  /*
+  | 20/11/2026 (jueces de fútbol y análisis): «3,1 frente a 3,1» con r = 0,44
+  | en 12 partidos no lleva a ninguna decisión. Con menos de 15 partidos es
+  | tendencia, y si la altura del bloque le cambia menos de 0,3 pases por
+  | posesión, el detalle va plegado bajo «Ver más».
+  */
+  const tendencia = puntos.length < 15;
+  const sinDecision = diferencia == null || Math.abs(diferencia) < 0.3;
 
   return (
     <section aria-label="Si le dejamos tocar, ¿se nos va?" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Proyección del juego · si le dejamos tocar, ¿se nos va?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">
-          dato · Opta, {puntos.length} {puntos.length === 1 ? "partido" : "partidos"} suyos
+          dato · Opta, {puntos.length} {puntos.length === 1 ? "partido" : "partidos"} suyos{tendencia ? " · tendencia" : ""}
         </span>
       </p>
       <h3 className="fuente-club mt-1.5 text-[26px] font-bold uppercase leading-[1.05] text-white sm:text-[32px]">{titular}</h3>
-      <p className="mt-1 text-sm leading-6 text-white/70">{explica}</p>
+      <p className="mt-1 text-sm leading-6 text-white/70">
+        {explica}
+        {sinDecision && diferencia != null && " La altura del bloque le cambia menos de 0,3 pases por posesión: no decide cómo presionarle."}
+      </p>
 
+      <details open={!sinDecision} className="mt-1">
+      <summary className="cursor-pointer select-none text-[13px] font-semibold text-[#C8A96B] hover:underline">{sinDecision ? "Ver más" : "Las cifras y la recta"}</summary>
       {(venimos || bloqueBajo || r != null) && (
         <ul className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-3">
           {venimos && (
@@ -129,8 +142,9 @@ function Contenido({ equipo }: { equipo: string }) {
         )}
       </p>
       <p className="mt-1 text-[11px] leading-5 text-white/55">
-        PPDA: pases que deja dar el defensor por cada acción defensiva; menos, más presión. Pases por posesión: pases intentados entre secuencias de posesión. Como venimos: nuestro PPDA medio de los últimos {ULTIMOS} partidos; en bloque bajo: el del tercio de partidos de la temporada con nuestro PPDA más alto. «Depende de que le dejen» si r ≥ 0,6; «juega igual» si r está entre −0,3 y 0,3.
+        PPDA: pases que deja dar el defensor por cada acción defensiva; menos, más presión. Pases por posesión: pases intentados entre secuencias de posesión. Como venimos: nuestro PPDA medio de los últimos {ULTIMOS} partidos; en bloque bajo: el del tercio de partidos de la temporada con nuestro PPDA más alto. «Depende de que le dejen» si r ≥ 0,6; «juega igual» si r está entre −0,3 y 0,3.{tendencia ? ` Con menos de 15 partidos se lee como tendencia.` : ""}
       </p>
+      </details>
     </section>
   );
 }

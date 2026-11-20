@@ -20,6 +20,7 @@
  * goles del equipo, los dos botones se van.
  */
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Clapperboard, Play } from "lucide-react";
 
@@ -162,6 +163,21 @@ export function VideosDelRival({
               </a>
             ) : !conResumenes ? (
               <span aria-hidden className="block min-h-[52px] animate-pulse rounded-2xl border border-[#C8A96B]/20 bg-[#C8A96B]/[0.06]" />
+            ) : null}
+            {/* 20/11/2026 (ronda 4, fútbol): su balón parado, con el rival ya elegido en ABP del rival. */}
+            {tipo !== "abp" ? (
+              <Link
+                href={`/scout-rival-abp?equipo=${encodeURIComponent(rival)}`}
+                onClick={() => trackModuleVisit("/scout-rival-abp")}
+                className={CHIP}
+                title={`El balón parado de ${rival}, con sus acciones en vídeo`}
+              >
+                <Icono />
+                <span className={TEXTO_CHIP}>
+                  <span className="block">Su ABP en vídeo</span>
+                  <span className={SUB_CHIP}>córners y faltas</span>
+                </span>
+              </Link>
             ) : null}
           </div>
         </div>

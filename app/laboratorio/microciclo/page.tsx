@@ -226,7 +226,8 @@ function BarrasSemana({
               className={`block w-full max-w-[40px] rounded-t-md ${f.esPartido ? "bg-[#C8A96B]" : "bg-emerald-400/70"}`}
               style={{ height: f.esPartido ? "100%" : `${(100 * f.ua) / max}%`, opacity: f.esPartido ? 0.35 : 1 }}
             />
-            <span className="text-[10px] font-semibold text-white/70">{f.esPartido ? "MD" : f.libre ? "libre" : f.md}</span>
+            {/* 20/11/2026 (jueces): «MD-4» se partía en dos líneas a 390 px. */}
+            <span className="whitespace-nowrap text-[10px] font-semibold text-white/70">{f.esPartido ? "MD" : f.libre ? "libre" : f.md}</span>
           </li>
         ))}
       </ul>
@@ -376,7 +377,8 @@ function TiraDias({
        casillas de 150 px como mínimo —a 118 px «Entreno | Libre» se pisaban
        a 1440—; si no caben en una fila, pasan a dos. */
     /* max-md:pr-12 (17/11/2026, jueces): el botón flotante ⋮ caía sobre una casilla en el móvil. */
-    <div className="grid grid-cols-2 gap-2 max-md:pr-12 sm:grid-cols-[repeat(auto-fill,minmax(150px,1fr))]">
+    /* 20/11/2026 (jueces): a 390 px «Entreno / Libre» se salía de la tarjeta y a 1440 el sábado se cortaba: una columna en el móvil y rejilla que envuelve (3-4 por fila). */
+    <div className="grid grid-cols-1 gap-2 max-md:pr-12 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
         const carga = !uno.esPartido ? cargaMd?.get(normalizaMd(uno.md)) : undefined;
@@ -385,7 +387,7 @@ function TiraDias({
         return (
           <div
             key={uno.fecha}
-            className={`rounded-xl border px-3 py-2.5 transition ${
+            className={`min-w-0 rounded-xl border px-3 py-2.5 transition ${
               uno.esPartido
                 ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
                 : libre
@@ -1171,13 +1173,19 @@ function ResumenOrigen({
                   ? `El micro ${micro} no tiene ${listaMd(datos.faltan)}; el ${datos.propuesto.micro}${datos.propuesto.rival ? ` (${datos.propuesto.rival})` : ""} es la última semana de liga que sí los entrena.`
                   : `El micro ${micro} no tiene ${listaMd(datos.faltan)}: ${datos.faltan.length === 1 ? "ese día entra" : "esos días entran"} en blanco.`}
             </p>
+            {/* 20/11/2026 (marketing): una sola acción principal en la pantalla («Crear el microciclo»); aquí, botones secundarios y el análisis del micro propuesto. */}
             {datos.propuesto && onElige && !tipoEnBlanco && (
-              <Button tone="primary" icon={ClipboardCopy} onClick={() => onElige(datos.propuesto!.micro)}>
+              <Button icon={ClipboardCopy} onClick={() => onElige(datos.propuesto!.micro)}>
                 Partir del micro {datos.propuesto.micro}
               </Button>
             )}
+            {datos.propuesto && !tipoEnBlanco && (
+              <Link href={`/microcycles?micro=${datos.propuesto.micro}`} className="text-[13px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                Ver el micro {datos.propuesto.micro} →
+              </Link>
+            )}
             {conTipo.length > 0 && onTipoEnBlanco && (
-              <Button tone={tipoEnBlanco || datos.propuesto ? "ghost" : "primary"} icon={tipoEnBlanco ? Undo2 : Sparkles} onClick={() => onTipoEnBlanco(!tipoEnBlanco)}>
+              <Button tone="ghost" icon={tipoEnBlanco ? Undo2 : Sparkles} onClick={() => onTipoEnBlanco(!tipoEnBlanco)}>
                 {tipoEnBlanco ? "Dejarlos en blanco" : "Rellenar con la semana tipo"}
               </Button>
             )}
@@ -1553,7 +1561,7 @@ export default function EditorMicrocicloPage() {
   | (17/11/2026, r20, jueces). El micro en curso tiene la valoración a medias
   | (4 de 15) y tareas que aún no se han hecho; se queda como opción.
   */
-  const ultimoConTareas = useMemo(() => {
+  const ultimoCerrado = useMemo(() => {
     const conTareas = microsDeLaHoja.filter((uno) => uno.tareas > 0);
     const ultimaFecha = (micro: number) =>
       (registro?.tareas ?? [])
@@ -1573,14 +1581,6 @@ export default function EditorMicrocicloPage() {
     return (cerrado ?? conTareas[0])?.micro ?? null;
   }, [microsDeLaHoja, registro, hoy]);
 
-  /* El micro del que se parte al crear, y si tiene minutos que copiar (11/11/2026). */
-  const microOrigen = partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null;
-  const origenConMinutos = (registro?.tareas ?? []).some(
-    (t) =>
-      t.micro === microOrigen &&
-      (t.tiempo || 0) > 0 &&
-      !esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal }),
-  );
 
   /** Vuelve a montar los días con el calendario, respetando los libres. */
   const arma = useCallback(async () => {
@@ -1755,6 +1755,44 @@ export default function EditorMicrocicloPage() {
   const mdSemana = useMemo(
     () => diasPlan.filter((d) => !d.esPartido && !libresMarcados.has(d.fecha) && d.md).map((d) => d.md),
     [diasPlan, libresMarcados],
+  );
+
+  /*
+  | 20/11/2026 (jueces): por defecto, el último micro cerrado que entrena los
+  | MISMOS MD que la semana nueva. Elegía el 21 y en el mismo bloque avisaba de
+  | que no tenía MD-4 y proponía el 22; ahora sale el 22 y el aviso sólo queda
+  | si no hay ninguno que los tenga todos.
+  */
+  const ultimoConTareas = useMemo(() => {
+    if (ultimoCerrado === null) return null;
+
+    const norma = (md: string) => md.trim().toUpperCase().replace(/s+/g, "");
+    const pide = [...new Set(mdSemana.map(norma))].filter(Boolean);
+
+    if (!pide.length) return ultimoCerrado;
+
+    const mdsDe = new Map<number, Set<string>>();
+
+    for (const t of registro?.tareas ?? []) {
+      if (!t.md.trim() || !t.tarea.trim() || esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
+      const set = mdsDe.get(t.micro) ?? new Set<string>();
+
+      set.add(norma(t.md));
+      mdsDe.set(t.micro, set);
+    }
+
+    const igual = microsDeLaHoja.find((uno) => uno.tareas > 0 && uno.micro <= ultimoCerrado && pide.every((md) => mdsDe.get(uno.micro)?.has(md)));
+
+    return igual?.micro ?? ultimoCerrado;
+  }, [ultimoCerrado, mdSemana, registro, microsDeLaHoja]);
+
+  /* El micro del que se parte al crear, y si tiene minutos que copiar (11/11/2026). */
+  const microOrigen = partirDe === "ultimo" ? ultimoConTareas : partirDe ? Number(partirDe) : null;
+  const origenConMinutos = (registro?.tareas ?? []).some(
+    (t) =>
+      t.micro === microOrigen &&
+      (t.tiempo || 0) > 0 &&
+      !esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal }),
   );
 
   /** La semana del próximo partido, sin tareas: los días del calendario, los libres marcados y la fila del partido con su rival. */
@@ -2922,7 +2960,7 @@ export default function EditorMicrocicloPage() {
                       {
                         value: "ultimo",
                         label: ultimoConTareas
-                          ? `${etiquetaMicroHoja(microsDeLaHoja.find((uno) => uno.micro === ultimoConTareas) ?? { micro: ultimoConTareas, rival: "", tareas: 1 }, registro?.tareas ?? [])} (el último)`
+                          ? `${etiquetaMicroHoja(microsDeLaHoja.find((uno) => uno.micro === ultimoConTareas) ?? { micro: ultimoConTareas, rival: "", tareas: 1 }, registro?.tareas ?? [])} ${ultimoConTareas === ultimoCerrado ? "(el último)" : "(el último con estos días)"}`
                           : "El último (no hay ninguno con tareas)",
                       },
                       { value: "", label: "Semana en blanco" },

@@ -2650,10 +2650,35 @@ const conclusiones = (() => {
   | si no, a lo que más concede en las tarjetas (más abajo, con la lectura).
   */
   const golEncajado = filtered.find(LECTOR.gol);
+  const hoyRemate = Math.round((filtered.filter(LECTOR.remate).length / filtered.length) * 100);
+  /*
+  | 20/11/2026 (jueces, ronda 4): con la temporada entera no había objetivo.
+  | Entonces, el de nuestros buenos partidos: la tasa de remate que no
+  | superamos en uno de cada tres (percentil 33 por partido, con 3 acciones
+  | o más), si queda al menos 3 puntos por debajo de hoy.
+  */
+  const metaPartidos = (() => {
+    const porJornada = new Map<string, Row[]>();
+    for (const r of filtered) {
+      const clave = r.contexto.jornada.clave;
+      if (clave) porJornada.set(clave, [...(porJornada.get(clave) ?? []), r]);
+    }
+    const tasas = [...porJornada.values()]
+      .filter((filas) => filas.length >= 3)
+      .map((filas) => (filas.filter(LECTOR.remate).length / filas.length) * 100)
+      .sort((x, y) => x - y);
+    if (tasas.length < 4) return null;
+    const posicion = (tasas.length - 1) / 3;
+    const bajo = Math.floor(posicion);
+    const pct = Math.round(tasas[bajo] + (tasas[Math.min(bajo + 1, tasas.length - 1)] - tasas[bajo]) * (posicion - bajo));
+    return pct <= hoyRemate - 3 ? { pct, logrados: tasas.filter((t) => t <= pct).length, partidos: tasas.length } : null;
+  })();
   const objetivoRemate =
     anterioresConclusion && anterioresConclusion.length
-      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${Math.round((filtered.filter(LECTOR.remate).length / filtered.length) * 100)} %)`
-      : "";
+      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${hoyRemate} %)`
+      : metaPartidos
+        ? `objetivo: como mucho ${metaPartidos.pct} % con remate (lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos; hoy ${hoyRemate} %)`
+        : "";
   const tarea = golEncajado
     ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
         /directa/i.test(golEncajado.tipoAccion)

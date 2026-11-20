@@ -1779,7 +1779,17 @@ export default function MatchPreparation() {
         titulo: "El duelo que decide",
         texto: duelo.consigna.split(" (")[0],
         base: `${duelo.titulo}, ${momento}: ${duelo.nuestros.join(" y ")} contra ${duelo.suyos.join(" y ")}${firma}.${duelo.base ? ` ${duelo.base.replace(/^Base, /, "").replace(/^m/, "M")}.` : ""}`,
-        enlaces: [{ href: enlaceDuelos, texto: "Ver el duelo →" }],
+        /* 20/11/2026 (jueces de fútbol): también la ficha de nuestro jugador y la del suyo (con sus cortes), no sólo el duelo. */
+        enlaces: [
+          { href: enlaceDuelos, texto: "Ver el duelo →" },
+          ...duelo.nuestros.slice(0, 1).map((n) => ({ href: `/individual?nombre=${encodeURIComponent(n)}`, texto: `${n}, su ficha →` })),
+          ...(rivalActivo?.EQUIPO
+            ? duelo.suyos.slice(0, 1).map((n) => ({
+                href: `/scout-rival-individual?${new URLSearchParams({ equipo: String(rivalActivo.EQUIPO), jugador: n }).toString()}`,
+                texto: `${n}, su ficha y vídeo →`,
+              }))
+            : []),
+        ],
       });
     }
     /* 4 · Lo suyo que hay que parar (17/11/2026, ronda 19, jueces de fútbol): ninguno de los tres frenaba su amenaza principal. */
@@ -3932,19 +3942,22 @@ export default function MatchPreparation() {
 }
 
 /** El dato de cada idea de «Cómo le ganamos»: tres líneas y «ver más» (17/11/2026, ronda 20, marketing). */
+/*
+| 20/11/2026 (los tres jueces): entero, sin «…». Cortado a tres líneas se
+| leía como texto roto; la tarjeta crece lo que haga falta. La fuente, que
+| va entre paréntesis al final del dato, sale aparte en su línea.
+*/
 function BaseDeLaIdea({ texto }: { texto: string }) {
-  const [entero, setEntero] = useState(false);
-  const largo = texto.length > 170;
+  const fuente = texto.match(/\s*\(([^()]*(?:Wyscout|Opta|BeSoccer|Hudl|analista|hoja)[^()]*)\)\.?\s*$/i);
+  const dato = fuente ? texto.slice(0, fuente.index).trim() : texto;
 
   return (
-    <p className="mt-1 text-[13px] leading-snug text-white/65">
-      <b className="font-semibold text-white/75">Dato: </b>
-      <span className={largo && !entero ? "line-clamp-3" : undefined}>{texto}</span>
-      {largo && (
-        <button type="button" onClick={() => setEntero((v) => !v)} className="mt-0.5 block text-[12px] font-semibold text-[#C8A96B] hover:underline">
-          {entero ? "Ver menos" : "Ver más"}
-        </button>
-      )}
-    </p>
+    <>
+      <p className="mt-1 text-[13px] leading-snug text-white/70">
+        <b className="font-semibold text-white/80">Dato: </b>
+        {dato}
+      </p>
+      {fuente && <p className="mt-0.5 text-[12px] leading-snug text-white/60">Fuente: {fuente[1]}</p>}
+    </>
   );
 }

@@ -26,7 +26,7 @@ import { conVotos } from "@/components/cultura/HojaCultura";
 import { TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
 import { ValoresIndice } from "@/components/cultura/ValoresIndice";
 import Link from "next/link";
-import { ClipboardList, Presentation, Route } from "lucide-react";
+import { ClipboardList, Route } from "lucide-react";
 
 /*
 | 08/11/2026: el titular dice la idea con el dato («Humildad, el más votado»)
@@ -65,15 +65,12 @@ export default function IdentidadCulturaPage() {
                 charla, la hoja de ruta y el seguimiento) sin la tarjeta del
                 documento aparte; luego el índice de los cinco valores y la
                 vista previa. Es el único recuento completo de la app. */}
-            <div className="mt-5 pr-10 sm:pr-0">
+            {/* 20/11/2026 (guionista): sin el margen derecho de 40 px del móvil; las tarjetas llegan a los dos bordes igual. «Proyectar» es ya un botón (en la barra del documento). */}
+            <div className="mt-5">
               <RepositorioCultura
                 enlazaUrl
                 barra={
                   <>
-                    <span className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1 text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                      <Presentation className="h-4 w-4" aria-hidden />
-                      Proyéctalo en la charla
-                    </span>
                     <Link
                       href="/team-values"
                       className="inline-flex items-center gap-1 rounded-full border border-white/15 px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"

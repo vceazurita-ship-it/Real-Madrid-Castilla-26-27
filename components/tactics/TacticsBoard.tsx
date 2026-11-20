@@ -2213,15 +2213,24 @@ export default function TacticsBoard({
 
             {/* Los que ya están en el campo, aparte del resto de la plantilla. */}
             {(() => {
-              const puestos = new Set(scene.tokens.filter((t) => t.kind === "home" && t.nombre).map((t) => t.nombre));
-              const enElCampo = (p: (typeof roster)[number]) => puestos.has(p.apodo || p.nombre) || puestos.has(nombreCortoUnico(p, roster));
+              const nuestras = scene.tokens.filter((t) => t.kind === "home" && t.nombre);
+              const puestos = new Set(nuestras.map((t) => t.nombre));
+              /*
+              | 20/11/2026 (jueces de fútbol): la lista seguía diciendo «7 · Dani»
+              | y el campo, Duelos y el Plan «7 Yáñez» (la ficha guarda su
+              | nombre). El que está en el campo sale en la lista con el nombre
+              | de su ficha: la casa por la foto o por el dorsal.
+              */
+              const fichaDe = (p: (typeof roster)[number]) =>
+                nuestras.find((t) => (p.foto && t.foto === p.foto) || (p.dorsal && String(t.label) === String(p.dorsal) && t.posicion === p.posicion));
+              const enElCampo = (p: (typeof roster)[number]) => puestos.has(p.apodo || p.nombre) || puestos.has(nombreCortoUnico(p, roster)) || Boolean(fichaDe(p));
               const enCampo = roster.filter(enElCampo);
               const resto = roster.filter((p) => !enElCampo(p));
               const opcion = (player: (typeof roster)[number]) => (
                 <option key={player.id} value={player.id}>
                   {player.dorsal ? `${player.dorsal} · ` : ""}
                   {/* El mismo nombre corto que la ficha del campo y la puesta en palabras (17/11/2026, ronda 20): «7 · Dani · 7» frente a «7 Yáñez». */}
-                  {nombreCortoUnico(player, roster)}
+                  {fichaDe(player)?.nombre || nombreCortoUnico(player, roster)}
                   {player.posicion ? ` · ${nombrePuesto(player.posicion.split(/[,/]/)[0].trim())}` : ""}
                 </option>
               );
@@ -2641,17 +2650,18 @@ export default function TacticsBoard({
             )}
 
             {/* Su ficha, con el jugador ya elegido (17/11/2026, ronda 19, jueces): la del rival en Scout individual; la nuestra, en Individual. */}
-            {unaElegida && unaElegida.nombre?.trim() && (unaElegida.kind === "home" || (unaElegida.kind === "away" && squadDelCampo)) && (
+            {unaElegida && unaElegida.nombre?.trim() && (unaElegida.kind === "home" || (unaElegida.kind === "away" && rivalDelCampo)) && (
               <a
                 href={
                   unaElegida.kind === "away"
-                    ? `/scout-rival-individual?${new URLSearchParams({ equipo: squadDelCampo?.equipo ?? "", jugador: unaElegida.nombre.trim() }).toString()}`
+                    ? `/scout-rival-individual?${new URLSearchParams({ equipo: rivalDelCampo ?? "", jugador: unaElegida.nombre.trim() }).toString()}`
                     : `/individual?nombre=${encodeURIComponent(unaElegida.nombre.trim())}`
                 }
                 title={unaElegida.kind === "away" ? `La ficha y los cortes de ${unaElegida.nombre} en Scout individual` : `La ficha de ${unaElegida.nombre} en Individual`}
                 className="inline-flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-2 py-1 font-semibold text-white/70 transition hover:bg-white/[0.08] hover:text-white"
               >
-                Su ficha ›
+                {/* «y vídeo» (20/11/2026, jueces de fútbol): en Scout individual están sus cortes. */}
+                {unaElegida.kind === "away" ? "Su ficha y vídeo ›" : "Su ficha ›"}
               </a>
             )}
 

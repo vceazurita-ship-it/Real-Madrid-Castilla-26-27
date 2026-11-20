@@ -76,6 +76,9 @@ type Guarda = ReturnType<typeof useApuestasDoc>["guarda"];
 
 const nombreDe = (slug: string) => PERSONA_POR_SLUG.get(slug)?.nombre ?? slug;
 
+/** «Ana, Luis y Marta». */
+const enLista = (xs: string[]) => (xs.length <= 1 ? xs.join("") : `${xs.slice(0, -1).join(", ")} y ${xs[xs.length - 1]}`);
+
 const cortoDe = (slug: string) => {
   const persona = PERSONA_POR_SLUG.get(slug);
 
@@ -641,7 +644,8 @@ export default function ApuestasPage() {
                 )}
 
                 {loVivo.length > 0 && (
-                  <div className="mt-3 grid gap-3 lg:grid-cols-2">
+                  /* 20/11/2026 (ronda 4, marketing): con un número impar, la última ocupa las dos columnas (dejaba un hueco a la derecha). */
+                  <div className="mt-3 grid gap-3 lg:grid-cols-2 lg:[&>*:last-child:nth-child(odd)]:col-span-2">
                     {loVivo.map((a) =>
                       fila(a, {
                         desplegada: true,
@@ -1159,6 +1163,22 @@ function Tarjeta({
 
       <Recuento favor={ladoFavor.length} contra={contra.length} juegan={juegan.length} faltan={estado === "abierta" ? faltan.length : 0} />
 
+      {/* 20/11/2026 (ronda 4, marketing): el veredicto esperado, por nombres: quién gana si ocurre y quién si no. */}
+      {estado === "abierta" ? (
+        <p className="text-[12.5px] leading-snug text-white/70">
+          <span className="font-semibold text-emerald-300">Si se cumple</span>, aciertan {enLista(ladoFavor.map(cortoDe))}
+          {contra.length > 0 ? (
+            <>
+              {"; "}
+              <span className="font-semibold text-rose-300">si no</span>, {enLista(contra.map(cortoDe))}
+            </>
+          ) : (
+            "; si no, nadie se ha puesto en contra"
+          )}
+          .
+        </p>
+      ) : null}
+
       {/* Los enlaces: el jugador nuestro que nombra y el equipo de la liga, con el rival ya elegido. */}
       {(jugadores.length > 0 || equipos.length > 0) && (
         <div className="space-y-1.5">
@@ -1409,7 +1429,8 @@ function LineaDeTiempo({
                   <span className={`text-[15px] font-bold leading-none tabular-nums ${esMayor ? "text-white" : "text-white/80"}`}>{cuantas}</span>
                   <span
                     aria-hidden
-                    className={`mt-1 w-4 rounded-t sm:w-6 ${esYa ? "bg-sky-300" : esMayor ? "bg-[#C8A96B]" : "bg-[#C8A96B]/40"}`}
+                    /* 20/11/2026 (ronda 4): barras más anchas, que se vean y se pulsen. */
+                    className={`mt-1 w-7 rounded-t sm:w-10 ${esYa ? "bg-sky-300" : esMayor ? "bg-[#C8A96B]" : "bg-[#C8A96B]/40"}`}
                     style={{ height: alto }}
                   />
                 </span>

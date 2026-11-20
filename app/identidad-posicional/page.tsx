@@ -1235,9 +1235,11 @@ export default function IdentidadPosicionalPage() {
                             href={`/individual?nombre=${encodeURIComponent(uno.nombre ?? "")}&pestana=seguimiento`}
                             title={`Seguimiento de ${uno.corto}`}
                             aria-label={`Seguimiento de ${uno.corto}`}
-                            className={cn("zona-dedo border-l border-[#C8A96B]/30 px-2 py-1 text-gray-400 transition-colors hover:bg-[#C8A96B]/10 hover:text-white", focusRing)}
+                            className={cn("zona-dedo inline-flex items-center gap-1 border-l border-[#C8A96B]/30 px-2 py-1 text-[12px] font-medium text-gray-300 transition-colors hover:bg-[#C8A96B]/10 hover:text-white", focusRing)}
                           >
+                            {/* 20/11/2026 (jueces): el icono solo no decía adónde lleva; ahora con su palabra. */}
                             <ClipboardList className="h-3.5 w-3.5" aria-hidden />
+                            Seguimiento
                           </Link>
                         </span>
                       ))}
