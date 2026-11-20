@@ -944,7 +944,8 @@ function MetricsPanel({
             const medio = ligaPuntosPP !== null ? ligaPuntosPP * metrics.played : null;
             if (medio === null) return `${totalPuntos} de ${metrics.played * 3} puntos (${Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)`;
             const d = Math.round((totalPuntos - medio) * 10) / 10;
-            const base = `${coma1(medio)}, media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? `, J1–J${ligaBase.jornadas}` : ""}`;
+            /* 20/11/2026 (jueces, ronda 5): con menos de 20 partidos, «tendencia», junto a la comparación. */
+            const base = `${coma1(medio)}, media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? `, J1–J${ligaBase.jornadas}` : ""}${metrics.played < 20 ? ` · ${metrics.played} ${metrics.played === 1 ? "partido" : "partidos"}, tendencia` : ""}`;
             return Math.abs(d) < 0.5
               ? `${totalPuntos} puntos, lo que suma un equipo medio de la liga (${base})`
               : `${totalPuntos} puntos, ${coma1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio de la liga (${base})`;

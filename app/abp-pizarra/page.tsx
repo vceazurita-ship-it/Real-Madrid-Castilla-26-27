@@ -108,7 +108,7 @@ import { useEscudos } from "@/hooks/useEscudos";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { usePlayers } from "@/hooks/usePlayers";
 import { idsDelOnce, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
-import { ajustaNombres, nombresDudosos, nombresSinFicha, nombresSueltos } from "@/lib/abp/nombresPlantilla";
+import { ajustaNombres, nombresDudosos, nombresSinFicha, nombresSueltos, papelesCruzados, type PapelCruzado } from "@/lib/abp/nombresPlantilla";
 import type { Player } from "@/types/player";
 import {
   compareMatches,
@@ -1548,6 +1548,23 @@ export default function PizarraAbpPage() {
   | variantes con las consignas copiadas de otra. No bloquea: se dice en el
   | menú «Exportar», encima de las opciones.
   */
+  /* 20/11/2026 (jueces, ronda 5): los avisos de la convocatoria, también junto
+     a «Exportar»; abajo, bajo la pizarra, quedaban fuera del recorrido de quien exporta. */
+  const avisosConvocatoria = useMemo(() => {
+    if (!tablero || tablero.slides.length < 2) return 0;
+
+    const lista = players.map((player) => ({ id: player.id, nombre: player.nombre, apodo: player.apodo }));
+    const revision = revisaTablero(tablero);
+
+    return (
+      revision.gazapos.reduce((n, gazapo) => n + gazapo.falta.length, 0) +
+      tablero.slides.reduce(
+        (n, item) => n + cruzadosDe(item, lista).length + (item.fichas.length ? consignasSinPuesto(item, lista).length : 0),
+        0,
+      )
+    );
+  }, [tablero, players]);
+
   const avisosAlExportar = useMemo(() => {
     if (!tablero) return [];
 
@@ -1566,6 +1583,13 @@ export default function PizarraAbpPage() {
       /* 12/11/2026 (jueces): «Cestero saca a corta» con Cestero de rechace largo en la lámina. */
       for (const otro of consignasConOtroPapel(item, lista)) {
         avisos.push(`${i + 1}. ${tituloVisible(tablero.slides, i)}: ${otro}.`);
+      }
+
+      /* 20/11/2026 (jueces, ronda 5): «Rematadores: … Sergio» con Sergio en «Saque y corta». */
+      for (const cruce of cruzadosDe(item, lista)) {
+        avisos.push(
+          `${i + 1}. ${tituloVisible(tablero.slides, i)}: las consignas ponen a ${cruce.nombre} en «${cruce.consigna}» y el panel, en «${cruce.panel.toLocaleLowerCase("es-ES")}».`,
+        );
       }
     });
 
@@ -2894,6 +2918,23 @@ export default function PizarraAbpPage() {
                     escudoRival={escudoDe(tablero.rival || partido?.opponent || "")}
                     jornada={jornadaPieza}
                   />
+                )}
+
+                {avisosConvocatoria > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const control = document.getElementById("control-convocatoria");
+
+                      if (control instanceof HTMLDetailsElement) control.open = true;
+                      control?.scrollIntoView({ behavior: "smooth", block: "start" });
+                    }}
+                    title="Ver en «Control de la convocatoria» quién falta y dónde, con su «Cambiar»"
+                    className="inline-flex min-h-[44px] items-center gap-1.5 rounded-xl border border-amber-300/40 bg-amber-300/10 px-3 text-[12px] font-semibold text-amber-300 transition hover:border-amber-300/70 sm:min-h-[36px]"
+                  >
+                    <AlertTriangle size={14} />
+                    {avisosConvocatoria === 1 ? "1 aviso de convocatoria" : `${avisosConvocatoria} avisos de convocatoria`}
+                  </button>
                 )}
 
                 {/* «Tal cual» (13/11/2026, petición del analista): exactamente las
@@ -4912,6 +4953,22 @@ function consignasSinPuesto(
   });
 }
 
+/** La consigna que da a alguien un papel («Rematadores: … Sergio») distinto del de su ficha (20/11/2026). */
+function cruzadosDe(slide: SlidePizarra, jugadores: { id: string; nombre?: string; apodo?: string }[]): PapelCruzado[] {
+  if (!slide.fichas.length || !slide.notas.length) return [];
+
+  const grupoDePuesto = new Map(puestosDe(slide).map((puesto) => [puesto.key, puesto.grupo]));
+  const grupoDe = new Map<string, string>();
+
+  for (const ficha of slide.fichas) {
+    const grupo = ficha.puesto ? grupoDePuesto.get(ficha.puesto) : undefined;
+
+    if (grupo && !grupoDe.has(ficha.playerId)) grupoDe.set(ficha.playerId, grupo);
+  }
+
+  return papelesCruzados(slide.notas, gruposDe(slide), grupoDe, jugadores);
+}
+
 function ControlDeGazapos({
   tablero,
   players,
@@ -4954,10 +5011,25 @@ function ControlDeGazapos({
     return [...grupos.values()];
   }, [tablero, players]);
 
-  const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1 && consignas.length === 0;
+  /* 20/11/2026 (jueces, ronda 5): la consigna que da a alguien un papel
+     («Rematadores: … Sergio») distinto del que tiene en el panel. */
+  const cruzadosPorSlide = useMemo(() => {
+    const lista = [...players.entries()].map(([id, player]) => ({ id, nombre: player.nombre, apodo: player.apodo }));
+    const salida = new Map<string, PapelCruzado[]>();
+
+    for (const slide of tablero.slides) {
+      const cruzados = cruzadosDe(slide, lista);
+
+      if (cruzados.length) salida.set(slide.id, cruzados);
+    }
+
+    return salida;
+  }, [tablero, players]);
+
+  const limpio = revision.gazapos.length === 0 && revision.slidesConGente > 1 && consignas.length === 0 && cruzadosPorSlide.size === 0;
 
   /* Sin dos diapositivas con gente no hay nada que cotejar: no se pinta. */
-  if (revision.slidesConGente < 2 && consignas.length === 0) return null;
+  if (revision.slidesConGente < 2 && consignas.length === 0 && cruzadosPorSlide.size === 0) return null;
 
   /* Plegado por defecto para acortar la página; si hay avisos, el rótulo los
      dice con el número y los nombres, para que no pasen inadvertidos. */
@@ -4969,7 +5041,7 @@ function ControlDeGazapos({
     })
     .filter(Boolean);
 
-  const avisos = revision.gazapos.length + consignas.length;
+  const avisos = revision.gazapos.length + consignas.length + [...cruzadosPorSlide.values()].reduce((n, uno) => n + uno.length, 0);
 
   /* Los avisos de cada diapositiva, en el orden del tablero (30/10/2026). */
   const porDiapositiva = tablero.slides
@@ -4982,8 +5054,17 @@ function ControlDeGazapos({
           return { playerId: gazapo.playerId, nombre: player?.apodo || player?.nombre || gazapo.playerId };
         });
       const sinPuesto = consignas.find((grupo) => grupo.slides.some((una) => una.id === slide.id))?.nombres ?? [];
+      const cruzados = cruzadosPorSlide.get(slide.id) ?? [];
 
-      return { id: slide.id, numero: i + 1, titulo: slide.titulo, faltan, sinPuesto, avisos: faltan.length + sinPuesto.length };
+      return {
+        id: slide.id,
+        numero: i + 1,
+        titulo: tituloVisible(tablero.slides, i),
+        faltan,
+        sinPuesto,
+        cruzados,
+        avisos: faltan.length + sinPuesto.length + cruzados.length,
+      };
     })
     .filter((uno) => uno.avisos > 0);
   const avisosEnDiapositivas = porDiapositiva.reduce((n, uno) => n + uno.avisos, 0) || avisos;
@@ -4996,12 +5077,14 @@ function ControlDeGazapos({
       ? `${primera.faltan[0].nombre} no sale en ${dondePrimera}`
       : primera.sinPuesto.length
         ? `${primera.sinPuesto[0]} sin puesto en ${dondePrimera}`
-        : ""
+        : primera.cruzados.length
+          ? `${primera.cruzados[0].nombre}: otro papel en las consignas de ${dondePrimera}`
+          : ""
     : "";
 
   return (
     /* 20/11/2026 (jueces, ronda 4): con avisos, abierto: «6 avisos» y sólo se veía uno. */
-    <details open={!limpio && avisos > 0 ? true : undefined} className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+    <details id="control-convocatoria" open={!limpio && avisos > 0 ? true : undefined} className="group scroll-mt-24 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       {/* Un chip con el número de avisos, no un párrafo naranja de cuatro
           líneas (30/10/2026, expertos): la lista sale al desplegar. */}
       <summary className="flex min-h-[32px] cursor-pointer select-none flex-wrap items-center gap-2 text-xs font-medium text-white/70">
@@ -5098,6 +5181,19 @@ function ControlDeGazapos({
                   <span className="text-white/50">En las consignas sin puesto en el campo: </span>
                   <span className="font-semibold text-white/85">{uno.sinPuesto.join(", ")}</span>
                 </p>
+              )}
+
+              {uno.cruzados.length > 0 && (
+                <ul className="mt-1 space-y-0.5 text-white/70">
+                  {uno.cruzados.map((cruce) => (
+                    <li key={cruce.playerId}>
+                      <span className="font-semibold text-white/85">{cruce.nombre}</span>
+                      <span className="text-white/55">
+                        : las consignas lo ponen en «{cruce.consigna}» y el panel, en «{cruce.panel.toLocaleLowerCase("es-ES")}»
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               )}
             </li>
           ))}

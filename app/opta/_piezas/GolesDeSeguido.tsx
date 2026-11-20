@@ -384,7 +384,7 @@ export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null 
                 <span aria-hidden className="shrink-0 text-[11px] text-[#C8A96B]">▶</span>
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-[13px] font-semibold text-white/85">{t.titulo}</span>
-                  <span className="block truncate text-[11.5px] text-white/55">
+                  <span className="block break-words text-[11.5px] text-white/55">
                     {t.cuando}
                     {t.situacion ? ` · ${t.situacion}` : ""}
                   </span>

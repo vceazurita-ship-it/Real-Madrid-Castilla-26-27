@@ -69,8 +69,9 @@ export function AvisoTareasPendientes() {
 
   if (!admin || ruta?.startsWith("/login")) return null;
 
-  /* Ni en las pizarras (proyector) ni en Tareas y alertas, que ya es la pantalla de tareas. */
-  if (ruta && ["/pizarra-tactica", "/abp-pizarra", "/alertas", "/laboratorio/abp"].some((r) => ruta.startsWith(r))) return null;
+  /* Ni en las pizarras (proyector) ni en Tareas y alertas, que ya es la pantalla de tareas.
+     20/11/2026 (ronda 5, marketing): tampoco en la quiniela ni en el laboratorio (escudos, apuestas): tapaba filas del ranking. */
+  if (ruta && ["/pizarra-tactica", "/abp-pizarra", "/alertas", "/laboratorio", "/quiniela"].some((r) => ruta.startsWith(r))) return null;
 
   return <Vigia enPortada={ruta === "/"} />;
 }

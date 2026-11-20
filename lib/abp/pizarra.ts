@@ -1319,7 +1319,7 @@ export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
 
   const porSlide = tablero.slides.map((slide) => ({
     id: slide.id,
-    titulo: slide.titulo,
+    titulo: nombreDeSlide(slide.titulo),
     cuantos: new Set(slide.fichas.map((ficha) => ficha.playerId)).size,
   }));
 
@@ -1340,9 +1340,18 @@ export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
   | gazapo, es lo esperado. Sólo cuenta como ausencia la de una diapositiva en la
   | que cabría.
   */
+  /*
+  | 20/11/2026 (jueces, ronda 5): «Directas a portería» lleva a los
+  | lanzadores, cuatro por diseño, aunque tenga doce puestos (tres por sitio).
+  | Contaba como «no llena» y salían seis avisos falsos: los que no lanzan no
+  | faltan ahí. Las plantillas que se eligen por grupo (`elegirEnGrupo`) son de
+  | especialistas: nunca cuentan como ausencia.
+  */
   const llenas = new Set(
     conGente
       .filter((slide) => {
+        if (PLANTILLA_BY_KEY.get(slide.plantilla)?.elegirEnGrupo?.length) return true;
+
         const cupo = puestosDe(slide).length;
 
         return cupo > 0 && new Set(slide.fichas.map((ficha) => ficha.playerId)).size >= cupo;
@@ -1355,7 +1364,7 @@ export function revisaTablero(tablero: TableroPizarra): RevisionPizarra {
   for (const [playerId, suyas] of donde) {
     const falta = conGente
       .filter((slide) => !suyas.has(slide.id) && !llenas.has(slide.id))
-      .map((slide) => ({ id: slide.id, titulo: slide.titulo }));
+      .map((slide) => ({ id: slide.id, titulo: nombreDeSlide(slide.titulo) }));
 
     if (!falta.length) continue;
 

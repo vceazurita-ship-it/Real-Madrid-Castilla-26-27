@@ -323,3 +323,72 @@ export function nombresDudosos(textos: string[], jugadores: Jugador[]): NombreDu
 
   return [...salida.values()];
 }
+
+/*
+| 20/11/2026 (jueces, ronda 5): «Rematadores: … Sergio-Joan (z3)» con Sergio en
+| «Saque y corta» en el panel. La consigna que abre con el nombre de un grupo
+| del panel («Rematadores:», «Rechace:») le da un papel a cada nombre que
+| cita; si la ficha de ese jugador está en otro grupo, la sala lee dos cosas
+| distintas. Sólo cuenta lo que va antes de «junto con» / «con» / «ayuda»: los
+| que acompañan no tienen por qué ser de ese grupo.
+*/
+export type PapelCruzado = { playerId: string; nombre: string; consigna: string; panel: string };
+
+export function papelesCruzados(
+  notas: string[],
+  grupos: { key: string; label: string }[],
+  grupoDe: Map<string, string>,
+  jugadores: (Jugador & { id: string })[],
+): PapelCruzado[] {
+  const duenos = new Map<string, Set<string>>();
+
+  for (const jugador of jugadores) {
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      const valor = sinTildes((campo ?? "").trim());
+
+      if (!valor) continue;
+
+      for (const clave of [valor, ...valor.split(/\s+/).filter((p) => p.length >= 4)]) {
+        duenos.set(clave, (duenos.get(clave) ?? new Set()).add(jugador.id));
+      }
+    }
+  }
+
+  const raiz = (texto: string) => sinTildes(texto).replace(/[^a-zñ ]+/g, " ").trim();
+  const salida: PapelCruzado[] = [];
+  const vistos = new Set<string>();
+
+  for (const nota of notas) {
+    const partes = /^\s*([^:]{3,30}):\s*(.+)$/.exec(String(nota ?? ""));
+
+    if (!partes) continue;
+
+    const rotulo = raiz(partes[1]);
+    const grupo = grupos.find((uno) => {
+      const suyo = raiz(uno.label);
+
+      return rotulo.length >= 5 && suyo.split(/\s+/).some((palabra) => palabra.length >= 5 && (palabra.startsWith(rotulo.slice(0, 6)) || rotulo.startsWith(palabra.slice(0, 6))));
+    });
+
+    if (!grupo) continue;
+
+    const cuerpo = ` ${raiz(partes[2].split(/\b(?:junto|con|ayuda|apoya|apoyo)\b/i)[0] ?? "")} `;
+
+    for (const [clave, ids] of duenos) {
+      if (ids.size !== 1 || !cuerpo.includes(` ${clave} `)) continue;
+
+      const [id] = ids;
+      const suyo = grupoDe.get(id);
+
+      if (!suyo || suyo === grupo.key || vistos.has(id)) continue;
+
+      const panel = grupos.find((uno) => uno.key === suyo)?.label ?? suyo;
+      const jugador = jugadores.find((uno) => uno.id === id);
+
+      vistos.add(id);
+      salida.push({ playerId: id, nombre: jugador?.apodo || jugador?.nombre || id, consigna: partes[1].trim(), panel });
+    }
+  }
+
+  return salida;
+}

@@ -143,6 +143,9 @@ function TuDia() {
     });
   }, [vencidas]);
 
+  /* 20/11/2026 (ronda 5): las atrasadas, plegadas bajo lo de hoy; se despliegan las tres primeras con «Hecha». */
+  const [verAtrasadas, setVerAtrasadas] = useState(false);
+
   const marca = (t: TareaDelDia, hecha: boolean) => {
     if (t.tipo === "auto") cambiaHechas((h) => alternaHechaAuto(h, t.clave, hecha));
     else cambiaDoc((d) => alternaHechaPropia(d, t.id, hecha));
@@ -252,27 +255,68 @@ function TuDia() {
         día, en una franja que abre la ventana para marcarlas o pasarlas a hoy.
         Ya no sale sola al entrar (tapaba la cabecera del partido).
       */}
-      {atrasadas.length > 0 && (
-        <button
-          type="button"
-          onClick={abreAtrasadas}
-          className="relative mt-3 flex w-full min-w-0 items-start gap-2 rounded-xl border border-red-400/40 bg-red-500/10 px-3 py-2 text-left text-[13px] leading-snug text-red-200 transition hover:bg-red-500/20"
-        >
-          <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0 text-red-300" aria-hidden />
-          <span className="min-w-0 flex-1">
-            <b className="font-semibold text-red-300">
-              {atrasadas.length === 1 ? "1 atrasada" : `${atrasadas.length} atrasadas`}
-            </b>
-            {" · "}
-            {atrasadas
-              .slice(0, 2)
-              .map((t) => `${t.texto} (${rotuloDia(t.fecha).split(" ")[0].slice(0, 3).toLowerCase()} ${Number(t.fecha.slice(8, 10))})`)
-              .join(", ")}
-            {atrasadas.length > 2 ? ` y ${atrasadas.length - 2} más` : ""}
-          </span>
-          <span className="shrink-0 self-center font-semibold text-red-300 underline underline-offset-2">Ver</span>
-        </button>
-      )}
+      {/*
+        20/11/2026 (ronda 5, análisis y marketing): lo de hoy primero; las
+        atrasadas, plegadas en una línea con su cuenta por día («lun 16 · 2»).
+        Al desplegar, las tres primeras con su día y «Hecha» aquí mismo, y la
+        ventana para pasarlas a hoy o ver el resto.
+      */}
+      {atrasadas.length > 0 && (() => {
+        const dia = (f: string) => `${rotuloDia(f).split(" ")[0].slice(0, 3).toLowerCase()} ${Number(f.slice(8, 10))}`;
+        const porDia = new Map<string, number>();
+        for (const t of atrasadas) porDia.set(t.fecha, (porDia.get(t.fecha) ?? 0) + 1);
+        const cuenta = [...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([f, n]) => `${dia(f)} · ${n}`).join(", ");
+
+        return (
+          <div className="relative mt-3 min-w-0 rounded-xl border border-red-400/40 bg-red-500/10 text-[13px] leading-snug text-red-200">
+            <button
+              type="button"
+              onClick={() => setVerAtrasadas((v) => !v)}
+              aria-expanded={verAtrasadas}
+              className="flex min-h-10 w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
+            >
+              <ShieldAlert className="h-4 w-4 shrink-0 text-red-300" aria-hidden />
+              <span className="min-w-0 flex-1">
+                <b className="font-semibold text-red-300">
+                  {atrasadas.length === 1 ? "1 atrasada" : `${atrasadas.length} atrasadas`}
+                </b>
+                <span className="text-red-200/90"> · {cuenta}</span>
+              </span>
+              <ChevronRight className={`h-4 w-4 shrink-0 text-red-300 transition-transform ${verAtrasadas ? "rotate-90" : ""}`} aria-hidden />
+            </button>
+
+            {verAtrasadas ? (
+              <div className="border-t border-red-400/25 px-3 pb-2.5 pt-1.5">
+                <ul className="space-y-1.5">
+                  {atrasadas.slice(0, 3).map((t) => (
+                    <li key={t.clave} className="flex min-w-0 items-center gap-2">
+                      <span className="min-w-0 flex-1 text-white/85">
+                        {t.texto}
+                        <span className="text-red-200/90"> · {dia(t.fecha)}</span>
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => marca(t, true)}
+                        className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-white/20 px-2.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]"
+                      >
+                        <Check className="h-3.5 w-3.5" aria-hidden />
+                        Hecha
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <button
+                  type="button"
+                  onClick={abreAtrasadas}
+                  className="mt-2 text-[12.5px] font-semibold text-red-300 underline underline-offset-2"
+                >
+                  {atrasadas.length > 3 ? `Ver las ${atrasadas.length} o pasarlas a hoy` : "Pasarlas a hoy"}
+                </button>
+              </div>
+            ) : null}
+          </div>
+        );
+      })()}
 
       {envios.length > 0 && (
         <div className="relative mt-3 flex flex-wrap gap-2">

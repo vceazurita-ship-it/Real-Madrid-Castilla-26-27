@@ -578,12 +578,13 @@ export function VistazoRival({
               18/11/2026 (ronda 23, fútbol y marketing): una línea a la vista y la
               metodología (medias, el PPDA de Opta frente al de Wyscout) en «Ver base».
             */
+            /* 20/11/2026 (ronda 5, marketing): la leyenda larga, también dentro de «Ver base». */
             <div className="mb-2 text-[13px] text-white/60">
-              <p>
-                El punto es el rival y la raya, la mediana del grupo: a la derecha, mejor. «1.º de {equipos}», el mejor del grupo.
-              </p>
-              <details className="mt-0.5 min-w-0">
-                <summary className="cursor-pointer text-[12px] font-semibold text-white/55 hover:text-white">Ver base</summary>
+              <details className="min-w-0">
+                <summary className="cursor-pointer text-[12px] font-semibold text-white/55 hover:text-white">Ver base: cómo se lee cada barra</summary>
+                <p className="mt-0.5 text-[13px] text-white/60">
+                  El punto es el rival y la raya, la mediana del grupo: a la derecha, mejor. «1.º de {equipos}», el mejor del grupo.
+                </p>
                 <p className="mt-0.5 text-[12px] text-white/55">
                   Wyscout, esta temporada, frente a los {equipos} equipos del grupo.
                   {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}

@@ -669,6 +669,10 @@ export default function ApuestasPage() {
               </section>
             )}
 
+            {/* ------------------------ BALANCE ------------------------ */}
+
+            {cargadas ? <BalancePorPersona apuestas={doc.apuestas} hoy={hoy} juegan={quienesJuegan} /> : null}
+
             {/* ------------------------ ACIERTOS ----------------------- */}
 
             {tabla.length > 0 && (
@@ -787,6 +791,10 @@ export default function ApuestasPage() {
                           </span>
                           <ChevronDown size={18} aria-hidden className={`shrink-0 text-[#C8A96B] transition-transform ${abierto ? "rotate-180" : ""}`} />
                         </button>
+                        {/* 20/11/2026 (ronda 5, marketing): la primera apuesta del bloque, con sus enlaces también plegado («Rachi» a su ficha, «el Alcorcón» a la suya). */}
+                        {!abierto && primera ? (
+                          <EnlacesDeLaApuesta texto={primera.prediccion} plantilla={plantilla} rivales={rivales} hoy={hoy} className="px-3.5 pb-3" />
+                        ) : null}
                         {abierto && <div className="border-t border-white/10 p-2.5 sm:p-3">{filasPorEquipo(g.apuestas)}</div>}
                       </section>
                     );
@@ -975,6 +983,134 @@ const CHIP: Record<Exclude<EstadoApuesta, "abierta">, { texto: string; clase: st
 
 const CHIP_ENLACE =
   "inline-flex min-h-8 items-center rounded-full border border-white/15 px-2.5 text-[12px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white";
+
+/**
+ * Los enlaces de lo que nombra una apuesta (20/11/2026, ronda 5): el jugador
+ * nuestro, a su ficha y su seguimiento; el equipo de la liga, a su ficha,
+ * goles, ABP y plan. Lo mismo que la tarjeta abierta, para el bloque plegado.
+ */
+function EnlacesDeLaApuesta({
+  texto,
+  plantilla,
+  rivales,
+  hoy,
+  className = "",
+}: {
+  texto: string;
+  plantilla: Player[];
+  rivales: JornadaRival[];
+  hoy: string;
+  className?: string;
+}) {
+  const jugadores = jugadoresDe(texto, plantilla);
+  const equipos = equiposDe(texto);
+
+  if (!jugadores.length && !equipos.length) return null;
+
+  return (
+    <div className={`space-y-1.5 ${className}`}>
+      {jugadores.map(({ jugador, rotulo }) => (
+        <div key={jugador.nombre} className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] font-semibold text-white/75">{rotulo}</span>
+          <Link href={`/individual?nombre=${encodeURIComponent(jugador.nombre)}`} title={`La ficha de ${jugador.nombre} en Individual`} className={CHIP_ENLACE}>
+            Ficha
+          </Link>
+          {esDeSeguimiento(jugador) && (
+            <Link href={`/individual?nombre=${encodeURIComponent(jugador.nombre)}&pestana=seguimiento`} title={`El seguimiento de ${jugador.nombre}`} className={CHIP_ENLACE}>
+              Su seguimiento
+            </Link>
+          )}
+        </div>
+      ))}
+      {equipos.map((e) => (
+        <div key={e.nombre} className="flex flex-wrap items-center gap-1.5">
+          <span className="text-[12px] font-semibold text-white/75">{e.nombre}</span>
+          <EnlacesEquipo nombre={e.nombre} rivales={rivales} hoy={hoy} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * EL BALANCE DEL GRUPO (20/11/2026, ronda 5, marketing): una barra por persona
+ * con sus apuestas ganadas, perdidas y pendientes (en las que lanzó o se puso
+ * a un lado), y una frase con lo que dice. Ganadas y perdidas, las del
+ * marcador de abajo; pendientes, las que aún no tienen veredicto.
+ */
+function BalancePorPersona({ apuestas, hoy, juegan }: { apuestas: Apuesta[]; hoy: string; juegan: string[] }) {
+  const lineas = marcador(apuestas);
+  const { vivas } = ordenadas(apuestas, hoy);
+  const quienes = [...new Set([...juegan, ...lineas.map((l) => l.slug)])];
+
+  const filas = quienes
+    .map((slug) => {
+      const l = lineas.find((x) => x.slug === slug);
+      const pendientes = vivas.filter((a) => a.autor === slug || Boolean(a.posturas[slug])).length;
+
+      return { slug, ganadas: l?.aciertos ?? 0, perdidas: l?.fallos ?? 0, pendientes };
+    })
+    .filter((f) => f.ganadas + f.perdidas + f.pendientes > 0)
+    .sort((a, b) => b.ganadas - b.perdidas - (a.ganadas - a.perdidas) || b.pendientes - a.pendientes);
+
+  if (!filas.length) return null;
+
+  const tope = Math.max(...filas.map((f) => f.ganadas + f.perdidas + f.pendientes));
+  const decididas = filas.reduce((s, f) => s + f.ganadas + f.perdidas, 0);
+  const mejor = filas.find((f) => f.ganadas > 0);
+  const conclusion =
+    decididas === 0
+      ? `Aún no se ha decidido ninguna: ${filas.length} ${filas.length === 1 ? "persona tiene" : "personas tienen"} apuestas en juego.`
+      : mejor
+        ? `Va por delante ${cortoDe(mejor.slug)}: ${mejor.ganadas} ${mejor.ganadas === 1 ? "ganada" : "ganadas"} y ${mejor.perdidas} ${mejor.perdidas === 1 ? "perdida" : "perdidas"}.`
+        : "De las decididas, nadie ha ganado todavía.";
+
+  return (
+    <section aria-labelledby="balance-titulo" className="mt-6">
+      <h2 id="balance-titulo" className="fuente-club text-[20px] font-bold leading-tight text-white">
+        Balance por persona
+      </h2>
+      <p className="mt-0.5 text-[13px] font-semibold text-white/85">{conclusion}</p>
+      <p className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-white/65">
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" aria-hidden />
+          ganadas
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm bg-rose-400" aria-hidden />
+          perdidas
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-2.5 w-2.5 rounded-sm border border-white/40 bg-white/15" aria-hidden />
+          pendientes
+        </span>
+      </p>
+      <ul className="mt-3 space-y-1.5 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+        {filas.map((f) => {
+          const ancho = (n: number) => `${(n / tope) * 100}%`;
+
+          return (
+            <li key={f.slug} className="grid grid-cols-[minmax(0,7.5rem)_1fr_auto] items-center gap-2 text-[13px]">
+              <span className="inline-flex min-w-0 items-center gap-2">
+                <Avatar slug={f.slug} lado={20} />
+                <span className="truncate font-medium text-white/85">{cortoDe(f.slug)}</span>
+              </span>
+              <span className="flex h-3 overflow-hidden rounded-full bg-white/[0.05]" aria-hidden>
+                <span className="h-full bg-emerald-400" style={{ width: ancho(f.ganadas) }} />
+                <span className="h-full bg-rose-400" style={{ width: ancho(f.perdidas) }} />
+                <span className="h-full bg-white/20" style={{ width: ancho(f.pendientes) }} />
+              </span>
+              <span className="whitespace-nowrap text-right text-[12px] tabular-nums text-white/70">
+                <span className="text-emerald-300">{f.ganadas}</span> · <span className="text-rose-300">{f.perdidas}</span> · {f.pendientes}
+                <span className="sr-only"> ganadas, perdidas y pendientes</span>
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </section>
+  );
+}
 
 /**
  * Los enlaces de un equipo de la liga con el rival y la jornada ya elegidos:
@@ -1266,7 +1402,8 @@ function Tarjeta({
 
           {/* 18/11/2026 (ronda 23): quién falta, como contador; los nombres, plegados. */}
           {estado === "abierta" && faltan.length > 0 && (
-            <details className="group">
+            /* 20/11/2026 (ronda 5, marketing): en las de «Se decide pronto», abierto. */
+            <details className="group" open={desplegada || undefined}>
               <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 text-[13px] font-semibold text-white/80 hover:text-white">
                 <ChevronDown size={15} aria-hidden className="text-[#C8A96B] transition-transform group-open:rotate-180" />
                 {faltan.length === 1 ? "Falta 1 por apostar" : `Faltan ${faltan.length} por apostar`}

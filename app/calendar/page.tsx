@@ -167,7 +167,14 @@ export default function Calendar() {
   useEffect(() => {
     let cancelled = false;
 
-    traeJson<unknown>("/api/rivals?action=seguimiento")
+    /* 20/11/2026 (ronda 5): si lo que se pinta es la copia del aparato, se
+       repinta en cuanto llega lo nuevo (la misma lectura que /individual y
+       el Dashboard Seguimiento, así las tres dicen lo mismo). */
+    traeJson<unknown>("/api/rivals?action=seguimiento", {
+      alRenovar: (nuevo) => {
+        if (!cancelled && Array.isArray(nuevo)) setTrackingData(nuevo);
+      },
+    })
       .then((data) => {
         if (cancelled) return;
 
@@ -478,6 +485,8 @@ export default function Calendar() {
                   <span className="shrink-0 tabular-nums text-white/60">
                     {j.dias == null ? "ningún registro" : `${j.dias} días`}
                   </span>
+                  {/* 20/11/2026 (ronda 5, análisis): además de registrar, sus seguimientos (el último arriba) y su Dashboard ya filtrado. */}
+                  <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["seguimiento", "dashboard"]} soloIconos />
                   <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["registrar"]} />
                 </li>
               ))}
@@ -575,7 +584,8 @@ export default function Calendar() {
                   </span>
                 </span>
               }
-              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} (raya) · la última, rayada, va en curso (día ${((hoy.getDay() + 6) % 7) + 1} de 7) · de los ${castillaTotal} de campo del Castilla`}
+              /* 20/11/2026 (ronda 5, análisis): la semana en curso, con su cifra y aparte de la media. */
+              hint={`${semanas.lista[semanas.lista.length - 2]?.n ?? 0} la semana pasada frente a una media de ${semanas.media.toFixed(1).replace(".", ",")} de las 7 semanas cerradas (raya) · en curso, aparte y rayada: ${semanas.lista[semanas.lista.length - 1]?.n ?? 0} hasta hoy (día ${((hoy.getDay() + 6) % 7) + 1} de 7), no entra en la media · de los ${castillaTotal} de campo del Castilla`}
             />
           )}
           <CalendarStat

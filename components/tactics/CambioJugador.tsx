@@ -18,6 +18,7 @@
 */
 
 import Image from "next/image";
+import Link from "next/link";
 import { Repeat2, Search, X } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -44,9 +45,12 @@ export function CambioJugador({
   opciones,
   onElige,
   onCierra,
+  enlace,
 }: {
   titulo: string;
   equipo: string;
+  /** Su ficha (y su vídeo, si es rival) con el jugador ya elegido (20/11/2026, ronda 5, fútbol). */
+  enlace?: { href: string; rotulo: string };
   opciones: OpcionCambio[];
   onElige: (id: string) => void;
   onCierra: () => void;
@@ -66,6 +70,11 @@ export function CambioJugador({
           <div className="min-w-0">
             <h2 className="truncate text-sm font-semibold text-white">{titulo}</h2>
             <p className="mt-0.5 text-[11px] text-white/45">{equipo} · elige quién entra o déjalo como está</p>
+            {enlace ? (
+              <Link href={enlace.href} className="mt-1 inline-block text-[12px] font-semibold text-sky-300 hover:underline">
+                {enlace.rotulo} ›
+              </Link>
+            ) : null}
           </div>
           <button type="button" onClick={onCierra} aria-label="Cerrar" className="rounded-lg p-1.5 text-white/45 hover:bg-white/[0.06] hover:text-white">
             <X size={16} />

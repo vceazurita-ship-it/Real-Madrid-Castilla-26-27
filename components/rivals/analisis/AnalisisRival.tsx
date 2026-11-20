@@ -810,6 +810,24 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
   | «Pulsa Editar…» se leía como un hueco. No sale en el PDF ni en el PNG.
   */
   if (nadaQueLeer) {
+    /*
+    | En Área del rival, ni la línea (20/11/2026, ronda 5, marketing): «todavía
+    | no hay láminas» nombraba el hueco. Queda sólo el botón para empezar.
+    */
+    if (ambito === "area")
+      return (
+        <div data-export-hide className="flex justify-end">
+          <button
+            type="button"
+            onClick={() => setEditandoManual(true)}
+            title="Sólo lo ves tú, como analista"
+            className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[12px] font-semibold text-white/70 transition hover:bg-white/10"
+          >
+            <Pencil size={13} /> Añadir láminas del área
+          </button>
+        </div>
+      );
+
     return (
       <p data-export-hide className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-xl border border-dashed border-white/15 px-3 py-2 text-[13px] text-white/60">
         <span className="rounded-full border border-[#C8A96B]/40 px-2 py-0.5 text-[11px] font-semibold text-[#C8A96B]">Sólo lo ves tú, como analista</span>
@@ -819,7 +837,7 @@ export function AnalisisRival({ ambito, equipo, plantilla, escudo }: Props) {
           onClick={() => setEditandoManual(true)}
           className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[12px] font-semibold text-white/80 transition hover:bg-white/10"
         >
-          <Pencil size={13} /> {ambito === "area" ? "Editar láminas" : "Editar"}
+          <Pencil size={13} /> Editar
         </button>
       </p>
     );

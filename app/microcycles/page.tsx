@@ -84,6 +84,26 @@ const COLORS = {
   gray: "#64748B",
 };
 
+/*
+| 20/11/2026 (fútbol, ronda 5): el color de cada fase, el mismo de
+| /micro_calendar (Ofensiva verde, Defensiva roja, transiciones azul y
+| naranja, ABP morado, Global amarillo). Lo que no es una fase, gris.
+*/
+function colorDeFase(nombre: string, i: number): string {
+  const v = nombre.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toUpperCase();
+  const tr = /\bTR\b|TRANSICION/.test(v);
+
+  if (tr && v.includes("OFENS")) return "#38BDF8";
+  if (tr && v.includes("DEFENS")) return "#FB923C";
+  if (v.includes("ABP")) return "#A78BFA";
+  if (v.includes("GLOBAL")) return "#FACC15";
+  if (v.includes("OFENS")) return "#34D399";
+  if (v.includes("DEFENS")) return "#F87171";
+  if (v === "OTRAS") return "#9CA3AF";
+
+  return PIE_COLORS[i % PIE_COLORS.length];
+}
+
 const PIE_COLORS = [
   "#C8A96B",
   "#3B82F6",
@@ -1455,7 +1475,7 @@ export default function Page() {
         .filter(([, n]) => !juntar || n > 1)
         .map(([nombre, valor]) => ({ nombre, valor, otras: detalle(nombre), filtro: filtroDe(nombre) })),
       ...(juntar
-        ? [{ nombre: "Otras", valor: pequenas.reduce((s, [, n]) => s + n, 0), otras: pequenas.map(([n]) => n), filtro: null as string | null }]
+        ? [{ nombre: "Otras", valor: pequenas.reduce((s, [, n]) => s + n, 0), otras: pequenas.map(([n]) => n), filtro: null as string | null, partes: pequenas.map(([n, v]) => ({ nombre: n, valor: v })) }]
         : []),
     ];
     const claves = [...cuenta.keys()];
@@ -3181,13 +3201,35 @@ export default function Page() {
                             >
                               <span className="min-w-0 text-sm text-white/80">
                                 {f.nombre}
-                                {f.otras.length ? <span className="block text-[11px] text-white/55">{f.otras.join(" · ")}</span> : null}
+                                {/* 20/11/2026 (fútbol, ronda 5): «Otras» con la leyenda de cada fase y su color. */}
+                                {"partes" in f && f.partes ? (
+                                  <span className="mt-0.5 flex flex-wrap gap-x-2 text-[11px] text-white/60">
+                                    {f.partes.map((p) => (
+                                      <span key={p.nombre} className="inline-flex items-center gap-1">
+                                        <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: colorDeFase(p.nombre, 0) }} />
+                                        {p.nombre} {fmt1(p.valor)}
+                                      </span>
+                                    ))}
+                                  </span>
+                                ) : f.otras.length ? (
+                                  <span className="block text-[11px] text-white/55">{f.otras.join(" · ")}</span>
+                                ) : null}
                               </span>
-                              <span className="h-3 rounded-full bg-white/5">
-                                <span
-                                  className="block h-3 rounded-full"
-                                  style={{ width: `${(100 * f.valor) / max}%`, background: PIE_COLORS[i % PIE_COLORS.length] }}
-                                />
+                              <span className="flex h-3 overflow-hidden rounded-full bg-white/5">
+                                {"partes" in f && f.partes ? (
+                                  f.partes.map((p) => (
+                                    <span
+                                      key={p.nombre}
+                                      className="block h-3 first:rounded-l-full last:rounded-r-full"
+                                      style={{ width: `${(100 * p.valor) / max}%`, background: colorDeFase(p.nombre, 0) }}
+                                    />
+                                  ))
+                                ) : (
+                                  <span
+                                    className="block h-3 rounded-full"
+                                    style={{ width: `${(100 * f.valor) / max}%`, background: colorDeFase(f.nombre, i) }}
+                                  />
+                                )}
                               </span>
                               <span className="text-sm font-semibold tabular-nums">{fmt1(f.valor)}</span>
                             </button>
@@ -3201,7 +3243,7 @@ export default function Page() {
                           panel en blanco. */}
                       <div className="flex w-full justify-center lg:w-1/2">
                         <AnilloFases
-                          datos={repartoFases.datos.map((f, i) => ({ nombre: f.nombre, valor: f.valor, color: PIE_COLORS[i % PIE_COLORS.length] }))}
+                          datos={repartoFases.datos.map((f, i) => ({ nombre: f.nombre, valor: f.valor, color: colorDeFase(f.nombre, i) }))}
                           activo={faseFilter}
                           total={Math.round(repartoFases.enAnillo * 10) / 10}
                           onElige={(n) => {
@@ -3225,7 +3267,7 @@ export default function Page() {
                             <span
                               className="h-2.5 w-2.5 shrink-0 rounded-full"
                               style={{
-                                background: PIE_COLORS[i % PIE_COLORS.length],
+                                background: colorDeFase(f.nombre, i),
                               }}
                             />
 

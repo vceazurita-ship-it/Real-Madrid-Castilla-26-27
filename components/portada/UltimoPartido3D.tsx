@@ -21,8 +21,8 @@ import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { VideoOpta } from "@/components/opta/VideoOpta";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
-import { retrato } from "@/lib/opta-retrato";
-import { fraseCampoPisado, nombreCorto, titularPartido } from "@/lib/partido-frases";
+import { retrato, territorioRetrato } from "@/lib/opta-retrato";
+import { DESDE_TRAMO_FINAL, fraseCampoPisado, nombreCorto, territorioEntre, titularPartido } from "@/lib/partido-frases";
 import { urlPostDelPartido } from "@/lib/post-partido";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
@@ -63,9 +63,34 @@ export function UltimoPartido3D() {
   | (desde el 75′), el Gimnàstic, el 89 %». Nada de «hacia el 98′».
   */
   const nombreRival = y ? nombreCorto(String(y.equipo ?? "")) : "";
+  /*
+  | 20/11/2026 (ronda 5, fútbol): «…en el tramo final (desde el 75′), el
+  | Gimnàstic, el 73 %» no se entendía. En la portada se dice quién lo pisó y
+  | qué se entrena: «desde el 75′ fue el Gimnàstic quien lo pisó el 73 % →
+  | cerrar partidos: altura del bloque en los últimos 15′», con la fuente y
+  | los minutos de la base. Sin tramo final, la frase de siempre.
+  */
   const territorio = useMemo(() => {
     if (!doc?.eventos?.filas?.length || !idRival) return null;
-    return fraseCampoPisado(retrato(leeEventos(doc.eventos), CASTILLA_OPTA, idRival), "Castilla", nombreRival, true);
+    const r = retrato(leeEventos(doc.eventos), CASTILLA_OPTA, idRival);
+    const total = territorioRetrato(r, null);
+    if (total == null) return null;
+    const pct = (v: number) => `${Math.round(v * 100)} %`;
+    const fin = r.minutos - 1 > DESDE_TRAMO_FINAL + 5 ? territorioEntre(r, DESDE_TRAMO_FINAL, r.minutos - 1) : null;
+    const base = `Opta · ${r.minutos}′ jugados${fin != null ? `; tramo final, del ${DESDE_TRAMO_FINAL}′ al ${r.minutos - 1}′` : ""}`;
+    if (fin == null) return { frase: fraseCampoPisado(r, "Castilla", nombreRival, true) ?? "", entrenar: "", base };
+    const inicio = `Pisamos campo rival el ${pct(total)} del partido`;
+    return fin < 0.5
+      ? {
+          frase: `${inicio}; desde el ${DESDE_TRAMO_FINAL}′ fue el ${nombreRival} quien lo pisó el ${pct(1 - fin)}`,
+          entrenar: `cerrar partidos: altura del bloque en los últimos 15′`,
+          base,
+        }
+      : {
+          frase: `${inicio}; desde el ${DESDE_TRAMO_FINAL}′, lo pisamos nosotros el ${pct(fin)}`,
+          entrenar: "",
+          base,
+        };
   }, [doc, idRival, nombreRival]);
 
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
@@ -248,14 +273,26 @@ export function UltimoPartido3D() {
             const jugador = nombreDe.get(e.jugadorId);
             const quien = jugador ? `${equipo} · ${jugador}` : equipo;
             return (
-              <VideoOpta
-                key={`${e.parte}-${e.segundo}-${e.jugadorId}`}
-                tipo="shots"
-                evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
-                /* 18/11/2026 (ronda 22, fútbol): un decimal, como el resto de la portada. */
-                etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
-                descripcion={`Remate de ${jugador || equipo} (${equipo}), ${e.minuto}′`}
-              />
+              <span key={`${e.parte}-${e.segundo}-${e.jugadorId}`} className="inline-flex flex-wrap items-center gap-1">
+                <VideoOpta
+                  tipo="shots"
+                  evento={{ partido: ultimo, fecha: fechaIso, parte: e.parte, segundo: e.segundo }}
+                  /* 18/11/2026 (ronda 22, fútbol): un decimal, como el resto de la portada. */
+                  etiqueta={`▶ ${e.minuto}′ ${quien} · xG ${coma(e.xG ?? 0)}`}
+                  descripcion={`Remate de ${jugador || equipo} (${equipo}), ${e.minuto}′`}
+                />
+                {/* 20/11/2026 (ronda 5, análisis): nuestro jugador, a su ficha ya elegido. */}
+                {e.teamId === CASTILLA_OPTA && jugador ? (
+                  <Link
+                    href={`/individual?nombre=${encodeURIComponent(jugador)}`}
+                    title={`La ficha de ${jugador}`}
+                    className="inline-flex min-h-8 items-center px-1.5 text-[12px] font-semibold underline decoration-white/30 underline-offset-2 hover:decoration-current"
+                    style={{ color: "var(--rmcf-gold-ink)" }}
+                  >
+                    Su ficha
+                  </Link>
+                ) : null}
+              </span>
             );
           })}
         </div>
@@ -268,8 +305,21 @@ export function UltimoPartido3D() {
         del partido entero, como desde el 17/11).
       */}
       <div className="portada-celda flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2 px-3.5 py-3">
-        {territorio ? (
-          <p className="min-w-0 flex-1 basis-[260px] text-[14px] font-semibold leading-snug text-white">{territorio}</p>
+        {territorio?.frase ? (
+          <div className="min-w-0 flex-1 basis-[260px] leading-snug">
+            <p className="text-[14px] font-semibold text-white">
+              {territorio.frase}
+              {territorio.entrenar ? (
+                <>
+                  {" "}
+                  <span style={{ color: "var(--rmcf-gold-ink)" }}>→</span> {territorio.entrenar}
+                </>
+              ) : (
+                "."
+              )}
+            </p>
+            <p className="mt-0.5 text-[12px] text-white/60">{territorio.base}</p>
+          </div>
         ) : (
           <p className="min-w-0 flex-1 basis-[260px] text-[14px] leading-snug text-white/80">Quién mandó en cada tramo y dónde llegaron los remates.</p>
         )}

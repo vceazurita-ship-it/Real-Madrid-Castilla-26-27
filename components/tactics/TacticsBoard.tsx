@@ -475,7 +475,8 @@ export default function TacticsBoard({
   const muyEstrecho = useSyncExternalStore(suscribeAncho, esMuyEstrecho, anchoDelServidor);
   /* En el móvil, los nombres bajo las fichas a petición (para la charla desde el teléfono, 16/11/2026). Sólo en este aparato. */
   /* Encendido por defecto (16/11/2026, ronda 17): en el móvil no se sabía quién era quién. */
-  const [nombresEnMovil, setNombresEnMovil] = useState(false);
+  /* 20/11/2026 (ronda 5, fútbol): seguía en `false` y en el móvil sólo se veían los dorsales. */
+  const [nombresEnMovil, setNombresEnMovil] = useState(true);
 
   /* Prefijo de los degradados de las figuras: en /pizarra hay dos tableros en la misma página. */
   const prefijoFiguras = `pz${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
@@ -1424,7 +1425,11 @@ export default function TacticsBoard({
         apagado: !disponible(p),
       }));
 
-      return { ficha, equipo: buscado?.rotulo ? `Real Madrid Castilla · ${buscado.rotulo}` : "Real Madrid Castilla", opciones };
+      /* Su ficha con el jugador ya elegido (20/11/2026, ronda 5, fútbol): la casa por el nombre corto o por el nombre de la hoja. */
+      const suyo = ficha.nombre ? roster.find((p) => claveNombre(p.apodo || p.nombre) === claveNombre(ficha.nombre) || claveNombre(p.nombre) === claveNombre(ficha.nombre)) : undefined;
+      const enlace = suyo ? { href: `/individual?player=${encodeURIComponent(suyo.id)}`, rotulo: `Ficha de ${ficha.nombre}` } : undefined;
+
+      return { ficha, equipo: buscado?.rotulo ? `Real Madrid Castilla · ${buscado.rotulo}` : "Real Madrid Castilla", opciones, enlace };
     }
 
     if (!squadDelCampo) return { ficha, equipo: "Rival", opciones: [] as OpcionCambio[] };
@@ -1434,7 +1439,12 @@ export default function TacticsBoard({
       .filter((p) => rivalTokenId(p.id) !== ficha.id)
       .map((p) => ({ id: p.id, nombre: p.nombre, dorsal: p.dorsal, posicion: p.posicion, foto: p.foto, enCampo: enCampo.has(rivalTokenId(p.id)) }));
 
-    return { ficha, equipo: squadDelCampo.equipo, opciones };
+    /* Su ficha y su vídeo en Scout individual, con el rival y el jugador ya elegidos (20/11/2026, ronda 5, fútbol). */
+    const enlace = ficha.nombre
+      ? { href: `/scout-rival-individual?${new URLSearchParams({ equipo: squadDelCampo.equipo, jugador: ficha.nombre }).toString()}`, rotulo: `Ficha y vídeo de ${ficha.nombre}` }
+      : undefined;
+
+    return { ficha, equipo: squadDelCampo.equipo, opciones, enlace };
   }, [cambiando, scene, roster, squadDelCampo]);
 
   /** Mete al elegido en el sitio de la ficha, en todas las escenas; si ya estaba en el campo, se intercambian los sitios. */
@@ -2191,20 +2201,34 @@ export default function TacticsBoard({
             icon={<Circle size={12} />}
             onClick={() => addToken("ball")}
           />
+        </div>
+
+        {/*
+          Una barra principal y «Más fichas» (20/11/2026, ronda 5, análisis): el
+          cono y el jugador de la plantilla, que se usan menos, van dentro.
+        */}
+        <Desplegable etiqueta="Más fichas" icono={<Plus size={13} />} titulo="Cono y un jugador concreto de la plantilla">
+          {(cierra) => (
+            <div className="space-y-2 text-[11px] text-white/70">
           <TokenButton
             label="Cono"
-            className="flex-1 justify-center sm:flex-none"
+            className="w-full justify-center"
             icon={<Cone size={14} />}
-            onClick={() => addToken("cone")}
+            onClick={() => {
+              addToken("cone");
+              cierra();
+            }}
           />
-        </div>
 
         {roster.length > 0 && (
           <select
             value=""
             onChange={(event) => {
               const player = roster.find((p) => p.id === event.target.value);
-              if (player) addToken("home", player);
+              if (player) {
+                addToken("home", player);
+                cierra();
+              }
             }}
             aria-label="Añadir un jugador de la plantilla al campo"
             className="w-full min-w-0 rounded-xl border border-white/10 bg-[#0F141B] px-2.5 py-2 text-[12px] text-white/75 outline-none sm:w-auto"
@@ -2221,8 +2245,23 @@ export default function TacticsBoard({
               | nombre). El que está en el campo sale en la lista con el nombre
               | de su ficha: la casa por la foto o por el dorsal.
               */
+              /*
+              | Y por el nombre (20/11/2026, ronda 5): la ficha rellenada desde
+              | Wyscout guarda «Yáñez» con la foto y el puesto de Wyscout, así que
+              | ni la foto ni el puesto casaban. Mismo dorsal y una palabra del
+              | nombre en común, o la palabra sola si sólo la tiene uno.
+              */
+              const palabras = (t: string) =>
+                t.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().split(/[\s.]+/).filter((w) => w.length > 2);
+              const comparten = (a: string, b: string) => {
+                const pb = new Set(palabras(b));
+                return palabras(a).some((w) => pb.has(w));
+              };
+              const deTodo = (p: (typeof roster)[number]) => `${p.nombre} ${p.apodo ?? ""}`;
               const fichaDe = (p: (typeof roster)[number]) =>
-                nuestras.find((t) => (p.foto && t.foto === p.foto) || (p.dorsal && String(t.label) === String(p.dorsal) && t.posicion === p.posicion));
+                nuestras.find((t) => (p.foto && t.foto === p.foto) || (p.dorsal && String(t.label) === String(p.dorsal) && t.posicion === p.posicion)) ??
+                nuestras.find((t) => p.dorsal && String(t.label) === String(p.dorsal) && comparten(t.nombre ?? "", deTodo(p))) ??
+                nuestras.find((t) => comparten(t.nombre ?? "", deTodo(p)) && roster.filter((o) => comparten(t.nombre ?? "", deTodo(o))).length === 1);
               const enElCampo = (p: (typeof roster)[number]) => puestos.has(p.apodo || p.nombre) || puestos.has(nombreCortoUnico(p, roster)) || Boolean(fichaDe(p));
               const enCampo = roster.filter(enElCampo);
               const resto = roster.filter((p) => !enElCampo(p));
@@ -2246,6 +2285,9 @@ export default function TacticsBoard({
             })()}
           </select>
         )}
+            </div>
+          )}
+        </Desplegable>
 
         {/* COLOCAR EN UN DIBUJO */}
         <Desplegable
@@ -2570,6 +2612,7 @@ export default function TacticsBoard({
           titulo={cambio.ficha.nombre ? `Cambiar a ${nombreCorto(cambio.ficha.nombre)}` : `Cambiar al ${cambio.ficha.label}`}
           equipo={cambio.equipo}
           opciones={cambio.opciones}
+          enlace={"enlace" in cambio ? cambio.enlace : undefined}
           onElige={(id) => {
             aplicaCambio(cambio.ficha, id);
             setCambiando(null);
@@ -2695,7 +2738,8 @@ export default function TacticsBoard({
               onClick={() => setAtajos((valor) => !valor)}
               aria-expanded={atajos}
               title="Atajos de teclado (?)"
-              className="inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
+              /* Sin teclado no sirven (20/11/2026, ronda 5, marketing): en táctil no sale. */
+              className="[@media(pointer:coarse)]:hidden inline-flex shrink-0 items-center gap-1.5 rounded-lg px-2 py-1 text-white/50 transition hover:bg-white/[0.08] hover:text-white"
             >
               <Keyboard size={13} />
               <span className="hidden sm:inline">Atajos</span>
@@ -2985,7 +3029,9 @@ export default function TacticsBoard({
               const anclaY = figura ? 0 : style.radius * 0.55;
 
               const nombreFicha = nombreDePlantilla(token);
-              const nombre = nombreFicha && nombresVisibles && (!muyEstrecho || exporting || elegida || nombresEnMovil) ? nombreCorto(nombreFicha) : "";
+              const nombreLargo = nombreFicha && nombresVisibles && (!muyEstrecho || exporting || elegida || nombresEnMovil) ? nombreCorto(nombreFicha) : "";
+              /* En el móvil, con la letra a ~11 px, el apellido solo si el nombre pasa de 9 letras («Chema Núñez» → «Núñez»): sin pisarse con el de al lado. */
+              const nombre = muyEstrecho && !exporting && nombreLargo.length > 9 && nombreLargo.includes(" ") ? nombreLargo.split(" ").slice(-1)[0] : nombreLargo;
 
               return (
                 <g
@@ -3174,8 +3220,8 @@ export default function TacticsBoard({
                       y={style.radius + 2.1}
                       textAnchor="middle"
                       fontSize={1.55}
-                      /* En el móvil el campo mide 350 px y 1,55 eran unos 5 px: se sube a ~9 px (10/11/2026, jueces). */
-                      className="max-sm:[font-size:2.6px]"
+                      /* En el móvil el campo mide 350 px y 1,55 eran unos 5 px: se sube a ~9 px (10/11/2026, jueces) y a ~11 px (20/11/2026, ronda 5). */
+                      className="max-sm:[font-size:3.3px]"
                       fontWeight={600}
                       fill="rgba(255,255,255,.95)"
                       stroke="rgba(0,0,0,.55)"

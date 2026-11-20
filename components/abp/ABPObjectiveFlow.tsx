@@ -576,9 +576,9 @@ const renderColumn = (col: ColKey) => {
         opacity={atenuado ? 0.28 : 1}
       >
         <title>
-          {`${n.name} · ${n.total} acciones · ${n.xg.toFixed(
-            2
-          )} xG${def ? " concedido" : ""} · ${(n.peligro * 100).toFixed(
+          {`${n.name} · ${n.total} acciones · ${n.xg
+            .toFixed(1)
+            .replace(".", ",")} goles esperados${def ? " concedidos" : ""} ·${(n.peligro * 100).toFixed(
             0
           )}% ${def ? "acaba en gol u ocasión rival" : "gol u ocasión"}${
             controlado ? " · Pulsa para filtrar" : ""
@@ -615,7 +615,7 @@ const renderColumn = (col: ColKey) => {
           fill="#94A3B8"
           fontSize="9"
         >
-          {n.xg.toFixed(2)} xG
+          {n.xg.toFixed(1).replace(".", ",")} g. esp.
         </text>
 
         <text
@@ -750,10 +750,10 @@ return (
 
     <div className="rounded-2xl border border-white/10 bg-[#0B1320] p-4">
       <div className="text-xs uppercase tracking-wide text-slate-400">
-        {def ? "xG concedido" : "xG total"}
+        {def ? "Goles esperados concedidos" : "Goles esperados"}
       </div>
       <div className="mt-1 text-2xl font-semibold text-white">
-        {xgTotal.toFixed(2)}
+        {xgTotal.toFixed(1).replace(".", ",")}
       </div>
     </div>
 
@@ -805,7 +805,7 @@ return (
                 </div>
 
                 <div className="shrink-0 text-xs text-slate-400">
-                  {numero(r.xG).toFixed(2)} xG
+                  {numero(r.xG).toFixed(2).replace(".", ",")} goles esperados
                 </div>
               </div>
 

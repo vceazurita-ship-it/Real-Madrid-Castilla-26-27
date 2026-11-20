@@ -586,7 +586,7 @@ export default function PizarraTacticaPage() {
                 </div>
 
                 {/* Bajo los tres botones quedaba un hueco de toda la altura (16/11/2026, fútbol): ahí, los atajos de la presentación. */}
-                <div className="mt-4 hidden border-t border-white/[0.06] pt-3 text-[12px] leading-snug text-white/60 xl:block">
+                <div className="mt-4 hidden border-t border-white/[0.06] pt-3 text-[12px] leading-snug text-white/60 xl:block [@media(pointer:coarse)]:!hidden">
                   <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Atajos</p>
                   <ul className="space-y-1">
                     <li><b className="text-white/80">→ / AvPág</b> siguiente escena</li>

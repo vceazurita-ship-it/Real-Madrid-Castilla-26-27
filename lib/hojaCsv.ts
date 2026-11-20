@@ -245,9 +245,19 @@ export function olvidaTodoElCsv() {
   borraCopias();
 }
 
+/*
+| `alRenovar` (20/11/2026, jueces de /individual). Una pantalla pintada con
+| la copia del aparato se quedaba con ella aunque lo nuevo llegara por detrás
+| segundos después: /individual enseñó el seguimiento del 29/10 («18 de 18 sin
+| seguimiento») mientras /calendar, abierto después, ya tenía el de ayer
+| («5 de 18»). Quien pasa `alRenovar` recibe el texto nuevo en cuanto llega,
+| sólo si es distinto de la copia que se le enseñó, y repinta.
+*/
+type OpcionesTrae = { forzar?: boolean; alRenovar?: (texto: string) => void };
+
 export function traeCsv(
   url: string,
-  opciones: { forzar?: boolean } = {},
+  opciones: OpcionesTrae = {},
 ): Promise<string> {
   if (opciones.forzar) {
     enMemoria.delete(url);
@@ -279,6 +289,10 @@ export function traeCsv(
       void baja(url, copia.texto)
         .then((texto) => {
           enMemoria.set(url, Promise.resolve(texto));
+
+          if (opciones.alRenovar && normalizaCsv(texto) !== normalizaCsv(copia.texto)) {
+            opciones.alRenovar(texto);
+          }
         })
         .catch(() => {
           /* Sin red: la copia que ya se enseña sigue valiendo. */
@@ -313,9 +327,22 @@ export function traeCsv(
  */
 export function traeJson<T = unknown>(
   url: string,
-  opciones: { forzar?: boolean } = {},
+  opciones: { forzar?: boolean; alRenovar?: (dato: T) => void } = {},
 ): Promise<T> {
-  return traeCsv(url, opciones).then((texto) => JSON.parse(texto) as T);
+  const { alRenovar, ...resto } = opciones;
+
+  return traeCsv(url, {
+    ...resto,
+    alRenovar: alRenovar
+      ? (texto) => {
+          try {
+            alRenovar(JSON.parse(texto) as T);
+          } catch {
+            /* Lo nuevo no se entiende: se queda lo que ya se ve. */
+          }
+        }
+      : undefined,
+  }).then((texto) => JSON.parse(texto) as T);
 }
 
 /** Olvida lo bajado de una hoja (o de todas) para que se vuelva a pedir. */

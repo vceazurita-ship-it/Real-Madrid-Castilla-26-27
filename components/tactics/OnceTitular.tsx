@@ -389,7 +389,12 @@ export default function OnceTitular({
               const rotulo = HUECOS.find((x) => x.clave === k)?.rotulo ?? k;
               /* El nombre corto de la plantilla, el mismo de Duelos y del Plan (16/11/2026): no el guardado el día del relleno. */
               /* Con la regla de Duelos (17/11/2026): el apodo si es único en la plantilla; si no, el apellido. */
-              const nombre = (jugador ? nombreCortoUnico(jugador, roster) : token?.nombre)?.trim();
+              /*
+              | 20/11/2026 (ronda 5, fútbol): el pie decía «Dani» y la ficha del
+              | campo, Duelos y el Plan «Yáñez». Manda el nombre de la ficha del
+              | campo, que es el que ven todos; sin ficha con nombre, la regla.
+              */
+              const nombre = (token?.nombre?.trim() || (jugador ? nombreCortoUnico(jugador, roster) : ""))?.trim();
 
               return (
                 <button

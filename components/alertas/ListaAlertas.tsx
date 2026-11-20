@@ -224,7 +224,8 @@ function dondeSeHace(alerta: Alerta, rival: string): { href: string; texto: stri
 
   if (/\bpdf individual|\bindividual\b/.test(t)) return { href: "/individual", texto: "Abrir Individual" };
   /* Sin «11» ni «director» sueltos (17/11/2026): «17/11» o «11:00» mandaban a la pizarra. */
-  if (/\bonce\b|\bxi\b|alineacion/.test(t)) return { href: "/pizarra-tactica?once=1", texto: "Abrir la pizarra táctica" };
+  /* 20/11/2026 (ronda 5, análisis): «Hacer director 11» es el once, dicho entero (no un «11» suelto). */
+  if (/\bonce\b|\bxi\b|alineacion|director\s*(11|once)\b/.test(t)) return { href: "/pizarra-tactica?once=1", texto: "Abrir la pizarra táctica" };
   if (/balon parado|\babp\b|corner/.test(t)) return { href: "/abp-pizarra", texto: "Abrir la pizarra ABP" };
   if (/informe|previa|\bpost\b/.test(t)) return { href: "/microcycles", texto: "Abrir los informes" };
   if (/plan de partido/.test(t)) return { href: "/match-preparation", texto: "Abrir el plan de partido" };

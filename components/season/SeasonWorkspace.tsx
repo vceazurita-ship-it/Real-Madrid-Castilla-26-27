@@ -1,8 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Image from "next/image";
-import { AlertTriangle, FileText, ImageIcon, ListFilter, Loader2 } from "lucide-react";
+import Link from "next/link";
+import { AlertTriangle, ChevronDown, ExternalLink, FileText, ImageIcon, LineChart, ListFilter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -13,13 +13,12 @@ import {
   inverso,
   poneSemana,
 } from "@/lib/season/fusion";
-import { FileKind, MonthData, SeasonArea, SeasonFile } from "@/lib/season/types";
+import { FileKind, MonthData, SeasonArea } from "@/lib/season/types";
 import {
   collectFiles,
   findWeekForDate,
   flattenWeeks,
   humanFileName,
-  rangoFechas,
   seasonStats,
   weekHasFiles,
   weekRangeLabel,
@@ -30,6 +29,9 @@ import WeekNavigator from "./WeekNavigator";
 import WeekPanel from "./WeekPanel";
 import { useCalendario } from "@/hooks/useCalendario";
 import { partidoDeLaSemana, rotuloPartido } from "@/lib/season/partido-semana";
+import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import type { PartidoNuestro } from "@/lib/castilla/calendario";
+import { urlPostDelPartido } from "@/lib/post-partido";
 
 interface Props {
   area: SeasonArea;
@@ -46,6 +48,8 @@ export default function SeasonWorkspace({ area }: Props) {
   const [selectedWeekId, setSelectedWeekId] = useState<number | null>(null);
   const [filesViewer, setFilesViewer] = useState<FileKind | null>(null);
   const [navOpen, setNavOpen] = useState(false);
+  /* 20/11/2026 (ronda 5): «Otras semanas» enseña las 3 últimas; el resto, a un toque. */
+  const [todasOtras, setTodasOtras] = useState(false);
 
   const panelRef = useRef<HTMLDivElement>(null);
 
@@ -154,8 +158,11 @@ export default function SeasonWorkspace({ area }: Props) {
           actual: week.id === currentWeek.id,
           fechas: week.start || week.end ? weekRangeLabel(week) : undefined,
           partido: partido ? rotuloPartido(partido) : undefined,
+          partidoDatos: partido,
           imagenes: week.images?.length ?? 0,
           pdfs: week.pdfs?.length ?? 0,
+          /* 20/11/2026 (ronda 5, fútbol y marketing): el último archivo de la semana, con enlace directo. */
+          ultimo: ultimoArchivo(week.images ?? [], week.pdfs ?? []),
         };
       });
   }, [season, currentWeek, calendario]);
@@ -165,6 +172,43 @@ export default function SeasonWorkspace({ area }: Props) {
   const semanasConMaterial = useMemo(
     () => [...tiraSemanas].filter((s) => s.conMaterial).reverse(),
     [tiraSemanas]
+  );
+
+  /*
+  | LO QUE DEBERÍA HABER CADA SEMANA (20/11/2026, ronda 5, análisis y
+  | marketing): «sin subidas desde la semana 9» era un reproche. Ahora la
+  | cabecera dice qué falta esta semana —convocatoria, horario y, si hay
+  | partido, el plan— leyendo el nombre de los archivos subidos, y lleva al
+  | Plan de partido y al ABP del rival con el rival ya elegido.
+  */
+  const jornadasRivales = useJornadasRivales();
+  const partidoActual = useMemo(() => partidoDeLaSemana(calendario, currentWeek), [calendario, currentWeek]);
+  const enlacesActual = useMemo(
+    () => (partidoActual && !partidoActual.jugado ? enlacesDelRival(jornadasRivales, partidoActual.rival, partidoActual.cuando) : []),
+    [jornadasRivales, partidoActual]
+  );
+  const checklist = useMemo(() => {
+    if (area !== "general" || !currentWeek) return undefined;
+
+    const nombres = [...(currentWeek.images ?? []), ...(currentWeek.pdfs ?? [])].map((url) =>
+      humanFileName(url, "").toLowerCase()
+    );
+    const tiene = (re: RegExp) => nombres.some((n) => re.test(n));
+    const plan = enlacesActual.find((e) => e.texto === "Plan de partido")?.href;
+
+    return [
+      { texto: "Convocatoria", hecho: tiene(/convoca/) },
+      { texto: "Horario", hecho: tiene(/horario/) },
+      ...(partidoActual ? [{ texto: "Plan de partido", hecho: tiene(/plan/), href: plan }] : []),
+    ];
+  }, [area, currentWeek, enlacesActual, partidoActual]);
+
+  const enlacesRival = useMemo(
+    () =>
+      enlacesActual
+        .filter((e) => e.texto === "Plan de partido" || e.texto === "Su ABP")
+        .map((e) => ({ href: e.href, texto: e.texto === "Su ABP" ? `ABP de ${e.equipo}` : e.texto })),
+    [enlacesActual]
   );
 
   const partidoSemanaAbierta = useMemo(
@@ -266,6 +310,9 @@ export default function SeasonWorkspace({ area }: Props) {
                   ultimaConMaterial={ultimaConMaterial}
                   semanasCon={semanasCon}
                   tiraSemanas={tiraSemanas}
+                  checklist={checklist}
+                  partidoActual={partidoActual ? rotuloPartido(partidoActual) : undefined}
+                  enlacesRival={enlacesRival}
                   onSelectWeek={(id) => selectWeek(id)}
                   saving={saving}
                   onGoToCurrentWeek={() => {
@@ -310,21 +357,17 @@ export default function SeasonWorkspace({ area }: Props) {
                 | lo primero es el material —las últimas imágenes en miniatura y
                 | los últimos PDF con su nombre—, y cada uno abre su semana.
                 */}
-                <UltimoSubido
-                  imagenes={allImages}
-                  pdfs={allPdfs}
-                  onSelectWeek={(id) => selectWeek(id)}
-                />
-
                 {/*
-                | OTRAS SEMANAS (20/11/2026, análisis): las que tienen material,
-                | como tarjetas con su partido y lo que hay dentro; la lista
-                | completa por meses sigue a un toque, para una semana sin nada.
+                | 20/11/2026 (ronda 5, los tres jueces): fuera «Lo último
+                | subido»; enseñaba el mismo material que «Otras semanas»,
+                | una debajo de la otra. Queda una sola vista: las tres
+                | semanas más recientes con material, cada una con su último
+                | archivo (enlace directo) y su partido; el resto, a un toque.
                 */}
                 <div className="mb-4 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <span className="min-w-0 text-sm font-medium text-white/75">
-                      Otras semanas
+                      Últimas semanas con material
                     </span>
 
                     <button
@@ -339,41 +382,30 @@ export default function SeasonWorkspace({ area }: Props) {
                   </div>
 
                   {semanasConMaterial.length > 0 ? (
-                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-                      {semanasConMaterial.map((s) => (
-                        <button
+                    <div className="mt-3 grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                      {(todasOtras ? semanasConMaterial : semanasConMaterial.slice(0, 3)).map((s) => (
+                        <TarjetaSemana
                           key={s.id}
-                          type="button"
-                          onClick={() => selectWeek(s.id)}
-                          aria-current={s.id === selectedWeekId ? "true" : undefined}
-                          className={`min-w-0 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/60 hover:bg-white/[0.04] ${
-                            s.id === selectedWeekId ? "border-[#C8A96B]/70 bg-[#C8A96B]/[0.08]" : "border-white/10"
-                          }`}
-                        >
-                          <span className="block text-[13.5px] font-semibold text-white/90">
-                            {s.nombre}
-                            {s.fechas ? <span className="font-normal text-white/60"> · {s.fechas}</span> : null}
-                          </span>
-                          {s.partido ? (
-                            <span className="block truncate text-[12px] text-white/70">{s.partido}</span>
-                          ) : null}
-                          <span className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-white/70">
-                            {s.imagenes ? (
-                              <span className="inline-flex items-center gap-1">
-                                <ImageIcon size={12} className="text-[#C8A96B]" aria-hidden />
-                                {s.imagenes === 1 ? "1 imagen" : `${s.imagenes} imágenes`}
-                              </span>
-                            ) : null}
-                            {s.pdfs ? (
-                              <span className="inline-flex items-center gap-1">
-                                <FileText size={12} className="text-[#C8A96B]" aria-hidden />
-                                {`${s.pdfs} PDF`}
-                              </span>
-                            ) : null}
-                          </span>
-                        </button>
+                          semana={s}
+                          elegida={s.id === selectedWeekId}
+                          onSelect={() => selectWeek(s.id)}
+                        />
                       ))}
                     </div>
+                  ) : null}
+
+                  {semanasConMaterial.length > 3 ? (
+                    <button
+                      type="button"
+                      onClick={() => setTodasOtras((v) => !v)}
+                      aria-expanded={todasOtras}
+                      className="mt-2 inline-flex min-h-9 items-center gap-1.5 text-[13px] font-medium text-[#C8A96B]"
+                    >
+                      <ChevronDown size={15} className={todasOtras ? "rotate-180" : ""} aria-hidden />
+                      {todasOtras
+                        ? "Ver sólo las 3 últimas"
+                        : `Ver las otras ${semanasConMaterial.length - 3} con material`}
+                    </button>
                   ) : null}
                 </div>
 
@@ -424,65 +456,103 @@ export default function SeasonWorkspace({ area }: Props) {
   );
 }
 
-/** Las últimas imágenes y PDF de la temporada, cada uno abre su semana. */
-function UltimoSubido({
-  imagenes,
-  pdfs,
-  onSelectWeek,
-}: {
-  imagenes: SeasonFile[];
-  pdfs: SeasonFile[];
-  onSelectWeek: (weekId: number) => void;
-}) {
-  const ultimos = [...imagenes, ...pdfs]
-    .sort((a, b) => b.weekId - a.weekId || (a.kind === b.kind ? 0 : a.kind === "images" ? -1 : 1))
-    .slice(0, 6);
+/** El último archivo de una semana: el último PDF si lo hay; si no, la última imagen. */
+function ultimoArchivo(imagenes: string[], pdfs: string[]) {
+  if (pdfs.length) return { url: pdfs[pdfs.length - 1], kind: "pdfs" as FileKind };
+  if (imagenes.length) return { url: imagenes[imagenes.length - 1], kind: "images" as FileKind };
+  return undefined;
+}
 
-  if (!ultimos.length) return null;
+type SemanaTira = {
+  id: number;
+  nombre: string;
+  fechas?: string;
+  partido?: string;
+  partidoDatos?: PartidoNuestro | null;
+  imagenes?: number;
+  pdfs?: number;
+  ultimo?: { url: string; kind: FileKind };
+};
+
+/**
+ * Una semana con material (20/11/2026, ronda 5): abre la semana, enseña su
+ * último archivo con enlace directo y, si su partido ya se jugó, su análisis.
+ */
+function TarjetaSemana({
+  semana: s,
+  elegida,
+  onSelect,
+}: {
+  semana: SemanaTira;
+  elegida: boolean;
+  onSelect: () => void;
+}) {
+  const nombreUltimo = s.ultimo ? humanFileName(s.ultimo.url, s.ultimo.kind === "images" ? "Imagen" : "Documento") : "";
 
   return (
-    <section aria-label="Lo último subido" className="mb-6">
-      <h2 className="mb-2 text-[12.5px] font-semibold uppercase tracking-[0.14em] text-white/70">
-        Lo último subido
-      </h2>
+    <div
+      className={`min-w-0 rounded-xl border px-3 py-2 transition ${
+        elegida ? "border-[#C8A96B]/70 bg-[#C8A96B]/[0.08]" : "border-white/10"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={onSelect}
+        aria-current={elegida ? "true" : undefined}
+        className="block w-full min-w-0 text-left hover:text-[#C8A96B]"
+      >
+        <span className="block text-[13.5px] font-semibold text-white/90">
+          {s.nombre}
+          {s.fechas ? <span className="font-normal text-white/60"> · {s.fechas}</span> : null}
+        </span>
+        <span className="mt-0.5 flex flex-wrap gap-x-3 text-[12px] text-white/70">
+          {s.imagenes ? (
+            <span className="inline-flex items-center gap-1">
+              <ImageIcon size={12} className="text-[#C8A96B]" aria-hidden />
+              {s.imagenes === 1 ? "1 imagen" : `${s.imagenes} imágenes`}
+            </span>
+          ) : null}
+          {s.pdfs ? (
+            <span className="inline-flex items-center gap-1">
+              <FileText size={12} className="text-[#C8A96B]" aria-hidden />
+              {`${s.pdfs} PDF`}
+            </span>
+          ) : null}
+        </span>
+      </button>
 
-      <div className="-mx-1 flex snap-x gap-3 overflow-x-auto px-1 pb-2">
-        {ultimos.map((f, i) => {
-          const nombre = humanFileName(f.url, f.kind === "images" ? `Imagen ${i + 1}` : "Documento");
+      {s.ultimo ? (
+        <a
+          href={s.ultimo.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={`Abrir ${nombreUltimo}`}
+          className="mt-1.5 flex min-h-8 min-w-0 items-center gap-1.5 text-[12.5px] text-white/80 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+        >
+          {s.ultimo.kind === "images" ? (
+            <ImageIcon size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          ) : (
+            <FileText size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          )}
+          <span className="truncate">{nombreUltimo}</span>
+          <ExternalLink size={12} className="shrink-0 opacity-70" aria-hidden />
+        </a>
+      ) : null}
 
-          return (
-            <button
-              key={`${f.url}-${i}`}
-              type="button"
-              onClick={() => onSelectWeek(f.weekId)}
-              title={`${nombre} · ${f.week}${rangoFechas(f.start, f.end) ? ` (${rangoFechas(f.start, f.end)})` : ""}`}
-              className="group w-[150px] shrink-0 snap-start overflow-hidden rounded-xl border border-white/10 bg-[#11161D] text-left transition hover:border-[#C8A96B]/60 sm:w-[170px]"
-            >
-              <span className="relative block aspect-[4/3] bg-[#0B0F14]">
-                {f.kind === "images" ? (
-                  <Image
-                    src={f.url}
-                    alt={nombre}
-                    fill
-                    sizes="170px"
-                    className="object-cover transition duration-300 group-hover:scale-[1.03]"
-                  />
-                ) : (
-                  <span className="flex h-full flex-col items-center justify-center gap-1.5 px-3 text-center">
-                    <FileText size={30} className="text-[#C8A96B]" aria-hidden />
-                    <span className="line-clamp-2 text-[12px] font-medium leading-tight text-white/80">{nombre}</span>
-                  </span>
-                )}
-              </span>
-              <span className="block px-2.5 py-1.5">
-                <span className="block text-[12.5px] font-semibold text-white/90">{f.week}</span>
-                {rangoFechas(f.start, f.end) ? <span className="block text-[11.5px] text-white/60">{rangoFechas(f.start, f.end)}</span> : null}
-              </span>
-            </button>
-          );
-        })}
-      </div>
-    </section>
+      {s.partidoDatos ? (
+        s.partidoDatos.jugado ? (
+          <Link
+            href={urlPostDelPartido(s.partidoDatos.cuando, s.partidoDatos.rival)}
+            className="mt-1 flex min-h-8 min-w-0 items-center gap-1.5 text-[12.5px] text-white/75 hover:text-[#C8A96B]"
+          >
+            <LineChart size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
+            <span className="truncate">{`${s.partido} · su análisis`}</span>
+          </Link>
+        ) : (
+          <span className="mt-1 block truncate text-[12px] text-white/70">{s.partido}</span>
+        )
+      ) : null}
+    </div>
   );
 }
 

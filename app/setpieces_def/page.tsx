@@ -389,9 +389,8 @@ function jornadasDe(filas: Row[]): JornadaAbp[] {
   return [...porClave.values()].sort(comparaJornadas);
 }
 
-/** El xG como en las tarjetas: siempre con dos decimales, con coma. */
-const dosDecimales = (n: number) =>
-  n.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+/* 20/11/2026 (jueces, ronda 5): los goles esperados de un partido o de la temporada, a un decimal. Por acción o por envío siguen con dos (0,05). */
+const unDecimal = (n: number) => n.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
 /**
  * Cómo lee el análisis una fila de esta hoja.
@@ -966,7 +965,7 @@ const comparativa = (() => {
     filas: [
       { clave: "acciones", nombre: "Acciones", valores: ultimas.map((j) => total(j.filas)) },
       { clave: "remates", nombre: "Remates", valores: ultimas.map((j) => remates(j.filas)) },
-      { clave: "xg", nombre: "Goles esperados", valores: ultimas.map((j) => xg(j.filas)), formato: dosDecimales },
+      { clave: "xg", nombre: "Goles esperados", valores: ultimas.map((j) => xg(j.filas)), formato: unDecimal },
     ],
   };
 
@@ -1006,7 +1005,7 @@ const comparativa = (() => {
       actual: xg(actual),
       media: mediaPorPartido(anteriores, xg),
       rango: rangoDe(anteriores, xg),
-      formato: dosDecimales,
+      formato: unDecimal,
       mejorAlto: false,
       de: total(actual),
     },
@@ -2622,6 +2621,20 @@ const conclusiones = (() => {
     );
   }
 
+  /*
+  | 20/11/2026 (jueces, ronda 5): «Segundos balones ganados 25 % frente a
+  | 47,9 %» del último partido es lo más entrenable y sólo salía en la tabla.
+  | Si queda por debajo de la media de antes, va delante, con su base y
+  | «tendencia» si son menos de 15.
+  */
+  const segundoUltimo = comparativa?.metricas.find((m) => m.clave === "segundoBalon");
+  const fraseSegundo =
+    jornada === "ALL" && segundoUltimo && segundoUltimo.media != null && segundoUltimo.actual != null && segundoUltimo.actual < segundoUltimo.media - 10
+      ? `Segundo balón en el último partido (${comparativa?.partido}): ganamos ${segundoUltimo.n} de ${segundoUltimo.de} (${cifra(segundoUltimo.actual, 0)} %) frente al ${cifra(segundoUltimo.media, 1)} % de media de las ${comparativa?.anteriores} jornadas anteriores${(segundoUltimo.de ?? 0) < MUESTRA_FIRME ? " · tendencia" : ""}.`
+      : null;
+
+  if (fraseSegundo) frases.unshift(fraseSegundo);
+
   const contras = filtered.filter((r) =>
     ["Transición Ofensiva", "Gol RMCF"].includes(resultado(r)),
   ).length;
@@ -2673,11 +2686,24 @@ const conclusiones = (() => {
     const pct = Math.round(tasas[bajo] + (tasas[Math.min(bajo + 1, tasas.length - 1)] - tasas[bajo]) * (posicion - bajo));
     return pct <= hoyRemate - 3 ? { pct, logrados: tasas.filter((t) => t <= pct).length, partidos: tasas.length } : null;
   })();
+  /*
+  | 20/11/2026 (jueces, ronda 5): «hoy 30 %» era la temporada (en la J12 fue
+  | un 45,5 %). Con la temporada a la vista se dice así, con su base, y al lado
+  | el último partido; con una jornada elegida, «en esta jornada».
+  */
+  const remateTemporada = `en la temporada ${cifra((filtered.filter(LECTOR.remate).length / filtered.length) * 100, 1)} % (${filtered.filter(LECTOR.remate).length} de ${filtered.length})`;
+  const remateUltimo = (() => {
+    if (jornada !== "ALL" || !jornadaComparada) return "";
+    const filas = filtered.filter((r) => r.contexto.jornada.clave === jornadaComparada);
+    if (!filas.length) return "";
+    const n = filas.filter(LECTOR.remate).length;
+    return `; en la ${filas[0].contexto.jornada.corto || "última jornada"}, ${cifra((n / filas.length) * 100, 1)} % (${n} de ${filas.length})`;
+  })();
   const objetivoRemate =
     anterioresConclusion && anterioresConclusion.length
-      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; hoy ${hoyRemate} %)`
+      ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; en esta jornada ${hoyRemate} %)`
       : metaPartidos
-        ? `objetivo: como mucho ${metaPartidos.pct} % con remate (lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos; hoy ${hoyRemate} %)`
+        ? `objetivo: como mucho ${metaPartidos.pct} % con remate (lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos; ${remateTemporada}${remateUltimo})`
         : "";
   const tarea = golEncajado
     ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
@@ -2750,7 +2776,7 @@ const conclusionesVista = (() => {
 
   return [
     ...conclusiones,
-    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo}. Hoy ${h.aciertos} de ${h.n} ${h.aciertos === 1 ? "acaba" : "acaban"} en gol u ocasión del rival (${pcH(h.aciertos, h.n)} %)${objetivo}.`,
+    `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo}. ${jornada === "ALL" ? "En la temporada" : "En esta jornada"}, ${h.aciertos} de ${h.n} ${h.aciertos === 1 ? "acaba" : "acaban"} en gol u ocasión del rival (${pcH(h.aciertos, h.n)} %)${objetivo}.`,
   ];
 })();
 
@@ -3116,11 +3142,11 @@ const categoriasVisual: CategoriaVisual[] = [
 
   <Card
     title="Goles esperados concedidos"
-    value={dosDecimales(metrics.xg)}
+    value={unDecimal(metrics.xg)}
   hint="La calidad de sus remates, sumada · menos es mejor"
   /* 16/11/2026 (jueces): la misma base que las otras dos tarjetas. */
   muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
-  referencia={mediaAnterior("xg", dosDecimales)}
+  referencia={mediaAnterior("xg", unDecimal)}
   />
 
   <Card

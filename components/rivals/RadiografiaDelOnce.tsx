@@ -146,7 +146,7 @@ export function RadiografiaDelOnce({
       .filter((x): x is { j: JugadorPlantilla; r: RasgoCorto } => Boolean(x.r))
       .sort((a, b) => (tipo === "peligro" ? b.r.percentil - a.r.percentil : a.r.percentil - b.r.percentil));
   const frase = ({ j, r }: { j: JugadorPlantilla; r: RasgoCorto }) =>
-    `${j.nombre}${r.enQue ? ` ${r.enQue}` : ""} (${r.nombre ?? r.corta} ${r.cifra ?? ""}${r.marca.replace(/^·/, ",")}${(j.minutosWyscout ?? MINUTOS_TENDENCIA) < MINUTOS_TENDENCIA ? ", tendencia" : ""})`.replace(/\s+,/g, ",");
+    `${j.nombre}${r.enQue ? ` ${r.enQue}` : ""} (${r.nombre ?? r.corta} ${r.cifra ?? ""}${r.marca.replace(/^·/, ",")}${j.minutosWyscout ? `, ${j.minutosWyscout.toLocaleString("es-ES")}′` : ""}${(j.minutosWyscout ?? MINUTOS_TENDENCIA) < MINUTOS_TENDENCIA ? ", tendencia" : ""})`.replace(/\s+,/g, ",");
   const peligros = nombrados("peligro");
   const explotables = nombrados("explotable");
 

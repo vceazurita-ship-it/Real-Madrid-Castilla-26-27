@@ -1835,7 +1835,13 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                 flotante, que tapaba la columna DIFERENCIA («−5,3» salía «−5,»). */}
             {/* 08/11/2026: lo que pide trabajo, como titular encima de la tabla
                 (antes era un renglón más de la tabla y la última conclusión). */}
-            {queToca ? (
+            {/* 20/11/2026 (jueces, ronda 5): sin alarma, una línea; el bloque repetía una fila de las barras. */}
+            {queToca && !queToca.alarma ? (
+              <p className="mt-5 text-[13px] leading-snug text-white/65">
+                <span className="font-semibold text-white/80">{queToca.rotulo}: </span>
+                {queToca.titular}. Sin tarea nueva; se vigila en el próximo partido.
+              </p>
+            ) : queToca ? (
               <div className={`mt-5 rounded-2xl border px-4 py-3 ${queToca.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]"}`}>
                 <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${queToca.alarma ? "text-amber-300" : "text-white/60"}`}>{queToca.rotulo}</p>
                 <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>

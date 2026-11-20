@@ -143,12 +143,15 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
               className={`relative w-3/5 max-w-[34px] transition-[height] duration-500 ${aFavor ? "rounded-t" : "rounded-b"}`}
               style={{ height: alto(pp), backgroundColor: color, opacity: goles ? 1 : 0.25, minHeight: 2, ...(esTendencia ? { outline: `1.5px dashed ${tinta(0.7)}`, outlineOffset: 2 } : {}) }}
               title={`${f.franja.nombre} · ${aFavor ? "a favor" : "en contra"}: ${goles} (${fmt(pp)} por partido; liga ${fmt(liga)})${esTendencia ? " · tendencia, menos de 5 goles" : ""}`}
+            />
+            {/* 20/11/2026 (jueces, ronda 5): el número va FUERA de la barra, como hermano y con la tinta del texto: dentro se medía «4 *» naranja sobre naranja (1,0). */}
+            <span
+              className="pointer-events-none absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums"
+              style={{ [aFavor ? "bottom" : "top"]: `calc(${alto(pp)} + 2px)`, color: goles ? tinta(0.9) : tinta(0.55) }}
             >
-              <span className={`absolute left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold tabular-nums ${aFavor ? "-top-4" : "-bottom-4"}`} style={{ color: goles ? color : tinta(0.3) }}>
-                {goles}
-                {esTendencia ? "*" : ""}
-              </span>
-            </div>
+              {goles}
+              {esTendencia ? "*" : ""}
+            </span>
             <div
               className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
               style={{ [aFavor ? "bottom" : "top"]: alto(liga), borderColor: tinta(0.5) }}
@@ -170,7 +173,7 @@ function GraficaFranjas({ filas }: { filas: { franja: Franja; gf: number; gc: nu
         {filas.map((f, i) => (
           <span
             key={f.franja.clave}
-            className={`min-w-0 flex-1 truncate text-center text-[11px] tabular-nums ${f.franja.descuento ? "font-semibold text-[#C8A96B]" : "text-white/55"} ${i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1 ? "border-l border-dashed border-white/20" : ""}`}
+            className={`min-w-0 flex-1 whitespace-nowrap text-center text-[11px] tracking-tight tabular-nums ${f.franja.descuento ? "font-semibold text-[#C8A96B]" : "text-white/55"} ${i > 0 && f.franja.parte === 2 && filas[i - 1].franja.parte === 1 ? "border-l border-dashed border-white/20" : ""}`}
           >
             {f.franja.nombre}
           </span>
@@ -876,8 +879,9 @@ export function PantallaGoles() {
   | de 0,1 goles por partido es «como la media». Antes el titular decía «como
   | la media» y la nube «más que la mediana… de los mejores».
   */
-  const tituloNube = (() => {
-    if (!yoEnNube || nubeLiga.length < 4) return "";
+  /* 20/11/2026 (jueces, ronda 5): el titular, una frase; el más parecido va debajo del gráfico. */
+  const nube = (() => {
+    if (!yoEnNube || nubeLiga.length < 4) return null;
     const media = (xs: number[]) => xs.reduce((a, b) => a + b, 0) / xs.length;
     const mx = media(nubeLiga.map((p) => p.x));
     const my = media(nubeLiga.map((p) => p.y));
@@ -897,8 +901,12 @@ export function PantallaGoles() {
     const vecino = otros.reduce((a, b) => (Math.hypot(b.x - yoEnNube.x, b.y - yoEnNube.y) < Math.hypot(a.x - yoEnNube.x, a.y - yoEnNube.y) ? b : a), otros[0]);
     /* 17/11/2026 (ronda 20, análisis): sin la coma entre sujeto y verbo («El Castilla, marca…»). */
     const cuadrante = mejorX && mejorY ? "está en la esquina buena (marca más y encaja menos que la media)" : peorX && peorY ? "está en la esquina mala (marca menos y encaja más que la media)" : `${marca} y ${encaja}`;
-    return `${corto} ${cuadrante}; el más parecido en las dos cifras, ${nombreEquipo(vecino.equipo)} (${fmt(vecino.x)} y ${fmt(vecino.y)} por partido)`;
+    return {
+      titulo: `${corto} ${cuadrante}`,
+      vecino: vecino ? `El más parecido en las dos cifras: ${nombreEquipo(vecino.equipo)} (${fmt(vecino.x)} a favor y ${fmt(vecino.y)} en contra por partido).` : "",
+    };
   })();
+  const tituloNube = nube?.titulo ?? "";
   /* «el tramo 76-90'» o «los tramos 0-15' y 76-90'»; con tres o más empatados no hay tramo que nombrar. */
   const enTramo = (t: { tramos: string[]; goles: number } | null) =>
     !t || t.tramos.length > 2 ? "" : `${t.tramos.length === 2 ? "los tramos" : "el tramo"} ${t.tramos.map(tramoLargo).join(" y ")} (${t.goles}${t.tramos.length === 2 ? " cada uno" : ""})`;
@@ -919,6 +927,8 @@ export function PantallaGoles() {
         proximoRival ? { href: urlGolesDelEquipo(proximoRival), texto: `Cómo marca el ${nombreEquipo(proximoRival)}`, icono: Goal } : { texto: "" },
         proximoRival ? { href: urlGolesDelEquipo(proximoRival, "contra"), texto: "Cómo le marcan", icono: Goal } : { texto: "" },
         proximoRival ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRival)}`, texto: "Su ABP", icono: Trophy } : { texto: "" },
+        /* 20/11/2026 (ronda 5, marketing): y al plan del próximo partido. */
+        proximoRival ? { href: conRivalEnUrl("/match-preparation", { equipo: proximoRival }), texto: "Plan del próximo partido", icono: Lightbulb } : { texto: "" },
       ]
     : [
         /* 17/11/2026 (ronda 19, los tres jueces): con el rival elegido, sus goles y cómo le marcan
@@ -931,7 +941,6 @@ export function PantallaGoles() {
       ];
   const visualGoles = () => delEquipo.length ? (
     <div className="space-y-4">
-      <EnlacesRapidos enlaces={enlacesEquipo} />
       <div className="grid min-w-0 gap-4 xl:grid-cols-2">
         {tituloFranjas ? (
           <Lamina>
@@ -952,6 +961,7 @@ export function PantallaGoles() {
               comparado={rivalEnLista && rivalEnLista !== equipo ? rivalEnLista : undefined}
               alPulsar={(e) => setEquipo(e)}
             />
+            {nube?.vecino ? <p className="mt-2 text-[12px] text-white/60">{nube.vecino}</p> : null}
             {/* 20/11/2026 (ronda 4, marketing): en el campo sólo llevan nombre el elegido, el comparado y los extremos; la lista entera, aquí. */}
             <details className="mt-2">
               <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55 hover:text-white/75">Los {nubeLiga.length} equipos, uno a uno</summary>
@@ -1182,6 +1192,13 @@ export function PantallaGoles() {
       | Antes era la pestaña «En el campo» del detalle y «Sus goles en vídeo»
       | al final de Visual. `?lado=contra` abre en los que encaja.
       */}
+      {/* 20/11/2026 (jueces, ronda 5): los accesos (plan de partido, su ABP…) arriba, sin bajar tres pantallas. */}
+      {delEquipo.length ? (
+        <div className="mt-4 min-w-0">
+          <EnlacesRapidos enlaces={enlacesEquipo} />
+        </div>
+      ) : null}
+
       <div id="goles-en-el-campo" className="mt-6 min-w-0 scroll-mt-24">
         <GolesCampoVideo key={`${equipo}-${ladoPedido}`} equipo={equipo} esCastilla={esNuestro} nombre={nombreEquipo(equipo)} ladoInicial={ladoPedido} />
       </div>

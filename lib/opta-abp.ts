@@ -54,7 +54,7 @@ export const METRICAS_ABP_OPTA: MetricaAbpOpta[] = [
   /* ---------------- Resumen ---------------- */
   { clave: "GoalSetPly", nombre: "Goles a balón parado", seccion: "Resumen", modo: "total", mejorAlto: true, valor: col("GoalSetPly"), comoLeer: "Goles a balón parado en la temporada según Opta (córner, falta y saque de banda; los penaltis van aparte)." },
   { clave: "GoalSetPly|OPP", nombre: "Goles encajados a balón parado", seccion: "Resumen", modo: "total", mejorAlto: false, valor: col("GoalSetPly|OPP"), comoLeer: "Goles que nos han hecho a balón parado en la temporada, sin penaltis." },
-  { clave: "xGSetPly", nombre: "xG a balón parado", seccion: "Resumen", modo: "pp", mejorAlto: true, valor: col("xGSetPly"), comoLeer: "Goles esperados de los remates a balón parado, por partido: cuánto peligro se genera, entren o no." },
+  { clave: "xGSetPly", nombre: "Goles esperados a balón parado", seccion: "Resumen", modo: "pp", mejorAlto: true, valor: col("xGSetPly"), comoLeer: "Goles esperados de los remates a balón parado, por partido: cuánto peligro se genera, entren o no." },
   { clave: "ChncSetPl", nombre: "Ocasiones a balón parado", seccion: "Resumen", modo: "pp", mejorAlto: true, valor: col("ChncSetPl"), comoLeer: "Pases que acaban en remate (clave o asistencia) a balón parado, por partido." },
   { clave: "ChncSetPl|OPP", nombre: "Ocasiones concedidas a balón parado", seccion: "Resumen", modo: "pp", mejorAlto: false, valor: col("ChncSetPl|OPP"), comoLeer: "Lo mismo del rival contra nosotros, por partido." },
 
@@ -64,7 +64,7 @@ export const METRICAS_ABP_OPTA: MetricaAbpOpta[] = [
   { clave: "ShrtCrnr%", nombre: "Córners en corto", seccion: "Córners", modo: "pct", mejorAlto: null, valor: col("ShrtCrnr%"), casos: col("Corners"), comoLeer: "Qué parte de los córners se saca en corto. Es estilo: ni mejor ni peor." },
   { clave: "ShotCrnrs", nombre: "Remates de córner", seccion: "Córners", modo: "pp", mejorAlto: true, valor: col("ShotCrnrs"), comoLeer: "Remates (bloqueados incluidos) de toda la jugada del córner, también los del rechace o la segunda jugada, por partido. Por eso son más que los córners que acaban en remate al primer contacto." },
   { clave: "CrnrRemate%", nombre: "Córners que acaban en remate", seccion: "Córners", modo: "pct", mejorAlto: true, valor: cociente("CrnrsLeadingShot", "Corners"), casos: col("Corners"), comoLeer: "De cada 100 córners, cuántos terminan en remate en la primera jugada." },
-  { clave: "xGCrnrs", nombre: "xG de córner", seccion: "Córners", modo: "pp", mejorAlto: true, valor: col("xGCrnrs"), comoLeer: "Goles esperados de los remates de córner, por partido." },
+  { clave: "xGCrnrs", nombre: "Goles esperados de córner", seccion: "Córners", modo: "pp", mejorAlto: true, valor: col("xGCrnrs"), comoLeer: "Goles esperados de los remates de córner, por partido." },
   { clave: "GoalCrnrs", nombre: "Goles de córner", seccion: "Córners", modo: "total", mejorAlto: true, valor: col("GoalCrnrs"), comoLeer: "Goles de córner en la temporada." },
   { clave: "RematesCrnrOPP", nombre: "Remates de córner en contra", seccion: "Córners", modo: "pp", mejorAlto: false, valor: suma("CrnrOnTgt|OPP", "CrnrOffTgt|OPP"), comoLeer: "Remates del rival tras córner (a puerta y fuera; sin los bloqueados), por partido." },
   { clave: "GoalCrnrs|OPP", nombre: "Goles de córner encajados", seccion: "Córners", modo: "total", mejorAlto: false, valor: col("GoalCrnrs|OPP"), comoLeer: "Goles de córner encajados en la temporada." },

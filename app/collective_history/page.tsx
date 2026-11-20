@@ -317,7 +317,6 @@ function GraficaPuntos({
         const ultimo = jugados[jugados.length - 1];
         const media = liga.get(ultimo.jornada);
         const f1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 0, maximumFractionDigits: 1 });
-        const d = media === undefined ? null : Math.round((ultimo.acumulados - media) * 10) / 10;
         return (
           <>
             {/* 10/11/2026: una sola leyenda, con las dos cifras. */}
@@ -333,13 +332,7 @@ function GraficaPuntos({
                 </span>
               ) : null}
             </p>
-            {/* Lo que significa, en una frase. */}
-            {media !== undefined && d !== null ? (
-              <p className="mt-1 text-[13px] font-medium text-white/85">
-                {f1(ultimo.acumulados)} puntos frente a {f1(media)} de media tras {jugados.length} jornadas:{" "}
-                {Math.abs(d) < 0.05 ? "en la media" : `${f1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"}`}.
-              </p>
-            ) : null}
+            {/* 20/11/2026 (jueces, ronda 5): fuera la frase «19 puntos frente a 16,1…»: la decía ya el titular de arriba. */}
           </>
         );
       })()}

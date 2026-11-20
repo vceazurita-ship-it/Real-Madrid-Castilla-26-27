@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+import { ChevronRight } from "lucide-react";
 import GestorAlertas from "@/components/alertas/GestorAlertas";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -34,6 +36,15 @@ export default function AlertasPage() {
               Recordatorios que salen solos por correo, aunque no tengas la app
               abierta, hasta que los silencies.
             </p>
+
+            {/* 20/11/2026 (ronda 5, marketing): de vuelta a lo de hoy, en la portada. */}
+            <Link
+              href="/"
+              className="mt-2 inline-flex min-h-10 items-center gap-1 text-[13.5px] font-semibold text-[#C8A96B] underline-offset-4 hover:underline"
+            >
+              Ver mis tareas de hoy, en la portada
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
           </div>
 
           {/* 29/10/2026: contenedor de consulta: sólo aquí la lista pasa a dos columnas; el botón flotante sigue en una.

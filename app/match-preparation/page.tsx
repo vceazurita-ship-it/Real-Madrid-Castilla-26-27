@@ -42,7 +42,7 @@ import { comoNombre } from "@/lib/duelos-onces";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { sinErratas } from "@/lib/rivals/erratas";
 import { useAdmin } from "@/hooks/useAdmin";
-import { DUELOS, UMBRAL_DUELO, fraseRecuentoPartes } from "@/lib/duelos";
+import { DUELOS, UMBRAL_DUELO, dueloQueDecide, fraseRecuentoPartes, pesoDelDuelo } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
@@ -1716,11 +1716,8 @@ export default function MatchPreparation() {
   /* Lo suyo que hay que parar: el mismo bloque «Cómo nos hacen daño» del Scout colectivo. */
   const amenaza = useAmenazaDelRival(rivalActivo?.EQUIPO ?? "");
   /* El duelo que decide va en «Cómo le ganamos»; abajo no se repite (16/11/2026, ronda 17). */
-  const claveDelQueDecide = duelosClave
-    ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar]
-        .filter((d) => d.consigna)
-        .sort((a, b) => Math.max(Math.abs(b.conBalon ?? 0), Math.abs(b.sinBalon ?? 0)) - Math.max(Math.abs(a.conBalon ?? 0), Math.abs(a.sinBalon ?? 0)))[0]?.clave
-    : undefined;
+  /* La regla es la de lib/duelos.ts (20/11/2026, ronda 5): la misma en Plantillas rivales y en Duelos. */
+  const claveDelQueDecide = dueloQueDecide(duelosClave?.grupos)?.clave;
   const tresIdeas = (() => {
     /* Cada idea, con el enlace al dato que la sostiene y el rival puesto (16/11/2026, ronda 18). */
     const ideas: { titulo: string; texto: string; base: string; enlaces?: { href: string; texto: string }[] }[] = [];
@@ -1767,10 +1764,7 @@ export default function MatchPreparation() {
         base: `${enClaro(extremosRival.flojo.charAt(0).toUpperCase() + extremosRival.flojo.slice(1))} (${partidosW}).`,
         enlaces: [{ href: `/rivals${equipoQ}`, texto: "Cómo llega, en Plantillas →" }],
       });
-    const fuerza = (d: DueloClave) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
-    const duelo = duelosClave
-      ? [...duelosClave.grupos.vigilar, ...duelosClave.grupos.doble, ...duelosClave.grupos.buscar].filter((d) => d.consigna).sort((a, b) => fuerza(b) - fuerza(a))[0]
-      : undefined;
+    const duelo = dueloQueDecide(duelosClave?.grupos);
     if (duelo) {
       const v = Math.abs(duelo.sinBalon ?? 0) > Math.abs(duelo.conBalon ?? 0) ? duelo.sinBalon : duelo.conBalon;
       const firma = v == null ? "" : ` (${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(v)}: diferencia de percentil; ${v < 0 ? "negativo, ventaja suya" : "positivo, ventaja nuestra"})`;
@@ -3226,6 +3220,24 @@ export default function MatchPreparation() {
                     </span>
                     <ChevronDown size={16} className={`shrink-0 transition ${abpAbierto ? "rotate-180" : ""}`} />
                   </button>
+                  {/*
+                    La orden a la vista aunque esté plegado (20/11/2026, ronda 5, fútbol):
+                    el bloque se quedaba en un título y un enlace. Su córner en contra,
+                    con su puesto, y el enlace a su ABP con el rival puesto.
+                  */}
+                  {!abpAbierto && cornerEnContra && (
+                    <div className="-mt-1 space-y-1 px-5 pb-4 text-[13px] leading-5 text-white/80 md:px-7">
+                      <p>
+                        <b className="font-semibold text-[#C8A96B]">Córner a favor:</b> de los córners que le sacan, el {cornerEnContra.valor} acaba en remate ({cornerEnContra.puesto}.º de {cornerEnContra.de}, Wyscout).{" "}
+                        Qué hacemos: atacar el primer palo con bloqueo.
+                      </p>
+                      <p>
+                        <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(String(rivalActivo.EQUIPO))}`} className="font-semibold text-[#C8A96B] hover:underline">
+                          Sus lanzadores, sus rematadores y su ABP →
+                        </Link>
+                      </p>
+                    </div>
+                  )}
                   {abpAbierto && (
                     <div className="space-y-3 px-3 pb-4 md:px-5">
                       <PanelProyeccion tipo="abp" equipo={String(rivalActivo.EQUIPO)} />
@@ -3541,8 +3553,13 @@ export default function MatchPreparation() {
                     ...duelosClave.grupos.doble.map((d) => ({ d, modo: "doble" as const })),
                     ...duelosClave.grupos.vigilar.map((d) => ({ d, modo: "vigilar" as const })),
                   ]
-                    .filter((x) => !repetidos.has(x.d.clave) && x.d.clave !== claveDelQueDecide)
-                    .sort((x, y) => Math.max(Math.abs(y.d.conBalon ?? 0), Math.abs(y.d.sinBalon ?? 0)) - Math.max(Math.abs(x.d.conBalon ?? 0), Math.abs(x.d.sinBalon ?? 0)))
+                    /*
+                    | 20/11/2026 (ronda 5, fútbol): el que decide abre el resumen, con
+                    | su rótulo; antes se quitaba de aquí por ir en «Cómo le ganamos» y
+                    | el bloque empezaba por otro (Cestero, −41, con Leiva −57 arriba).
+                    */
+                    .filter((x) => !repetidos.has(x.d.clave) || x.d.clave === claveDelQueDecide)
+                    .sort((x, y) => Number(y.d.clave === claveDelQueDecide) - Number(x.d.clave === claveDelQueDecide) || pesoDelDuelo(y.d) - pesoDelDuelo(x.d))
                     .slice(0, 3);
                   const ETIQUETA = { buscar: ["Para buscar", "text-emerald-300"], doble: ["Doble cara", "text-[#C8A96B]"], vigilar: ["Para vigilar", "text-rose-300"] } as const;
 
@@ -3552,7 +3569,10 @@ export default function MatchPreparation() {
                         <div className="mb-4 grid gap-4 lg:grid-cols-3">
                           {decisivos.map(({ d, modo }) => (
                             <div key={d.clave} id={`duelos-${modo}`} className="scroll-mt-56 rounded-2xl border border-white/[0.07] bg-white/[0.02] p-4">
-                              <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${ETIQUETA[modo][1]}`}>{ETIQUETA[modo][0]}</p>
+                              <p className={`text-[12px] font-semibold uppercase tracking-[0.2em] ${ETIQUETA[modo][1]}`}>
+                                {ETIQUETA[modo][0]}
+                                {d.clave === claveDelQueDecide && <span className="ml-1.5 rounded-full border border-current px-1.5 py-px text-[11px] tracking-normal">el que decide</span>}
+                              </p>
                               <ul className="mt-2 text-[14px] leading-6 text-white/85">{tarjeta(d, modo)}</ul>
                             </div>
                           ))}

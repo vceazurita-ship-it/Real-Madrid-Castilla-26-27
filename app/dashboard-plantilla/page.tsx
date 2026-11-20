@@ -506,7 +506,7 @@ export default function DashboardPlantilla() {
           <div className="rounded-2xl border border-white/10 bg-white/[0.025] p-4">
             <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
               <div className="relative min-w-0 xl:col-span-2">
-                <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">Buscar</span>
+                <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/40">Buscar</span>
                 <Search size={18} className="absolute left-4 top-[2.6rem] text-white/40" />
                 <input
                   value={busca}
@@ -756,7 +756,7 @@ function FilterSelect({
 }) {
   return (
     <label className="block min-w-0">
-      <span className="mb-2 block text-[10px] uppercase tracking-wider text-white/40">{label}</span>
+      <span className="mb-2 block text-[11px] uppercase tracking-wider text-white/40">{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -818,7 +818,7 @@ function DeFuera({ jugador }: { jugador: Jugador }) {
   if (jugador.ficha.delCastilla) return null;
 
   return (
-    <span className="ml-1.5 shrink-0 rounded-full border border-white/15 px-1.5 py-px text-[10px] text-white/55" title={`Licencia ${jugador.ficha.licencia}`}>
+    <span className="ml-1.5 shrink-0 rounded-full border border-white/15 px-1.5 py-px text-[11px] text-white/55" title={`Licencia ${jugador.ficha.licencia}`}>
       {jugador.ficha.licencia}
     </span>
   );
@@ -877,6 +877,12 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
           <span aria-hidden className="h-2.5 w-5 rounded-sm" style={{ background: PEOR }} />
           menos del 25 % (juega poco)
         </span>
+        {/* 20/11/2026 (ronda 5, análisis): la leyenda del asterisco y de la
+            tendencia junto al título, no sólo en el pie plegado. */}
+        {deValoraciones && deWyscout && (
+          <span>* minutos de Valoraciones (no tiene fila en Wyscout), sobre {deValoraciones.posibles}′</span>
+        )}
+        <span>«tendencia»: menos de 3 partidos, el % no es firme</span>
       </p>
       <div className="space-y-5">
         {PUESTOS.map((p) => {
@@ -937,8 +943,13 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                           {j.titular + j.suplente > 0 && (
                             <span className="block text-[11px] text-white/50">
                               {j.titular} tit. · {j.suplente} sup.
-                              {/* 08/11/2026: con un solo partido de titular, el % no es firme. */}
-                              {j.titular + j.suplente < 3 && j.minutos > 0 && <span className="text-white/55"> · tendencia (menos de 3 partidos)</span>}
+                              {/* 08/11/2026: con un solo partido de titular, el % no es firme.
+                                  20/11/2026 (ronda 5): la base en el propio dato («1 partido · tendencia»). */}
+                              {j.titular + j.suplente < 3 && j.minutos > 0 && (
+                                <span className="text-white/55">
+                                  {" "}· {j.titular + j.suplente} {j.titular + j.suplente === 1 ? "partido" : "partidos"} · tendencia
+                                </span>
+                              )}
                             </span>
                           )}
                         </span>
@@ -1075,7 +1086,8 @@ function BloqueAvisos({
                       <EnlacesJugador
                         className="ml-auto"
                         jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }}
-                        destinos={["ficha", accion.destino]}
+                        /* 20/11/2026 (ronda 5, análisis): también su Comparativa, ya elegido. */
+                        destinos={["ficha", accion.destino, "comparativa"]}
                       />
                     </li>
                   ))}
@@ -1182,6 +1194,9 @@ function BloqueContratos({ jugadores }: { jugadores: Jugador[] }) {
 */
 
 function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; jugadores: Jugador[] }) {
+  /* 20/11/2026 (ronda 5, dos jueces): los ocho con menos sesiones y el resto
+     tras «Ver los N»; la lista entera ocupaba más de una pantalla. */
+  const [verTodos, setVerTodos] = useState(false);
   const filas = jugadores
     .map((j) => ({ j, d: resumen.porJugador.get(j.ficha.id) }))
     .filter((f): f is { j: Jugador; d: SesionesDeJugador } => Boolean(f.d) && !esPortero(f.j.ficha.posicionHoja))
@@ -1206,18 +1221,29 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
       {sinSesion.length > 0 && (
         <p className="mb-3 text-[13px] leading-snug" style={{ color: PEOR }}>
           <span className="font-semibold">Sin ninguna sesión en la lista del día ({sinSesion.length}):</span>{" "}
-          {sinSesion.map(nombreDe).join(", ")}.
+          {/* 20/11/2026 (ronda 5, análisis): cada nombre abre su ficha y, al lado, registrar su seguimiento ya elegido. */}
+          {sinSesion.map((j, i) => (
+            <span key={j.ficha.id} className="inline-flex flex-wrap items-center gap-1 align-middle">
+              {i > 0 && <span aria-hidden>·</span>}
+              <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="font-semibold">
+                {nombreDe(j)}
+              </NombreJugador>
+              <EnlacesJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} destinos={["registrar"]} />
+            </span>
+          ))}
         </p>
       )}
       {/* 08/11/2026: el nombre nunca se corta; dos columnas sólo con ancho de sobra. */}
       <ul className="grid gap-x-6 gap-y-2 2xl:grid-cols-2">
-        {filas.map(({ j, d }) => {
+        {(verTodos ? filas : filas.slice(0, 8)).map(({ j, d }) => {
           const pct = Math.round((d.sesiones / resumen.totalSesiones) * 100);
           const bajo = pct < 70;
 
           return (
             <li key={j.ficha.id} className="grid min-w-0 grid-cols-[minmax(8rem,1fr)_4.5rem_auto] items-center gap-3 text-sm">
-              <span className="min-w-0 break-words leading-tight text-white/75">{nombreDe(j)}</span>
+              <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="min-w-0 break-words leading-tight text-white/75">
+                {nombreDe(j)}
+              </NombreJugador>
               <Barra pct={pct} color={bajo ? PEOR : ORO} />
               <span className="shrink-0 text-right tabular-nums" style={{ color: bajo ? PEOR : undefined }}>
                 <span className={bajo ? "font-semibold" : "text-white/60"}>{d.sesiones} de {resumen.totalSesiones}</span>
@@ -1226,6 +1252,16 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
           );
         })}
       </ul>
+      {filas.length > 8 && (
+        <button
+          type="button"
+          onClick={() => setVerTodos((v) => !v)}
+          aria-expanded={verTodos}
+          className="mt-3 inline-flex min-h-[36px] items-center rounded-full border border-white/15 px-3 text-xs font-semibold text-white/70 transition hover:text-white sm:min-h-[30px]"
+        >
+          {verTodos ? "Ver sólo los ocho con menos sesiones" : `Ver los ${filas.length}`}
+        </button>
+      )}
     </Bloque>
   );
 }
@@ -1280,12 +1316,12 @@ function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[];
             <tr>
               <th className="sticky left-0 z-10 min-w-[8.5rem] bg-[#0B0F14] text-left text-[11px] font-medium text-white/50">Jugador</th>
               {partidos.map((p) => (
-                <th key={p.match.id} className="text-center text-[10px] font-medium leading-tight text-white/55" title={`${p.match.opponent} · ${fechaCorta(p.match.date)}${p.match.result ? ` · ${p.match.result}` : ""}`}>
+                <th key={p.match.id} className="text-center text-[11px] font-medium leading-tight text-white/55" title={`${p.match.opponent} · ${fechaCorta(p.match.date)}${p.match.result ? ` · ${p.match.result}` : ""}`}>
                   <span className="block font-semibold text-white/80">J{p.jornada}</span>
                   <span className="block max-w-[3rem] truncate">{rivalCorto(p.match.opponent)}</span>
                 </th>
               ))}
-              <th className="pl-2 text-right text-[10px] font-medium text-white/50">Tit · Sup</th>
+              <th className="pl-2 text-right text-[11px] font-medium text-white/50">Tit · Sup</th>
             </tr>
           </thead>
           <tbody>
@@ -1295,7 +1331,7 @@ function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[];
 
               return [
                 <tr key={`${pu.key}-cab`}>
-                  <td colSpan={partidos.length + 2} className="sticky left-0 bg-[#0B0F14] pt-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                  <td colSpan={partidos.length + 2} className="sticky left-0 bg-[#0B0F14] pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
                     {pu.label}
                   </td>
                 </tr>,
@@ -1548,8 +1584,8 @@ function FichaJugador({
                     <div className="flex h-24 w-full items-end rounded-md" style={{ background: tinta(0.05) }}>
                       <div className="w-full rounded-md" style={{ height: `${alto}%`, background: a.titular ? oroAl(85) : oroAl(35) }} />
                     </div>
-                    <span className="text-[10px] font-semibold text-white/70">J{p.jornada}</span>
-                    <span className="max-w-[3rem] truncate text-[10px] text-white/45">{rivalCorto(p.match.opponent)}</span>
+                    <span className="text-[11px] font-semibold text-white/70">J{p.jornada}</span>
+                    <span className="max-w-[3rem] truncate text-[11px] text-white/45">{rivalCorto(p.match.opponent)}</span>
                   </div>
                 );
               })}
@@ -1584,13 +1620,13 @@ function FichaJugador({
               <div className="mt-5 space-y-4 border-t border-white/5 pt-4 text-sm">
                 {j.ficha.fortalezas && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-emerald-300">Fortalezas</p>
+                    <p className="text-[11px] uppercase tracking-wider text-emerald-300">Fortalezas</p>
                     <p className="mt-1 whitespace-pre-line text-white/75">{j.ficha.fortalezas}</p>
                   </div>
                 )}
                 {j.ficha.aspectosMejora && (
                   <div>
-                    <p className="text-[10px] uppercase tracking-wider text-[#C8A96B]">Aspectos de mejora</p>
+                    <p className="text-[11px] uppercase tracking-wider text-[#C8A96B]">Aspectos de mejora</p>
                     <p className="mt-1 whitespace-pre-line text-white/75">{j.ficha.aspectosMejora}</p>
                   </div>
                 )}

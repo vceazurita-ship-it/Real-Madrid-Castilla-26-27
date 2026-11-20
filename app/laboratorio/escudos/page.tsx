@@ -376,6 +376,12 @@ export default function EscudosPage() {
   const hrefPlan = proximoRival
     ? enlacesDelRival(jornadasRivales, proximoRival).find((e) => e.texto === "Plan de partido")?.href ?? "/match-preparation"
     : "";
+  /* 20/11/2026 (ronda 5): el plan de cualquier rival de nuestro grupo (el que tiene fila en la hoja RIVALES, con su ?rival=ID). */
+  const planDe = (equipo: string) => {
+    if (equipo === proximoRival) return hrefPlan;
+    const href = enlacesDelRival(jornadasRivales, equipo).find((e) => e.texto === "Plan de partido")?.href ?? "";
+    return href.includes("?rival=") ? href : "";
+  };
 
   /**
    * Arma el documento.
@@ -462,7 +468,8 @@ export default function EscudosPage() {
             {estado === "listo" && escudos.length > 0 ? (
               <p className="mt-2 text-[13px] text-white/70">
                 <strong className="font-semibold text-white">{escudos.length - faltan.length} escudos</strong> de BeSoccer
-                {/* 20/11/2026 (ronda 4): la fecha va pegada a «Actualizar escudos», abajo. */}
+                {/* 20/11/2026 (ronda 5, marketing): qué hace «Actualizar escudos», dicho una vez. */}
+                <span className="text-white/60"> · «Actualizar escudos» vuelve a pedir la lista y dice cuáles han cambiado</span>
               </p>
             ) : null}
 
@@ -536,6 +543,8 @@ export default function EscudosPage() {
                 title="Vista previa del documento"
                 subtitle={`Así salen sobre el azul noche del documento. El nombre abre la ficha del rival; en azul, su partido de la jornada ${jornada.numero} de la quiniela.`}
                 icon={ShieldCheck}
+                /* 20/11/2026 (ronda 5, marketing): sin recorte, para que la barra de buscar y filtrar se quede pegada arriba. */
+                className="!overflow-visible"
               >
                 {estado === "cargando" ? (
                   <div role="status" aria-label="Pidiendo los escudos">
@@ -582,7 +591,8 @@ export default function EscudosPage() {
 
                 {estado === "listo" ? (
                   <div className="space-y-5">
-                    <div className="flex flex-wrap items-center gap-2">
+                    {/* 20/11/2026 (ronda 5, marketing): buscador y filtros en una barra que se queda arriba al bajar por las diapositivas. */}
+                    <div className="sticky top-0 z-20 -mx-4 flex flex-wrap items-center gap-2 border-b border-white/10 bg-[#0B0F14] px-4 py-2 sm:-mx-5 sm:px-5">
                     <div className="relative w-full max-w-sm">
                       <Search size={15} aria-hidden className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-white/70" />
                       <input
@@ -743,7 +753,8 @@ export default function EscudosPage() {
                                 ) : null}
                                 {/* 17/11/2026 (marketing): de su partido a su análisis, a un toque. */}
                                 {/* 20/11/2026 (ronda 4, marketing): a 12 px y en oro claro; y su ABP y, si es nuestro rival, el plan. */}
-                                {jornada.partidos.get(uno.equipo) && !esNuestro(uno.equipo) ? (
+                                {/* 20/11/2026 (ronda 5, marketing): el mismo menú en todo equipo de nuestro grupo (también el próximo rival, que no sale en la quiniela); los del otro grupo, sólo su ficha: no tenemos sus goles ni su ABP. */}
+                                {!esNuestro(uno.equipo) && (jornada.partidos.get(uno.equipo) || uno.equipo === proximoRival || planDe(uno.equipo)) ? (
                                   <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
                                     <BotonGolesEnVideo
                                       equipo={uno.equipo}
@@ -760,9 +771,9 @@ export default function EscudosPage() {
                                     >
                                       ABP
                                     </Link>
-                                    {uno.equipo === proximoRival && hrefPlan ? (
+                                    {planDe(uno.equipo) ? (
                                       <Link
-                                        href={hrefPlan}
+                                        href={planDe(uno.equipo)!}
                                         title={`El plan de partido contra ${uno.equipo}`}
                                         style={{ color: "#F7D98B" }}
                                         className="inline-flex min-h-8 items-center text-[12px] font-bold underline underline-offset-2"

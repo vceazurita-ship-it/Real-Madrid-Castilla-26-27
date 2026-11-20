@@ -18,6 +18,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { usePlayers } from "@/hooks/usePlayers";
 import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esDeSeguimiento, medianaSeguimientos, sinSeguimientoReciente } from "@/lib/seguimiento";
 import { recordDateKey } from "@/lib/calendar";
+import { mismoJugador } from "@/lib/fichajes";
 import { PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
@@ -403,6 +404,14 @@ export default function DashboardSeguimiento() {
   const [loading, setLoading] = useState(true);
   const [tab, setTab] = useState<TabKey>("resumen");
   const [search, setSearch] = useState("");
+  /* 20/11/2026: `?buscar=humildad` (desde los valores de /team-values e
+     /identidad-cultura) abre el seguimiento con la búsqueda puesta. */
+  useEffect(() => {
+    const buscar = new URLSearchParams(window.location.search).get("buscar");
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- se lee la dirección una vez al montar
+    if (buscar) setSearch(buscar);
+  }, []);
   // 29/10/2026: en el móvil los 8 desplegables ocupaban casi dos pantallas
   // antes del primer dato; van plegados tras un botón «Filtros (n)».
   /* 07/11/2026: los filtros secundarios (estrategia, modalidad, momento, mes
@@ -410,6 +419,32 @@ export default function DashboardSeguimiento() {
   const [masFiltros, setMasFiltros] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [filters, setFilters] = useState<Filters>(emptyFilters);
+  /*
+  | 20/11/2026 (ronda 5, jueces): ?jugador=NOMBRE (y ?player=ID) abre el
+  | Dashboard con ese jugador ya filtrado, desde su ficha de /individual,
+  | Emocional, Valoraciones… Se casa por nombre antes que por ID (la hoja
+  | renumera los JUG-XX). Una vez, en cuanto llega la plantilla.
+  */
+  const [urlAplicada, setUrlAplicada] = useState(false);
+
+  useEffect(() => {
+    if (urlAplicada || players.length === 0) return;
+
+    const params = new URLSearchParams(window.location.search);
+    const nombre = params.get("jugador");
+    const id = params.get("player");
+    const elegido =
+      (nombre ? players.find((p) => mismoJugador(p.nombre, nombre)) : undefined) ??
+      (id ? players.find((p) => p.id === id) : undefined);
+
+    const t = window.setTimeout(() => {
+      setUrlAplicada(true);
+      if (elegido) setFilters((antes) => ({ ...antes, player: elegido.id }));
+    }, 0);
+
+    return () => window.clearTimeout(t);
+  }, [players, urlAplicada]);
+
   const secundariosActivos = [filters.strategy, filters.modality, filters.moment, filters.month, filters.week].filter(Boolean).length;
   const verSecundarios = masFiltros || secundariosActivos > 0;
 
@@ -437,15 +472,28 @@ export default function DashboardSeguimiento() {
     setFeedPaginado({ filters, search, tab, limite: feedLimit + 20 });
 
   useEffect(() => {
-    traeJson<unknown>("/api/rivals?action=seguimiento")
+    let cancelled = false;
+
+    /* 20/11/2026 (ronda 5): la copia del aparato se repinta en cuanto llega
+       lo nuevo, como en /individual y /calendar (las tres, la misma lista). */
+    traeJson<unknown>("/api/rivals?action=seguimiento", {
+      alRenovar: (nuevo) => {
+        if (!cancelled && Array.isArray(nuevo)) setTracking(nuevo);
+      },
+    })
       .then((data) => {
+        if (cancelled) return;
         setTracking(Array.isArray(data) ? data : []);
         setLoading(false);
       })
       .catch((e) => {
         console.error(e);
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   const playerMap = useMemo(

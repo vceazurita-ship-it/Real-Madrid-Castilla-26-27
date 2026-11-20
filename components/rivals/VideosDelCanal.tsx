@@ -661,7 +661,7 @@ export function VideosDelCanal({
         etiquetas: jugador?.etiquetas ?? [],
         resumen: resumenDeTemporada(jugador),
         clave: jugador?.clave,
-        enCaseta: (jugador?.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, jugador), debil: esEtiquetaDebil(e) })),
+        enCaseta: (jugador?.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, jugador, plantilla), debil: esEtiquetaDebil(e) })).filter((e) => e.texto),
         rasgos: jugador?.rasgos ?? [],
         poblacion: jugador?.poblacion ?? "",
         clips: jugador ? cortesDe[jugador.nombre] ?? 0 : 0,
@@ -2125,7 +2125,7 @@ function RestoDelOnce({
       </header>
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">
         {resto.map((j) => {
-          const enCaseta = (j.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, j), debil: esEtiquetaDebil(e) }));
+          const enCaseta = (j.etiquetas ?? []).map((e) => ({ texto: etiquetaEnCaseta(e, j, plantilla), debil: esEtiquetaDebil(e) })).filter((e) => e.texto);
           const resumen = resumenDeTemporada(j);
           const puesto = j.rol || j.puesto;
 

@@ -42,7 +42,8 @@ const NARANJA = "#D95F02";
 const pct = (v: number) => `${Math.round(v * 100)} %`;
 
 /** Los nombres cortos de cada lado, para escribir a los de Opta como en el resto de la app. */
-type Cortos = { nuestros?: string[]; suyos?: string[] };
+/** `plantilla`: el nombre corto de cada uno de nuestra plantilla entera, para los que no están en el once (20/11/2026, ronda 5). */
+type Cortos = { nuestros?: string[]; suyos?: string[]; plantilla?: string[] };
 
 const llano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 const palabrasDe = (t: string) => llano(t).split(/[\s.-]+/).filter(Boolean);
@@ -53,7 +54,19 @@ const palabrasDe = (t: string) => llano(t).split(/[\s.-]+/).filter(Boolean);
 | nombre corto de la plantilla cuyas palabras salen todas en el de Opta; si
 | casan dos distintos, se deja el de Opta (mejor largo que equivocado).
 */
-export function cortoDeOpta(nombre: string, cortos: string[] = []): string {
+export function cortoDeOpta(nombre: string, cortos: string[] = [], reserva: string[] = []): string {
+  /*
+  | 20/11/2026 (ronda 5, fútbol): «Oscar Naasei» (fuera del once) y «S.
+  | Martínez» (la inicial del once) se quedaban así. Sin cruce en el once, o con
+  | sólo la inicial, se busca en la plantilla entera (su nombre corto).
+  */
+  const delOnce = cortoDeUnaLista(nombre, cortos);
+  if (!reserva.length || (delOnce !== nombre && !(delOnce.split(" ")[0] ?? "").endsWith("."))) return delOnce;
+  const dePlantilla = cortoDeUnaLista(nombre, reserva);
+  return dePlantilla !== nombre ? dePlantilla : delOnce;
+}
+
+function cortoDeUnaLista(nombre: string, cortos: string[]): string {
   const palabras = new Set(palabrasDe(nombre));
   const casan = [...new Set(cortos)].filter((c) => {
     const suyas = palabrasDe(c).filter((w) => w.length >= 2);
@@ -166,6 +179,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros, cortos }: { equipo: str
             cifra={1 - nuestro.parte}
             quien="Los nuestros que más la recogen"
             cortos={cortos.nuestros}
+            reserva={cortos.plantilla}
             ejes="El rival lanza hacia la derecha: a la derecha, nuestra portería"
             zona={
               nuestro.enZonaMc
@@ -194,8 +208,10 @@ function Tarjeta({
   ejes,
   zona,
   cortos,
+  reserva,
 }: {
   cortos?: string[];
+  reserva?: string[];
   datos: Datos;
   color: string;
   titulo: string;
@@ -267,7 +283,7 @@ function Tarjeta({
             {datos.recogen.map((r, i) => (
               <li key={r.id} className="flex items-baseline justify-between gap-2">
                 <span className="min-w-0 truncate text-white/85">
-                  {i + 1}. {cortoDeOpta(r.nombre, cortos)}
+                  {i + 1}. {cortoDeOpta(r.nombre, cortos, reserva)}
                 </span>
                 <b className="shrink-0 tabular-nums" style={{ color }}>
                   {r.veces}

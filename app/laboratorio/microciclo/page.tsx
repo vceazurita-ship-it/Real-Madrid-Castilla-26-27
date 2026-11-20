@@ -378,7 +378,8 @@ function TiraDias({
        a 1440—; si no caben en una fila, pasan a dos. */
     /* max-md:pr-12 (17/11/2026, jueces): el botón flotante ⋮ caía sobre una casilla en el móvil. */
     /* 20/11/2026 (jueces): a 390 px «Entreno / Libre» se salía de la tarjeta y a 1440 el sábado se cortaba: una columna en el móvil y rejilla que envuelve (3-4 por fila). */
-    <div className="grid grid-cols-1 gap-2 max-md:pr-12 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+    /* 20/11/2026 (fútbol, ronda 5): sin el pr-12 del móvil, que dejaba una franja vacía a la derecha; casillas a todo lo ancho. */
+    <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
         const carga = !uno.esPartido ? cargaMd?.get(normalizaMd(uno.md)) : undefined;
@@ -387,7 +388,7 @@ function TiraDias({
         return (
           <div
             key={uno.fecha}
-            className={`min-w-0 rounded-xl border px-3 py-2.5 transition ${
+            className={`w-full min-w-0 rounded-xl border px-3 py-2.5 transition ${
               uno.esPartido
                 ? "border-[#C8A96B]/50 bg-[#C8A96B]/10"
                 : libre
@@ -1094,7 +1095,12 @@ function ResumenOrigen({
           <div key={c.etiqueta} className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-2">
             <dt className="text-[11px] font-semibold uppercase tracking-[0.1em] text-white/50">{c.etiqueta}</dt>
             <dd className="mt-0.5 text-xl font-semibold tabular-nums text-white">{c.valor}</dd>
-            {c.media ? <dd className="text-[11px] tabular-nums text-white/55">media {c.media}</dd> : null}
+            {/* 20/11/2026 (marketing, ronda 5): la media con su base. */}
+            {c.media ? (
+              <dd className="text-[11px] tabular-nums text-white/55">
+                media de {datos.baseMicros} micros: {c.media}
+              </dd>
+            ) : null}
           </div>
         ))}
       </dl>
@@ -1743,9 +1749,10 @@ export default function EditorMicrocicloPage() {
 
     const base = usoMd.dias
       ? `de las ${usoMd.base} semanas de liga de ${usoMd.dias} días`
-      : `de las ${usoMd.base} semanas de liga${usoMd.diasSemana ? ` (de ${usoMd.diasSemana} días no hay 3 para comparar)` : ""}`;
+      : `de las ${usoMd.base} semanas de liga`;
 
-    return `Propuesta: entrenar ${lista}, los MD que se entrenan en la mitad o más ${base}; libre el resto. Un día libre no escribe fila.`;
+    /* 20/11/2026 (fútbol, ronda 5): sin jerga de analista; el porqué de los días libres va a la ayuda. */
+    return `Entrenar ${lista}: se entrenan en la mitad o más ${base}.`;
   }, [usoMd, diasPlan]);
 
   /* El día siguiente al partido anterior: en pantalla se lee MD+1, como en la portada. */
@@ -2921,7 +2928,7 @@ export default function EditorMicrocicloPage() {
                 </nav>
                 {/* 16/11/2026 (jueces): de dónde sale la propuesta, en una línea y junto a los días. */}
                 <p className="mb-2 text-[13px] text-white/55">
-                  {propuestaDias ?? "Propuesta: libre el MD+1 (el día después del partido); el resto, entreno. Un día libre no escribe fila."}
+                  {propuestaDias ?? "Libre el MD+1 (el día después del partido); el resto, entreno."}
                 </p>
 
                 <BarrasSemana dias={diasPlan} cargaMd={cargaMd} libres={libresMarcados} />

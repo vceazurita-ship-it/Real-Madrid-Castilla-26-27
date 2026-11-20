@@ -337,7 +337,7 @@ function TablaLanzadores({ ss, lado, max = 8 }: { ss: Saque[]; lado: LadoDia; ma
             <th className="py-1.5 pr-2 text-right font-semibold">Saques</th>
             <th className="py-1.5 pr-2 text-right font-semibold">Llegan</th>
             <th className="py-1.5 pr-2 text-right font-semibold">Remate</th>
-            <th className="py-1.5 text-right font-semibold">xG</th>
+            <th className="py-1.5 text-right font-semibold" title="Goles esperados">G. esp.</th>
           </tr>
         </thead>
         <tbody>
@@ -411,7 +411,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
           <div className="mb-4 grid grid-cols-2 gap-2 lg:grid-cols-4">
             <Cifra rotulo={favor ? "Saques" : "Nos sacan"} valor={String(r.n)} detalle={jugados.n ? `${coma(r.n / jugados.n, 2)} por partido en ${jugados.n} partidos` : undefined} />
             <Cifra rotulo={`Acaban en remate${favor ? "" : " suyo"}`} valor={remate.valor} detalle={remate.detalle} tono={remate.tono} />
-            <Cifra rotulo="xG de la jugada" valor={coma(r.xG, 2)} detalle={`${r.goles} ${r.goles === 1 ? "gol" : "goles"} en la misma jugada`} />
+            <Cifra rotulo="Goles esperados de la jugada" valor={coma(r.xG, 2)} detalle={`${r.goles} ${r.goles === 1 ? "gol" : "goles"} en la misma jugada`} />
             <Cifra rotulo={favor ? "Llegan a un compañero" : "Llegan a uno de los suyos"} valor={llegan.valor} detalle={llegan.detalle} />
           </div>
 
@@ -456,7 +456,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
                         <th className="py-1.5 pr-2 font-semibold">Zona (desde el lado del saque)</th>
                         <th className="py-1.5 pr-2 text-right font-semibold">Saques</th>
                         <th className="py-1.5 pr-2 text-right font-semibold">Con remate</th>
-                        <th className="py-1.5 text-right font-semibold">xG</th>
+                        <th className="py-1.5 text-right font-semibold" title="Goles esperados">G. esp.</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -503,7 +503,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
               <Punto color={SOBRE_CESPED.gol}>Gol</Punto>
               <Punto color={SOBRE_CESPED.puerta}>A puerta</Punto>
               <Punto color={SOBRE_CESPED.fuera}>Fuera o bloqueado</Punto>
-              <span>El tamaño es el xG.</span>
+              <span>El tamaño son los goles esperados del remate.</span>
             </p>
             <p className="mt-1 text-[11px] text-white/45">
               Todos los remates que Opta marca como {tipo === "corner" ? "córner" : "falta (directa o en jugada)"}, también los de la segunda jugada.
@@ -519,7 +519,7 @@ function SaquesAbp({ lado }: { lado: LadoDia }) {
                   <th className="py-1.5 pr-2 text-right font-semibold">De cabeza</th>
                   <th className="py-1.5 pr-2 text-right font-semibold">A puerta</th>
                   <th className="py-1.5 pr-2 text-right font-semibold">Goles</th>
-                  <th className="py-1.5 text-right font-semibold">xG</th>
+                  <th className="py-1.5 text-right font-semibold" title="Goles esperados">G. esp.</th>
                 </tr>
               </thead>
               <tbody>
@@ -589,7 +589,7 @@ function SaquesBanda({ lado }: { lado: LadoDia }) {
         <Cifra rotulo={favor ? "Saques de banda" : "Saques del rival"} valor={String(r.n)} detalle={jugados.n ? `${coma(r.n / jugados.n)} por partido en ${jugados.n} partidos` : undefined} />
         <Cifra rotulo={favor ? "Llegan a un compañero" : "Llegan a uno de los suyos"} valor={llegan.valor} detalle={llegan.detalle} tono={llegan.tono} />
         <Cifra rotulo={favor ? "Acaban en remate" : "Acaban en remate suyo"} valor={remate.valor} detalle={remate.detalle} tono={remate.tono} />
-        <Cifra rotulo="xG de la jugada" valor={coma(r.xG, 2)} detalle={`${r.goles} ${r.goles === 1 ? "gol" : "goles"} en la misma jugada`} />
+        <Cifra rotulo="Goles esperados de la jugada" valor={coma(r.xG, 2)} detalle={`${r.goles} ${r.goles === 1 ? "gol" : "goles"} en la misma jugada`} />
       </div>
 
       <div className="grid gap-5 lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)]">

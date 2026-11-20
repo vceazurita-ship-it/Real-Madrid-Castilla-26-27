@@ -296,6 +296,9 @@ export function PorDondeAtaca({
 
       <p className="mt-2 text-xs leading-5 text-white/50">
         Sus {datos.contados} jugadores de campo con minutos esta temporada. El lado sale del puesto principal en Wyscout (laterales, carrileros y extremos a su banda; el resto, al centro); los centros, del lado desde el que se centra. El % es sobre el total del equipo. Pincha un nombre para abrir su ficha.
+        {/* 20/11/2026 (jueces de fútbol, /rivals y Área): 207 aquí y 208 en las barras del equipo. Son dos descargas de Wyscout distintas. */}
+        {total.centros > 0 &&
+          ` Sus ${total.centros} centros son la suma jugador a jugador; se rehacen con el «por 90» de cada uno y sus minutos, y el redondeo puede separarlos en uno o dos de la cifra del equipo en Wyscout (la de las barras de centros).`}
       </p>
     </section>
   );
@@ -323,17 +326,18 @@ function CampoCarriles({
 
   return (
     <div className="mt-3 flex flex-col items-center gap-3 sm:flex-row sm:items-start">
-      <figure className="m-0 w-full max-w-[15rem] shrink-0">
+      {/* 20/11/2026 (jueces de Área): el campo era pequeño y «IZQ./CENTRO/DER.» salía a ~9 px; más ancho y rótulos a ≥11 px. */}
+      <figure className="m-0 w-full max-w-[19rem] shrink-0">
         <svg viewBox="-2 -2 80 60" className="grafico-cabe-alto block w-full" role="img" aria-label={`Reparto de sus acciones de ataque por carril: ${partes.map((p) => `${p.label} ${Math.round((p.suma / total) * 100)} %`).join(", ")}`}>
           {partes.map((p, i) => {
             const k = p.suma / max;
             return (
               <g key={p.key}>
                 <rect x={i * ancho} y={0} width={ancho} height={52.5} style={{ fill: `rgb(56 189 248 / ${(0.1 + 0.55 * k).toFixed(2)})` }} />
-                <text x={i * ancho + ancho / 2} y={16} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.95)", fontSize: p === carga ? 8 : 6.2, fontWeight: 800 }}>
+                <text x={i * ancho + ancho / 2} y={16} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.95)", fontSize: p === carga ? 9 : 7.2, fontWeight: 800 }}>
                   {Math.round((p.suma / total) * 100)}%
                 </text>
-                <text x={i * ancho + ancho / 2} y={23} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.6)", fontSize: 3.2, fontWeight: 700 }}>
+                <text x={i * ancho + ancho / 2} y={24.5} textAnchor="middle" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.7)", fontSize: 4.2, fontWeight: 700 }}>
                   {p.key === "izquierda" ? "IZQ." : p.key === "derecha" ? "DER." : "CENTRO"}
                 </text>
               </g>
@@ -351,7 +355,7 @@ function CampoCarriles({
           <line x1={73} y1={50} x2={73} y2={8} style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)", strokeWidth: 0.8 }} />
           <path d="M70.6,10 L73,5.5 L75.4,10 Z" style={{ fill: "rgb(var(--rmcf-ink-rgb) / 0.45)" }} />
         </svg>
-        <figcaption className="mt-1 text-center text-[11px] text-white/55">Ataca hacia arriba · % de sus centros, regates, pases al área y acciones progresivas</figcaption>
+        <figcaption className="mt-1 text-center text-[12px] text-white/60">Ataca hacia arriba · % de sus centros, regates, pases al área y acciones progresivas</figcaption>
       </figure>
       <ul className="min-w-0 flex-1 space-y-1.5 text-[13px]">
         {partes

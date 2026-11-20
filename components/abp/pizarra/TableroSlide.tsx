@@ -2546,7 +2546,10 @@ export function TableroSlide({
     <div ref={marcoRef} className="w-full min-w-0 max-w-full" style={{ height: TABLERO_H * escala }}>
       <div
         data-abp-tablero
-        className="relative overflow-hidden"
+        /* 20/11/2026 (jueces, ronda 5): `siempre-oscuro` porque en modo día la
+           regla del oro en línea pasaba «Asignaciones» al oro de tinta sobre el
+           azul noche (2,41). La lámina es azul noche en los dos temas. */
+        className="siempre-oscuro relative overflow-hidden"
         style={{
           width: TABLERO_W,
           height: TABLERO_H,

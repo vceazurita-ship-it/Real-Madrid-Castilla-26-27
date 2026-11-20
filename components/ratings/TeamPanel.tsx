@@ -309,6 +309,26 @@ export function TeamPanel({
     [ranked]
   );
 
+  /* 20/11/2026 (ronda 5, análisis): detrás del primero, el 2.º y el 3.º,
+     con la misma regla (sólo si suben, y en G+A, con alguna acción). */
+  const siguenProgresion = useMemo(() => {
+    const conMuestra = ranked.filter((entry) => entry.summary.played >= MIN_FIABLE);
+
+    return [...(conMuestra.length > 0 ? conMuestra : ranked)]
+      .sort((a, b) => b.summary.trend - a.summary.trend)
+      .slice(1, 3)
+      .filter((entry) => entry.summary.trend > 0);
+  }, [ranked]);
+
+  const siguenGA = useMemo(
+    () =>
+      [...ranked]
+        .sort((a, b) => b.summary.goals + b.summary.assists - (a.summary.goals + a.summary.assists))
+        .slice(1, 3)
+        .filter((entry) => entry.summary.goals + entry.summary.assists > 0),
+    [ranked],
+  );
+
   /* «Más decisivo» sólo se nombra con 3 o más acciones (goles + asistencias):
      con una o dos no hay diferencia que merezca un nombre. */
   const decisivoClaro = useMemo(() => {
@@ -500,6 +520,15 @@ export function TeamPanel({
                 {nombreVisible(mostImproved.player.nombre)}
               </NombreJugador>
               <span className="tabular-nums">{formatSigned(mostImproved.summary.trend)} · {desdeHasta(mostImproved)}3 últimas frente a 3 anteriores · {mostImproved.summary.played} PJ</span>
+              {siguenProgresion.map((entry, i) => (
+                <span key={entry.player.id} className="inline-flex items-center gap-1 tabular-nums">
+                  · {i + 2}.º
+                  <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="text-white/85">
+                    {nombreVisible(entry.player.nombre)}
+                  </NombreJugador>
+                  {formatSigned(entry.summary.trend)}
+                </span>
+              ))}
             </span>
           )}
           {decisivoClaro && topScorer && (
@@ -511,6 +540,15 @@ export function TeamPanel({
               <span className="tabular-nums">
                 {plural(topScorer.summary.goals, "gol", "goles")} · {plural(topScorer.summary.assists, "asistencia", "asistencias")} · {topScorer.summary.played} PJ
               </span>
+              {siguenGA.map((entry, i) => (
+                <span key={entry.player.id} className="inline-flex items-center gap-1 tabular-nums">
+                  · {i + 2}.º
+                  <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="text-white/85">
+                    {nombreVisible(entry.player.nombre)}
+                  </NombreJugador>
+                  {entry.summary.goals}+{entry.summary.assists}
+                </span>
+              ))}
             </span>
           )}
         </p>
@@ -823,7 +861,7 @@ export function TeamPanel({
               >
                   <BarChart
                     data={byLine}
-                    margin={{ top: 30, right: 6, bottom: 0, left: -22 }}
+                    margin={{ top: 30, right: 50, bottom: 0, left: -22 }}
                   >
                     <CartesianGrid stroke={GRID_STROKE} vertical={false} />
 
@@ -878,6 +916,15 @@ export function TeamPanel({
                         stroke="rgb(var(--rmcf-ink-rgb) / 0.45)"
                         style={{ stroke: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                         strokeDasharray="4 4"
+                        /* 20/11/2026 (ronda 5, marketing): el rótulo de la
+                           media, fuera de las barras, en el borde derecho. */
+                        label={{
+                          value: `media ${formatRating(teamAverage)}`,
+                          position: "right",
+                          fontSize: 10,
+                          fontWeight: 700,
+                          fill: "rgb(var(--rmcf-ink-rgb) / 0.65)",
+                        }}
                       />
                     )}
 
@@ -1098,7 +1145,8 @@ export function TeamPanel({
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su mejor nota en sus PJ">Máx</th>
                 <th className={`px-2 py-3 text-center font-medium ${colSec}`} title="Su peor nota en sus PJ">Mín</th>
                 <th className="px-4 py-3 text-center font-medium" title="Goles + asistencias en Valoraciones"><span className="cursor-help underline decoration-dotted underline-offset-2">G+A</span></th>
-                <th className="px-2 py-3 text-left font-medium"><span className="sr-only">Accesos</span></th>
+                {/* 20/11/2026 (ronda 5, marketing): la columna de iconos, rotulada. */}
+                <th className="px-2 py-3 text-left font-medium" title="Seguimiento · Comparativa · Vídeos, con el jugador ya elegido">Ir a</th>
               </tr>
             </thead>
 

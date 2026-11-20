@@ -29,6 +29,7 @@
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
+import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
 import {
   CalendarDays,
   Check,
@@ -266,6 +267,30 @@ function Quiniela() {
 
   /* Quién ha entrado. Lo dice la cookie, que sólo lee el servidor. */
   const yo = sesion.yo?.slug ?? null;
+
+  /*
+  | 20/11/2026 (ronda 5, marketing): un solo «Entrar». La franja «Entra con
+  | tu correo… · Entrar» repetía el «Entrar para apostar» de la tarjeta de
+  | cierre; ahora no se pinta hasta que se pulsa ése (lleva a
+  | #acceso-quiniela), y entonces sale con el formulario ya abierto.
+  */
+  const [quiereEntrar, setQuiereEntrar] = useState(false);
+
+  useEffect(() => {
+    const mira = () => {
+      if (window.location.hash === "#acceso-quiniela") {
+        setQuiereEntrar(true);
+        requestAnimationFrame(() => document.getElementById("acceso-quiniela")?.scrollIntoView({ behavior: "smooth", block: "center" }));
+      }
+    };
+    const id = setTimeout(mira, 0);
+    window.addEventListener("hashchange", mira);
+
+    return () => {
+      clearTimeout(id);
+      window.removeEventListener("hashchange", mira);
+    };
+  }, []);
 
   /*
   | AL ENTRAR O SALIR, SE RELEE (19/10/2026).
@@ -868,6 +893,18 @@ function Quiniela() {
                     ))}
                   </div>
                 ) : null}
+                {/* 20/11/2026 (ronda 5, marketing): qué es «=2», junto a la tabla y no sólo en «Cómo se cuenta». */}
+                {tabla.some(
+                  (f, i) =>
+                    i > 0 &&
+                    !pocasApuestas(f) &&
+                    Math.round(f.total.porcentaje) === Math.round(tabla[i - 1].total.porcentaje) &&
+                    f.total.aciertos === tabla[i - 1].total.aciertos,
+                ) ? (
+                  <p className="mb-2 pr-8 text-[12px] text-white/60 sm:pr-14">
+                    <span className="font-semibold text-white/80">«=»</span> delante del puesto: compartido, mismo porcentaje y mismos aciertos.
+                  </p>
+                ) : null}
                 {(
                   <div className="min-w-0 overflow-x-auto pr-8 sm:pr-14">
                     {/* 13-14 px (11/11/2026, marketing): a 12 px no se leía en escritorio. */}
@@ -1408,13 +1445,17 @@ function Quiniela() {
                 empuje hacia abajo. Con la jornada cerrada el acceso baja al
                 final (lo que se quiere ver es el resumen y el reparto). */}
             {vista === "jornada" && !plazo.cerrada && (
-              <div id={yo ? undefined : "acceso-quiniela"} className="mt-5 scroll-mt-24">
-                <Acceso
-                  compacto
-                  yo={sesion.yo}
-                  cargando={sesion.cargando}
-                  manda={sesion.manda}
-                />
+              <div id={yo ? undefined : "acceso-quiniela"} className={yo || quiereEntrar || !plazo.ultimasHoras ? "mt-5 scroll-mt-24" : "scroll-mt-24"}>
+                {/* Sin el botón de la tarjeta de cierre (fuera de las últimas horas), la franja sigue siendo la entrada. */}
+                {yo || quiereEntrar || !plazo.ultimasHoras ? (
+                  <Acceso
+                    compacto
+                    abierto={quiereEntrar && !yo}
+                    yo={sesion.yo}
+                    cargando={sesion.cargando}
+                    manda={sesion.manda}
+                  />
+                ) : null}
               </div>
             )}
 
@@ -2370,6 +2411,9 @@ function Tripleta({
 function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boolean }) {
   const liga = useContext(EscudosLiga).get(nombreOficial(nombre));
   const escudo = liga?.escudo;
+  /* 20/11/2026 (ronda 5, marketing): su plan de partido, con el rival ya elegido (?rival=ID de la hoja RIVALES). */
+  const jornadasRivales = useJornadasRivales();
+  const plan = contexto ? enlacesDelRival(jornadasRivales, nombre).find((e) => e.texto === "Plan de partido")?.href ?? "" : "";
 
   return (
     <>
@@ -2414,6 +2458,15 @@ function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boole
         ABP
       </Link>
     )}
+    {contexto && plan.includes("?rival=") ? (
+      <Link
+        href={plan}
+        title={`El plan de partido contra ${nombre}`}
+        className="ml-1.5 inline-flex align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
+      >
+        Plan
+      </Link>
+    ) : null}
     </>
   );
 }

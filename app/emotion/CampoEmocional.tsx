@@ -177,8 +177,11 @@ export function CampoEmocional({
   grupos,
   onGruposDelOnce,
   fechaValoracion = null,
+  diasValoracion = null,
   onValorar,
 }: {
+  /** 20/11/2026 (ronda 5): días desde esa valoración (la página lee «hoy» fuera del render). */
+  diasValoracion?: number | null;
   /** 17/11/2026 (ronda 20): abre el editor con ese jugador (nombre de la hoja) ya elegido. */
   onValorar?: (nombreHoja: string) => void;
   /** 10/11/2026: la fecha de la última valoración editada (ISO), si la hay. */
@@ -387,6 +390,22 @@ export function CampoEmocional({
                 ? "Los mejor evaluados de cada puesto, en 4-2-3-1"
                 : "Leyendo la pizarra"}
           </p>
+          {/* 20/11/2026 (ronda 5, juez de análisis): las notas del campo son
+              de una fecha, no de hoy; se dice encima del campo y, pasados 14
+              días, en ámbar. */}
+          {fechaValoracion && (
+            <p
+              className={`mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
+                diasValoracion !== null && diasValoracion >= 14
+                  ? "border-amber-500/50 bg-amber-500/10 text-amber-300"
+                  : "border-white/10 text-white/60"
+              }`}
+            >
+              Notas de la valoración del {diaCorto(fechaValoracion.slice(0, 10))}
+              {diasValoracion !== null && diasValoracion > 0 && ` · hace ${diasValoracion} ${diasValoracion === 1 ? "día" : "días"}`}
+              {diasValoracion !== null && diasValoracion >= 14 && " · puede haber cambiado"}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -1272,21 +1291,28 @@ function LecturaDelOnce({
               const i = v.indexOf(Math.min(...v));
 
               return (
-                <div key={c.clave} className="flex items-center gap-1.5">
+                /* 20/11/2026 (ronda 5, dos jueces): en la columna estrecha el
+                   nombre y el eje salían cortados («Controlar», «Ejecutar»).
+                   Dos renglones: nombre y eje con su nota arriba, a todo el
+                   ancho; los accesos debajo. */
+                <div key={c.clave} className="rounded-xl border border-white/10 px-3 py-2">
                   <button
                     type="button"
                     onClick={() => onElegir(c.clave)}
-                    className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-xl border border-white/10 px-3 py-2 text-left text-xs text-white/75 transition hover:border-white/25 hover:text-white"
+                    className="flex w-full min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-left text-xs text-white/80 transition hover:text-white"
                   >
-                    <span className="truncate">{c.nombre}</span>
-                    <span className="shrink-0 tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
+                    <span className="min-w-0 font-semibold">{c.nombre}</span>
+                    <span className="shrink-0 whitespace-nowrap tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
                       {AXES[i].corto} {coma(v[i])}
                     </span>
                   </button>
-                  {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
-                  {/* 20/11/2026 (ronda 4, dos jueces): también su seguimiento, para registrar la tarea de control emocional. */}
-                  <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "seguimiento"]} className="shrink-0 flex-nowrap" />
-                  {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
+                  <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
+                    {/* 20/11/2026 (ronda 4, dos jueces): también su seguimiento, para registrar la tarea de control emocional. */}
+                    {/* 20/11/2026 (ronda 5): y su Dashboard Seguimiento ya filtrado. */}
+                    <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "dashboard"]} />
+                    {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
+                  </div>
                 </div>
               );
             })}
@@ -1398,7 +1424,8 @@ function PerfilJugador({
       {/* 16/11/2026 (jueces): de su perfil emocional a lo que lo completa, con él elegido. */}
       <EnlacesJugador
         jugador={{ nombre: c.nombre }}
-        destinos={["ficha", "seguimiento", "registrar", "valoraciones"]}
+        /* 20/11/2026 (ronda 5, jueces): también su Comparativa y su Dashboard Seguimiento, ya elegidos. */
+        destinos={["ficha", "dashboard", "registrar", "valoraciones", "comparativa"]}
         className="mt-3"
       />
       {onValorar && (

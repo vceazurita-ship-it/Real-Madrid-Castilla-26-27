@@ -453,7 +453,7 @@ export default function MicroCalendar() {
   const { registro, fechasDePartido: fechasPartido, semana, hoy: hoyComun } = useSemanaDeHoy();
   /* 20/11/2026 (jueces): el estado de cada día con la regla de /microcycles (lib/sesion-dia/estado-dia.ts): con equipos, hecha; la tarea que no casa, no se hizo. */
   const { almacen: almacenEquipos } = useDiasConectados(SIN_FECHAS, { entreno: false });
-  const estadoDe = useCallback((key: string, minutos: number) => estadoDelDia(key, hoyComun || "", registro, almacenEquipos, minutos), [hoyComun, registro, almacenEquipos]);
+  const estadoDe = useCallback((key: string, minutos: number, apuntada = false) => estadoDelDia(key, hoyComun || "", registro, almacenEquipos, minutos, apuntada), [hoyComun, registro, almacenEquipos]);
 
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
@@ -744,7 +744,9 @@ export default function MicroCalendar() {
     });
     const baseMd1 = diasMd1 >= 3 ? `: los MD-1 de la temporada se quedan en ${Math.round(cargaMd1 / diasMd1)} UA de media (${diasMd1} sesiones)` : "";
     if (!baseMd1) return "";
-    const partes = [md1 ? `el ${corto(md1.fecha)} (MD-1)` : "", despues ? `el ${corto(despues)} (día después del partido)` : ""].filter(Boolean);
+    /* 20/11/2026 (fútbol, ronda 5): sólo los días que vienen; el 20/11 citaba aún el jueves 19 (MD-1). */
+    const viene = (iso: string) => Boolean(iso) && Boolean(hoyComun) && iso > (hoyComun ?? "");
+    const partes = [md1 && viene(md1.fecha) ? `el ${corto(md1.fecha)} (MD-1)` : "", viene(despues) ? `el ${corto(despues)} (día después del partido)` : ""].filter(Boolean);
     return partes.length ? `del micro ${semana.etiqueta} ${partes.join(" y ")}${baseMd1}` : "";
   })();
 
@@ -836,7 +838,12 @@ export default function MicroCalendar() {
        entrenos por lado, marcado «tendencia». */
     if (pctCarga !== null) {
       const n = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
-      const nBase = monthStats.hechos === mesPrevio.stats.hechos ? `${n} entrenos` : `${monthStats.hechos} entrenos frente a ${mesPrevio.stats.hechos}`;
+      /* 20/11/2026 (fútbol, ronda 5): «8 entrenos frente a 6» chocaba con «11 hechos»: se dice que son los que tienen minutos. */
+      const deHechos = monthStats.hechosVista > monthStats.hechos ? ` de los ${monthStats.hechosVista} hechos` : "";
+      const nBase =
+        monthStats.hechos === mesPrevio.stats.hechos
+          ? `${n} entrenos con minutos${deHechos}`
+          : `${monthStats.hechos}${deHechos} con minutos, frente a ${mesPrevio.stats.hechos}`;
 
       return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`} · ${nBase}${n < 25 ? " · tendencia" : ""}`;
     }
@@ -969,7 +976,7 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Entrenos"
             value={monthStats.sesiones}
-            hint={`${monthStats.planificados > 0 ? `${monthStats.hechosVista} hechos y ${monthStats.planificados} planificados · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`${monthStats.planificados > 0 ? `${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"} y ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"} · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
@@ -1073,7 +1080,8 @@ export default function MicroCalendar() {
 
         const totalMinutes = dayTasks.reduce((s, t) => s + minutesOf(t), 0);
         /* Los minutos de lo planificado no dicen que se hiciera: sólo cuentan los de la copia de lo hecho. */
-        const estadoDia = estadoDe(key, dayTasks.every((t) => t._plan) ? 0 : totalMinutes);
+        /* 20/11/2026 (ronda 5): el día que ya está en la copia de lo hecho cuenta como hecho, como en /calendar_general. */
+        const estadoDia = estadoDe(key, dayTasks.every((t) => t._plan) ? 0 : totalMinutes, !dayTasks.every((t) => t._plan));
         /* La tarea del plan que no se hizo no se cuenta como contenido del día: va tachada aparte. */
         const noHechas = dayTasks.filter((t) => estadoDia.noHechas.has(String(t.Tarea ?? "").trim()));
         const hechasDelDia = noHechas.length ? dayTasks.filter((t) => !noHechas.includes(t)) : dayTasks;
@@ -1243,6 +1251,17 @@ export default function MicroCalendar() {
                 >
                   Ver la sesión →
                 </Link>
+              ) : null}
+              {/* 20/11/2026 (marketing, ronda 5): desde el día, sus equipos y su análisis, con la fecha ya puesta. */}
+              {!partido && key <= (hoyComun || "") ? (
+                <span className="flex flex-wrap gap-x-2 text-[11px] font-semibold">
+                  <Link href={`/jugadores-sesion?fecha=${key}`} onClick={sinAbrirElDia} className="text-[#C8A96B] underline-offset-2 hover:underline">
+                    Equipos →
+                  </Link>
+                  <Link href={`/analisis-entrenamiento?fecha=${key}`} onClick={sinAbrirElDia} className="text-[#C8A96B] underline-offset-2 hover:underline">
+                    Análisis →
+                  </Link>
+                </span>
               ) : null}
             </>
           ),

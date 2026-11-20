@@ -59,6 +59,41 @@ import {
  * busca su fila por la fecha del partido y por el nombre (`buscaJornada`).
  */
 
+const URL_PORTADA = "/api/data-analisis?portada=1";
+
+/* Una sola relectura forzada por pestaña, aunque la pidan la tarjeta y la portada a la vez. */
+let forzada: Promise<Partial<RespuestaPortada>> | null = null;
+
+/**
+ * LA RESPUESTA DE LA PORTADA, AL DÍA CON EL CALENDARIO (20/11/2026, ronda 5).
+ *
+ * Primero la copia del aparato (`traeJson`); si su tabla tiene menos partidos
+ * jugados que el calendario de BeSoccer, se pide otra vez al servidor antes de
+ * devolverla, para que el escritorio y el móvil no enseñen dos tablas. Si aun
+ * así la tabla va por detrás (BeSoccer no la ha subido), sale con su aviso.
+ * `alRenovar` recibe lo nuevo si llega después por detrás.
+ */
+export async function portadaAlDia(
+  jugados: number,
+  alRenovar?: (r: Partial<RespuestaPortada>) => void,
+): Promise<Partial<RespuestaPortada>> {
+  const r = await traeJson<Partial<RespuestaPortada>>(URL_PORTADA, { alRenovar });
+  const f = r?.clasificacion;
+  const pj = f ? f.ganados + f.empatados + f.perdidos : 0;
+
+  if (!f || jugados <= pj) return r;
+
+  forzada ??= traeJson<Partial<RespuestaPortada>>(URL_PORTADA, { forzar: true }).finally(() => {
+    forzada = null;
+  });
+
+  try {
+    return await forzada;
+  } catch {
+    return r;
+  }
+}
+
 const ORO = "#D8B45A";
 const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
@@ -105,18 +140,34 @@ export function ProximoPartido() {
     };
   }, []);
 
+  /*
+  | 20/11/2026 (ronda 5, fútbol): el mismo día el escritorio daba «9.º, 16 pts,
+  | 11 partidos» (la copia del aparato) y el móvil «6.º, 19 pts, 12 partidos».
+  | Ahora la tabla espera al calendario y, si la copia tiene menos partidos
+  | jugados que él, se pide de nuevo antes de pintar (`portadaAlDia`); y si
+  | llega algo más nuevo por detrás, se repinta.
+  */
+  const jugadosCalendario = useMemo(() => {
+    if (!ahora) return 0;
+    return (alrededorDe(partidos, ahora)?.todos ?? []).filter((uno) => uno.jugado).length;
+  }, [partidos, ahora]);
+
   useEffect(() => {
+    if (sinCalendario || !ahora) return;
+
     let vivo = true;
 
-    traeJson<Partial<RespuestaPortada>>("/api/data-analisis?portada=1")
-      .then((r) => {
-        if (!vivo) return;
+    const pon = (r: Partial<RespuestaPortada> | null | undefined) => {
+      if (!vivo) return;
 
-        setInforme({
-          equipos: Array.isArray(r?.equipos) ? r.equipos : [],
-          clasificacion: r?.clasificacion ?? null,
-        });
-      })
+      setInforme({
+        equipos: Array.isArray(r?.equipos) ? r.equipos : [],
+        clasificacion: r?.clasificacion ?? null,
+      });
+    };
+
+    portadaAlDia(jugadosCalendario, pon)
+      .then(pon)
       .catch(() => {
         /* Sin escudo ni tabla el partido se pinta igual: sigue valiendo. */
         if (vivo) setInforme({ equipos: [], clasificacion: null });
@@ -125,7 +176,7 @@ export function ProximoPartido() {
     return () => {
       vivo = false;
     };
-  }, []);
+  }, [sinCalendario, ahora, jugadosCalendario]);
 
   useEffect(() => {
     let vivo = true;
@@ -187,7 +238,7 @@ export function ProximoPartido() {
   }, [hoy]);
 
   /* 20/11/2026 (ronda 4, fútbol): «ABP» siempre en mayúsculas («Abp · Plan de partido…» venía así de la hoja). */
-  const sesionDeHoy = contenidosHoy?.fecha === hoy ? contenidosHoy.lista.map((s) => s.replace(/abp/gi, "ABP")) : [];
+  const sesionDeHoy = contenidosHoy?.fecha === hoy ? contenidosHoy.lista.map((s) => s.replace(/\babp\b/gi, "ABP")) : [];
 
   const diaDeHoy = semana.find((dia) => dia.fecha === hoy) ?? null;
 
@@ -895,7 +946,7 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
                   onClick={() => trackModuleVisit("/data-analisis")}
                   title={`${titulo} · su análisis`}
                   aria-label={`${titulo}: abrir su análisis`}
-                  className="group/ficha flex w-10 flex-col items-center rounded-lg"
+                  className="group/ficha flex w-10 cursor-pointer flex-col items-center rounded-lg [&>span:first-child]:shadow-[0_3px_8px_-3px_rgba(0,0,0,.45)] [&>span:first-child]:transition-shadow hover:[&>span:first-child]:shadow-[0_6px_14px_-4px_rgba(0,0,0,.55)]"
                 >
                   {ficha}
                 </Link>
@@ -982,7 +1033,7 @@ function Clasificacion({ informe, jugados = 0 }: { informe: RespuestaPortada | n
           {/* Si el calendario ya tiene más partidos jugados que la tabla, se dice (expertos: 11 frente a 12 confundía). */}
           {jugados > pj && (
             <span className="text-[12px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
-              Sin la última jornada ({pj} de {jugados})
+              BeSoccer aún no ha puesto al día su tabla: cuenta {pj} de nuestros {jugados} partidos
             </span>
           )}
         </>

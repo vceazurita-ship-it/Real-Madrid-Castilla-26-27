@@ -418,7 +418,8 @@ export function revisaSemana({
         id: "md1-estreno",
         tono: "aviso",
         titulo: "El MD-1 estrena contenido",
-        detalle: `${enLista(dichos).replace(/^./, (letra) => letra.toUpperCase())} ${nombres.length === 1 ? "sale" : "salen"} por primera vez el día antes: el MD-1 repasa lo de la semana.`,
+        /* 20/11/2026 (jueces, ronda 5): con su base, cuántos de los aspectos del MD-1 son nuevos. */
+        detalle: `${enLista(dichos).replace(/^./, (letra) => letra.toUpperCase())} ${nombres.length === 1 ? "sale" : "salen"} por primera vez el día antes (${nombres.length} de ${new Set(delMd1.flatMap((trabajo) => trabajo.aspectos)).size} aspectos del MD-1, sin trabajar antes en la semana): el MD-1 repasa lo de la semana.`,
         dia: md1,
         trabajo: libre(estrenos).trabajo,
       });
@@ -450,7 +451,8 @@ export function revisaSemana({
         id: "pico",
         tono: "aviso",
         titulo: `El pico de carga cae en el ${dias[pico].md}`,
-        detalle: `${nombreDia(pico)} suma ${Math.round(cargaDe(pico))} de carga, la más alta de la semana: el pico va a mitad de microciclo.`,
+        /* 20/11/2026 (jueces, ronda 5): con la base, la media del resto de días con carga. */
+        detalle: `${nombreDia(pico).replace(/^./, (letra) => letra.toUpperCase())} suma ${Math.round(cargaDe(pico))} de carga frente a ${Math.round(conCarga.filter((clave) => clave !== pico).reduce((total, clave) => total + cargaDe(clave), 0) / (conCarga.length - 1))} de media el resto de días con sesión: el pico va a mitad de microciclo.`,
         dia: pico,
       });
     }
@@ -535,9 +537,29 @@ export function revisaSemana({
     ),
   );
 
-  const olvidadas = urgentes
-    .filter((fila) => (fila.urgencia ?? 0) >= 50 && !enSemana.has(claveAspecto(fila.aspecto.key, fila.lado)))
-    .slice(0, 2);
+  /*
+  | 20/11/2026 (jueces, ronda 5): con menos de 5 acciones («penaltis en contra,
+  | 1 de 1») no es una carencia sin tarea: va a «para vigilar», sin contar
+  | entre las cosas que mirar.
+  */
+  const sinTareaUrgentes = urgentes.filter((fila) => (fila.urgencia ?? 0) >= 50 && !enSemana.has(claveAspecto(fila.aspecto.key, fila.lado)));
+  const olvidadas = sinTareaUrgentes.filter((fila) => fila.stats.acciones >= 5).slice(0, 2);
+  const paraVigilar = sinTareaUrgentes.filter((fila) => fila.stats.acciones < 5).slice(0, 3);
+
+  if (paraVigilar.length) {
+    puntos.push({
+      id: "para-vigilar",
+      tono: "bien",
+      titulo: `Para vigilar, con poca muestra: ${enLista(
+        paraVigilar.map(
+          (fila) =>
+            `${aspectoLabelLado(fila.aspecto, fila.lado).toLowerCase()} ${fila.lado === "ofensivo" ? "a favor" : "en contra"} (${fila.stats.peligro} de ${fila.stats.acciones})`,
+        ),
+      )}`,
+      detalle: "Menos de 5 acciones en competición: no piden tarea todavía; se vuelve a mirar cuando haya más.",
+      enlaces: [...new Map(paraVigilar.map((fila) => pantallaDe(fila.aspecto.key, fila.lado)).map((e) => [e.href, e])).values()],
+    });
+  }
 
   const carencias: PuntoRevision[] = [];
   /* La cifra de cada carencia, para el título conjunto: «(3 de 11 con peligro)». */

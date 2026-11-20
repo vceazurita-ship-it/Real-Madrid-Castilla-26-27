@@ -231,7 +231,7 @@ function EscalaIndices({
                 </span>
               </button>
               {f.fichaId ? (
-                <EnlacesJugador className="hidden sm:inline-flex" compacto jugador={{ id: f.fichaId, nombre: f.nombre }} destinos={["ficha", "seguimiento", "valoraciones"]} />
+                <EnlacesJugador className="hidden sm:inline-flex" compacto jugador={{ id: f.fichaId, nombre: f.nombre }} destinos={["ficha", "seguimiento", "videos", "valoraciones"]} />
               ) : (
                 <span className="hidden sm:block" />
               )}
@@ -999,15 +999,16 @@ export default function ComparativaCategoria() {
 
                     {lectura.length > 0 && (
                       <div className="mt-5 grid gap-3 md:grid-cols-3">
-                        {lectura.map((l) => {
+                        {lectura.map((l, iLectura) => {
                           const suyos = (l.abre ?? []).map((j) => conFicha.find((x) => x.f.jugador.jugador === j)).filter((x) => x !== undefined);
                           return (
                             <div key={l.titulo} className={`rounded-2xl border border-white/10 bg-white/[0.03] p-4 ${l.tono === "tendencia" ? "opacity-80" : ""}`} style={{ borderTop: `3px solid ${l.tono === "bien" ? "#1B9E77" : l.tono === "mal" ? "#D95F02" : l.tono === "tendencia" ? tinta(0.3) : "#C8A96B"}` }}>
                               <p className={`text-sm font-semibold ${l.tono === "tendencia" ? "text-white/70" : "text-white"}`}>{l.titulo}</p>
                               {/* 17/11/2026 (ronda 19): a la vista, el titular y qué hacemos; las cifras y el porqué, plegados. */}
-                              {l.accion && <p className="mt-1.5 text-[13px] font-medium leading-snug text-white/90">{l.accion}</p>}
+                              {/* 20/11/2026 (ronda 5, marketing): el objetivo en negrita y la primera tarjeta, abierta. */}
+                              {l.accion && <p className="mt-1.5 text-[13px] font-semibold leading-snug text-white">{l.accion}</p>}
                               {(l.mas || l.dato) && (
-                                <details className="mt-1.5 text-xs text-white/60">
+                                <details open={iLectura === 0} className="mt-1.5 text-xs text-white/60">
                                   <summary className="cursor-pointer text-[11px] font-medium text-[#C8A96B]">Por qué</summary>
                                   {l.dato && <p className="mt-1 tabular-nums leading-snug text-white/75">{l.dato}</p>}
                                   {l.mas && <p className="mt-1 leading-relaxed">{l.mas}</p>}

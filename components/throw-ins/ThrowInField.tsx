@@ -228,11 +228,12 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
       </div>
 
       {/* 17/11/2026 (jueces, ronda 20): la dirección del ataque, en grande y encima del campo. */}
-      <p className="mx-auto mb-2 flex w-full max-w-[min(1200px,calc((100dvh-300px)*1.6))] items-center justify-between text-[12px] font-semibold uppercase tracking-[0.14em] text-white/70">
-        <span>{isOffensive ? "Nuestra portería" : "← El rival ataca hacia aquí"}</span>
+      {/* 20/11/2026 (jueces, ronda 5): una línea también a 390 px, y el campo un tercio más bajo en escritorio (900 px de ancho como mucho). */}
+      <p className="mx-auto mb-2 flex w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] items-center justify-between gap-2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 sm:text-[12px] sm:tracking-[0.14em]">
+        <span>{isOffensive ? "Nuestra portería" : <>← Atacan hacia aquí<span className="hidden sm:inline"> (el rival)</span></>}</span>
         <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Su portería"}</span>
       </p>
-      <div className="relative mx-auto aspect-[16/10] w-full max-w-[min(1200px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
+      <div className="relative mx-auto aspect-[16/10] w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
         <BoardViewport className="absolute inset-0" label="Mapa de saques de banda">
         {/*
           El césped viaja dentro del visor: si se quedara en el marco, al

@@ -1285,10 +1285,19 @@ export default function IdentidadPosicionalPage() {
                             <b className="text-white">{cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}</b>, la mediana de{" "}
                             {prioridad.cifra.n} {(PLURAL_PUESTO[prioridad.cifra.puesto] ?? "jugadores").toLowerCase()} con{" "}
                             {MINUTOS_CONTENIDO}′ o más.
+                            {/* 20/11/2026 (guionista, ronda 5): qué se cuenta en la tarea, como en el resto. */}
+                            {QUE_CONTAR[prioridad.cifra.columna] && (
+                              <> En la tarea, contar {QUE_CONTAR[prioridad.cifra.columna]}.</>
+                            )}
                           </p>
+                          <EnlacesTarea nombres={prioridad.debajo.map((j) => ({ nombre: j.nombre, corto: nombrePlantilla(j.nombre, quienes) }))} />
                         </div>
                       )}
-                      <RadiografiaPuesto cifras={cifrasPuesto} quienes={quienes} />
+                      <RadiografiaPuesto
+                        cifras={cifrasPuesto}
+                        quienes={quienes}
+                        totalContenidos={data.filter((r) => r.POSICION === posicion).length}
+                      />
                       <p className="break-words text-xs text-gray-400">
                         Cifras de liga (Wyscout) de los que llevan {MINUTOS_CONTENIDO}′ o más: ▲ mejor que la
                         mediana del puesto en la categoría (raya azul) · ▼ peor · = la misma cifra · «tendencia»: menos
@@ -1521,12 +1530,38 @@ export default function IdentidadPosicionalPage() {
 | una columna por jugador: ▲ por encima de la mediana del puesto, ▼ por
 | debajo, = en ella, ○ tendencia. El título es la conclusión.
 */
+/*
+| 20/11/2026 (fútbol y guionista, ronda 5): la tarea acaba en el plan de la
+| semana y en el seguimiento del jugador, ya elegido. Sin clips de Hudl por
+| jugador y contenido, el enlace a vídeo no sale.
+*/
+function EnlacesTarea({ nombres }: { nombres: { nombre: string; corto: string }[] }) {
+  return (
+    <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[13px]">
+      <Link href="/microcycles" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+        Al microciclo de la semana →
+      </Link>
+      {nombres.map((j) => (
+        <Link
+          key={j.nombre}
+          href={`/individual?nombre=${encodeURIComponent(j.nombre)}&pestana=seguimiento`}
+          className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+        >
+          {nombres.length === 1 ? "Su seguimiento →" : `Seguimiento de ${j.corto} →`}
+        </Link>
+      ))}
+    </span>
+  );
+}
+
 function RadiografiaPuesto({
   cifras,
   quienes,
+  totalContenidos,
 }: {
   cifras: { item: PosicionItem; cifra: NonNullable<ReturnType<typeof cifraDelContenido>> }[];
   quienes: Quien[];
+  totalContenidos: number;
 }) {
   const filas = [...cifras].sort(
     (a, b) => Number(/SIN/i.test(a.item.BLOQUE ?? "")) - Number(/SIN/i.test(b.item.BLOQUE ?? "")),
@@ -1557,23 +1592,35 @@ function RadiografiaPuesto({
   const peor = [...cuenta].filter((c) => c.medidos > 0).sort((a, b) => b.debajo / b.medidos - a.debajo / a.medidos)[0];
   const titulo =
     peor && peor.debajo > 0
-      ? `${peor.n}, por debajo de la mediana en ${peor.debajo} de ${peor.medidos} contenidos medidos`
+      ? `${peor.n}, por debajo de la mediana en ${peor.debajo} de los ${peor.medidos} contenidos con cifra firme`
       : `Todos en la mediana o por encima en los ${filas.length} contenidos medidos`;
+  /* 20/11/2026 (marketing y guionista, ronda 5): la base del bloque: cuántos
+     contenidos del puesto se miden en liga y cuántas filas son sólo tendencia. */
+  const soloTendencia = filas.filter((f) => nombres.every((n) => signoDe(f, n) === "t" || signoDe(f, n) === null)).length;
+  const base = `${filas.length} de ${totalContenidos} contenidos del puesto se miden en liga${soloTendencia ? ` (${soloTendencia === 1 ? "1, sólo tendencia" : `${soloTendencia}, sólo tendencia`})` : ""}`;
 
   return (
     <figure className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-3 sm:p-4">
       <figcaption>
         <span className="block text-xs font-semibold uppercase tracking-[0.18em] text-gray-400">Radiografía del puesto</span>
         <span className="mt-1 block break-words text-sm font-semibold text-white lg:text-base">{titulo}</span>
+        <span className="mt-0.5 block text-xs text-gray-400">{base}</span>
       </figcaption>
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-0 border-separate border-spacing-1 text-[13px]">
+        <table className="w-full min-w-0 border-separate border-spacing-1 text-sm">
           <thead>
             <tr>
               <th scope="col" className="sr-only">Contenido</th>
               {nombres.map((n) => (
-                <th key={n} scope="col" className="px-1 text-center text-[12px] font-semibold text-gray-300">
-                  {n}
+                <th key={n} scope="col" className="px-1 text-center text-[13px] font-semibold text-gray-300 lg:text-sm">
+                  {/* 20/11/2026 (marketing, ronda 5): el nombre lleva a su ficha. */}
+                  <Link
+                    href={`/individual?nombre=${encodeURIComponent(n)}&pestana=mejora`}
+                    className="hover:text-white hover:underline"
+                    title={`Área de mejora de ${n}`}
+                  >
+                    {n}
+                  </Link>
                 </th>
               ))}
             </tr>
@@ -1587,7 +1634,7 @@ function RadiografiaPuesto({
                   <th
                     scope="row"
                     className={cn(
-                      "border-l-2 pl-2 text-left text-[12px] font-medium leading-tight text-gray-200",
+                      "sticky left-0 z-10 bg-[var(--background)] border-l-2 pl-2 text-left text-[13px] font-medium leading-tight text-gray-200 lg:text-sm",
                       sin ? "border-sky-400/60" : "border-[#C8A96B]/70",
                     )}
                   >
@@ -1625,7 +1672,7 @@ function RadiografiaPuesto({
           </tbody>
         </table>
       </div>
-      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[12px] text-gray-400">
+      <p className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-[13px] text-gray-400">
         <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-[#C8A96B]" aria-hidden />con balón</span>
         <span><span className="mr-1 inline-block h-2.5 w-2.5 rounded-sm bg-sky-400" aria-hidden />sin balón</span>
         <span>▲ / ▼ frente a la mediana del puesto · ○ tendencia</span>
@@ -1809,8 +1856,8 @@ function FichaContenido({
               {item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}»; contar{" "}
               {QUE_CONTAR[cifra.columna] ?? nombreColumna(cifra.columna).toLowerCase()}; objetivo de partido{" "}
               {cifra.mejorAlto ? "llegar a" : "bajar de"} {cifraTexto(cifra.mediana, cifra.porcentaje)}.
-              {/* 17/11/2026 (marketing): el Área de mejora y el Seguimiento van una vez
-                  por jugador, en sus chips de arriba; aquí, sólo el nombre enlazado en la barra. */}
+              {/* 20/11/2026 (fútbol y guionista, ronda 5): como en /game-model, la tarea acaba en el plan de la semana. */}
+              <EnlacesTarea nombres={debajo.map((j) => ({ nombre: j.nombre, corto: nombre(j) }))} />
             </p>
           )}
         </figure>

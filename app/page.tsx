@@ -16,7 +16,7 @@ import { Topbar } from "@/components/ui/topbar"
 import { AlertasPortada } from "@/components/portada/AlertasPortada"
 import { AvisoConexionGoogle } from "@/components/portada/AvisoConexionGoogle"
 import { Cifras } from "@/components/portada/Cifras"
-import { ProximoPartido } from "@/components/portada/ProximoPartido"
+import { ProximoPartido, portadaAlDia } from "@/components/portada/ProximoPartido"
 import { MisTareas } from "@/components/portada/MisTareas"
 import { PanelHoy } from "@/components/portada/PanelHoy"
 import { DirectoPortada } from "@/components/portada/DirectoPortada"
@@ -43,7 +43,7 @@ import { mismoEquipo } from "@/lib/data-analisis/nombres"
 import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida"
 import { useEscudos } from "@/hooks/useEscudos"
 import { useOptaLigero } from "@/hooks/useOptaLigero"
-import { CASTILLA_OPTA } from "@/lib/opta"
+import { CASTILLA_OPTA, num as numOpta } from "@/lib/opta"
 import { cifrasOptaDe, hastaOpta } from "@/lib/portada/cifras-opta"
 import { SelloFuente } from "@/components/ui/SelloFuente"
 
@@ -227,6 +227,62 @@ function FichaRival({
       )}
       </div>
     </div>
+  )
+}
+
+/*
+| GOLES MENOS xG, PARTIDO A PARTIDO (20/11/2026, ronda 5, análisis): la cifra
+| media del panel oscuro con su gráfico debajo, una barra por partido de Opta
+| (hacia arriba, marcamos más de lo esperado; hacia abajo, menos) sobre la
+| línea del 0. Colores en línea: el panel es oscuro también en modo día.
+*/
+function BarrasDiferencia({
+  partidos,
+  verde,
+  naranja,
+}: {
+  partidos: { fecha: string; rival: string; goles: number; xg: number; dif: number }[]
+  verde: string
+  naranja: string
+}) {
+  if (partidos.length < 2) return null
+
+  const tope = Math.max(0.5, ...partidos.map((p) => Math.abs(p.dif)))
+  const alto = 30
+  const fecha = (f: string) => `${Number(f.slice(8, 10))}/${Number(f.slice(5, 7))}`
+
+  return (
+    <figure className="mt-3" aria-label={`Goles menos xG en cada uno de los ${partidos.length} partidos`}>
+      <div className="relative flex items-stretch gap-[3px]" style={{ height: alto * 2 }}>
+        <span aria-hidden className="absolute inset-x-0 top-1/2 h-px" style={{ background: "rgba(255,255,255,.45)" }} />
+        {partidos.map((p) => {
+          const h = Math.max(2, (Math.abs(p.dif) / tope) * alto)
+          const arriba = p.dif >= 0
+
+          return (
+            <span
+              key={`${p.fecha}-${p.rival}`}
+              className="relative flex-1"
+              title={`${fecha(p.fecha)}${p.rival ? ` · ${p.rival}` : ""} · ${p.goles} ${p.goles === 1 ? "gol" : "goles"} − ${coma(p.xg, 1)} xG = ${p.dif >= 0 ? "+" : "−"}${coma(Math.abs(p.dif), 1)}`}
+            >
+              <span
+                className="absolute inset-x-0 rounded-[2px]"
+                style={{
+                  background: arriba ? verde : naranja,
+                  height: h,
+                  ...(arriba ? { bottom: alto } : { top: alto }),
+                }}
+              />
+            </span>
+          )
+        })}
+      </div>
+      <figcaption className="mt-1 flex justify-between text-[11px] tabular-nums" style={{ color: "rgba(255,255,255,.8)" }}>
+        <span>{fecha(partidos[0].fecha)}</span>
+        <span>un partido por barra · 0 = lo esperado</span>
+        <span>{fecha(partidos[partidos.length - 1].fecha)}</span>
+      </figcaption>
+    </figure>
   )
 }
 
@@ -668,13 +724,22 @@ export default function Home() {
   */
   const [equiposPortada, setEquiposPortada] = useState<EquipoPortada[]>([])
 
-  useEffect(() => {
-    let vivo = true
+  /* 20/11/2026 (ronda 5, fútbol): la misma lectura que la tarjeta del partido, al día con el calendario (`portadaAlDia`): escritorio y móvil, una sola tabla. */
+  const jugadosCalendario = useMemo(
+    () => (ahora ? (alrededorDe(calendario, ahora)?.todos ?? []).filter((uno) => uno.jugado).length : 0),
+    [calendario, ahora],
+  )
 
-    traeJson<Partial<RespuestaPortada>>("/api/data-analisis?portada=1")
-      .then((r) => {
-        if (vivo && Array.isArray(r?.equipos)) setEquiposPortada(r.equipos)
-      })
+  useEffect(() => {
+    if (sinCalendario || !ahora) return
+
+    let vivo = true
+    const pon = (r: Partial<RespuestaPortada> | null | undefined) => {
+      if (vivo && Array.isArray(r?.equipos)) setEquiposPortada(r.equipos)
+    }
+
+    portadaAlDia(jugadosCalendario, pon)
+      .then(pon)
       .catch(() => {
         /* Sin la ficha, el panel enseña lo de siempre. */
       })
@@ -682,7 +747,7 @@ export default function Home() {
     return () => {
       vivo = false
     }
-  }, [])
+  }, [sinCalendario, ahora, jugadosCalendario])
 
   const fichaRival = useMemo(() => {
     if (sinCalendario || !ahora) return null
@@ -715,6 +780,25 @@ export default function Home() {
   const hastaDeOpta = useMemo(() => (opta ? hastaOpta(opta, calendario) : ""), [opta, calendario])
 
   const optaNuestro = useMemo(() => (opta ? cifrasOptaDe(opta, CASTILLA_OPTA) : null), [opta])
+
+  /* 20/11/2026 (ronda 5, análisis): goles − xG de cada partido nuestro en Opta, para el gráfico del panel. */
+  const difPorPartido = useMemo(() => {
+    if (!opta) return []
+    const filas = opta.partidos
+
+    return filas
+      .filter((f) => String(f.teamId) === CASTILLA_OPTA)
+      .map((f) => {
+        const goles = numOpta(f.Goal)
+        const xg = numOpta(f.ExpG)
+        if (goles == null || xg == null) return null
+        const otro = filas.find((o) => String(o.partido) === String(f.partido) && String(o.teamId) !== CASTILLA_OPTA)
+
+        return { fecha: String(f.fecha ?? "").slice(0, 10), rival: String(otro?.equipo ?? ""), goles, xg, dif: goles - xg }
+      })
+      .filter((p): p is NonNullable<typeof p> => p != null && Boolean(p.fecha))
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))
+  }, [opta])
 
   /* La cifra del Castilla en la tarjeta (del MD-5 al partido), de la fuente que manda. */
   const nuestroXg = useMemo(() => {
@@ -1017,6 +1101,10 @@ export default function Home() {
                               en {nuestroXg.partidos} partidos
                               {nuestroXg.partidos < 15 ? " · pocos partidos: léase como tendencia" : ""}
                             </p>
+
+                            {nuestroXg.fuente === "opta" ? (
+                              <BarrasDiferencia partidos={difPorPartido} verde={VERDE_OSC} naranja={NARANJA_OSC} />
+                            ) : null}
 
                             <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: "rgba(255,255,255,.8)" }}>
                               <span className="inline-flex items-center gap-1.5" style={arriba ? { color: "#fff", fontWeight: 600 } : undefined}>

@@ -506,8 +506,13 @@ function conclusionesDe(
   nAnteriores = 0,
   /** 17/11/2026 (ronda 19): de qué a qué fue lo recuperado por partido antes (sólo con una jornada elegida). */
   rangoRecuperado: [number, number] | null = null,
+  /** 20/11/2026 (jueces, ronda 5): «hoy» era la temporada; con una jornada elegida, «en esta jornada». */
+  conJornada = false,
 ): ConclusionesBanda {
   if (!rows.length) return { items: [] };
+
+  const cuando = conJornada ? "en esta jornada" : "en la temporada";
+  const Cuando = conJornada ? "En esta jornada" : "En la temporada";
 
   const ofensivo = mode === "offensive";
   /* Con menos de MUESTRA_FIRME saques en el grupo, la línea lo dice al final. */
@@ -754,7 +759,7 @@ function conclusionesDe(
             : "";
 
     frases.push(
-      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}. Hoy conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)} (${pctTexto(debil.favorables, debil.n)}); se cuenta el balón conservado${objetivoMismo}.`,
+      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}. ${Cuando} conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)} (${pctTexto(debil.favorables, debil.n)}); se cuenta el balón conservado${objetivoMismo}.`,
     );
   }
 
@@ -789,9 +794,9 @@ function conclusionesDe(
       const metaRobo = metaDePartidos(serieMeta, filaFavorable, true, hoyRecuperado);
       const objetivoRobo =
         mediaRetencion !== null && mediaRetencion >= hoyRecuperado + 3
-          ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; hoy ${pctUno(hoyRecuperado)})`
+          ? ` · objetivo: al menos ${pctUno(mediaRetencion)} (${fuenteMedia}; ${cuando} ${pctUno(hoyRecuperado)})`
           : metaRobo
-            ? ` · objetivo: al menos ${textoMeta(metaRobo)}; hoy ${pctUno(hoyRecuperado)}`
+            ? ` · objetivo: al menos ${textoMeta(metaRobo)}; ${cuando} ${pctUno(hoyRecuperado)}`
             : "";
       frases.push(
         `Orden para el próximo partido${robo.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: presión al saque del rival en ${nombre(robo.key, robo.valor)}, donde robamos ${robo.favorables} de ${robo.n}${vigilancia}; se cuentan los saques del rival que recuperamos${objetivoRobo}.`,
@@ -833,7 +838,7 @@ function conclusionesDe(
             ? ` · objetivo: como mucho ${textoMeta(metaLlegan)}`
             : "";
       frases.push(
-        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. Hoy le llegan ${resumen.produccion} de ${total} a último tercio, ocasión o gol (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio o más${objetivoLlegan}.`,
+        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. ${Cuando} le llegan ${resumen.produccion} de ${total} a último tercio, ocasión o gol (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio o más${objetivoLlegan}.`,
       );
     }
   }
@@ -1719,6 +1724,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
         comparativa?.filasAnteriores ?? null,
         comparativa?.anteriores.length ?? 0,
         filters.JORNADA && comparativa ? comparativa.rangoRecuperado : null,
+        Boolean(filters.JORNADA),
       ),
     [filtered, mode, comparativa, filters.JORNADA],
   );
@@ -2018,7 +2024,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     isOffensive
       ? [
           { clave: "prod", rotulo: "Último tercio, ocasión o gol", color: COLOR_DESENLACE.mejor },
-          { clave: "conserva", rotulo: "Lo conservamos", color: COLOR_DESENLACE.remate },
+          /* 20/11/2026 (jueces, ronda 5): chocaba con «conservamos 150 (68 %)», que suma también los que llegan. */
+          { clave: "conserva", rotulo: "Lo conservamos sin llegar a último tercio", color: COLOR_DESENLACE.remate },
           { clave: "otro", rotulo: "Se lo queda el rival", color: COLOR_DESENLACE.peor },
           { clave: "nada", rotulo: "Nada", color: COLOR_DESENLACE.nada },
         ]

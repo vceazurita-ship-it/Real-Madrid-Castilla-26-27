@@ -27,6 +27,7 @@ import {
 
 import {
   AlertTriangle,
+  BarChart3,
   Brain,
   CalendarDays,
   CheckCircle2,
@@ -37,11 +38,13 @@ import {
   FileDown,
   FileText,
   Gauge,
+  LayoutDashboard,
   Loader2,
   Pencil,
   PlayCircle,
   Plus,
   RotateCcw,
+  Scale,
   Search,
   Shield,
   Star,
@@ -1798,7 +1801,9 @@ function PlayerCard({
           <EnlacesJugador
             jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
             /* 20/11/2026 (ronda 4): también su calendario de seguimiento, ya elegido. Los porteros llevan el suyo con su entrenador. */
-            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "seguimiento", "calendario"]}
+            /* 20/11/2026 (ronda 5): su Dashboard Seguimiento ya filtrado en vez
+               de «Seguimiento», que abría la misma ficha que la propia tarjeta. */
+            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "dashboard", "calendario"]}
             soloIconos
           />
         </div>
@@ -2124,9 +2129,21 @@ export default function IndividualPage() {
         setPendiente((antes) => ({ ...antes, [que]: false }));
       };
 
+      /* 20/11/2026 (ronda 5, jueces): lo pintado desde la copia del aparato
+         se repinta en cuanto llega lo nuevo (`alRenovar`, lib/hojaCsv): la
+         pantalla enseñaba el seguimiento del 29/10 mientras /calendar ya
+         tenía el de ayer. */
+      const filasDe = (dato: Record<string, string>[] | { data?: Record<string, string>[] }) =>
+        (Array.isArray(dato) ? dato : dato?.data || []).filter((fila) => !isHiddenPlayer(fila.NOMBRE, fila.APODO));
+
       void traeJson<
         Record<string, string>[] | { data?: Record<string, string>[] }
-      >(`/api/rivals?action=jugadores${fresco}`, { forzar })
+      >(`/api/rivals?action=jugadores${fresco}`, {
+        forzar,
+        alRenovar: (nuevo) => {
+          if (!cancelled) setSheetData(filasDe(nuevo));
+        },
+      })
         .then((jugadores) => {
           if (cancelled) return;
 
@@ -2191,7 +2208,12 @@ export default function IndividualPage() {
         .catch(falla("la ficha de los jugadores"))
         .finally(listo("jugadores"));
 
-      void traeJson(`/api/rivals?action=seguimiento${fresco}`, { forzar })
+      void traeJson(`/api/rivals?action=seguimiento${fresco}`, {
+        forzar,
+        alRenovar: (nuevo) => {
+          if (!cancelled && Array.isArray(nuevo)) setTrackingData(nuevo as TrackingRecord[]);
+        },
+      })
         .then((seguimiento) => {
           if (cancelled) return;
 
@@ -2202,7 +2224,12 @@ export default function IndividualPage() {
         .catch(falla("el seguimiento"))
         .finally(listo("seguimiento"));
 
-      void traeCsv(SHEET_VIDEOS, { forzar })
+      void traeCsv(SHEET_VIDEOS, {
+        forzar,
+        alRenovar: (nuevo) => {
+          if (!cancelled) setVideoData(parseCSV(nuevo) as VideoItem[]);
+        },
+      })
         .then((videos) => {
           if (cancelled) return;
 
@@ -2211,7 +2238,12 @@ export default function IndividualPage() {
         .catch(falla("los vídeos"))
         .finally(listo("videos"));
 
-      void traeCsv(SHEET_INFORMES, { forzar })
+      void traeCsv(SHEET_INFORMES, {
+        forzar,
+        alRenovar: (nuevo) => {
+          if (!cancelled) setReportData(parseCSV(nuevo) as ReportItem[]);
+        },
+      })
         .then((informes) => {
           if (cancelled) return;
 
@@ -2427,9 +2459,20 @@ export default function IndividualPage() {
       rated: rated.length,
       deCampo: deCampo.length,
       tracked: deCampo.filter((p) => (p.sessions ?? 0) > 0).length,
-      sessions: todos
-        ? trackingAlineado.filter((t) => !porteros.has(t.ID_JUGADOR)).length
-        : deCampo.reduce((n, p) => n + (p.sessions ?? 0), 0),
+      /* 20/11/2026 (ronda 5, análisis): la misma cuenta que el Dashboard
+         Seguimiento: registros con fecha hasta hoy (lo programado no cuenta)
+         de la población del filtro. */
+      sessions: (() => {
+        const hastaHoy = (t: TrackingRecord) => {
+          const d = parseDate(t.FECHA);
+          return d !== null && d !== undefined && d.getTime() <= HOY_FIN;
+        };
+        const ids = new Set(deCampo.map((p) => p.idJugador));
+
+        return todos
+          ? trackingAlineado.filter((t) => !porteros.has(t.ID_JUGADOR) && hastaHoy(t)).length
+          : trackingAlineado.filter((t) => ids.has(t.ID_JUGADOR) && hastaHoy(t)).length;
+      })(),
       videos: videoData.length,
       reports: reportData.length,
       withVideos: mergedPlayers.filter((p) => (p.videos ?? 0) > 0).length,
@@ -2444,6 +2487,10 @@ export default function IndividualPage() {
      (lib/seguimiento): jugadores de campo del Castilla sin ningún registro
      en los últimos 14 días, hoy incluido. */
   const [hoy] = useState(() => new Date());
+
+  /* 20/11/2026 (ronda 5, marketing): la banda «A quién toca seguir» enseña
+     los seis que más tiempo llevan; el resto, tras «Ver los N». */
+  const [verTodosSeguir, setVerTodosSeguir] = useState(false);
 
   const sinSeguimiento = useMemo(() => {
     if (pendiente.seguimiento || pendiente.jugadores || trackingData.length === 0) return [];
@@ -3739,14 +3786,16 @@ export default function IndividualPage() {
                     Jugadores de campo del Castilla (los porteros llevan su seguimiento aparte). Días desde su último registro; la raya marca los {DIAS_SIN_SEGUIMIENTO} días del aviso.
                   </p>
 
+                  {/* 20/11/2026 (ronda 5, marketing): los seis que más
+                      llevan, y el resto plegado, para que las fichas se vean
+                      sin bajar. El orden ya es de más a menos días. */}
                   <ul className="mt-3 grid min-w-0 gap-x-6 gap-y-1 lg:grid-cols-2">
-                    {diasCampo.filas.map(({ jugador, dias }) => {
+                    {(verTodosSeguir ? diasCampo.filas : diasCampo.filas.slice(0, 6)).map(({ jugador, dias }) => {
                       const pasa = dias === null || dias > DIAS_SIN_SEGUIMIENTO;
                       const ancho = dias === null ? 100 : Math.max(2, (dias / diasCampo.tope) * 100);
                       const color = dias === null || dias >= 2 * DIAS_SIN_SEGUIMIENTO ? "#F87171" : pasa ? "#C8A96B" : "rgb(var(--rmcf-ink-rgb) / .28)";
                       return (
-                        /* En el móvil, sólo quien se pasa de los 14 días: el resto, desde 640 px. */
-                        <li key={jugador.idJugador} className={`${pasa || sinSeguimiento.length === 0 ? "grid" : "hidden sm:grid"} min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-[11px] sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto]`}>
+                        <li key={jugador.idJugador} className="grid min-w-0 grid-cols-[minmax(0,7.5rem)_minmax(0,1fr)_auto] items-center gap-2 text-[11px] sm:grid-cols-[minmax(0,9rem)_minmax(0,1fr)_auto]">
                           <button
                             type="button"
                             onClick={() => openPlayer(jugador)}
@@ -3787,6 +3836,16 @@ export default function IndividualPage() {
                       );
                     })}
                   </ul>
+                  {diasCampo.filas.length > 6 && (
+                    <button
+                      type="button"
+                      onClick={() => setVerTodosSeguir((v) => !v)}
+                      aria-expanded={verTodosSeguir}
+                      className="mt-2 inline-flex min-h-[36px] items-center rounded-full border border-white/15 px-3 text-[11px] font-semibold text-white/70 transition hover:text-white sm:min-h-[28px]"
+                    >
+                      {verTodosSeguir ? "Ver sólo los seis que más llevan" : `Ver los ${diasCampo.filas.length}`}
+                    </button>
+                  )}
                 </section>
               )}
 
@@ -3815,7 +3874,7 @@ export default function IndividualPage() {
                   hint={
                     pendiente.seguimiento
                       ? "cargando los seguimientos…"
-                      : `registros en la temporada, ${stats.todos ? "de todos los jugadores de campo" : `de los jugadores de campo${base.de}`} · mediana ${stats.medianaSeg} por jugador${
+                      : `registros de la temporada hasta hoy (lo programado, aparte), ${stats.todos ? "de todos los jugadores de campo" : `de los jugadores de campo${base.de}`} · mediana ${stats.medianaSeg} por jugador${
                           stats.ultimoRegistro
                             ? ` · último: ${stats.ultimoRegistro.toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" })}`
                             : ""
@@ -3857,15 +3916,37 @@ export default function IndividualPage() {
                     <FileText size={12} className="shrink-0 text-[#C8A96B]" />
                     {stats.reports} {stats.reports === 1 ? "informe" : "informes"} · {base.conInforme} de {base.n} jugadores{base.de}
                   </span>
-                  {/* 17/11/2026 (ronda 19): la base de la línea de cada ficha, una vez. */}
-                  {posiblesValoraciones > 0 && (
-                    <span className="inline-flex items-center gap-1.5">
-                      <Star size={12} className="shrink-0 text-[#C8A96B]" />
-                      En cada ficha: «últ. 3», media de sus 3 últimas notas (con menos, «tend.») · sus minutos de los {posiblesValoraciones}′ posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout) · «scout», la nota de su ficha de scout
-                    </span>
-                  )}
                 </p>
               )}
+
+              {/* 17/11/2026 (ronda 19): la base de la línea de cada ficha, una vez.
+                  20/11/2026 (ronda 5, marketing y análisis): plegada tras
+                  «Cómo se lee», con la leyenda de los iconos de cada ficha. */}
+              <details className="mt-2 text-xs text-white/60">
+                <summary className="inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 font-semibold text-white/70 hover:text-white">
+                  <Star size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+                  Cómo se lee cada ficha
+                </summary>
+                <div className="mt-1 space-y-1.5 pl-5">
+                  {posiblesValoraciones > 0 && (
+                    <p>
+                      «últ. 3», media de sus 3 últimas notas (con menos, «tend.») · sus minutos de los {posiblesValoraciones}′ posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout) · «scout», la nota de su ficha de scout.
+                    </p>
+                  )}
+                  <p>
+                    «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
+                  </p>
+                  <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    <span>Accesos de cada ficha:</span>
+                    <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden /> Notas en Valoraciones</span>
+                    <span className="inline-flex items-center gap-1"><Scale size={12} aria-hidden /> Comparativa</span>
+                    <span className="inline-flex items-center gap-1"><Video size={12} aria-hidden /> Vídeos</span>
+                    <span className="inline-flex items-center gap-1"><BarChart3 size={12} aria-hidden /> Data análisis</span>
+                    <span className="inline-flex items-center gap-1"><LayoutDashboard size={12} aria-hidden /> Dashboard Seguimiento</span>
+                    <span className="inline-flex items-center gap-1"><CalendarDays size={12} aria-hidden /> Calendario de seguimiento</span>
+                  </p>
+                </div>
+              </details>
 
 
               {/* FILTROS */}

@@ -1,7 +1,7 @@
 "use client";
 import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
 import Link from "next/link";
@@ -25,13 +25,12 @@ import {
   Highlight,
   LoadingState,
   SearchField,
-  SectionLabel,
   focusRing,
   matches,
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
-import { EnlacesValores, VotosValores } from "@/components/cultura/ValoresIndice";
+import { EnlacesValores, hrefSeguimientoDe, valorNombradoEn } from "@/components/cultura/ValoresIndice";
 import { confirmar } from "@/lib/avisos";
 
 type CulturaItem = {
@@ -68,48 +67,6 @@ function fechaIso(texto: string, anio: number): string {
   const a = dmy[3] ? (dmy[3].length === 2 ? `20${dmy[3]}` : dmy[3]) : String(anio);
 
   return `${a}-${dmy[2].padStart(2, "0")}-${dmy[1].padStart(2, "0")}`;
-}
-
-/*
-| 17/11/2026 (fútbol): en el Marco, las seis ideas del método van plegadas
-| bajo «El método»; lo primero es la votación. En las demás etapas, abiertas.
-*/
-function Plegable({
-  plegado,
-  n,
-  titulos,
-  children,
-}: {
-  plegado: boolean;
-  n: number;
-  titulos: string[];
-  children: ReactNode;
-}) {
-  if (!plegado) return <>{children}</>;
-
-  return (
-    <details className="group rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-2">
-      <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-semibold text-white [&::-webkit-details-marker]:hidden">
-        <span>
-          El método <span className="font-normal text-gray-400">· {n} ideas para construir la cultura</span>
-        </span>
-        <span className="text-[13px] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-          <span className="group-open:hidden">Ver</span>
-          <span className="hidden group-open:inline">Ocultar</span>
-        </span>
-      </summary>
-      {/* 17/11/2026 (marketing): las ideas a la vista sin abrir; el texto, al desplegar. */}
-      <ol className="flex flex-wrap gap-1.5 pb-2 group-open:hidden">
-        {titulos.map((t, i) => (
-          <li key={`${t}-${i}`} className="rounded-full border border-white/10 px-2.5 py-0.5 text-[13px] text-gray-300">
-            <span className="mr-1 font-bold tabular-nums text-[color:var(--rmcf-gold-ink,#C8A96B)]">{i + 1}</span>
-            {t}
-          </li>
-        ))}
-      </ol>
-      <div className="pb-2 pt-2">{children}</div>
-    </details>
-  );
 }
 
 const CSV_URL =
@@ -581,22 +538,16 @@ export default function TeamValuesPage() {
     />
   );
 
-  /* 10/11/2026: en el Marco va arriba (es lo que se usa en la charla); en las
-     demás etapas, al pie. Los votos, afines y antivalores salen del mismo
-     componente que /identidad-cultura. */
   /*
-  | 16/11/2026: el recuento completo vive sólo en /identidad-cultura (estaba
-  | repetido aquí). Aquí, una línea con el más votado y un chip por valor que
-  | abre sus conductas en el documento.
+  | 20/11/2026 (fútbol y guionista, ronda 5): la votación con barras repetía la
+  | de /identidad-cultura. Aquí queda una línea con el más votado y el enlace al
+  | recuento; la pantalla abre con la hoja de ruta.
   */
-  /* 17/11/2026 (marketing y fútbol): en el Marco, el gráfico de la votación
-     con la fila de acciones; en las demás etapas, la línea con un chip por valor. */
-  const votacion =
-    !editing ? (
-      <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:p-5">
-        {etapaIndex === 0 ? <VotosValores compacto /> : <EnlacesValores />}
-      </div>
-    ) : null;
+  const votacion = !editing ? (
+    <div className="mt-3">
+      <EnlacesValores />
+    </div>
+  ) : null;
 
   /*
   | 20/11/2026 (fútbol, marketing y guionista): las etapas salían tres veces
@@ -605,7 +556,6 @@ export default function TeamValuesPage() {
   | (si la hoja trae FECHA) y sus contenidos.
   */
 
-  const metodoPlegado = etapaIndex === 0 && !editing && !filtrando;
 
   return (
     <div className="flex min-h-screen bg-[#0B0F14]">
@@ -614,44 +564,9 @@ export default function TeamValuesPage() {
       <div className="flex-1 min-w-0">
         <Topbar />
 
-        <div className="flex flex-col lg:flex-row">
-          {/* ---------------------------------------------- rail izquierdo */}
-
-          <aside
-            aria-label="Etapas de la hoja de ruta de la cultura"
-            className="w-full border-white/10 p-4 lg:w-[300px] lg:shrink-0 lg:border-r lg:p-6 xl:w-[340px]"
-          >
-            <SectionLabel className="text-[#C8A96B]">
-              Hoja de ruta de la cultura
-            </SectionLabel>
-
-            <SearchField
-              value={query}
-              onChange={setQuery}
-              placeholder="Buscar valor o conducta…"
-              label="Buscar en los contenidos culturales"
-              className={cn("mt-4", editing && "pointer-events-none opacity-40")}
-            />
-
-            {/*
-            | 30/10/2026: una sola navegación. Se quitan los pasos 1-6 de
-            | arriba y el «Etapa 1 de 6»; en el móvil la tira cortaba los
-            | nombres («Se…») y ahora es una rejilla de dos columnas con el
-            | nombre entero y cuántos contenidos tiene cada etapa.
-            */}
-
-            {loading && (
-              <div className="mt-2 space-y-2 lg:mt-5">
-                {[0, 1, 2].map((i) => (
-                  <div
-                    key={i}
-                    className="h-14 animate-pulse rounded-2xl bg-white/[0.04]"
-                  />
-                ))}
-              </div>
-            )}
-          </aside>
-
+        {/* 20/11/2026 (guionista, ronda 5): sin la columna izquierda, que en
+            escritorio sólo tenía el buscador; el buscador va con los filtros. */}
+        <div className="flex flex-col">
           {/* ---------------------------------------------- contenido */}
 
           {/* 07/11/2026: sin el pr-12 del móvil (descentraba las tarjetas
@@ -687,8 +602,7 @@ export default function TeamValuesPage() {
               {!editing && !loading && !error && toolbar}
             </div>
 
-            {/* 20/11/2026 (fútbol): en el Marco, la votación arriba, bajo el titular: es lo que se dice en el vestuario. */}
-            {etapaIndex === 0 && votacion}
+            {votacion}
 
             {/* 16/11/2026: la hoja de ruta como línea de proceso: las seis
                 etapas en orden, con su fecha si la hoja la trae; la que se ve,
@@ -762,9 +676,18 @@ export default function TeamValuesPage() {
               </ol>
             )}
 
-            {/* Filtros por tipo */}
+            {/* Buscador y filtros por tipo */}
+            {!editing && (
+              <SearchField
+                value={query}
+                onChange={setQuery}
+                placeholder="Buscar valor o conducta…"
+                label="Buscar en los contenidos culturales"
+                className="mt-6 max-w-md"
+              />
+            )}
             {!editing && tipos.length > 1 && (
-              <div className="mt-6 flex flex-wrap items-center gap-2">
+              <div className="mt-3 flex flex-wrap items-center gap-2">
                 <button
                   type="button"
                   onClick={() => setTipoFiltro(null)}
@@ -825,7 +748,7 @@ export default function TeamValuesPage() {
                     title="Sin resultados en esta etapa"
                     hint={
                       totalSeccion > 0
-                        ? `«${rotuloSeccion(seccion)}» tiene ${totalSeccion} contenidos, pero ninguno coincide con el filtro. Prueba en otra etapa del rail izquierdo.`
+                        ? `«${rotuloSeccion(seccion)}» tiene ${totalSeccion} contenidos, pero ninguno coincide con el filtro. Prueba en otra etapa de la hoja de ruta.`
                         : "Prueba con otra búsqueda o cambia de etapa."
                     }
                     action={
@@ -858,7 +781,8 @@ export default function TeamValuesPage() {
                     </p>
                   )}
 
-                  <Plegable plegado={metodoPlegado} n={contenidos.length} titulos={contenidos.map((c) => tituloElemento(c.TITULO))}>
+                  {/* 20/11/2026 (tres expertos, ronda 5): la etapa elegida enseña siempre
+                      sus contenidos; el Marco ya no los pliega bajo «El método». */}
                   <ul className={cn("grid gap-3", !editing && "lg:grid-cols-2")}>
                     {contenidos.map((p) => (
                       <li
@@ -913,16 +837,19 @@ export default function TeamValuesPage() {
 
                                 {/* 16/11/2026: las conductas se vigilan en el día a
                                     día: a un toque del seguimiento y del documento. */}
-                                {/conduct/i.test(`${p.TITULO} ${p.CONTENIDO}`) && (
+                                {/conduct/i.test(`${p.TITULO} ${p.CONTENIDO}`) && (() => {
+                                  const valor = valorNombradoEn(`${p.TITULO} ${p.CONTENIDO}`);
+
+                                  return (
                                   <div className="mt-3 flex flex-wrap gap-2">
                                     <Link
-                                      href="/individual_proc"
+                                      href={valor ? hrefSeguimientoDe(valor.titulo) : "/individual_proc"}
                                       className={cn(
                                         "inline-flex items-center rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition-colors hover:bg-[#C8A96B]/10",
                                         focusRing,
                                       )}
                                     >
-                                      Seguimiento de los jugadores →
+                                      {valor ? `Seguimiento de ${valor.titulo.toLowerCase()} →` : "Seguimiento de los jugadores →"}
                                     </Link>
                                     <Link
                                       href="/identidad-cultura#indice-valores"
@@ -934,7 +861,8 @@ export default function TeamValuesPage() {
                                       Conductas de cada valor →
                                     </Link>
                                   </div>
-                                )}
+                                  );
+                                })()}
 
                                 {/* Ficha de la dinámica: sólo lo que la hoja traiga. */}
                                 {(limpio(p.DURACION) || limpio(p.MATERIAL) || limpio(p.ENTREGA)) && (
@@ -960,7 +888,6 @@ export default function TeamValuesPage() {
                       </li>
                     ))}
                   </ul>
-                  </Plegable>
                 </>
               )}
             </div>
@@ -1010,7 +937,6 @@ export default function TeamValuesPage() {
               </div>
             )}
 
-            {etapaIndex !== 0 && votacion}
           </main>
         </div>
       </div>

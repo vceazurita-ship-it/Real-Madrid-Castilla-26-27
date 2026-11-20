@@ -240,6 +240,12 @@ export function AlertasPortada({
 
                   {/* La cifra en grande y la base debajo, en su línea (30/10/2026). */}
                   <span className="min-w-0">
+                    {/* 20/11/2026 (ronda 5, análisis): contra quién se compara, arriba y no en la letra pequeña. */}
+                    {poblacionDe(alerta.cifra) ? (
+                      <span className="mb-0.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60">
+                        {poblacionDe(alerta.cifra)}
+                      </span>
+                    ) : null}
                     <span className="line-clamp-2 block text-[13.5px] font-medium leading-snug text-white/85">
                       {sinSiglas(alerta.valor ? alerta.rotulo ?? alerta.titulo : alerta.titulo)}
                     </span>
@@ -351,6 +357,20 @@ const SIGLAS: Record<string, string> = {
 };
 
 const sinSiglas = (texto: string) => texto.replace(/\b(npxG|xGA|xG|xA|PPDA)\b(?!\))/g, (s) => SIGLAS[s] ?? s);
+
+/**
+ * La población de cada dato, leída de su base (20/11/2026, ronda 5): «125
+ * jugadores de su puesto», «20 equipos del grupo», «18 de la plantilla».
+ */
+function poblacionDe(cifra: string): string {
+  const jug = /entre (\d+) jugadores de su puesto/.exec(cifra);
+  if (jug) return `Contra ${jug[1]} jugadores de su puesto`;
+  const eq = /de los (\d+) equipos del grupo/.exec(cifra);
+  if (eq) return `Contra los ${eq[1]} equipos del grupo`;
+  const pl = /de (\d+) (?:con registro|jugadores)/.exec(cifra);
+  if (pl) return `Plantilla · ${pl[1]} jugadores de campo`;
+  return "";
+}
 
 /**
  * El pop-up.

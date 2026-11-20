@@ -788,3 +788,32 @@ export function fraseMomentos(medidos: number, aFavor: number, enContra: number)
 
   return `De los ${total} momentos (cada duelo con nuestro balón y con el suyo), ${aFavor} a favor y ${enContra} en contra: cuentan los que se despegan ${UMBRAL_DUELO} puntos de percentil o más${resto > 0 ? `; los otros ${resto}, sin diferencia clara` : ""}.`;
 }
+
+/*
+| EL DUELO QUE DECIDE, UNA SOLA REGLA (20/11/2026, ronda 5, jueces de fútbol):
+| el Plan elegía «Leiva contra Jorge Mier (−57)» y Plantillas rivales abría
+| «Dónde nos hacen daño» con otro (−37), y el resumen de Duelos del Plan
+| empezaba por un tercero. Ahora las tres pantallas ordenan con esto: pesa más
+| el duelo con la cifra más despegada (con nuestro balón o con el suyo), y sólo
+| cuenta el que tiene consigna. A igual peso, el que perdemos primero.
+*/
+type DueloConPeso = { conBalon: number | null; sinBalon: number | null; consigna?: string };
+
+/** Lo que pesa un duelo: su cifra más despegada, con nuestro balón o con el suyo. */
+export const pesoDelDuelo = (d: Pick<DueloConPeso, "conBalon" | "sinBalon">) => Math.max(Math.abs(d.conBalon ?? 0), Math.abs(d.sinBalon ?? 0));
+
+/** Los duelos con consigna, del que más pesa al que menos (los que perdemos, primero a igual peso). */
+export function duelosPorPeso<T extends DueloConPeso>(grupos: { buscar: T[]; doble: T[]; vigilar: T[] } | null | undefined): T[] {
+  if (!grupos) return [];
+
+  return [...grupos.vigilar, ...grupos.doble, ...grupos.buscar].filter((d) => d.consigna).sort((a, b) => pesoDelDuelo(b) - pesoDelDuelo(a));
+}
+
+/** El duelo que decide: el primero de `duelosPorPeso`. El mismo en /rivals, /match-preparation y /duelos. */
+export function dueloQueDecide<T extends DueloConPeso>(grupos: { buscar: T[]; doble: T[]; vigilar: T[] } | null | undefined): T | undefined {
+  return duelosPorPeso(grupos)[0];
+}
+
+/** Si el duelo que decide se pierde (alguna de sus dos cifras por debajo de −10): va en «Dónde nos hacen daño». */
+export const seDecideEnContra = (d: Pick<DueloConPeso, "conBalon" | "sinBalon"> | undefined) =>
+  Boolean(d && Math.min(d.conBalon ?? 0, d.sinBalon ?? 0) <= -UMBRAL_DUELO && Math.abs(Math.min(d.conBalon ?? 0, d.sinBalon ?? 0)) === pesoDelDuelo(d));

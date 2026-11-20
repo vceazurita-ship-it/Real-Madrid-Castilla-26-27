@@ -115,6 +115,7 @@ import { asignaPerfiles, type PerfilWyscout, type RasgoWyscout } from "@/lib/riv
 import { MINUTOS_TENDENCIA, cifraConUnidad, deCadaDiez, jerarquiaDelOnce, lecturaDelPuesto, nombreDelRasgo } from "@/lib/rivals/metricas-del-puesto";
 import { conTildes } from "@/lib/rivals/tildes";
 import { fraseDeDano, nombrePropio, ordenDelDuelo } from "@/lib/rivals/dano";
+import { dueloQueDecide, seDecideEnContra } from "@/lib/duelos";
 import { conRivalEnUrl, mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { ClipsHudlJugador } from "@/components/rivals/ClipsDeHudl";
@@ -3227,9 +3228,26 @@ export default function RivalPlayersPage() {
       .sort((a, b) => b.rasgos.length - a.rasgos.length || b.minutos - a.minutos || a.nombre.localeCompare(b.nombre, "es"))
       .map(({ nombre, puesto, rasgos, accion, cifra, base, minutos }) => ({ nombre, puesto, rasgos, accion, cifra, base, minutos, contraste: "" }));
 
+    /*
+    | EL DUELO QUE DECIDE, PRIMERO (20/11/2026, ronda 5, fútbol): el Plan abre
+    | con Leiva contra Jorge Mier (−57) y aquí «Dónde nos hacen daño» abría con
+    | otro (−37). Si el que decide se pierde, su jugador va el primero, con la
+    | orden de ese duelo; la regla es la de lib/duelos.ts, la misma del Plan.
+    */
+    const decide = dueloQueDecide(duelosDelRival?.grupos);
+    const suyoQueDecide = decide && seDecideEnContra(decide) ? (decide.suyos[0] ?? "").split(" (")[0].trim() : "";
+    const fichaQueDecide = suyoQueDecide ? todos.find((uno) => uno.nombre && mismoNombreRival(uno.nombre, suyoQueDecide)) : undefined;
+    const primero = fichaQueDecide
+      ? [{ nombre: fichaQueDecide.nombre, puesto: fichaQueDecide.puesto, rasgos: [] as string[], accion: "", cifra: "", base: fichaQueDecide.base, minutos: fichaQueDecide.minutos, contraste: "" }]
+      : [];
+    const resto = [...deAnalista.map((uno) => ({ ...uno, cifra: "" })), ...deWyscout]
+      .filter((uno) => !fichaQueDecide || !mismoNombreRival(uno.nombre, fichaQueDecide.nombre))
+      .slice(0, 3);
+
     /* Una sola orden por jugador: si está en un duelo que se despega, la del duelo, con su cifra. */
-    return [...deAnalista.map((uno) => ({ ...uno, cifra: "" })), ...deWyscout].slice(0, 3).map((uno) => {
-      const delDuelo = ordenDelDuelo(uno.nombre, duelosDelRival?.grupos, mismoNombreRival);
+    return [...primero, ...resto].map((uno) => {
+      const esElQueDecide = Boolean(fichaQueDecide && decide && uno.nombre === fichaQueDecide.nombre);
+      const delDuelo = ordenDelDuelo(uno.nombre, esElQueDecide && decide ? { vigilar: [decide], doble: [], buscar: [] } : duelosDelRival?.grupos, mismoNombreRival);
 
       /*
       | 17/11/2026 (ronda 20, fútbol): en «Dónde nos hacen daño» salían sus
@@ -3238,7 +3256,7 @@ export default function RivalPlayersPage() {
       | debilidades se quedan para «Dónde hacerles daño».
       */
       return delDuelo ? { ...uno, rasgos: delDuelo.enContra ? [] : uno.rasgos, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
-    });
+    }).filter((uno) => uno.accion);
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos, dibujoDelEquipo, titularesEnSuHueco]);
 
   /* La temporada en curso de cada uno, para el listado. */
@@ -3286,6 +3304,8 @@ export default function RivalPlayersPage() {
       const tendencia = perfil && perfil.minutos < MINUTOS_TENDENCIA ? " · tendencia" : "";
       const base = perfil ? `${perfil.minutos.toLocaleString("es-ES")}′ en Wyscout${tendencia}` : "";
       const porque = (r: RasgoWyscout) => `${nombreDelRasgo(r)} ${cifraConUnidad(r)}, ${deCadaDiez(r.percentil)} ${contra}`;
+      /* La línea corta de la lista (20/11/2026, ronda 5, marketing): «métrica · valor · P92». */
+      const corto = (r: RasgoWyscout) => `${nombreDelRasgo(r)} · ${cifraConUnidad(r)} · P${Math.round(r.percentil)}`;
 
       return [
         {
@@ -3301,8 +3321,11 @@ export default function RivalPlayersPage() {
             puesto: puestoDelRival(String(player["POSICIÓN"] ?? ""), bloque).enElOnce ?? puestoDelBloque(bloque),
             fuera: fuera.has(playerKey(player)),
             veredicto: null,
+            /* 20/11/2026 (ronda 5, fútbol): Usse Diao, 234′, sin aviso aquí y con él en Scout individual. */
+            muestraCorta: perfil && perfil.minutos < MINUTOS_TENDENCIA ? `${Math.round(perfil.minutos).toLocaleString("es-ES")}′` : "",
           } as FichaResumen,
           porque,
+          corto,
           base,
         },
       ];
@@ -3314,7 +3337,7 @@ export default function RivalPlayersPage() {
       const tipo = jerarquia.get(uno.ficha.clave);
       const rasgo = tipo === "peligro" ? uno.fuerte : tipo === "explotable" ? uno.flojo : undefined;
 
-      if (tipo && rasgo) uno.ficha.veredicto = { tipo, porque: uno.porque(rasgo), base: uno.base };
+      if (tipo && rasgo) uno.ficha.veredicto = { tipo, porque: uno.porque(rasgo), base: uno.base, corto: uno.corto(rasgo) };
     }
 
     const COLORES = Object.fromEntries(LINE_DEFINITIONS.map((linea) => [linea.key, linea.color])) as Record<string, string>;
@@ -5372,6 +5395,11 @@ export default function RivalPlayersPage() {
                         puestos={once.doc.puestos}
                         asignados={titularesEnSuHueco.asignados}
                         onMover={mueveDePuesto}
+                        /* 20/11/2026 (ronda 5, fútbol): Usse Diao (234′) sin «muestra corta» en el campo; Scout individual ya lo decía. */
+                        muestraCortaDe={(p) => {
+                          const perfil = perfilesPorFicha.get(idDeJugador(p));
+                          return perfil && perfil.minutos > 0 && perfil.minutos < MINUTOS_TENDENCIA ? `${Math.round(perfil.minutos).toLocaleString("es-ES")}′` : "";
+                        }}
                       />
                     </div>
                   </div>
@@ -5883,7 +5911,8 @@ export default function RivalPlayersPage() {
                         Sus cortes (Scout individual)
                       </Link>
                       <Link
-                        href={`/duelos?equipo=${encodeURIComponent(String(editForm.NOMBRE_EQUIPO))}`}
+                        /* Con él ya elegido (20/11/2026, ronda 5, análisis): Duelos abre su duelo con `?jugador=`. */
+                        href={`/duelos?equipo=${encodeURIComponent(String(editForm.NOMBRE_EQUIPO))}&jugador=${encodeURIComponent(String(editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || ""))}`}
                         className="flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[12px] font-semibold transition hover:border-[#C8A96B]"
                       >
                         <Swords size={14} className="text-[#C8A96B]" />
@@ -8886,7 +8915,10 @@ function TacticalPitch({
   puestos,
   asignados,
   onMover,
+  muestraCortaDe,
 }: {
+  /** «234′» si sus minutos de Wyscout son muestra corta; vacío si no. */
+  muestraCortaDe?: (player: RivalPlayer) => string;
   players: RivalPlayer[];
   selectedId?: string;
   activeTags: string[];
@@ -9423,6 +9455,7 @@ function TacticalPitch({
         const hiddenCount = tags.length - visibleTags.length;
 
         const name = conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR);
+        const corta = muestraCortaDe?.(player) ?? "";
 
         const enElOnce = onceEstado?.(player) ?? null;
         /* Con el once marcado, los que no están en él bajan de tono para que
@@ -9655,7 +9688,12 @@ function TacticalPitch({
             */}
             {(() => {
               const texto = nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12);
-              const enDos = compact && cuerpoQueCabe(texto, nameWidth, nameFont, 8) < nameFont;
+              /*
+              | 20/11/2026 (ronda 5, fútbol): en dos renglones el navegador partía
+              | la palabra («MORE NO», «FLAK US»). Un renglón siempre, sin cortar
+              | la palabra: la letra baja hasta 8 px y, si aun así no cabe, «…».
+              */
+              const enDos = false;
               const cuerpo = enDos
                 ? Math.max(8, cuerpoQueCabe(texto.slice(0, Math.ceil(texto.length / 2) + 1), nameWidth, nameFont, 8))
                 : cuerpoQueCabe(texto, nameWidth, nameFont, compact ? 8 : 12);
@@ -9672,6 +9710,12 @@ function TacticalPitch({
                 </span>
               );
             })()}
+            {/* Sólo en los del once probable: en el banquillo casi todos tienen pocos minutos y el campo se llenaría de avisos. */}
+            {corta && enElOnce && (
+              <span className="mt-0.5 whitespace-nowrap rounded bg-black/75 px-1 text-[11px] font-semibold leading-tight text-amber-300" title={`Muestra corta: ${corta} en Wyscout (menos de 450′)`}>
+                muestra corta
+              </span>
+            )}
 
             {/* ETIQUETAS */}
 

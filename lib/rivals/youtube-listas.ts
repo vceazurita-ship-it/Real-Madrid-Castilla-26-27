@@ -286,12 +286,36 @@ const EN_CASETA: Record<string, string> = {
   "falla ocasiones claras": "falla ocasiones claras",
 };
 
-export function etiquetaEnCaseta(etiqueta: string, jugador: Pick<JugadorPlantilla, "amarillas" | "goles" | "asistencias" | "partidos"> | null) {
+type ConTarjetas = Pick<JugadorPlantilla, "amarillas" | "goles" | "asistencias" | "partidos" | "puesto">;
+
+/*
+| «SE CARGA DE AMARILLAS» CON LA CIFRA DETRÁS (20/11/2026, ronda 5, fútbol):
+| Óscar Gil salía con «se carga de amarillas: 1 amarilla en 7 partidos» y la
+| cifra desmentía la etiqueta. Sólo sale si sus amarillas por partido pasan de
+| la mediana de los de su puesto en su plantilla (BeSoccer, con 3 partidos o
+| más); con menos de 3 de su puesto, de la plantilla entera. Sin cifra, como
+| viene la etiqueta.
+*/
+function pasaDeLaMediana(jugador: ConTarjetas, plantilla: ConTarjetas[]): boolean {
+  const ritmo = (j: ConTarjetas) => (j.amarillas ?? 0) / (j.partidos || 1);
+  const conPartidos = plantilla.filter((j) => (j.partidos ?? 0) >= 3 && j.amarillas != null);
+  const puesto = desnuda(jugador.puesto ?? "");
+  const delPuesto = puesto ? conPartidos.filter((j) => desnuda(j.puesto ?? "") === puesto) : [];
+  const grupo = (delPuesto.length >= 3 ? delPuesto : conPartidos).map(ritmo).sort((a, b) => a - b);
+  if (grupo.length < 3) return true;
+  const medio = Math.floor(grupo.length / 2);
+  const mediana = grupo.length % 2 ? grupo[medio] : (grupo[medio - 1] + grupo[medio]) / 2;
+  return ritmo(jugador) > mediana;
+}
+
+/** Vacío si la cifra la desmiente (ver `pasaDeLaMediana`): quien llama no la pinta. */
+export function etiquetaEnCaseta(etiqueta: string, jugador: ConTarjetas | null, plantilla: ConTarjetas[] = []) {
   const clave = desnuda(etiqueta);
   const partidos = jugador?.partidos ?? 0;
   const base = (n: number | undefined, que: string) =>
     n != null && partidos > 0 ? `: ${n} ${que} en ${partidos} ${partidos === 1 ? "partido" : "partidos"} (BeSoccer)` : "";
 
+  if (clave === "tarjeteable" && jugador && jugador.amarillas != null && (jugador.partidos ?? 0) > 0 && !pasaDeLaMediana(jugador, plantilla)) return "";
   if (clave === "tarjeteable") return `se carga de amarillas${base(jugador?.amarillas, jugador?.amarillas === 1 ? "amarilla" : "amarillas")}`;
   if (clave === "el goleador") return `llega al gol${base(jugador?.goles, jugador?.goles === 1 ? "gol" : "goles")}`;
   if (clave === "el asistente") return `da el último pase${base(jugador?.asistencias, jugador?.asistencias === 1 ? "asistencia" : "asistencias")}`;

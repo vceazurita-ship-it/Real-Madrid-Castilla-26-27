@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
@@ -35,6 +36,12 @@ interface Props {
   /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
   tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number }[];
   onSelectWeek?: (id: number) => void;
+  /** Lo que debería haber esta semana (sólo el repositorio general) y si ya está. */
+  checklist?: { texto: string; hecho: boolean; href?: string }[];
+  /** «J13 vs Real Murcia (en casa)», el partido de la semana en curso. */
+  partidoActual?: string;
+  /** Plan de partido y ABP del rival de esta semana, con el rival ya elegido. */
+  enlacesRival?: { href: string; texto: string }[];
   saving: boolean;
   onGoToCurrentWeek: () => void;
   onOpenImages: () => void;
@@ -49,6 +56,9 @@ export default function SeasonHeader({
   ultimaConMaterial = null,
   tiraSemanas = [],
   onSelectWeek,
+  checklist,
+  partidoActual,
+  enlacesRival = [],
   saving,
   onGoToCurrentWeek,
   onOpenImages,
@@ -138,6 +148,17 @@ export default function SeasonHeader({
           {config.description}
         </p>
 
+        {/* 20/11/2026 (ronda 5, análisis): en qué se diferencia de la portada y de «Mis tareas». */}
+        {area === "general" ? (
+          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-white/60">
+            Aquí se guarda lo que se reparte al cuerpo técnico cada semana. Lo que hay que hacer hoy está en la{" "}
+            <Link href="/" className="font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]">
+              portada
+            </Link>{" "}
+            («Tu día» y «Mis tareas»).
+          </p>
+        ) : null}
+
         {/*
           ---------- El estado, en una línea neutra (17/11/2026, ronda 20) ----------
           Los tres jueces: el aviso ámbar «12 semanas sin subir nada» parecía
@@ -160,8 +181,9 @@ export default function SeasonHeader({
             {idxActual >= 0 ? (
               <span className="font-semibold text-white/90">{tiraSemanas[idxActual].nombre || `Semana ${idxActual + 1}`}</span>
             ) : null}
-            {idxActual >= 0 ? <span aria-hidden className="text-white/35">·</span> : null}
+            {/* 20/11/2026 (ronda 5, fútbol): el «·» va con el recuento, para que no se quede colgando en 390 px. */}
             <span>
+              {idxActual >= 0 ? <span aria-hidden className="mr-2 text-white/35">·</span> : null}
               {stats.images > 0 ? (
                 <button
                   type="button"
@@ -193,7 +215,91 @@ export default function SeasonHeader({
           </p>
         ) : null}
 
-        {tiraSemanas.length > 1 && ultimaConMaterial && sinSubir >= 2 && actualVacia ? (
+        {/*
+          LO QUE FALTA ESTA SEMANA (20/11/2026, ronda 5, análisis y marketing):
+          en el repositorio general, un titular con verbo y la lista de lo que
+          debería haber cada semana, marcando lo que ya está; el botón de subir
+          como acción principal y, si hay partido, el Plan y el ABP del rival
+          con el rival ya elegido. La última semana con material, en pequeño.
+        */}
+        {checklist && currentWeek ? (
+          <div className="mt-3 max-w-3xl rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-3.5 py-3">
+            {(() => {
+              const faltan = checklist.filter((c) => !c.hecho);
+              const lista = faltan.map((c) => `${c.texto === "Convocatoria" ? "la" : "el"} ${c.texto.toLowerCase()}`);
+              const unidas = lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}` : lista[0];
+              const titular = actualVacia
+                ? `Esta semana no hay material: sube ${unidas}.`
+                : faltan.length
+                  ? `Esta semana falta subir ${unidas}.`
+                  : "Esta semana ya está todo lo de cada semana.";
+
+              return (
+                <>
+                  <p className="text-[15px] font-semibold leading-snug text-white/90">
+                    {titular}
+                    {partidoActual ? <span className="font-normal text-white/70"> {partidoActual}.</span> : null}
+                  </p>
+
+                  <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Lo que debería haber cada semana">
+                    {checklist.map((c) => (
+                      <li
+                        key={c.texto}
+                        className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium ${
+                          c.hecho ? "border-[#C8A96B]/50 text-white/85" : "border-white/20 text-white/75"
+                        }`}
+                      >
+                        {c.hecho ? (
+                          <Check size={13} strokeWidth={3} className="text-[#C8A96B]" aria-hidden />
+                        ) : (
+                          <span aria-hidden className="inline-block h-3 w-3 rounded-[3px] border border-white/40" />
+                        )}
+                        {c.texto}
+                        <span className="sr-only">{c.hecho ? ", subido" : ", falta"}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={onGoToCurrentWeek}
+                      className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#C8A96B] px-3.5 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
+                    >
+                      <UploadCloud size={15} aria-hidden />
+                      {`Subir a la ${currentWeek.week.toLowerCase()}`}
+                    </button>
+                    {enlacesRival.map((e) => (
+                      <Link
+                        key={e.href}
+                        href={e.href}
+                        className="inline-flex min-h-10 items-center rounded-lg border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                      >
+                        {e.texto}
+                      </Link>
+                    ))}
+                  </div>
+
+                  {actualVacia && ultimaConMaterial ? (
+                    <p className="mt-2 text-[12.5px] text-white/65">
+                      Último material:{" "}
+                      <button
+                        type="button"
+                        onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
+                        className="font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]"
+                      >
+                        {ultimaConMaterial.week.toLowerCase()}
+                        {weekRangeLabel(ultimaConMaterial) ? ` (${weekRangeLabel(ultimaConMaterial)})` : ""}
+                      </button>
+                    </p>
+                  ) : null}
+                </>
+              );
+            })()}
+          </div>
+        ) : null}
+
+        {!checklist && tiraSemanas.length > 1 && ultimaConMaterial && sinSubir >= 2 && actualVacia ? (
           <div className="mt-3 flex max-w-3xl flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-3.5 py-2.5 text-[13.5px] leading-snug text-white/80">
             <span className="min-w-0 flex-1">
               Sin subidas desde la{" "}
@@ -227,8 +333,18 @@ export default function SeasonHeader({
                 Semanas 1 a {tiraSemanas.length}
               </span>
               <span className="inline-flex items-center gap-1.5">
-                <span className="inline-block h-3 w-3 rounded-[3px] bg-[#C8A96B]" />
-                <Check size={11} strokeWidth={3} className="-ml-1 text-[#C8A96B]" aria-hidden /> con material
+                <span className="inline-block h-3 w-3 rounded-[3px] bg-[#C8A96B]" /> con material
+              </span>
+              {/* 20/11/2026 (ronda 5, fútbol y marketing): el circulito de cada casilla, en la leyenda: cuántos archivos tiene. */}
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  aria-hidden
+                  className="siempre-oscuro inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums"
+                  style={{ background: "#0B0F14", color: "#C8A96B", border: "1px solid #C8A96B" }}
+                >
+                  3
+                </span>
+                archivos de la semana
               </span>
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
@@ -287,16 +403,17 @@ export default function SeasonHeader({
                         aria-hidden
                         className="pointer-events-none absolute -bottom-[18px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#C8A96B]"
                       >
-                        ahora
+                        {/* 20/11/2026 (ronda 5, marketing): con su jornada, si la hay. */}
+                        {partidoActual ? `ahora · ${partidoActual.split(" ")[0]}` : "ahora"}
                       </span>
                     )}
                     {semana.conMaterial && (
                       <span
                         aria-hidden
-                        className="siempre-oscuro absolute -right-1 -top-1 flex h-3.5 w-3.5 items-center justify-center rounded-full"
+                        className="siempre-oscuro absolute -right-1.5 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums leading-none"
                         style={{ background: "#0B0F14", color: "#C8A96B", border: "1px solid #C8A96B" }}
                       >
-                        <Check size={9} strokeWidth={3} />
+                        {(semana.imagenes ?? 0) + (semana.pdfs ?? 0) || <Check size={9} strokeWidth={3} />}
                       </span>
                     )}
                   </button>

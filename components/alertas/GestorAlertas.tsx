@@ -15,7 +15,7 @@ import {
   tituloLegible,
   type PartidoParaAlerta,
 } from "@/lib/alertas/modelo";
-import { CLAVE_CALENDARIO } from "@/lib/castilla/calendario";
+import { CLAVE_CALENDARIO, comoNuestro, type PartidoCastilla } from "@/lib/castilla/calendario";
 import ListaAlertas, { cuandoRelativo, nombresDestino } from "./ListaAlertas";
 
 /**
@@ -359,18 +359,26 @@ export default function GestorAlertas() {
         <div className="rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-3.5 text-[14px] leading-relaxed text-white/80">
           <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px] font-bold text-white/90">
             <BellOff className="h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
-            {nSilenciadas > 0
-              ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
-              : nCaducadas === 1
-                ? "1 caducada"
-                : `${nCaducadas} caducadas`}
-            {primeraAlReactivar && nSilenciadas > 0 ? (
-              <span className="font-semibold text-white/80">· próxima, {cuandoRelativo(primeraAlReactivar.cuando, ahora).replace(/^el /, "")}</span>
-            ) : null}
+            {/* 20/11/2026 (ronda 5, análisis): el estado claro, arriba: con todo apagado no sale ningún correo. */}
+            No sale ningún correo
+            <span className="font-semibold text-white/80">
+              {" · "}
+              {nSilenciadas > 0
+                ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
+                : nCaducadas === 1
+                  ? "1 caducada"
+                  : `${nCaducadas} caducadas`}
+            </span>
           </p>
           <p className="mt-1">
             {nSilenciadas > 0 ? (
               <>
+                {primeraAlReactivar ? (
+                  <>
+                    La primera saldría{" "}
+                    <b className="font-semibold text-white/90">{cuandoRelativo(primeraAlReactivar.cuando, ahora)}</b>.{" "}
+                  </>
+                ) : null}
                 Si las reactivas saldrían{" "}
                 <b className="font-semibold text-white/90">
                   {nSilenciadas === 1 ? "1 correo" : `${nSilenciadas} correos`}
@@ -399,20 +407,13 @@ export default function GestorAlertas() {
           >
             <BellRing className="h-4 w-4 shrink-0" aria-hidden />
             <span className="truncate">
+              {/* 20/11/2026 (ronda 5, marketing): a quién llega, en el propio botón; pregunta antes (ConfirmDialog). */}
               {nSilenciadas === 1 ? "Reactivar la silenciada" : "Reactivar todas"}
+              {` · ${nSilenciadas === 1 ? "1 correo" : `${nSilenciadas} correos`} a ${personasAlReactivar === 1 ? "1 persona" : `${personasAlReactivar} personas`}`}
             </span>
           </button>
           ) : null}
-
-          {/* La secundaria, como enlace: no compite con «Reactivar todas». */}
-          <button
-            type="button"
-            onClick={abrirNueva}
-            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-medium text-white/75 underline decoration-white/30 underline-offset-4 transition hover:text-white"
-          >
-            <Plus className="h-4 w-4" aria-hidden />
-            Nueva tarea con alerta
-          </button>
+          {/* 20/11/2026 (ronda 5, análisis): un solo botón principal; «Nueva tarea con alerta» baja al pie de la lista. */}
           </div>
         </div>
       )}
@@ -508,6 +509,17 @@ export default function GestorAlertas() {
           partidos={partidos}
           agenda={agenda}
         />
+        {/* Con el panel de estado arriba, la nueva tarea va aquí, como acción secundaria. */}
+        {!resumen && alertas.length > 0 ? (
+          <button
+            type="button"
+            onClick={abrirNueva}
+            className="inline-flex min-h-10 items-center gap-1.5 rounded-full px-2 text-[13px] font-medium text-white/75 underline decoration-white/30 underline-offset-4 transition hover:text-white"
+          >
+            <Plus className="h-4 w-4" aria-hidden />
+            Nueva tarea con alerta
+          </button>
+        ) : null}
         </>
       )}
 
@@ -651,7 +663,41 @@ function SemanaDeAlertas({
   const dia = (d: Date | null) =>
     d ? d.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "") : "";
 
-  const dias = [...new Set(delPartido.map(diasDe))].sort((a, b) => b - a);
+  /*
+  | 20/11/2026 (ronda 5, análisis y marketing): los siete días, de MD-6 al
+  | partido, como el calendario de la portada, cada aviso en su día; y el
+  | rótulo dice de qué partido es esa semana («J14 vs Rayo Majadahonda»), que
+  | no tiene por qué ser el de hoy. En el móvil sólo salen los días con aviso
+  | y el partido.
+  */
+  const clave = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const primera = delPartido
+    .map((a) => ({ a, s: salida(a) }))
+    .filter((x): x is { a: Alerta; s: Date } => x.s !== null)
+    .sort((x, y) => x.s.getTime() - y.s.getTime())[0];
+  const diaPartido = (() => {
+    if (!primera) return null;
+    const d = new Date(primera.s.getTime());
+    d.setDate(d.getDate() + diasDe(primera.a));
+    d.setHours(12, 0, 0, 0);
+    return d;
+  })();
+  const partido = diaPartido
+    ? (partidos.find((p) => String(p.cuando).slice(0, 10) === clave(diaPartido)) as (PartidoParaAlerta & Partial<PartidoCastilla>) | undefined)
+    : undefined;
+  const nuestro = partido && partido.local && partido.visitante ? comoNuestro(partido as PartidoCastilla) : null;
+  const rotulo = nuestro
+    ? `${nuestro.jornada ? `J${nuestro.jornada} ` : ""}${nuestro.lado === "casa" ? "vs" : "en"} ${nuestro.rival}${diaPartido ? ` (${dia(diaPartido)})` : ""}`
+    : "";
+
+  const maxDias = Math.max(6, ...delPartido.map(diasDe));
+  const semana = Array.from({ length: maxDias + 1 }, (_, i) => maxDias - i);
+  const fechaDe = (md: number) => {
+    if (!diaPartido) return null;
+    const d = new Date(diaPartido.getTime());
+    d.setDate(d.getDate() - md);
+    return d;
+  };
 
   /* Lleva a la tarjeta, abriendo su grupo plegado si hace falta. */
   const abrir = (a: Alerta) => {
@@ -664,49 +710,63 @@ function SemanaDeAlertas({
 
   return (
     <section aria-label="Las tareas atadas al partido, día a día">
-      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">La semana del partido · cuándo sale cada una</p>
-      <ol className="flex flex-col gap-1.5 @3xl:flex-row @3xl:flex-wrap @3xl:items-stretch">
-        {dias.map((d) => {
+      <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
+        {rotulo ? (
+          <>
+            Próxima semana de partido · <span className="normal-case tracking-normal text-white/85">{rotulo}</span>
+          </>
+        ) : (
+          "La semana del partido · cuándo sale cada una"
+        )}
+      </p>
+      <ol className="grid grid-cols-1 gap-1.5 @3xl:grid-cols-7">
+        {semana.map((d) => {
           const del = delPartido
             .filter((a) => diasDe(a) === d)
             .sort((x, y) => (salida(x)?.getTime() ?? Infinity) - (salida(y)?.getTime() ?? Infinity));
-          const fecha = dia(salida(del[0]));
+          const fecha = dia(fechaDe(d) ?? (del[0] ? salida(del[0]) : null));
+          const esPartido = d === 0;
 
           return (
-            <li key={d} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-2.5 @3xl:min-w-[220px] @3xl:flex-1">
-              <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/70">
-                {d === 0 ? "MD" : `MD-${d}`}
+            <li
+              key={d}
+              className={`min-w-0 rounded-2xl border p-2.5 ${
+                esPartido ? "border-[#C8A96B]/50 bg-[#C8A96B]/10" : del.length ? "border-white/15 bg-white/[0.04]" : "hidden border-white/[0.06] @3xl:block"
+              }`}
+            >
+              <p className={`text-[12px] font-bold uppercase tracking-[0.08em] ${esPartido ? "text-[#C8A96B]" : del.length ? "text-white/75" : "text-white/50"}`}>
+                {esPartido ? "MD" : `MD-${d}`}
                 {fecha ? <span className="ml-1.5 font-semibold normal-case tracking-normal text-white/60">{fecha}</span> : null}
               </p>
-              <ul className="mt-1.5 flex flex-wrap gap-1.5">
-                {del.map((a) => (
-                  <li key={a.id} className="min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => abrir(a)}
-                      title={a.activa ? "Va a salir · abrir su tarjeta" : "Silenciada · abrir su tarjeta"}
-                      className={`inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[12.5px] font-semibold leading-tight [overflow-wrap:anywhere] transition ${
-                        a.activa
-                          ? "bg-[#C8A96B] text-[#0B0F14] hover:brightness-110"
-                          : "border border-dashed border-white/30 text-white/60 hover:border-white/50 hover:text-white/85"
-                      }`}
-                    >
-                      {a.activa ? <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <BellOff className="h-3.5 w-3.5 shrink-0" aria-hidden />}
-                      {hora(salida(a)) ? <span className="tabular-nums">{hora(salida(a))}</span> : null}
-                      <span className="min-w-0">{nombre(a)}</span>
-                      {a.activa ? null : <span className="sr-only">(silenciada)</span>}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              {esPartido && nuestro ? (
+                <p className="mt-1 text-[12.5px] font-semibold leading-tight text-white/85">{`${nuestro.lado === "casa" ? "vs" : "en"} ${nuestro.rival}`}</p>
+              ) : null}
+              {del.length ? (
+                <ul className="mt-1.5 flex flex-wrap gap-1.5">
+                  {del.map((a) => (
+                    <li key={a.id} className="min-w-0">
+                      <button
+                        type="button"
+                        onClick={() => abrir(a)}
+                        title={a.activa ? "Va a salir · abrir su tarjeta" : "Silenciada · abrir su tarjeta"}
+                        className={`inline-flex min-h-9 max-w-full items-center gap-1.5 rounded-lg px-2 py-1 text-left text-[12.5px] font-semibold leading-tight [overflow-wrap:anywhere] transition ${
+                          a.activa
+                            ? "bg-[#C8A96B] text-[#0B0F14] hover:brightness-110"
+                            : "border border-dashed border-white/30 text-white/70 hover:border-white/50 hover:text-white/85"
+                        }`}
+                      >
+                        {a.activa ? <BellRing className="h-3.5 w-3.5 shrink-0" aria-hidden /> : <BellOff className="h-3.5 w-3.5 shrink-0" aria-hidden />}
+                        {hora(salida(a)) ? <span className="tabular-nums">{hora(salida(a))}</span> : null}
+                        <span className="min-w-0">{nombre(a)}</span>
+                        {a.activa ? null : <span className="sr-only">(silenciada)</span>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
             </li>
           );
         })}
-        {!dias.includes(0) ? (
-          <li className="flex min-w-0 items-center rounded-2xl border border-[#C8A96B]/50 bg-[#C8A96B]/10 px-3 py-2.5 @3xl:flex-none">
-            <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[#C8A96B]">MD · el partido</p>
-          </li>
-        ) : null}
       </ol>
     </section>
   );

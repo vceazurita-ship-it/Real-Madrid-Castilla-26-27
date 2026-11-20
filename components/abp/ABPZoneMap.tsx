@@ -78,11 +78,12 @@ function metricsFor(def: boolean): {
   },
   {
     key: "xg",
-    label: def ? "xG concedido" : "xG",
+    /* 20/11/2026 (jueces, ronda 5): «Goles esperados», sin sigla, y a un decimal. */
+    label: def ? "Goles esperados concedidos" : "Goles esperados",
     hint: def
-      ? "xG acumulado que el rival genera desde la zona"
-      : "xG acumulado generado desde la zona",
-    decimals: 2,
+      ? "Goles esperados acumulados que el rival genera desde la zona"
+      : "Goles esperados acumulados desde la zona",
+    decimals: 1,
   },
   {
     key: "goles",
@@ -94,7 +95,7 @@ function metricsFor(def: boolean): {
   },
   {
     key: "xgPorCaida",
-    label: "xG / envío",
+    label: def ? "Goles esperados concedidos por envío" : "Goles esperados por envío",
     hint: def
       ? "Peligro concedido por cada balón que cae en la zona"
       : "Peligro generado por cada balón que cae en la zona",
@@ -717,8 +718,8 @@ export default function ABPZoneMap({
 
             <p className="mt-3 text-[11px] leading-snug text-zinc-500">
               {def
-                ? "Ocupación y envíos miden cómo defendemos la zona; remates, xG y goles miden lo que el rival nos saca de ella."
-                : "Ocupación y envíos miden lo que planificamos; remates, xG y goles miden lo que conseguimos."}
+                ? "Ocupación y envíos miden cómo defendemos la zona; remates, goles esperados y goles miden lo que el rival nos saca de ella."
+                : "Ocupación y envíos miden lo que planificamos; remates, goles esperados y goles miden lo que conseguimos."}
             </p>
           </div>
         ) : (
@@ -730,16 +731,24 @@ export default function ABPZoneMap({
 
           <p className="mt-1 text-[11px] leading-snug text-zinc-500">
             {def
-              ? "Reparto de jugadores frente al reparto de xG que el rival genera en cada zona."
-              : "Reparto de jugadores frente al reparto de xG generado en cada zona."}
+              ? "Reparto de jugadores frente al reparto de goles esperados que el rival genera en cada zona."
+              : "Reparto de jugadores frente al reparto de goles esperados de cada zona."}
           </p>
           {conOcupacion > 0 || rematesConZona > 0 ? (
-            <p className="mt-1 text-[11px] leading-snug text-white/60">
-              Base: {[conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"} con ocupación apuntada` : "", rematesConZona > 0 ? `${rematesConZona} ${rematesConZona === 1 ? "remate" : "remates"} con zona` : ""].filter(Boolean).join(" · ")}
-              {rows.length > conOcupacion ? ` (de ${rows.length})` : ""}. Sólo las cuatro zonas del área; lo de fuera, bajo el campo.
-              {/* 20/11/2026 (jueces, ronda 4): «28 acciones con remate» y «29 remates» no son un error. */}
-              {rematesConZona > 0 ? " Se cuentan remates, no acciones: una acción puede tener dos (el rechace), por eso no coincide con las acciones con remate." : ""}
-            </p>
+            /* 20/11/2026 (jueces, ronda 5): la base en una línea; el detalle, desplegable. */
+            <details className="group mt-1 text-[11px] leading-snug text-white/60">
+              <summary className="cursor-pointer list-none">
+                Base: {[conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"}` : "", rematesConZona > 0 ? `${rematesConZona} ${rematesConZona === 1 ? "remate" : "remates"}` : ""].filter(Boolean).join(" · ")}
+                {rows.length > conOcupacion ? ` de ${rows.length}` : ""}{" "}
+                <span aria-hidden className="text-white/40 group-open:hidden">ⓘ</span>
+              </summary>
+              <p className="mt-1 text-white/50">
+                {conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"} con ocupación apuntada. ` : ""}
+                Sólo las cuatro zonas del área; lo de fuera, bajo el campo.
+                {/* 20/11/2026 (jueces, ronda 4): «28 acciones con remate» y «29 remates» no son un error. */}
+                {rematesConZona > 0 ? " Se cuentan remates, no acciones: una acción puede tener dos (el rechace), por eso no coincide con las acciones con remate." : ""}
+              </p>
+            </details>
           ) : null}
 
           <div className="mt-4 space-y-4">
@@ -803,7 +812,7 @@ export default function ABPZoneMap({
               <span
                 className={`h-2 w-2 rounded-full ${def ? "bg-[#D08A7E]" : "bg-[#C8A96B]"}`}
               />
-              {def ? "xG concedido" : "xG"}
+              {def ? "Goles esperados concedidos" : "Goles esperados"}
             </span>
           </div>
 

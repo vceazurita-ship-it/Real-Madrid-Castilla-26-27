@@ -110,6 +110,11 @@ export function ValoresIndice() {
   const primero = [...VALORES_INDICE].sort((a, b) => votosDe(b) - votosDe(a))[0];
   const antiMax = VALORES_INDICE.flatMap((v) => antivaloresDelValor(v).conVotos).sort((a, b) => b.votos - a.votos)[0];
   const afines = VALORES_INDICE.map(afinDe).filter(Boolean);
+  const propuestos = VALORES_INDICE.flatMap((v) => {
+    const t = antivaloresDelValor(v).tambien;
+
+    return t.length ? [`${t.join(", ")} (contra ${v.titulo.toLowerCase()})`] : [];
+  });
 
   return (
     <section aria-labelledby="indice-valores" className="min-w-0" lang="es">
@@ -123,6 +128,7 @@ export function ValoresIndice() {
       </h2>
       <p className="mt-1 text-xs text-gray-400">
         Votos de la plantilla: {TOTAL_VOTOS_VALORES} a los valores y {TOTAL_VOTOS_ANTIVALORES} a lo que los destruye, contados aparte.
+        Cada barra se mide contra el más votado de su lado ({MAX_VOTOS} en los valores, {MAX_ANTI} en lo que los destruye).
         Pulsa un valor para ver sus conductas.
       </p>
 
@@ -161,12 +167,13 @@ export function ValoresIndice() {
                     Sus conductas
                     <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                   </button>
+                  {/* 20/11/2026 (ronda 5): ya filtrado por el valor, y el rótulo lo dice. */}
                   <Link
-                    href={HREF_SEGUIMIENTO}
-                    title={`Seguimiento de los jugadores: dónde se apunta ${v.titulo.toLowerCase()} en el día a día`}
+                    href={hrefSeguimientoDe(v.titulo)}
+                    title={`Seguimiento de los jugadores filtrado por ${v.titulo.toLowerCase()}`}
                     className="text-gray-300 hover:text-white hover:underline"
                   >
-                    Seguimiento →
+                    Seguimiento de {v.titulo.toLowerCase()} →
                   </Link>
                 </span>
               </div>
@@ -179,9 +186,10 @@ export function ValoresIndice() {
                   </span>
                   <span className="shrink-0 whitespace-nowrap text-sm font-semibold tabular-nums text-white">
                     {n} de {TOTAL_VOTOS_VALORES}
-                    {afin ? <span className="ml-1.5 font-normal text-gray-400">{afin.replace(" a ", " ")}</span> : null}
                   </span>
                 </span>
+                {/* 20/11/2026 (ronda 5): el «+3 Amistad» se cortaba en el borde y bajo el ⋮; va debajo de la barra. */}
+                {afin ? <span className="mt-0.5 block text-xs text-gray-400">{afin.replace(" a ", " ")}, aparte</span> : null}
               </div>
 
               {/* Lo que lo destruye, a la izquierda y en espejo */}
@@ -196,13 +204,6 @@ export function ValoresIndice() {
                     </span>
                   </span>
                 ))}
-                {anti.tambien.length > 0 && (
-                  <span className="block text-sm leading-snug text-gray-300 md:text-right">
-                    {anti.conVotos.length ? "También: " : ""}
-                    {anti.tambien.join(", ")}
-                    {anti.conVotos.length ? "" : " (lo propone el documento)"}
-                  </span>
-                )}
               </div>
             </li>
           );
@@ -214,6 +215,14 @@ export function ValoresIndice() {
           {afines.join(" · ")}: votos con otra palabra parecida; se enseñan aparte y no suman al valor.
         </p>
       )}
+      {/* 20/11/2026 (fútbol y marketing, ronda 5): lo que propone el documento sin
+          haberse votado no va en la columna de votos: nota aparte, con su marca. */}
+      {propuestos.length > 0 && (
+        <p className="mt-1 text-xs text-gray-400">
+          <span aria-hidden className="mr-1 text-red-400">◇</span>
+          Sin votación, lo añade el documento: {propuestos.join(" · ")}.
+        </p>
+      )}
     </section>
   );
 }
@@ -223,44 +232,42 @@ export function ValoresIndice() {
  * abre sus conductas en /identidad-cultura. Sin barras: el recuento completo
  * vive en una sola pantalla.
  */
+/*
+| 20/11/2026 (fútbol y guionista, ronda 5): en /team-values la votación es
+| UNA línea; el recuento con barras vive sólo en /identidad-cultura. La
+| pantalla abre con la hoja de ruta.
+*/
 export function EnlacesValores() {
   if (!VALORES_INDICE.length) return null;
 
   const primero = [...VALORES_INDICE].sort((a, b) => votosDe(b) - votosDe(a))[0];
 
   return (
-    <div className="min-w-0">
-      <p className="text-sm text-gray-300">
-        <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">Resultado de la votación:</span>{" "}
-        {primero.titulo}, el más votado ({votosDe(primero)} de {TOTAL_VOTOS_VALORES} votos).{" "}
-        <Link href="/identidad-cultura" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
-          Ver el recuento y el documento →
-        </Link>
-      </p>
-      <ul className="mt-2 flex flex-wrap gap-2">
-        {VALORES_INDICE.map((v) => (
-          <li key={v.numero}>
-            <Link
-              href={hrefConductas(v)}
-              title={`Conductas de ${v.titulo}`}
-              className="inline-flex items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-sm text-gray-200 transition-colors hover:border-[#C8A96B]/60 hover:text-white"
-            >
-              <span className="font-bold tabular-nums text-red-400">
-                {v.numero}
-              </span>
-              {v.titulo}
-              {/* 17/11/2026 (fútbol): los votos de los cinco, no sólo del primero. */}
-              <span className="tabular-nums text-gray-400">
-                · {votosDe(v)} de {TOTAL_VOTOS_VALORES}
-              </span>
-              <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
-            </Link>
-          </li>
-        ))}
-      </ul>
-    </div>
+    <p className="min-w-0 text-sm text-gray-300">
+      <span className="font-semibold text-white">{primero.titulo}</span> encabeza la votación de la plantilla (
+      <span className="tabular-nums">{votosDe(primero)} de {TOTAL_VOTOS_VALORES}</span> votos).{" "}
+      <Link
+        href="/identidad-cultura#indice-valores"
+        className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+      >
+        Ver la votación →
+      </Link>
+    </p>
   );
 }
+
+/**
+ * El valor del que habla un texto (el primero que nombre), o null. Sirve para
+ * llevar al seguimiento ya filtrado por ese valor.
+ */
+export function valorNombradoEn(texto: string): ValorIndice | null {
+  const t = texto.toLowerCase();
+
+  return VALORES_INDICE.find((v) => t.includes(v.titulo.toLowerCase())) ?? null;
+}
+
+/** El seguimiento con la búsqueda puesta en el valor (`?buscar=`, lo lee /individual_proc). */
+export const hrefSeguimientoDe = (titulo: string) => `${HREF_SEGUIMIENTO}?buscar=${encodeURIComponent(titulo.toLowerCase())}`;
 
 /**
  * EL GRÁFICO DE LA VOTACIÓN (17/11/2026, marketing y fútbol).

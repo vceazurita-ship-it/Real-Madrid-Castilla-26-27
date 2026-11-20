@@ -15,10 +15,11 @@
 |  - /data-analisis?area=individual&jugador=NOMBRE (PanelIndividual)
 |  - /comparative_ind?jugador=NOMBRE
 |  - /calendar?player=ID
+|  - /individual_proc?player=ID  (Dashboard Seguimiento, ya filtrado)
 */
 
 import Link from "next/link";
-import { BarChart3, CalendarDays, ClipboardList, PlusCircle, Star, UserRound, Video, Scale } from "lucide-react";
+import { BarChart3, CalendarDays, ClipboardList, LayoutDashboard, PlusCircle, Star, UserRound, Video, Scale } from "lucide-react";
 import type { ReactNode } from "react";
 
 export type DestinoJugador =
@@ -30,6 +31,8 @@ export type DestinoJugador =
   | "data"
   | "comparativa"
   | "calendario"
+  /** /individual_proc con el jugador ya filtrado (20/11/2026, ronda 5). */
+  | "dashboard"
   /** /ratings con sus notas abiertas (17/11/2026, ronda 19). */
   | "notas";
 
@@ -62,6 +65,10 @@ export function hrefJugador(destino: DestinoJugador, j: JugadorEnlazable): strin
       return `/comparative_ind?jugador=${enc(j.nombre)}`;
     case "calendario":
       return j.id ? `/calendar?player=${enc(j.id)}` : `/calendar`;
+    case "dashboard":
+      /* Con el nombre también: el Dashboard casa por nombre antes que por ID
+         (la lista de /individual y la hoja no siempre dan el mismo JUG-XX). */
+      return `/individual_proc?${j.id ? `player=${enc(j.id)}&` : ""}jugador=${enc(j.nombre)}`;
     case "notas":
       return j.id ? `/ratings?player=${enc(j.id)}` : `/ratings?jugador=${enc(j.nombre)}`;
   }
@@ -76,6 +83,7 @@ const ROTULO: Record<DestinoJugador, { label: string; icono: ReactNode; titulo: 
   data: { label: "Data análisis", icono: <BarChart3 size={12} aria-hidden />, titulo: "Sus datos de Wyscout y Opta" },
   comparativa: { label: "Comparativa", icono: <Scale size={12} aria-hidden />, titulo: "Contra la categoría, en su puesto" },
   notas: { label: "Notas", icono: <Star size={12} aria-hidden />, titulo: "Sus notas en Valoraciones, con él ya abierto" },
+  dashboard: { label: "Dashboard Seguimiento", icono: <LayoutDashboard size={12} aria-hidden />, titulo: "Su seguimiento en el Dashboard Seguimiento, ya filtrado" },
   calendario: { label: "Calendario", icono: <CalendarDays size={12} aria-hidden />, titulo: "Su seguimiento en el calendario" },
 };
 
@@ -121,7 +129,8 @@ export function EnlacesJugador({
             title={`${r.titulo} · ${jugador.nombre}`}
             aria-label={`${r.label} de ${jugador.nombre}`}
             onClick={(e) => e.stopPropagation()}
-            className={`inline-flex min-h-[26px] items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${
+            /* 20/11/2026 (ronda 5): sólo con icono, 36 px de dedo en el móvil. */
+            className={`inline-flex ${soloIconos ? "min-h-[36px] min-w-[36px] justify-center sm:min-h-[26px] sm:min-w-0" : "min-h-[26px]"} items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold transition ${
               principal
                 ? "border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[#C8A96B] hover:bg-[#C8A96B]/25"
                 : "border-white/10 bg-white/[0.03] text-white/70 hover:text-white"

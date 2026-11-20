@@ -50,7 +50,6 @@ import { formatea } from "@/lib/data-analisis/metricas";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { urlPostDelPartido } from "@/lib/post-partido";
-import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 
 type Principio = {
   ID: number;
@@ -1003,10 +1002,14 @@ export default function GameModelPage() {
                           )}
                           <span className="min-w-0 break-words text-sm text-gray-200">
                             {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
+                            {/* 20/11/2026 (marketing, ronda 5): se leía «profundidadINNEGOCIABLE»; espacio y pastilla aparte. */}
                             {esClave(p.PRINCIPIO) && (
-                              <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                                innegociable
-                              </span>
+                              <>
+                                {" "}
+                                <span className="ml-1 inline-block rounded-full border border-[#C8A96B]/40 px-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                                  innegociable
+                                </span>
+                              </>
                             )}
                           </span>
                         </li>
@@ -1038,10 +1041,14 @@ export default function GameModelPage() {
                           )}
                           <span className="min-w-0 break-words text-sm text-gray-200">
                             {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
+                            {/* 20/11/2026 (marketing, ronda 5): se leía «profundidadINNEGOCIABLE»; espacio y pastilla aparte. */}
                             {esClave(p.PRINCIPIO) && (
-                              <span className="ml-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                                innegociable
-                              </span>
+                              <>
+                                {" "}
+                                <span className="ml-1 inline-block rounded-full border border-[#C8A96B]/40 px-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                                  innegociable
+                                </span>
+                              </>
                             )}
                           </span>
                         </li>
@@ -1272,6 +1279,12 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
   const esUltimo = elegida >= serie.length - 1;
   const igual = formatea(x.valor, c.unidad) === formatea(c.mediana, c.unidad);
   const bien = ladoBueno(c, x.valor);
+  /* 20/11/2026 (marketing, ronda 5): la tendencia de los 3 últimos al lado del
+     veredicto, para que «0 de 12» no choque con «a 0,9 puntos de la mediana». */
+  const ultimos3 = serie.slice(-3);
+  const buenos3 = ultimos3.filter((s) => ladoBueno(c, s.valor)).length;
+  /* La mediana se rotula en el lado contrario a la barra elegida: tapaba su cifra. */
+  const rotuloIzq = elegida >= serie.length * (2 / 3);
 
   return (
     <figure className="min-w-0">
@@ -1281,12 +1294,24 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
           {" "}
           → {mayoria ? "se sostiene" : "toca entrenarlo"}
         </span>
+        {ultimos3.length === 3 && (
+          <span className="font-normal text-gray-300"> · últimos 3: {buenos3} de 3</span>
+        )}
       </figcaption>
       <p className="mt-0.5 text-xs text-gray-400">
         {/* 17/11/2026 (marketing): las dos poblaciones con su base, en una línea. */}
         {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de la temporada de los {c.equipos} equipos del
         grupo ({formatea(c.mediana, c.unidad)}) · Castilla en sus {c.partidos} partidos: {formatea(c.temporada, c.unidad)} · eje
         desde 0 · toca una barra para ver su partido
+      </p>
+      {/* 20/11/2026 (guionista, ronda 5): la leyenda de los dos tonos. */}
+      <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-[#C8A96B]" /> oro: del lado bueno de la mediana
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="h-2.5 w-2.5 rounded-sm bg-amber-500/45" /> ámbar claro: del lado malo
+        </span>
       </p>
 
       {/* 20/11/2026 (jueces): la mediana rotulada sobre su raya y la cifra encima de la barra elegida; el eje empieza en 0. */}
@@ -1298,8 +1323,11 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
         />
         <span
           aria-hidden
-          className="pointer-events-none absolute right-0 z-10 -translate-y-1 rounded bg-[#0B0F14]/80 px-1 text-[11px] font-semibold tabular-nums text-sky-300"
-          style={{ bottom: alto(c.mediana) }}
+          className={cn(
+            "pointer-events-none absolute z-10 -translate-y-1 rounded px-1 text-[11px] font-semibold tabular-nums text-sky-300",
+            rotuloIzq ? "left-0" : "right-0",
+          )}
+          style={{ bottom: alto(c.mediana), background: "color-mix(in srgb, var(--background) 85%, transparent)" }}
         >
           mediana {formatea(c.mediana, c.unidad)}
         </span>
@@ -1387,16 +1415,8 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
         >
           Análisis del partido {x.jornada ? `J${x.jornada} ` : ""}ante {x.rival} →
         </Link>
-        {/* 18/11/2026: en el pop-up de la portada, sin salir del modelo de juego. */}
-        <BotonGolesEnVideo
-          equipo={x.rival}
-          className={cn(
-            "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
-            focusRing,
-          )}
-        >
-          ▶ Goles de {x.rival} en vídeo
-        </BotonGolesEnVideo>
+        {/* 20/11/2026 (fútbol y guionista, ronda 5): sin «Goles del rival en vídeo»:
+            no enseñaba nuestro principio y no hay clips nuestros etiquetados por principio. */}
         <Link
           href={`/rivals?equipo=${encodeURIComponent(x.rival)}`}
           className={cn(
@@ -1424,6 +1444,16 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
             Jugadores que lo ejecutan mejor →
           </Link>
         </div>
+      )}
+      {/* 20/11/2026 (fútbol, ronda 5): lo que se sostiene también acaba en el plan, como refuerzo. */}
+      {mayoria && (
+        <p className="mt-3 rounded-lg border-l-2 border-emerald-500/60 bg-emerald-500/[0.05] px-3 py-2 text-[13px] leading-relaxed text-gray-200">
+          <span className="font-semibold text-white">Refuerzo:</span> mantener «{principio}» en las tareas de la semana; listón,{" "}
+          {c.mejorAlto ? "no bajar de" : "no pasar de"} <b className="text-white">{formatea(c.mediana, c.unidad)}</b>.{" "}
+          <Link href="/microcycles" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+            Al microciclo de la semana →
+          </Link>
+        </p>
       )}
     </figure>
   );
@@ -1508,7 +1538,9 @@ function ChipsInnegociables({ claves }: { claves: Principio[] }) {
       <ul className="mt-3 flex flex-wrap gap-2">
         {/* 17/11/2026 (guionista): con cifras ya leídas, sólo los innegociables
             medidos; los demás quedan en «Otros principios del bloque». */}
-        {(medidos.length > 0 ? filas.filter((f) => f.c) : filas).map(({ p, nombre, c }) => {
+        {/* 20/11/2026 (fútbol y guionista, ronda 5): arriba van TODOS los
+            innegociables, los mismos que llevan el candado abajo. */}
+        {filas.map(({ p, nombre, c }) => {
           const ok = c ? cumple(c) : null;
 
           return (
@@ -1530,6 +1562,7 @@ function ChipsInnegociables({ claves }: { claves: Principio[] }) {
                 {c && (
                   <span className="tabular-nums">
                     {ok ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
+                    <span className="font-normal opacity-80"> · temporada {formatea(c.temporada, c.unidad)}</span>
                   </span>
                 )}
               </a>
@@ -1542,7 +1575,11 @@ function ChipsInnegociables({ claves }: { claves: Principio[] }) {
           Ante {ultimo.rival} ({cualPartido(ultimo)}): {bien.length > 0 && <>cumplimos en {lista(bien)}</>}
           {bien.length > 0 && mal.length > 0 && "; "}
           {mal.length > 0 && <>nos falta {lista(mal)}</>}. Referencia: la mediana de los {medidos[0].c.equipos} equipos
-          del grupo.
+          del grupo. La cifra del partido y la de la temporada difieren porque la de la temporada es la media de los{" "}
+          {medidos[0].c.partidos} partidos.
+          {filas.length > medidos.length && (
+            <> Con cifra de partido, {medidos.length} de los {filas.length} innegociables.</>
+          )}
         </p>
       )}
     </>

@@ -86,7 +86,14 @@ export function sinErratas(texto: string): string {
   const arreglado = texto
     .replace(/[ \t]+([.,;:])(?=\s|$)/g, "$1")
     .replace(/\b(en|de|del|al|a|con|por|y)\.\s+(?=\p{Ll})/gu, "$1 ")
-    .replace(/(^|[.!?]\s+|\n)Si,\s/g, "$1Sí, ");
+    .replace(/(^|[.!?]\s+|\n)Si,\s/g, "$1Sí, ")
+    /*
+    | 20/11/2026 (ronda 5, fútbol): «muy activo e saltos» y «saltan a CT's». La
+    | «e» suelta sólo va delante de «i»/«hi»; delante de otra letra es «en».
+    | «CT's» (plural inglés) es «centrales».
+    */
+    .replace(/(^|\s)e\s+(?![iíIÍyY]|h[iíIÍ])(?=\p{Ll})/gu, "$1en ")
+    .replace(/\bCT['’]?s\b/g, "centrales");
 
   return arreglado.replace(PALABRA, (palabra) => {
     const bien = ARREGLO[palabra.toLowerCase()];

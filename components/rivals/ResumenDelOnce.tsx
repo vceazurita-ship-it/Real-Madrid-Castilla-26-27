@@ -33,6 +33,8 @@ export type Veredicto = {
   porque: string;
   /** De dónde sale: «8 partidos · Wyscout», «tendencia · 2 PJ · etiqueta del analista». */
   base: string;
+  /** «xG · 0,6 · P92»: la línea corta de la lista (20/11/2026, ronda 5, marketing); el porqué entero, al tocarla. */
+  corto?: string;
 };
 
 export type FichaResumen = {
@@ -46,6 +48,8 @@ export type FichaResumen = {
   /** Va a un hueco que no es el suyo (el once guardado no tenía otro). */
   fuera: boolean;
   veredicto: Veredicto | null;
+  /** Sus minutos si son muestra corta (menos de 450′ en Wyscout): «234′». Vacío si no (20/11/2026, ronda 5, fútbol). */
+  muestraCorta?: string;
 };
 
 export type LineaResumen = {
@@ -100,7 +104,7 @@ function Ficha({ ficha, rotulo, activa, onClick }: { ficha: FichaResumen; rotulo
       type="button"
       onClick={onClick}
       aria-pressed={activa}
-      title={`${ficha.nombre} · ${ficha.puesto || ficha.hueco}${ficha.fuera ? " · fuera de su sitio" : ""}`}
+      title={`${ficha.nombre} · ${ficha.puesto || ficha.hueco}${ficha.fuera ? " · fuera de su sitio" : ""}${ficha.muestraCorta ? ` · muestra corta (${ficha.muestraCorta} en Wyscout)` : ""}`}
       className={`flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-lg px-0.5 py-1 transition hover:bg-white/[0.06] ${activa ? "bg-white/[0.08]" : ""}`}
     >
       <span
@@ -108,7 +112,10 @@ function Ficha({ ficha, rotulo, activa, onClick }: { ficha: FichaResumen; rotulo
       >
         {ficha.dorsal || ficha.hueco.slice(0, 2)}
       </span>
-      <span className="block w-full truncate text-center text-[11px] leading-tight text-white/80">{rotulo}</span>
+      <span className="block w-full truncate text-center text-[12px] leading-tight text-white/80">
+        {rotulo}
+        {ficha.muestraCorta && <span className="text-white/50">*</span>}
+      </span>
     </button>
   );
 }
@@ -138,6 +145,7 @@ export function ResumenDelOnce({
   const peligros = fichas.filter((f) => f.veredicto?.tipo === "peligro").map(conCifra);
   const explotables = fichas.filter((f) => f.veredicto?.tipo === "explotable").map(conCifra);
   const fuera = fichas.filter((f) => f.fuera);
+  const cortos = fichas.filter((f) => f.muestraCorta);
   const activa = fichas.find((f) => f.clave === elegida) ?? null;
 
   return (
@@ -177,12 +185,13 @@ export function ResumenDelOnce({
               fuera de su sitio
             </span>
           )}
+          {cortos.length > 0 && <span>* muestra corta: menos de 450′ en Wyscout ({cortos.map((f) => `${f.nombre}, ${f.muestraCorta}`).join("; ")})</span>}
         </p>
         {/* El criterio, en la leyenda (18/11/2026, ronda 23). */}
         <p className="mt-0.5 text-[11px] leading-snug text-white/50">{capital(LEYENDA_JERARQUIA)}.</p>
       </div>
 
-      <div className="space-y-1.5 px-4 pb-3 pt-2 text-[12px] leading-snug text-white/75">
+      <div className="space-y-1.5 px-4 pb-3 pt-2 text-[13px] leading-snug text-white/75">
         {activa ? (
           <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
             <p className="font-semibold text-white">
@@ -194,6 +203,9 @@ export function ResumenDelOnce({
                 {activa.fuera ? ", fuera de su sitio" : ""}
               </span>
             </p>
+            {activa.muestraCorta && (
+              <p className="mt-1 text-[12px] font-semibold text-amber-300">Muestra corta: {activa.muestraCorta} en Wyscout (menos de 450′), léelo como tendencia.</p>
+            )}
             {activa.veredicto && (
               <p className="mt-1">
                 <span className={`font-semibold ${activa.veredicto.tipo === "peligro" ? "text-red-300" : "text-emerald-300"}`}>
@@ -234,7 +246,9 @@ export function ResumenDelOnce({
                         {f.dorsal && <span className="mr-1 tabular-nums text-[#C8A96B]">{f.dorsal}</span>}
                         {f.nombre}
                       </b>
-                      <span className="text-white/65"> · {f.veredicto?.porque}</span>
+                      {/* Corta, «métrica · valor · percentil» (20/11/2026, ronda 5, marketing): se partía en 4-5 líneas; el porqué entero, al tocarla. */}
+                      <span className="text-white/65"> · {f.veredicto?.corto || f.veredicto?.porque}</span>
+                      {f.muestraCorta && <span className="text-amber-300"> · muestra corta</span>}
                     </span>
                   </button>
                 </li>

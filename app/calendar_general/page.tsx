@@ -90,6 +90,7 @@ type EventoAuto = {
 /** Una fila de la hoja de microciclos: lo poco que hace falta aquí (la misma fuente que /micro_calendar). */
 type FilaMicro = {
   Fecha?: string;
+  Tarea?: string;
   MD?: string;
   Tiempo?: number | string;
   "Intensidad (1-10)"?: number | string;
@@ -110,6 +111,8 @@ type SesionDia = {
   planificado?: boolean;
   /** Lo del plan que no se hizo (con equipos hechos): «Juego de Posesión». */
   noHechas?: string[];
+  /** 20/11/2026: los minutos y el contenido de cada tarea de la copia de lo hecho, por código («L-T1»). */
+  porTarea?: Record<string, { contenido: string; minutos: number }>;
   /** 17/11/2026 (r20): la carga (UA = minutos × intensidad) de las tareas con las dos cosas, y cuántas son de cuántas. */
   ua?: number;
   conCarga?: number;
@@ -345,6 +348,37 @@ export default function CalendarGeneralPage() {
   const sesionesDia = useMemo(() => {
     const mapa = new Map(sesionesHechas);
 
+    /*
+    | 20/11/2026 (fútbol, ronda 5): el 16/11 seguía con «Juego de Posesión» de
+    | titular, la L-T1 que no se hizo. En los días de la copia de lo hecho
+    | también se quita lo que no se hizo, y el titular sale de lo que sí.
+    */
+    if (hoyKey) {
+      mapa.forEach((dia, key) => {
+        const estado = estadoDelDia(key, hoyKey, registro, almacenEquipos, dia.minutos, true);
+        const fuera = Object.entries(dia.porTarea ?? {}).filter(([codigo]) => estado.noHechas.has(codigo));
+
+        if (!fuera.length) return;
+
+        const porContenido = { ...dia.porContenido };
+
+        for (const [, t] of fuera) {
+          if (!t.contenido) continue;
+          porContenido[t.contenido] = (porContenido[t.contenido] ?? 0) - Math.max(1, t.minutos);
+          if (porContenido[t.contenido] <= 0) delete porContenido[t.contenido];
+        }
+
+        mapa.set(key, {
+          ...dia,
+          porContenido,
+          principal: Object.entries(porContenido).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "",
+          minutos: Math.max(0, dia.minutos - fuera.reduce((s, [, t]) => s + t.minutos, 0)),
+          noHechas: fuera.map(([, t]) => t.contenido).filter(Boolean),
+          tareas: Math.max(0, (dia.tareas ?? 0) - fuera.length),
+        });
+      });
+    }
+
     diasPlanificados(registro, new Set(mapa.keys())).forEach((filas, key) => {
       const todas = filas.filter((f) => !esFilaDePartido({ md: f.md, fase: f.fase, tipo: f.tipoTarea, contenidoPrincipal: f.contenidoPrincipal }));
       const estado = hoyKey ? estadoDelDia(key, hoyKey, registro, almacenEquipos) : null;
@@ -404,7 +438,11 @@ export default function CalendarGeneralPage() {
           const contenido = contenidoUnificado(String(fila["Contenido Principal"] || fila["Tipo Tarea"] || "").trim());
           const porContenido = { ...(previa?.porContenido ?? {}) };
 
-          if (contenido) porContenido[contenido] = (porContenido[contenido] ?? 0) + minutos;
+          if (contenido) porContenido[contenido] = (porContenido[contenido] ?? 0) + (minutos || 1);
+          const codigo = String(fila.Tarea ?? "").trim();
+          const porTarea = { ...(previa?.porTarea ?? {}) };
+
+          if (codigo) porTarea[codigo] = { contenido, minutos };
 
           const principal = Object.entries(porContenido).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
           const porFase = { ...(previa?.porFase ?? {}) };
@@ -424,6 +462,7 @@ export default function CalendarGeneralPage() {
             ua: (previa?.ua ?? 0) + carga,
             conCarga: (previa?.conCarga ?? 0) + (carga > 0 ? 1 : 0),
             tareas: (previa?.tareas ?? 0) + 1,
+            porTarea,
           });
         }
 
@@ -1277,7 +1316,7 @@ export default function CalendarGeneralPage() {
                   className="whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white/60"
                   title={mdSinSesion === "MD+1" ? "El día después del partido: recuperación" : "MD por la fecha de los partidos: la hoja no tiene sesión ese día"}
                 >
-                  {mdSinSesion === "MD+1" ? "MD+1 · recup." : mdSinSesion}
+                  {mdSinSesion === "MD+1" ? "MD+1 · rec." : mdSinSesion}
                 </span>
               ) : null}
               {imageCount > 0 && (
@@ -1318,7 +1357,14 @@ export default function CalendarGeneralPage() {
                       <span className="min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
                     </p>
                     <p className="text-[10px] text-white/60 md:text-[10px]">
-                      {sesionDia.planificado ? "Planificada" : sesionDia.minutos > 0 ? `Sesión · ${formatMinutes(sesionDia.minutos)}` : "Sesión hecha"}
+                      {/* 20/11/2026 (fútbol, ronda 5): sin minutos, cuántas tareas, para que la fila mida lo mismo. */}
+                      {sesionDia.planificado
+                        ? "Planificada"
+                        : sesionDia.minutos > 0
+                          ? `Sesión · ${formatMinutes(sesionDia.minutos)}`
+                          : sesionDia.tareas
+                            ? `Sesión hecha · ${sesionDia.tareas} ${sesionDia.tareas === 1 ? "tarea" : "tareas"}`
+                            : "Sesión hecha"}
                     </p>
                     {sesionDia.noHechas?.length ? (
                       <p className="text-[10px] leading-tight text-white/50 md:text-[11px]" title="Estaba en el plan y no se hizo (según los equipos de Jugadores sesión)">

@@ -94,6 +94,12 @@ const ROTULO_TIPO: Record<TipoDia, string> = {
   partido: "Partido",
 };
 
+/**
+ * El dato de la temporada que trabaja la tarea (20/11/2026, jueces, ronda 5):
+ * «Ataca» sólo si es una carencia; si es una fortaleza, «Mantiene».
+ */
+export type DatoTrabajo = { rotulo: "Ataca" | "Mantiene"; texto: string };
+
 type DatosArrastre = { dia: DiaKey; id: string };
 type DatosDestino = { dia: DiaKey; antesDe: string | null };
 
@@ -138,7 +144,7 @@ function TrabajoCuerpo({
   /** Ficha completa (la de compartir) o corta (la de replanificar). */
   detalle: boolean;
   /** 20/11/2026 (jueces, ronda 4): la carencia que ataca, con su dato de la temporada. */
-  dato?: string | null;
+  dato?: DatoTrabajo | null;
 }) {
   const lados = ladosDe(trabajo);
   const aspectos = aspectosDe(trabajo);
@@ -286,8 +292,8 @@ function TrabajoCuerpo({
 
       {detalle && dato && (
         <p className="mt-1 text-[11px] leading-snug text-white/65">
-          <span className="font-semibold text-white/80">Ataca · </span>
-          {dato}
+          <span className="font-semibold text-white/80">{dato.rotulo} · </span>
+          {dato.texto}
         </p>
       )}
 
@@ -330,7 +336,7 @@ function TrabajoCard({
   dia: DiaKey;
   trabajo: Trabajo;
   detalle: boolean;
-  dato?: string | null;
+  dato?: DatoTrabajo | null;
   onClick: () => void;
   onDuplicar: () => void;
   onBorrar: () => void;
@@ -472,7 +478,7 @@ function DiaColumna({
   /** "dom 20": la fecha real de ese día en este microciclo. */
   etiqueta?: string;
   esHoy?: boolean;
-  datoDe?: (trabajo: Trabajo) => string | null;
+  datoDe?: (trabajo: Trabajo) => DatoTrabajo | null;
   onCambiaTipo: (tipo: TipoDia) => void;
   onCambiaMd: (md: string) => void;
   onAbrir: (trabajo: Trabajo) => void;
@@ -704,7 +710,7 @@ export function SemanaGrid({
   /** 20/11/2026 (jueces, ronda 4): el día de hoy, resaltado y con atajo en el móvil. */
   hoy?: DiaKey | null;
   /** La carencia que ataca cada tarea, con su dato (de las hojas de ABP). */
-  datoDe?: (trabajo: Trabajo) => string | null;
+  datoDe?: (trabajo: Trabajo) => DatoTrabajo | null;
   dias: Record<DiaKey, PlanDia>;
   /**
    * Qué días se pintan y en qué orden.

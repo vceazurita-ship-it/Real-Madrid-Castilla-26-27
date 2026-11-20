@@ -61,6 +61,7 @@ import {
   UMBRAL_DUELO,
   ZONAS,
   consignaDelDuelo,
+  pesoDelDuelo,
   sentidoDeLaConsigna,
   ROTULO_HUECO,
   mideDuelos,
@@ -657,7 +658,7 @@ export default function DuelosPage() {
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="pb-12 pl-4 pr-12 pt-6 sm:pl-8 sm:pr-20 sm:pt-10">
+          <section className="pb-12 px-4 pt-6 sm:pl-8 sm:pr-20 sm:pt-10">
             <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">RMCF CASTILLA · COMPETICIÓN</p>
             <div className="mt-4 flex flex-wrap items-center gap-3">
               <Swords className="h-7 w-7 text-[#C8A96B]" />
@@ -793,9 +794,19 @@ export default function DuelosPage() {
                     .filter((d) => d !== buscamos && (d.sinBalon ?? 0) <= -UMBRAL_DUELO)
                     .sort((a, b) => (a.sinBalon ?? 0) - (b.sinBalon ?? 0))
                     .slice(0, buscamos ? 2 : 3);
-                  const tres = [...(buscamos ? [buscamos] : []), ...vigilamos].concat(
+                  const tresSinDecide = [...(buscamos ? [buscamos] : []), ...vigilamos].concat(
                     validos.filter((d) => d !== buscamos && !vigilamos.includes(d)).sort((a, b) => fuerza(b) - fuerza(a)),
                   ).slice(0, 3);
+                  /*
+                  | EL QUE DECIDE (20/11/2026, ronda 5, fútbol y análisis): el Plan abre
+                  | «Cómo le ganamos» con el duelo que más pesa (Leiva contra Jorge Mier,
+                  | −57) y aquí podía no salir. Con la regla de lib/duelos.ts (el de la
+                  | cifra más despegada con consigna), va el primero y rotulado.
+                  */
+                  const decide = validos
+                    .filter((d) => consignaDelDuelo(d, sentidoDeLaConsigna(d)))
+                    .sort((a, b) => pesoDelDuelo(b) - pesoDelDuelo(a))[0];
+                  const tres = decide ? [decide, ...tresSinDecide.filter((d) => d !== decide)].slice(0, 3) : tresSinDecide;
                   if (!tres.length) return null;
                   return (
                     <div className="mt-6 rounded-2xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.05] p-4">
@@ -804,13 +815,17 @@ export default function DuelosPage() {
                       <ol className="mt-2 grid gap-3 md:grid-cols-3">
                         {tres.map((d, i) => {
                           const sentido = d === buscamos ? "con" : sentidoDeLaConsigna(d);
+                          const esElQueDecide = d === decide;
                           const v = sentido === "sin" ? d.sinBalon : d.conBalon;
                           return (
                             <li key={d.def.clave} className="min-w-0">
                               <button type="button" onClick={() => eligeYMuestra(d.def.clave)} className="w-full text-left">
                                 <span className="flex items-baseline justify-between gap-2 text-sm font-semibold text-white/90">
                                   {/* Los nombres delante y el puesto debajo (17/11/2026, ronda 20): el mismo rótulo que en las cajas de abajo. */}
-                                  <span className="min-w-0">{i + 1}. {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} <span className="font-normal text-white/50">vs</span> {d.suyos.map((j) => apellidoDe(j)).join(" y ")}</span>
+                                  <span className="min-w-0">
+                                    {i + 1}. {d.nuestros.map((j) => apellidoDe(j)).join(" y ")} <span className="font-normal text-white/50">vs</span> {d.suyos.map((j) => apellidoDe(j)).join(" y ")}
+                                    {esElQueDecide && <span className="ml-1.5 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[11px] font-semibold text-[#C8A96B]">el que decide, como en el Plan</span>}
+                                  </span>
                                   <b className="shrink-0 tabular-nums" style={{ color: (v ?? 0) >= 0 ? MEJOR : PEOR }}>{firmaN(v)}</b>
                                 </span>
                                 <span className="block text-xs text-white/55">{d.def.titulo} · {sentido === "sin" ? "con su balón" : "con nuestro balón"} · {d.nuestros.map((j) => `${j.minutos}′`).join(" y ")} / {d.suyos.map((j) => `${j.minutos}′`).join(" y ")} en Wyscout</span>
@@ -922,7 +937,7 @@ export default function DuelosPage() {
                 />
 
                 {/* Segunda jugada tras el balón largo (19/11/2026, idea de X): Opta, evento a evento. */}
-                {equipoVisto && <SegundaJugada equipo={equipoVisto} cortos={{ nuestros: nuestros.map(apellidoDe), suyos: suyos.map(apellidoDe) }} />}
+                {equipoVisto && <SegundaJugada equipo={equipoVisto} cortos={{ nuestros: nuestros.map(apellidoDe), suyos: suyos.map(apellidoDe), plantilla: players.map((p) => p.apodo || p.nombre).filter(Boolean) }} />}
 
 
                 <details
@@ -1781,6 +1796,10 @@ function FilaRobador({ r, i, huecoDe, equipo }: { r: RoboJugador; i?: number; hu
           {r.percentil !== null && r.percentilBruto !== null && <span className="tabular-nums text-white/45">P{r.percentilBruto} en bruto</span>}
         </div>
         {r.zona && <p className="text-white/45">Roba sobre todo {rotuloZona(r.zona)} · {r.zona.parte} % de {r.zona.total} (Opta){r.zona.total < MUESTRA_ZONA && <ChipTendencia />}</p>}
+        {/* Como en los duelos (20/11/2026, ronda 5, fútbol): su ficha y su vídeo, con el rival y el jugador ya elegidos. */}
+        <Link href={fichaDe(r.jugador, false, equipo)} className="mt-0.5 inline-block text-[12px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+          Su ficha y vídeo ›
+        </Link>
       </div>
       {/* La cifra grande arriba a la derecha, como las «señales» del original de X: su percentil ajustado. */}
       {r.percentil !== null && (

@@ -72,7 +72,7 @@ import {
 } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { useTextosExplicativos } from "@/components/ui/textos-analisis";
-import { SemanaGrid } from "@/components/abp/microciclo/SemanaGrid";
+import { SemanaGrid, type DatoTrabajo } from "@/components/abp/microciclo/SemanaGrid";
 import { TrabajoDialog } from "@/components/abp/microciclo/TrabajoDialog";
 import {
   ImportarRegistro,
@@ -1372,16 +1372,27 @@ export default function AbpMicrocicloPage() {
   | las de banda). De sus aspectos y lados, el más urgente con 3 acciones o más.
   */
   const datoDeTrabajo = useCallback(
-    (trabajo: Trabajo) => {
+    (trabajo: Trabajo): DatoTrabajo | null => {
       const suyas = filas.filter(
         (fila) => trabajo.aspectos.includes(fila.aspecto.key) && trabajo.lados.includes(fila.lado) && fila.stats.acciones >= 3,
       );
       if (!suyas.length) return null;
       const fila = [...suyas].sort((a, b) => (b.urgencia ?? 0) - (a.urgencia ?? 0))[0];
       const { peligro, acciones, peligroPct } = fila.stats;
-      return `${aspectoLabelLado(fila.aspecto, fila.lado)} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: ${
-        fila.lado === "ofensivo" ? "peligro en" : "nos crean peligro en"
-      } ${peligro} de ${acciones} (${Math.round(peligroPct)} %)${acciones < 15 ? ", tendencia" : ""}`;
+      /*
+      | 20/11/2026 (jueces, ronda 5): «Ataca · Penaltis a favor: peligro en 4 de 4
+      | (100 %)» era una fortaleza. Carencia = a favor, peligro por debajo de la
+      | media de los aspectos de ese lado; en contra, por encima. Si no, «Mantiene».
+      */
+      const delLado = filas.filter((otra) => otra.lado === fila.lado && otra.stats.acciones >= 3);
+      const media = delLado.length ? delLado.reduce((suma, otra) => suma + otra.stats.peligroPct, 0) / delLado.length : peligroPct;
+      const carencia = fila.lado === "ofensivo" ? peligroPct < media : peligroPct > media;
+      return {
+        rotulo: carencia ? "Ataca" : "Mantiene",
+        texto: `${aspectoLabelLado(fila.aspecto, fila.lado)} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: ${
+          fila.lado === "ofensivo" ? "peligro en" : "nos crean peligro en"
+        } ${peligro} de ${acciones} (${Math.round(peligroPct)} %)${acciones < 15 ? ", tendencia" : ""}; media de su lado, ${Math.round(media)} %`,
+      };
     },
     [filas],
   );
@@ -1948,14 +1959,14 @@ export default function AbpMicrocicloPage() {
                       Leyenda
                     </summary>
                     <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                      PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea · borde ámbar = le falta intensidad o criterio de éxito
+                      PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea (Mantiene, si es una fortaleza) · borde ámbar = le falta intensidad o criterio de éxito
                       <br />
                       Al pie de cada día, carga = minutos × intensidad (1-10) y mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo.
                     </p>
                   </details>
                   <p className="mb-2 hidden text-[12px] leading-relaxed text-white/60 md:block">
                     <span className="font-semibold text-white/75">Leyenda · </span>
-                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea · borde ámbar = le falta intensidad o criterio de éxito
+                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea (Mantiene, si es una fortaleza) · borde ámbar = le falta intensidad o criterio de éxito
                     {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
                     <br />
                     <span className="font-semibold text-white/75">Al pie de cada día · </span>

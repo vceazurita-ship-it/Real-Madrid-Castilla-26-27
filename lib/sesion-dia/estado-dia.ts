@@ -12,6 +12,11 @@
  *     (`enlaza`) NO se hizo.
  *
  * Sin equipos ni minutos, el día sigue planificado.
+ *
+ * 20/11/2026 (ronda 5): el 17/11 salía «planificado» en /micro_calendar y
+ * «Sesión hecha» en /calendar_general: el día que ya está en la copia de lo
+ * hecho (la hoja del Apps Script, `apuntada`) también está HECHO, aunque aún
+ * no tenga minutos. Las dos pantallas pasan lo mismo.
  */
 
 import { enlaza, planDeRegistro, sesionDeFecha, type FilaPlan } from "@/lib/sesion-dia/conexion";
@@ -26,7 +31,14 @@ export type EstadoDia = {
   noHechas: Set<string>;
 };
 
-export function estadoDelDia(fecha: string, hoy: string, registro: FilaPlan[], almacen: AlmacenEquipos | null | undefined, minutos = 0): EstadoDia {
+export function estadoDelDia(
+  fecha: string,
+  hoy: string,
+  registro: FilaPlan[],
+  almacen: AlmacenEquipos | null | undefined,
+  minutos = 0,
+  apuntada = false,
+): EstadoDia {
   /* Equipos hechos por adelantado no hacen la sesión: sólo cuenta hasta hoy. */
   const equipos = fecha <= hoy ? sesionDeFecha(almacen?.sesiones, fecha) : null;
   const noHechas = new Set<string>();
@@ -40,5 +52,5 @@ export function estadoDelDia(fecha: string, hoy: string, registro: FilaPlan[], a
     });
   }
 
-  return { hecha: Boolean(equipos) || minutos > 0, conEquipos: Boolean(equipos), noHechas };
+  return { hecha: Boolean(equipos) || minutos > 0 || (apuntada && fecha <= hoy), conEquipos: Boolean(equipos), noHechas };
 }

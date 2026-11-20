@@ -648,6 +648,30 @@ function ListaPendiente({
     .filter((g) => g.hechos.length > 0);
   const ordenados = [...graves, ...leves];
 
+  /*
+  | 20/11/2026 (fútbol y marketing, ronda 5): si no hay errores ni avisos y
+  | sólo quedan datos por poner, plegado es una pastilla «5 datos por poner»
+  | y no una barra a todo lo ancho que parece un formulario a medias.
+  */
+  if (!abierta && graves.length === 0 && leves.length === 0) {
+    if (porCompletar === 0) return null;
+
+    return (
+      <div id="viaje-estado" className="mt-3 scroll-mt-20">
+        <button
+          type="button"
+          onClick={() => onAbierta(true)}
+          aria-expanded={false}
+          title={`Falta: ${nombresFalta.join(", ")}`}
+          className="inline-flex items-center gap-1.5 rounded-full border border-[#C8A96B]/40 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+        >
+          <Circle size={10} className="shrink-0" aria-hidden />
+          {porCompletar === 1 ? "1 dato por poner" : `${porCompletar} datos por poner`}
+        </button>
+      </div>
+    );
+  }
+
   return (
     /*
     | pr-12: el botón flotante de herramientas (⋮, components/ui/MenuFlotante)
@@ -738,23 +762,25 @@ function ListaPendiente({
       */}
       {porCompletar > 0 && (
         <div className="mt-2 min-w-0 border-t border-white/10 pt-2">
-          <ul className="divide-y divide-white/[0.06]">
-            {tareas.map((p) => (
-              <li key={p.clave} className="flex min-w-0 items-center gap-2.5 py-1.5">
-                <Circle size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
-                {/* 16/11/2026 (jueces): el propio dato es el enlace que abre su campo. */}
+          {/* 20/11/2026 (marketing, ronda 5): cinco filas «Poner» iguales eran un
+              formulario; ahora una sola fila con una pastilla por dato que abre su campo. */}
+          {tareas.length > 0 && (
+            <p className="flex min-w-0 flex-wrap items-center gap-1.5 py-1.5">
+              <span className="text-[13px] text-white/60">Por poner:</span>
+              {tareas.map((p) => (
                 <button
+                  key={p.clave}
                   type="button"
                   onClick={() => (onCampo ? onCampo(p) : onIr(p.seccion))}
-                  className="min-w-0 flex-1 text-left text-[14px] text-white/85 underline decoration-white/20 decoration-dotted underline-offset-4 transition hover:text-white hover:decoration-[#C8A96B]"
+                  className="rounded-full border border-[#C8A96B]/40 px-2.5 py-0.5 text-[13px] text-white/85 transition hover:bg-[#C8A96B]/10 hover:text-white"
                 >
                   {p.nombre.charAt(0).toUpperCase() + p.nombre.slice(1)}
+                  <span aria-hidden className="ml-1 text-[#C8A96B]">{p.seccion === "viaje-horario" ? "· montar" : "+"}</span>
                 </button>
-                <button type="button" onClick={() => (onCampo ? onCampo(p) : onIr(p.seccion))} className={BOTON_FILA}>
-                  {p.seccion === "viaje-horario" ? "Montar" : "Poner"}
-                </button>
-              </li>
-            ))}
+              ))}
+            </p>
+          )}
+          <ul className="divide-y divide-white/[0.06]">
             {extras.map((extra) => (
               <li key={extra.clave} className="flex min-w-0 items-start gap-2.5 py-1.5">
                 <Circle size={12} className="mt-[4px] shrink-0 text-[#C8A96B]" aria-hidden />
@@ -2244,7 +2270,8 @@ export default function DesplazamientoPage() {
   */
   const { admin } = useAdmin();
   const conEstado = admin === true || Boolean(recuento && (recuento.errores > 0 || recuento.avisos > 0));
-  const estadoAbierto = estadoElegido ?? Boolean(recuento && (recuento.errores > 0 || (admin === true && recuento.porCompletar > 0)));
+  /* 20/11/2026 (ronda 5): lo por completar ya no abre la lista ni al administrador: es una pastilla «N datos por poner». */
+  const estadoAbierto = estadoElegido ?? Boolean(recuento && recuento.errores > 0);
   const abreEstado = () => {
     setEstadoAbierto(true);
     window.setTimeout(() => irA("viaje-estado"), 30);
@@ -2706,7 +2733,17 @@ export default function DesplazamientoPage() {
                       <Button icon={Binoculars}>Informe del rival</Button>
                     </Link>
 
-                    {/* 20/11/2026 (marketing): seis botones en una fila saturaban; Plan e Informe a la vista y el resto en «Más del rival». */}
+                    {/* 20/11/2026 (marketing, ronda 5): su ABP y el análisis de sus goles, a un toque y con el rival ya elegido. */}
+                    <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
+                      <Button icon={Goal}>Su ABP</Button>
+                    </Link>
+                    <EnlaceComoSonSusGoles
+                      equipo={jornada?.equipo || partido.opponent}
+                      texto="Análisis de sus goles"
+                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px]"
+                    />
+
+                    {/* 20/11/2026 (marketing): seis botones en una fila saturaban; el resto en «Más del rival». */}
                     <details className="group relative">
                       <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px] [&::-webkit-details-marker]:hidden">
                         Más del rival
@@ -2722,17 +2759,7 @@ export default function DesplazamientoPage() {
                       <Clapperboard size={13} aria-hidden />
                       Sus goles en vídeo
                     </BotonGolesEnVideo>
-                    {/* 18/11/2026: botón como los de al lado (en el móvil era texto suelto en la rejilla). */}
-                    <EnlaceComoSonSusGoles
-                      equipo={jornada?.equipo || partido.opponent}
-                      texto="Cómo son sus goles"
-                      className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-xl border border-white/12 px-3 py-1.5 text-xs font-medium text-white/70 transition hover:border-white/25 hover:text-white max-sm:min-h-[44px] max-sm:w-full"
-                    />
 
-                    {/* 17/11/2026 (r20, jueces): su ABP y su plantilla, como en Microciclos. */}
-                    <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
-                      <Button icon={Goal}>Su ABP</Button>
-                    </Link>
 
                     <Link href={`/rivals?equipo=${encodeURIComponent(jornada?.equipo || partido.opponent)}`}>
                       <Button icon={ShieldHalf}>Su plantilla</Button>
@@ -3371,7 +3398,7 @@ export default function DesplazamientoPage() {
                   {/* ==================== AVISOS ================== */}
 
                   {/* 20/11/2026 (jueces): «No olvidar» vacío no se enseña al cuerpo técnico; el administrador lo rellena. */}
-                  <div className={`mt-5 scroll-mt-20 ${admin !== true && !viaje.avisos.some((a) => a.trim()) ? "hidden" : ""}`} id="viaje-avisos">
+                  <div className={`mt-5 scroll-mt-20 ${!viaje.avisos.some((a) => a.trim()) && !abiertas["viaje-avisos"] ? "hidden" : ""}`} id="viaje-avisos">
                     <SeccionMovil
                       titulo="No olvidar"
                       /* 17/11/2026 (jueces): plegado también en el ordenador; el horario y la vista previa, primero. */
@@ -3584,6 +3611,12 @@ export default function DesplazamientoPage() {
                             }}
                           >
                             Ver a pantalla completa
+                          </Button>
+                        </span>
+                        {/* 20/11/2026 (marketing, ronda 5): en escritorio, sacar los documentos pegado a su vista previa. */}
+                        <span className="hidden xl:contents">
+                          <Button tone="primary" icon={Download} onClick={pulsaSacar} title={motivoSacar || undefined}>
+                            {rotuloSacar}
                           </Button>
                         </span>
                       </div>

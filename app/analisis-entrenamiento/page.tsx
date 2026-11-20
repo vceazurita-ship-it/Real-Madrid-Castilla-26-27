@@ -710,8 +710,9 @@ export default function AnalisisEntrenamientoPage() {
               : sinValidar.length
                 ? { texto: `Revisar ${sinValidar.length} ${sinValidar.length === 1 ? "acción" : "acciones"}`, icono: ListChecks, onClick: abreRevision, detalle: (
                     <>
-                      <span className="pointer-coarse:hidden">Con su clip y con el teclado: 1 correcta, 2 mejorable, 3 descartar.</span>
-                      <span className="hidden pointer-coarse:inline">Con su clip: toca Correcta, Mejorable o Descartar.</span>
+                      {/* 20/11/2026 (fútbol, ronda 5): el teclado sólo en escritorio con ratón; en móvil y tableta, tocar. */}
+                      <span className="hidden lg:pointer-fine:inline">Con su clip y con el teclado: 1 correcta, 2 mejorable, 3 descartar.</span>
+                      <span className="lg:pointer-fine:hidden">Toca Correcta, Mejorable o Descartar en cada clip.</span>
                     </>
                   ) }
                 : cambiados
@@ -753,10 +754,25 @@ export default function AnalisisEntrenamientoPage() {
 
             {masReciente && fecha < masReciente ? (
               <div className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-4 py-3">
-                <p className="min-w-0 flex-1 text-sm text-white/85">
-                  {sinAnalizar.length === 1 ? "Entrenamiento sin analizar" : "Entrenamientos sin analizar"}: <span className="font-semibold tabular-nums">{listaDias(sinAnalizar)}</span>
-                  {saltoDesdeHoy ? <span className="text-white/55"> · ahora se ve el {ddmm(fecha)}, último analizado</span> : null}
-                </p>
+                {/* 20/11/2026 (fútbol y marketing, ronda 5): un contador y la lista a un toque, no diez fechas seguidas. */}
+                <div className="min-w-0 flex-1 text-sm text-white/85">
+                  <details className="group">
+                    <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      <span className="font-semibold tabular-nums">
+                        {sinAnalizar.length === 1 ? "1 entrenamiento sin analizar" : `${sinAnalizar.length} entrenamientos sin analizar`}
+                      </span>
+                      {sinAnalizar.length > 1 ? (
+                        <span className="ml-2 text-[13px] font-semibold text-[#C8A96B] group-open:hidden">Ver cuáles</span>
+                      ) : (
+                        <span className="text-white/60"> · {listaDias(sinAnalizar)}</span>
+                      )}
+                      {saltoDesdeHoy ? <span className="text-white/55"> · ahora se ve el {ddmm(fecha)}, último analizado</span> : null}
+                    </summary>
+                    {sinAnalizar.length > 1 && (
+                      <p className="mt-1 tabular-nums text-white/70">{listaDias(sinAnalizar)}</p>
+                    )}
+                  </details>
+                </div>
                 <Button icon={ClipboardCheck} tone="primary" onClick={() => setFecha(masReciente)}>
                   Analizar el {ddmm(masReciente)}
                 </Button>

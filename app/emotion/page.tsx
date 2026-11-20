@@ -622,6 +622,7 @@ export default function EmotionPage() {
             {!error && (
               <CampoEmocional
                 fechaValoracion={fechaValoracion}
+                diasValoracion={diasDesdeValoracion}
                 rows={rows}
                 loading={loading}
                 teamAverage={teamAverage}
@@ -759,7 +760,7 @@ export default function EmotionPage() {
                         {axis.label}
                       </div>
 
-                      <span className="rounded-md border border-[#E1C77B]/30 px-1.5 py-0.5 text-[10px] font-bold text-[#E1C77B]">
+                      <span className="rounded-md border border-[#E1C77B]/30 px-1.5 py-0.5 text-[11px] font-bold text-[#E1C77B]">
                         {axis.corto}
                       </span>
                     </div>
@@ -1420,47 +1421,39 @@ function RadarPanel({
               Media de la línea · {series.length} {series.length === 1 ? "jugador" : "jugadores"}
             </p>
           )}
+          {/* 20/11/2026 (ronda 5, marketing): las cuatro casillas repetían
+              el radar. Ahora una fila compacta con lo que el radar no dice:
+              la nota de la línea y su diferencia con la media de la
+              plantilla; el nombre largo de cada eje, al pasar. */}
           {groupAverages && (
-            <div
-              className={`mt-2 grid gap-2 ${
-                horizontal ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-2"
-              }`}
-            >
-              {groupAverages.map(({ axis, value }) => (
-                <div
-                  key={axis.code}
-                  className="rounded-xl border border-white/10 bg-white/[0.06] px-2.5 py-1.5"
-                  title={`${axis.label} · ${axis.detail}`}
-                >
-                  <div className="flex items-baseline justify-between gap-2">
-                    <span className="text-[13px] font-bold text-white/85">
-                      {axis.corto}
-                    </span>
+            <div className="mt-1.5 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+              {groupAverages.map(({ axis, value }) => {
+                const ref = teamAverage ? teamAverage[axis.key] : null;
+                const dif = ref !== null ? value - ref : null;
 
-                    <span
-                      className="text-[15px] font-bold tabular-nums"
-                      style={{ color: chipInk(toneFor(value)) }}
-                    >
-                      {coma(value)}
+                return (
+                  <div
+                    key={axis.code}
+                    className="flex items-baseline justify-between gap-1.5 rounded-lg border border-white/10 px-2 py-1 text-[12px]"
+                    title={`${axis.label} · ${axis.detail}${ref !== null ? ` · media de la plantilla ${coma(ref)}` : ""}`}
+                  >
+                    <span className="font-bold text-white/80">{axis.corto}</span>
+                    <span className="tabular-nums">
+                      <span className="font-bold" style={{ color: chipInk(toneFor(value)) }}>{coma(value)}</span>
+                      {dif !== null && Math.abs(dif) >= 0.05 && (
+                        <span className="ml-1 text-[11px] text-white/55">
+                          {dif > 0 ? "+" : ""}
+                          {coma(dif)}
+                        </span>
+                      )}
                     </span>
                   </div>
-
-                  <p className="mt-0.5 truncate text-[11px] leading-tight text-white/55">
-                    {axis.label}
-                  </p>
-
-                  <div className="mt-1 h-[3px] w-full overflow-hidden rounded-full bg-white/10">
-                    <div
-                      className="h-full rounded-full"
-                      style={{
-                        width: `${Math.min(100, value * 10)}%`,
-                        background: toneFor(value),
-                      }}
-                    />
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
+          )}
+          {groupAverages && teamAverage && (
+            <p className="mt-1 text-[11px] text-white/50">Al lado, la diferencia con la media de la plantilla.</p>
           )}
         </div>
       </div>
