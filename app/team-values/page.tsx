@@ -30,7 +30,7 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
-import { EnlacesValores, hrefSeguimientoDe, valorNombradoEn } from "@/components/cultura/ValoresIndice";
+import { VotosValores, hrefSeguimientoDe, valorNombradoEn } from "@/components/cultura/ValoresIndice";
 import { confirmar } from "@/lib/avisos";
 
 type CulturaItem = {
@@ -50,6 +50,12 @@ type CulturaItem = {
   MATERIAL?: string;
   ENTREGA?: string;
   FECHA?: string;
+  /*
+  | 20/11/2026 (jueces, ronda 6): qué se hace con la plantilla en la semana
+  | de esa etapa. Columna opcional («CON LA PLANTILLA»); hoy la hoja no la
+  | trae y la línea no sale.
+  */
+  "CON LA PLANTILLA"?: string;
 };
 
 const limpio = (t?: unknown) => String(t ?? "").trim();
@@ -539,15 +545,21 @@ export default function TeamValuesPage() {
   );
 
   /*
-  | 20/11/2026 (fútbol y guionista, ronda 5): la votación con barras repetía la
-  | de /identidad-cultura. Aquí queda una línea con el más votado y el enlace al
-  | recuento; la pantalla abre con la hoja de ruta.
+  | 20/11/2026 (jueces, ronda 6): vuelve el gráfico. Lo primero bajo el titular
+  | son las barras de la votación (la versión reducida del de
+  | /identidad-cultura), con el más votado y su base; en todas las etapas.
   */
   const votacion = !editing ? (
-    <div className="mt-3">
-      <EnlacesValores />
+    <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:p-5">
+      <VotosValores compacto />
     </div>
   ) : null;
+
+  /* Lo que se hace con la plantilla en la etapa elegida: sólo si la hoja lo trae. */
+  const conLaPlantilla = data
+    .filter((r) => r.SECCION === seccion)
+    .map((r) => limpio(r["CON LA PLANTILLA"]))
+    .find(Boolean);
 
   /*
   | 20/11/2026 (fútbol, marketing y guionista): las etapas salían tres veces
@@ -674,6 +686,12 @@ export default function TeamValuesPage() {
                   );
                 })}
               </ol>
+            )}
+
+            {!editing && conLaPlantilla && (
+              <p className="mt-4 rounded-xl border-l-2 border-[#C8A96B]/60 bg-white/[0.03] px-3 py-2 text-sm leading-relaxed text-gray-200">
+                <span className="font-semibold text-white">Esta semana con la plantilla:</span> {conLaPlantilla}
+              </p>
             )}
 
             {/* Buscador y filtros por tipo */}

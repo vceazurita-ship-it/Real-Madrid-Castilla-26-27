@@ -83,6 +83,9 @@ export async function portadaAlDia(
 
   if (!f || jugados <= pj) return r;
 
+  /* Se pinta ya lo que hay (la relectura del Apps Script puede tardar 30-70 s en frío) y se repinta al llegar. */
+  alRenovar?.(r);
+
   forzada ??= traeJson<Partial<RespuestaPortada>>(URL_PORTADA, { forzar: true }).finally(() => {
     forzada = null;
   });

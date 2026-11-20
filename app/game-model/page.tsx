@@ -361,9 +361,6 @@ export default function GameModelPage() {
     return [fase, bloque].filter(Boolean).join(" · ");
   })();
 
-  /** Principios marcados «CLAVE» en la hoja: lo que no se negocia. */
-  const claves = principios.filter((p) => esClave(p.PRINCIPIO));
-
   /*
   | 16/11/2026: los principios que sólo son un título (ni innegociables, ni
   | texto en la hoja, ni medida) no pesan lo mismo que los que sí: van al pie,
@@ -381,10 +378,14 @@ export default function GameModelPage() {
 
     return (cifrasModelo.get(m.ancla)?.length ?? 0) > 0;
   };
+  /* 20/11/2026 (jueces, ronda 6): los innegociables salen UNA vez, los tres
+     como tarjeta en la misma lista y con la misma forma: con cifra, su gráfico;
+     mientras carga, un esqueleto de su altura; sin cifra, la tarjeta compacta.
+     Sin la caja de chips de arriba ni la fila pequeña del pie. */
   const soloTitulo = (p: Principio) =>
     !editing && !filtrando && !tieneDetalle(p) && !tieneCifra(p);
-  const principales = principios.filter((p) => !soloTitulo(p));
-  const otros = principios.filter(soloTitulo);
+  const principales = principios.filter((p) => esClave(p.PRINCIPIO) || !soloTitulo(p));
+  const otros = principios.filter((p) => !esClave(p.PRINCIPIO) && soloTitulo(p));
 
   /* ------------------------------------------------------------ navegación */
 
@@ -902,19 +903,6 @@ export default function GameModelPage() {
                 )
               ) : (
                 <>
-                {!editing &&
-                  claves.length > 0 &&
-                  claves.length < principios.length && (
-                    /* 07/11/2026: una sola señal para lo innegociable. Sin la
-                       frase de método (repetía las chapas): cada nombre salta
-                       a su tarjeta. */
-                    <div className="mb-5 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4">
-                      <p className="text-xs font-semibold uppercase tracking-[0.18em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                        Lo que no se negocia
-                      </p>
-                      <ChipsInnegociables claves={claves} />
-                    </div>
-                  )}
                 <ul className="space-y-3">
                   {principales.map((p) => (
                     <li
@@ -924,7 +912,7 @@ export default function GameModelPage() {
                         "scroll-mt-24 rounded-2xl border bg-white/[0.03] transition-colors hover:border-[#C8A96B]/30 hover:bg-white/[0.05]",
                         /* 07/11/2026: la tarjeta de una sola línea va compacta
                            para que el apartado entero quepa en la primera pantalla. */
-                        editing || tieneDetalle(p) || medidaDe(p)
+                        editing || tieneDetalle(p) || tieneCifra(p)
                           ? "p-4 lg:p-5"
                           : "px-4 py-3 lg:px-5",
                         !editing && esClave(p.PRINCIPIO)
@@ -983,39 +971,9 @@ export default function GameModelPage() {
                 </ul>
                 {otros.length > 0 && (
                   /* 17/11/2026 (marketing y guionista): sin dato no compiten con las
-                     cifras. Los innegociables sin cifra siguen a la vista; el resto se
-                     pliega en una línea que dice cuántos son. */
+                     cifras y se pliegan en una línea que dice cuántos son. Los
+                     innegociables ya no bajan aquí (20/11, ronda 6): van arriba. */
                   <section aria-label="Otros principios del bloque" className="mt-5 space-y-2">
-                    {otros.some((p) => esClave(p.PRINCIPIO)) && (
-                      <ul className="grid gap-2 sm:grid-cols-2">
-                        {otros.filter((p) => esClave(p.PRINCIPIO)).map((p) => (
-                        <li
-                          key={p.ID}
-                          id={`principio-${p.ID}`}
-                          className="flex min-w-0 scroll-mt-24 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5"
-                        >
-                          {/* 17/11/2026 (marketing): sin el número de la hoja, que saltaba (1, 3, 4). */}
-                          {esClave(p.PRINCIPIO) ? (
-                            <Lock className="h-4 w-4 shrink-0 text-[color:var(--rmcf-gold-ink,#C8A96B)]" aria-label="Innegociable" />
-                          ) : (
-                            <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-[#C8A96B]/60" />
-                          )}
-                          <span className="min-w-0 break-words text-sm text-gray-200">
-                            {quitaClave(p.PRINCIPIO).replace(/\.$/, "")}
-                            {/* 20/11/2026 (marketing, ronda 5): se leía «profundidadINNEGOCIABLE»; espacio y pastilla aparte. */}
-                            {esClave(p.PRINCIPIO) && (
-                              <>
-                                {" "}
-                                <span className="ml-1 inline-block rounded-full border border-[#C8A96B]/40 px-1.5 text-[11px] font-semibold uppercase tracking-[0.12em] text-[color:var(--rmcf-gold-ink,#C8A96B)]">
-                                  innegociable
-                                </span>
-                              </>
-                            )}
-                          </span>
-                        </li>
-                        ))}
-                      </ul>
-                    )}
                     {otros.some((p) => !esClave(p.PRINCIPIO)) && (
                       <details className="group rounded-xl border border-white/10 bg-white/[0.02]">
                         <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-3 text-sm font-semibold text-gray-200 [&::-webkit-details-marker]:hidden">
@@ -1200,18 +1158,6 @@ const enEspanol = (nombre: string) => {
   const m = nombre.match(/^(.*?)\s*%\s*(\(.*\))?$/);
 
   return m ? `% de ${m[1].charAt(0).toLowerCase()}${m[1].slice(1)}${m[2] ? ` ${m[2]}` : ""}` : nombre;
-};
-
-/** El último partido queda del lado bueno de la mediana de la categoría. */
-const cumple = (c: CifraDelPrincipio) =>
-  c.mejorAlto ? c.ultimo.valor >= c.mediana : c.ultimo.valor <= c.mediana;
-
-/** «J11, 08/11» si se sabe la jornada; si no, «11.º partido, 08/11». */
-const cualPartido = (u: CifraDelPrincipio["ultimo"]) => {
-  const [, mes, dia] = u.fecha.slice(0, 10).split("-");
-  const fecha = dia && mes ? `, ${dia}/${mes}` : "";
-
-  return u.jornada ? `J${u.jornada}${fecha}` : `${u.orden}.º partido${fecha}`;
 };
 
 /*
@@ -1463,7 +1409,29 @@ function MedidaPrincipio({ p }: { p: Principio }) {
   const m = medidaDe(p);
   const cifras = useCifras();
 
-  if (cifras === "cargando" || !m) return null;
+  if (!m) return null;
+
+  /* 20/11/2026 (jueces, ronda 6): mientras llegan las cifras, un esqueleto con
+     la altura del gráfico (antes la tarjeta se quedaba con el título solo). */
+  if (cifras === "cargando") {
+    return (
+      <div
+        role="status"
+        aria-label="Cargando la cifra del principio"
+        className="mt-3 rounded-xl border border-white/10 bg-white/[0.03] p-3 sm:p-4"
+      >
+        <div className="h-4 w-2/3 animate-pulse rounded bg-white/[0.08]" />
+        <div className="mt-2 h-3 w-5/6 animate-pulse rounded bg-white/[0.05]" />
+        <div className="mt-6 flex h-24 items-end gap-[3px] border-b border-white/15 sm:gap-1" aria-hidden>
+          {[55, 70, 40, 80, 60, 45, 75, 65, 50, 85].map((h, i) => (
+            <div key={i} className="flex-1 animate-pulse rounded-t-sm bg-white/[0.07]" style={{ height: `${h}%` }} />
+          ))}
+        </div>
+        <div className="mt-3 h-3 w-1/2 animate-pulse rounded bg-white/[0.05]" />
+        <div className="mt-3 h-6 w-40 animate-pulse rounded-lg bg-white/[0.06]" />
+      </div>
+    );
+  }
 
   const suyas = cifras === "error" ? null : cifras.get(m.ancla);
 
@@ -1497,92 +1465,6 @@ function MedidaPrincipio({ p }: { p: Principio }) {
         </Link>
       </div>
     </div>
-  );
-}
-
-/*
-| 16/11/2026: lo innegociable como chips con su cifra (verde del lado bueno,
-| ámbar del malo) y una conclusión que nombra a cada uno. Antes: «1 de 2
-| medidos quedaron del lado bueno», que obligaba a bajar para saber cuál.
-*/
-function ChipsInnegociables({ claves }: { claves: Principio[] }) {
-  const cifras = useCifras();
-  const mapa = typeof cifras === "string" ? null : cifras;
-
-  const filas = claves.map((p) => {
-    const m = medidaDe(p);
-    const c = m && mapa ? mapa.get(m.ancla)?.[0] : undefined;
-
-    return { p, nombre: quitaClave(p.PRINCIPIO).replace(/[.\s]+$/, ""), c };
-  });
-
-  const medidos = filas.flatMap((f) => (f.c ? [{ ...f, c: f.c }] : []));
-  const bien = medidos.filter((f) => cumple(f.c));
-  const mal = medidos.filter((f) => !cumple(f.c));
-  const cifra = (c: CifraDelPrincipio) =>
-    `${formatea(c.ultimo.valor, c.unidad)} frente a ${formatea(c.mediana, c.unidad)}${
-      formatea(c.ultimo.valor, c.unidad) === formatea(c.mediana, c.unidad) ? "" : `, a ${distancia(c.ultimo.valor, c)}`
-    }`;
-  const ultimo = medidos[0]?.c.ultimo;
-
-  const lista = (xs: typeof medidos) =>
-    xs.map((f, i) => (
-      <span key={f.p.ID}>
-        {i > 0 && (i === xs.length - 1 ? " y " : ", ")}
-        <b className="text-white">{f.nombre.toLowerCase()}</b> ({cifra(f.c)})
-      </span>
-    ));
-
-  return (
-    <>
-      <ul className="mt-3 flex flex-wrap gap-2">
-        {/* 17/11/2026 (guionista): con cifras ya leídas, sólo los innegociables
-            medidos; los demás quedan en «Otros principios del bloque». */}
-        {/* 20/11/2026 (fútbol y guionista, ronda 5): arriba van TODOS los
-            innegociables, los mismos que llevan el candado abajo. */}
-        {filas.map(({ p, nombre, c }) => {
-          const ok = c ? cumple(c) : null;
-
-          return (
-            <li key={p.ID}>
-              <a
-                href={`#principio-${p.ID}`}
-                className={cn(
-                  "inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-semibold transition-colors",
-                  focusRing,
-                  ok === null
-                    ? "border-[#C8A96B]/40 text-gray-200 hover:bg-[#C8A96B]/10"
-                    : ok
-                      ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-400 hover:bg-emerald-500/15"
-                      : "border-amber-500/40 bg-amber-500/10 text-amber-400 hover:bg-amber-500/15",
-                )}
-              >
-                <Lock className="h-3.5 w-3.5" aria-hidden />
-                {nombre}
-                {c && (
-                  <span className="tabular-nums">
-                    {ok ? "▲" : "▼"} {formatea(c.ultimo.valor, c.unidad)}
-                    <span className="font-normal opacity-80"> · temporada {formatea(c.temporada, c.unidad)}</span>
-                  </span>
-                )}
-              </a>
-            </li>
-          );
-        })}
-      </ul>
-      {medidos.length > 0 && ultimo && (
-        <p className="mt-2 text-sm leading-relaxed text-gray-300">
-          Ante {ultimo.rival} ({cualPartido(ultimo)}): {bien.length > 0 && <>cumplimos en {lista(bien)}</>}
-          {bien.length > 0 && mal.length > 0 && "; "}
-          {mal.length > 0 && <>nos falta {lista(mal)}</>}. Referencia: la mediana de los {medidos[0].c.equipos} equipos
-          del grupo. La cifra del partido y la de la temporada difieren porque la de la temporada es la media de los{" "}
-          {medidos[0].c.partidos} partidos.
-          {filas.length > medidos.length && (
-            <> Con cifra de partido, {medidos.length} de los {filas.length} innegociables.</>
-          )}
-        </p>
-      )}
-    </>
   );
 }
 

@@ -48,6 +48,29 @@ import { jornadaDeHoy, partidosDe } from "@/lib/quiniela/modelo";
 type Estado = "cargando" | "listo" | "vacio" | "error";
 
 /*
+| 20/11/2026 (jueces, ronda 6): las iniciales del club para la tarjeta sin
+| escudo. «Real Zaragoza» → RZ, «SD Huesca» → SH, «Villarreal B» → VB,
+| «Torremolinos» → TO. Sin las partículas (de, del, la…).
+*/
+const PARTICULAS = new Set(["de", "del", "la", "las", "los", "el", "y", "d'"]);
+
+function inicialesDe(equipo: string) {
+  const palabras = equipo
+    .replace(/[.,'’()]/g, " ")
+    .split(/\s+/)
+    .filter((p) => p && !PARTICULAS.has(p.toLowerCase()));
+
+  if (palabras.length === 0) return "";
+  if (palabras.length === 1) return palabras[0].slice(0, 2).toUpperCase();
+
+  return palabras
+    .slice(0, 3)
+    .map((p) => p[0])
+    .join("")
+    .toUpperCase();
+}
+
+/*
 | COPIAR UN ESCUDO SUELTO (07/11/2026, marketing). La cabecera promete que se
 | copia y se pega; ahora cada tarjeta lo hace sin pasar por el .pptx. Se pinta
 | en un lienzo (mismo origen, por el proxy) y se copia en PNG con su
@@ -522,12 +545,25 @@ export default function EscudosPage() {
 
             {/* Una sola caja ámbar con lo que falta o trae fondo. */}
             {estado === "listo" && (faltan.length > 0 || fondos.length > 0) ? (
-              <p className="mt-3 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2 text-sm text-amber-200">
-                {faltan.length
-                  ? `Falta el escudo de ${faltan.map((f) => f.equipo).join(", ")}: el .pptx saldrá sin ${faltan.length === 1 ? "él" : "ellos"}. `
-                  : ""}
-                {fondos.length ? `Trae fondo, no es transparente: ${fondos.map((f) => f.equipo).join(", ")} (borde ámbar).` : ""}
-              </p>
+              /* 20/11/2026 (jueces, ronda 6): la cuenta delante y los nombres plegados
+                 tras «Ver cuáles»; antes eran 17 nombres seguidos. */
+              <div className="mt-3 space-y-1 rounded-xl border border-amber-400/40 bg-amber-400/[0.08] px-3 py-2 text-sm text-amber-200">
+                {faltan.length ? (
+                  <details className="group">
+                    <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+                      {faltan.length === 1
+                        ? "Falta 1 escudo: el .pptx saldrá sin él."
+                        : `Faltan ${faltan.length} escudos: el .pptx saldrá sin ellos.`}{" "}
+                      <span className="font-semibold underline underline-offset-2">
+                        <span className="group-open:hidden">Ver cuáles</span>
+                        <span className="hidden group-open:inline">Ocultar</span>
+                      </span>
+                    </summary>
+                    <p className="mt-1 text-[13px] text-amber-200/90">{faltan.map((f) => f.equipo).join(", ")}.</p>
+                  </details>
+                ) : null}
+                {fondos.length ? <p>{`Trae fondo, no es transparente: ${fondos.map((f) => f.equipo).join(", ")} (borde ámbar).`}</p> : null}
+              </div>
             ) : null}
 
             {aviso ? (
@@ -684,11 +720,22 @@ export default function EscudosPage() {
                               >
                                 <div className="relative h-16 w-16">
                                   {/* Mientras llega, un esqueleto sin letras sobre el mismo azul (30/10/2026). */}
-                                  {imagenes[uno.url] !== "listo" ? (
+                                  {/* 20/11/2026 (jueces, ronda 6): si no llega, las iniciales del club
+                                      sobre el fondo de la tarjeta, sin texto repetido; la cuenta va en la caja ámbar. */}
+                                  {imagenes[uno.url] === "fallo" ? (
+                                    <span
+                                      aria-hidden
+                                      title={`Sin escudo: ${uno.equipo}`}
+                                      style={{ color: "#E4CE9B" }}
+                                      className="absolute inset-0 flex items-center justify-center text-xl font-bold tracking-[0.06em]"
+                                    >
+                                      {inicialesDe(uno.equipo)}
+                                    </span>
+                                  ) : imagenes[uno.url] !== "listo" ? (
                                     <span
                                       aria-hidden
                                       style={{ background: "rgba(228,206,155,0.14)" }}
-                                      className={`absolute inset-0 rounded-full ${imagenes[uno.url] === "fallo" ? "" : "animate-pulse"}`}
+                                      className="absolute inset-0 animate-pulse rounded-full"
                                     />
                                   ) : null}
                                   {imagenes[uno.url] !== "fallo" ? (
@@ -802,9 +849,9 @@ export default function EscudosPage() {
                                     {copiado === uno.url ? "Copiado" : "Copiar PNG"}
                                   </button>
                                 ) : null}
-                                {imagenes[uno.url] === "fallo" || conFondo[uno.url] ? (
+                                {imagenes[uno.url] !== "fallo" && conFondo[uno.url] ? (
                                   <span style={{ color: "#F5B94A" }} className="text-center text-[11px]">
-                                    {imagenes[uno.url] === "fallo" ? "No llega el escudo" : "Trae fondo"}
+                                    Trae fondo
                                   </span>
                                 ) : null}
                               </figure>

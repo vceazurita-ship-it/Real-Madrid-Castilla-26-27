@@ -2422,6 +2422,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cómo se organiza",
         filas: [
+          { que: "Innegociables", es: "Los tres principios marcados CLAVE en la hoja salen una vez, como tarjetas iguales con candado en la lista del bloque; sin caja de chips aparte" },
+          { que: "Cifra de cada innegociable", es: "Una barra por partido, el último con su base (n de total) frente a la mediana de los equipos del grupo y la temporada (lib/identidad/campo.ts, medidaDelPrincipio); mientras carga, un esqueleto de la misma altura; sin cifra, la tarjeta va compacta con el título" },
+          { que: "Otros principios del bloque", es: "Los que sólo son un título y no son innegociables, plegados en una línea que dice cuántos son" },
           { que: "Colores de las barras", es: "Oro: partido del lado bueno de la mediana de los 20 equipos; ámbar claro: del lado malo. La etiqueta de la mediana va al lado contrario de la barra elegida" },
           { que: "Tendencia y temporada", es: "Junto al veredicto, cuántos de los 3 últimos partidos quedaron del lado bueno; en los chips, la cifra del partido y la media de la temporada" },
           { que: "Refuerzo", es: "Lo que se sostiene también lleva su listón (la mediana) y el enlace al microciclo de la semana" },
@@ -2857,6 +2860,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El próximo partido",
         filas: [
+          { que: "Tabla de liga al momento", es: "Si la copia del aparato va por detrás del calendario, se pinta ya y se repinta en cuanto el servidor trae la tabla nueva" },
           { que: "Goles menos xG, partido a partido", es: "Bajo la cifra media del panel oscuro, una barra por partido de Opta (goles − xG del Castilla): hacia arriba marcamos más de lo esperado, hacia abajo menos; 0 = lo esperado" },
           { que: "Liga · BeSoccer, al día", es: "Si la copia del aparato tiene menos partidos jugados que el calendario, se vuelve a pedir antes de pintar: escritorio y móvil enseñan la misma tabla; si BeSoccer va por detrás, se dice cuántos de nuestros partidos cuenta" },
           { que: "Atrasadas", es: "Plegadas bajo lo de hoy, con su cuenta por día («lun 16 · 2»); al desplegar, las tres primeras con su día y «Hecha», y «Ver las N o pasarlas a hoy»" },
@@ -3631,6 +3635,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Las etapas",
         filas: [
+          { que: "Votación de la plantilla", es: "Lo primero bajo el titular, en todas las etapas: barras de votos por valor (versión reducida del gráfico de Identidad y cultura), con el más votado y su base (9 de 32); cada barra abre las conductas del valor" },
+          { que: "Esta semana con la plantilla", es: "Línea bajo la hoja de ruta con lo que se hace con la plantilla en la etapa elegida; sale de la columna opcional CON LA PLANTILLA de la hoja y, si la hoja no la trae, no aparece" },
           { que: "Votación", es: "Una línea con el valor más votado y su base (9 de 32); el recuento con los antivalores está en Identidad y cultura («Ver la votación»)" },
           { que: "Seguimiento por valor", es: "En las conductas, «Seguimiento de <valor>» abre el Dashboard Seguimiento con la búsqueda puesta en ese valor (?buscar=)" },
           { que: "Línea de etapas", es: "Una sola navegación: cada etapa con sus contenidos y, si la hoja trae FECHA, su estado (Hecha, En curso, Por hacer); en el móvil, dos filas" },
@@ -3773,6 +3779,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo que hay",
         filas: [
+          { que: "Escudo que no llega", es: "Si BeSoccer no sirve la imagen, la tarjeta muestra las iniciales del club sobre su fondo (con borde ámbar) y no entra en el .pptx" },
+          { que: "Aviso ámbar", es: "«Faltan N escudos: el .pptx saldrá sin ellos», con la lista plegada tras «Ver cuáles»; aparte, los escudos que traen fondo" },
           { que: "Sus goles · ABP · Plan en todo el grupo", es: "En todo equipo de nuestro grupo (también el próximo rival); el Plan con ?rival=ID de la hoja RIVALES. Los del otro grupo, sólo su ficha" },
           { que: "Buscar y filtrar", es: "Una barra que se queda arriba al bajar por las diapositivas" },
           { que: "Todos · Jornada N · Próximo rival", es: "Filtros junto al buscador: todos, los que juegan la jornada de la quiniela o nuestro próximo rival" },
