@@ -33,7 +33,9 @@ const { execFile } = require("node:child_process");
 const b2 = require("./b2.cjs");
 
 const BUCKET = "performance";
-const TOPE_MB = 1024;
+const TOPE_SUPABASE_MB = 1024;
+/* 21/11/2026: con la reserva (DATOS_PG_URL) el almacén es Backblaze B2, 10 GB gratis: medirlo contra el 1 GB de Supabase daba un falso «por encima del plan». */
+const tope = () => (process.env.DATOS_PG_URL ? 10240 : TOPE_SUPABASE_MB);
 const FRENO = 0.95;
 const CAUDAL_MAX = 2_500_000;
 
@@ -83,7 +85,7 @@ async function mideOcupacion(sb) {
 
   await sb
     .from("app_documents")
-    .upsert({ key: "almacen:ocupacion", kind: "almacen", data: { ...(previo?.data ?? {}), mb: Math.round(mb * 10) / 10, tope: TOPE_MB, ficheros: n, medido }, updated_at: medido }, { onConflict: "key" });
+    .upsert({ key: "almacen:ocupacion", kind: "almacen", data: { ...(previo?.data ?? {}), mb: Math.round(mb * 10) / 10, tope: tope(), ficheros: n, medido }, updated_at: medido }, { onConflict: "key" });
 
   return mb;
 }
@@ -146,17 +148,17 @@ async function subeAlmacen(sb, ruta, fichero, opciones = {}, { recomprime = /\/c
     ocupadoMb = 0;
   }
 
-  const pasa = ocupadoMb + mb > TOPE_MB * FRENO;
+  const pasa = ocupadoMb + mb > tope() * FRENO;
 
   if (pasa && process.env.ALMACEN_FRENO !== "1" && !avisado) {
     avisado = true;
-    console.warn(`[almacén] por encima del plan gratis (${Math.round(ocupadoMb)} de ${TOPE_MB} MB): se sube igual (freno apagado)`);
+    console.warn(`[almacén] por encima del plan gratis (${Math.round(ocupadoMb)} de ${tope()} MB): se sube igual (freno apagado)`);
   }
 
   if (pasa && process.env.ALMACEN_FRENO === "1") {
     if (usar !== fichero) fs.rmSync(usar, { force: true });
 
-    return { data: null, error: { message: `almacén lleno (${Math.round(ocupadoMb)} de ${TOPE_MB} MB): libera espacio con node scripts/limpia-supabase.mjs` } };
+    return { data: null, error: { message: `almacén lleno (${Math.round(ocupadoMb)} de ${tope()} MB): libera espacio con node scripts/limpia-supabase.mjs` } };
   }
 
   /* Los vídeos, a Backblaze: no cuentan para el GB de Supabase. */
@@ -223,4 +225,4 @@ async function borraAlmacen(sb, rutas) {
   if (b2.configurado()) for (const ruta of todas.filter(b2.esVideo)) await b2.oculta(ruta);
 }
 
-module.exports = { subeAlmacen, mideOcupacion, aligera, urlAlmacen, listaAlmacen, borraAlmacen, TOPE_MB, FRENO };
+module.exports = { subeAlmacen, mideOcupacion, aligera, urlAlmacen, listaAlmacen, borraAlmacen, get TOPE_MB() { return tope(); }, tope, FRENO };

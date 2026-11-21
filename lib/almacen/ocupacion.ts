@@ -20,8 +20,12 @@
 import { createClient, type SupabaseClient } from "@/lib/datos/cliente";
 
 export const BUCKET = "performance";
-/** El tope del plan gratis de Supabase: 1 GB de ficheros. */
-export const TOPE_MB = 1024;
+/**
+ * El tope del plan gratis: 1 GB de ficheros en Supabase. Con la reserva
+ * (DATOS_PG_URL, 21/11/2026) los ficheros van a Backblaze B2, 10 GB gratis:
+ * contra 1 GB salía «pasa del plan gratis» y se barrían los adjuntos en cada subida.
+ */
+export const TOPE_MB = process.env.DATOS_PG_URL ? 10240 : 1024;
 /** A partir de aquí se avisa en Ajustes y en la portada. */
 export const AVISO = 0.8;
 /** A partir de aquí se frenan las subidas grandes (si el freno está encendido). */

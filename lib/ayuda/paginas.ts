@@ -3236,7 +3236,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Reabrir la quiniela", es: "Para quien no apostó antes del cierre del viernes a las 12:00; volver a reabrir sustituye a la anterior. «Cerrar ya» la cierra" },
           { que: "Textos explicativos", es: "Apagados, en ABP, banda, faltas y transiciones sólo se ven las conclusiones; encendidos, también el método. Vale para todos" },
           { que: "Ordenador principal", es: "Marca este aparato como el del club; se guarda en este navegador" },
-          { que: "Almacén", es: "Lo que ocupan los ficheros en Supabase frente al gigabyte gratis, las carpetas que más pesan y el botón para borrar adjuntos repetidos o caducados" },
+          { que: "Almacén", es: "Lo que ocupan los ficheros frente a su tope gratis (1 GB en Supabase; mientras la web va con la base de reserva, los ficheros van a Backblaze B2 y el tope es de 10 GB), las carpetas que más pesan y el botón para borrar adjuntos repetidos o caducados" },
           { que: "Lo que sigue haciéndose solo", es: "El recordatorio de lo que corre sin pedirlo" },
         ],
       },
@@ -3278,7 +3278,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-19",
+    revisada: "2026-11-21",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */
