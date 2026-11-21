@@ -90,6 +90,7 @@ import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/vi
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { ComparativaOpta } from "./ComparativaOpta";
 import { PerfilExtremo } from "./PerfilExtremo";
+import { PorMinutos } from "./PorMinutos";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import { mismoJugador } from "@/lib/fichajes";
@@ -551,6 +552,8 @@ export default function ComparativaCategoria() {
       })();
   }, [players]);
 
+  const nombreDeFila = useMemo(() => (j: FilaJugador) => nombreVisible(fichaDe(j)?.nombre ?? j.jugador), [fichaDe]);
+
   const resumenes = useMemo(() => summarizeAll(season), [season]);
 
   const cuentaSeguimientos = useMemo(() => {
@@ -996,6 +999,9 @@ export default function ComparativaCategoria() {
                         onAbre={abreFicha}
                       />
                     )}
+
+                    {/* 21/11/2026 (idea de X): contra los de su puesto que juegan lo mismo, con percentil ajustado. */}
+                    <PorMinutos jugadores={jugadores} refe={ref} filtroPuesto={filtroPuesto} nombreDe={nombreDeFila} onAbre={abreFicha} />
 
                     {lectura.length > 0 && (
                       <div className="mt-5 grid gap-3 md:grid-cols-3">
