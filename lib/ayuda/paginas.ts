@@ -479,7 +479,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Ofensivo",
     resumen: "Córners y faltas a favor, acción por acción: qué se lanza, dónde cae, quién remata y cuánto peligro deja.",
     origen: "Nuestra hoja de ABP ofensivo, una fila por acción, registrada a mano. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + opta:remates + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, tipo, dónde cae (primer palo, penalti, segundo palo, 6 m, fuera), remate, rematador, xG y desenlace (gol, ocasión, ABP, transición); no salen altura del envío, calidad, defensa, rutina ni segundo balón. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o, si aún no está bajado, «Vídeo en Opta» abre ProVision en ese segundo; las acciones de la hoja sin corte propio lo ganan si casan por minuto (±1) con un saque de Opta del mismo partido, parte y tipo.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Las tarjetas",
@@ -1077,7 +1077,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: ["Cada evento de Opta (saque, remate, penalti, acción, gol) lleva su vídeo (18/11/2026): si el ordenador del club ya bajó su corte a B2 (opta:goles-video, los goles; opta:acciones-video, las acciones del Castilla; 10 s antes y 6 s después), se ve aquí mismo, en un pop-up y sin sesión de Opta; si no, abre el Event Log de ProVision filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después), y hace falta la sesión de Opta (lib/opta-cortes.ts, lib/opta-video.ts). Sin reloj no hay enlace: el segundo no se inventa. Se comprueba con node scripts/opta-clips-comprueba.mjs (sólo lectura)."],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
   {
     ruta: "/individual_proc",
@@ -2699,7 +2699,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
     origen:
       "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase («apuestas-staff»); no salen de ninguna hoja.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Cómo se juega",
@@ -2939,7 +2939,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "El próximo partido",
@@ -3335,7 +3335,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "«Nadie está repasando el calendario»: «Enviar ahora» funciona, pero las programadas no suenan hasta poner el disparador horario.",
       "Es la misma herramienta que el botón flotante; esta pantalla sirve para repasarlo todo de una vez.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== CENTRO DE DATOS (12/11/2026) ==================== */
@@ -3647,7 +3647,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Las cifras del mes",

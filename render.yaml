@@ -27,7 +27,12 @@ services:
         - "**/*.ps1"
         - "**/*.vbs"
         - "**/*.log"
-    buildCommand: npm ci && npm run build
+    # 21/11/2026: cada minuto de compilación cuenta (500 al mes). Los tres JSON de
+    # public/data (análisis, ABP de las ligas, lo mejor a balón parado) se generan
+    # en el ordenador del club antes de publicar (npm run datos:publicar, lo hace
+    # scripts/publica-prepara.mjs) y van en el commit: aquí sólo se compila.
+    # npm ci sin auditoría ni avisos de financiación: menos red y menos tiempo.
+    buildCommand: npm ci --no-audit --no-fund && npm run build:render
     startCommand: npm start
     envVars:
       - key: NODE_VERSION
