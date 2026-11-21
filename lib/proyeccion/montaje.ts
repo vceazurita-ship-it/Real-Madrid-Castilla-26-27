@@ -6,7 +6,7 @@
  * eventos de Opta) y la prueba en Node. Puro: recibe los documentos ya leídos.
  */
 
-import { comoNuestro, ordenaPartidos, type PartidoNuestro } from "@/lib/castilla/calendario";
+import { comoNuestro, ordenaPartidos, proximoPartido, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { aObjetos, CASTILLA_OPTA, type TablaOpta } from "@/lib/opta";
 import { gruposDe, type Fila } from "@/lib/opta-analisis";
 import { presionDeTemporada } from "./presion";
@@ -88,13 +88,20 @@ export function eligePartido(
   const corte = ahora - 2.5 * 3_600_000;
   let elegido: PartidoNuestro | null = null;
   if (pide.anterior) elegido = nuestros.filter((p) => p.jugado && Date.parse(p.cuando) <= corte).pop() ?? null;
-  else if (pide.jornada) elegido = nuestros.find((p) => p.jornada === pide.jornada) ?? null;
-  else if (pide.rival) {
-    const r = pide.rival;
-    const idR = casaEquipo(r, equipos);
-    const suyos = nuestros.filter((p) => mismoClub(p.rival, r) || (idR != null && casaEquipo(p.rival, equipos) === idR));
-    elegido = suyos.find((p) => Date.parse(p.cuando) > corte) ?? suyos[suyos.length - 1] ?? null;
-  } else elegido = nuestros.find((p) => Date.parse(p.cuando) > corte) ?? nuestros[nuestros.length - 1] ?? null;
+  else {
+    const r = pide.rival ?? null;
+    const idR = r ? casaEquipo(r, equipos) : null;
+    const esSuyo = (p: PartidoNuestro) => !r || mismoClub(p.rival, r) || (idR != null && casaEquipo(p.rival, equipos) === idR);
+    /* Con jornada y rival (el Plan de partido, 21/11/2026), la jornada manda si es contra ese rival. */
+    if (pide.jornada) elegido = nuestros.find((p) => p.jornada === pide.jornada && esSuyo(p)) ?? null;
+    if (!elegido && r) {
+      const suyos = nuestros.filter(esSuyo);
+      elegido = suyos.find((p) => Date.parse(p.cuando) > corte) ?? suyos[suyos.length - 1] ?? null;
+    } else if (!elegido && !pide.jornada) {
+      /* Sin nada, el próximo por la regla de la portada (lib/castilla/calendario.ts). */
+      elegido = proximoPartido(calendario, ahora) ?? nuestros[nuestros.length - 1] ?? null;
+    }
+  }
   if (!elegido) return null;
   return { ...elegido, rivalId: casaEquipo(elegido.rival, equipos) };
 }

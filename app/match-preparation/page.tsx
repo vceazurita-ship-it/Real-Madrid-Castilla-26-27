@@ -44,6 +44,9 @@ import { sinErratas } from "@/lib/rivals/erratas";
 import { useAdmin } from "@/hooks/useAdmin";
 import { DUELOS, UMBRAL_DUELO, dueloQueDecide, fraseRecuentoPartes, pesoDelDuelo } from "@/lib/duelos";
 import { cargaOrdenRivales } from "@/lib/rivals/orden-calendario";
+import { DESDE, comoNuestro, jornadaProxima, ordenaPartidos, type PartidoCastilla } from "@/lib/castilla/calendario";
+import { cargaCalendario } from "@/hooks/useCalendario";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
@@ -111,10 +114,41 @@ const FECHAS_REALES = new Map<string, string>();
 /* Y la hora oficial («21:15») cuando BeSoccer la publica (16/11/2026, fútbol: la cabecera iba sin hora). */
 const HORAS_REALES = new Map<string, string>();
 
+/*
+| 21/11/2026 (jueces): el calendario de BeSoccer por jornada, también la de los
+| partidos ya jugados. La J13 (vie 20/11) se quedaba con la fecha de la hoja
+| (dom 22/11) porque el orden de /rivals sólo corrige las que quedan por jugar,
+| y el sábado el plan abría «J13 Real Murcia · mañana, dom 22/11».
+*/
+const DEL_CALENDARIO = new Map<number, { fecha: string; hora: string; rival: string }>();
+
+function apuntaCalendario(partidos: PartidoCastilla[]) {
+  for (const uno of ordenaPartidos(partidos).map(comoNuestro)) {
+    if (!uno.jornada || !/^\d{4}-\d{2}-\d{2}/.test(uno.cuando) || uno.cuando < DESDE) continue;
+
+    const hora = uno.cuando.slice(11, 16);
+
+    DEL_CALENDARIO.set(uno.jornada, { fecha: uno.cuando.slice(0, 10), hora: /^\d{2}:\d{2}$/.test(hora) && hora !== "00:00" ? hora : "", rival: uno.rival });
+  }
+}
+
+/* La jornada de BeSoccer, si es contra el mismo equipo que la fila de la hoja. */
+function delCalendario(r: Rival) {
+  const uno = DEL_CALENDARIO.get(Number(r.JORNADA));
+
+  return uno && mismoClub(uno.rival, String(r.EQUIPO ?? "")) ? uno : null;
+}
+
 function fechaDe(r: Rival | null | undefined): string {
   if (!r) return "";
 
-  return FECHAS_REALES.get(`${r.EQUIPO}|${r.JORNADA}`) ?? r.FECHA;
+  return delCalendario(r)?.fecha ?? FECHAS_REALES.get(`${r.EQUIPO}|${r.JORNADA}`) ?? r.FECHA;
+}
+
+function horaDe(r: Rival | null | undefined): string {
+  if (!r) return "";
+
+  return delCalendario(r)?.hora || HORAS_REALES.get(`${r.EQUIPO}|${r.JORNADA}`) || "";
 }
 
 /* Campos que cuentan para el porcentaje de preparación del informe. */
@@ -474,12 +508,13 @@ function fechaCorta(raw: unknown) {
 }
 
 /* Días completos entre hoy y la fecha del partido. */
-function diasHasta(raw: unknown) {
+function diasHasta(raw: unknown, ahora: number) {
   const fecha = aFecha(raw);
 
-  if (!fecha) return null;
+  if (!fecha || !ahora) return null;
 
-  const hoy = new Date();
+  /* El reloj llega de fuera (21/11/2026): nada de `new Date()` en el render. */
+  const hoy = new Date(ahora);
 
   hoy.setHours(0, 0, 0, 0);
 
@@ -1423,6 +1458,15 @@ export default function MatchPreparation() {
   }, []);
   const [rivalActivo, setRivalActivo] = useState<Rival | null>(null);
 
+  /* El reloj, una vez y fuera del render (como la portada): la cuenta atrás del partido. */
+  const [ahora, setAhora] = useState(0);
+
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
   const [modoEdicion, setModoEdicion] = useState(false);
   const [guardando, setGuardando] = useState(false);
   const [cargando, setCargando] = useState(true);
@@ -1558,11 +1602,17 @@ export default function MatchPreparation() {
       setError(null);
 
       try {
-        const data = await traeJson("/api/rivals?action=rivales&rancia=1", {
-          forzar: recargas > 0,
-        });
+        /* La hoja y el calendario de BeSoccer a la vez: el próximo lo decide el calendario. */
+        const [data, partidos] = await Promise.all([
+          traeJson("/api/rivals?action=rivales&rancia=1", {
+            forzar: recargas > 0,
+          }),
+          cargaCalendario(),
+        ]);
 
         if (cancelado) return;
+
+        apuntaCalendario(partidos);
 
         const lista = ordena(data);
 
@@ -1570,10 +1620,20 @@ export default function MatchPreparation() {
 
         setRivales(lista);
 
-        /* Por defecto abrimos el próximo partido, no el primero de la lista. */
+        /*
+        | Por defecto abrimos el próximo partido, no el primero de la lista.
+        | 21/11/2026: con la regla de la portada (`alrededorDe`: la hora de
+        | Madrid de BeSoccer y 2,5 h de gracia). Antes era la primera fila con
+        | fecha de hoy en adelante, y la fecha de la hoja de la J13 (dom 22/11)
+        | la dejaba de «próxima» el sábado, con la J13 ya jugada el viernes.
+        | Sin calendario, la regla de antes.
+        */
+        const ahoraMismo = Date.now();
+        const jornadaBs = jornadaProxima(partidos, ahoraMismo);
         const proximo =
+          (jornadaBs ? lista.find((r) => Number(r.JORNADA) === jornadaBs && delCalendario(r)) : undefined) ??
           lista.find((r) => {
-            const dias = diasHasta(fechaDe(r));
+            const dias = diasHasta(fechaDe(r), ahoraMismo);
 
             return dias !== null && dias >= 0;
           }) ?? lista[lista.length - 1];
@@ -1659,7 +1719,7 @@ export default function MatchPreparation() {
     [rivales, rivalActivo]
   );
 
-  const dias = diasHasta(fechaDe(rivalActivo));
+  const dias = diasHasta(fechaDe(rivalActivo), ahora);
 
   const cuentaAtras = etiquetaCuentaAtras(dias);
 
@@ -1668,7 +1728,8 @@ export default function MatchPreparation() {
   /* Mientras se miden, la sección y su pestaña ya salen (en el móvil tardan y no salían, 16/11/2026). */
   const duelosEnCamino = !duelosListos && Boolean(rivalActivo?.EQUIPO);
   /* `/duelos` se abre con el mismo rival que este plan, no con el próximo. */
-  const enlaceDuelos = rivalActivo?.EQUIPO ? `/duelos?equipo=${encodeURIComponent(rivalActivo.EQUIPO)}` : "/duelos";
+  /* Con las dos llaves del plan elegido (21/11/2026): `?equipo=` y `?rival=`, como la tira de accesos. */
+  const enlaceDuelos = rivalActivo?.EQUIPO || rivalActivo?.ID ? conRivalEnUrl("/duelos", { equipo: String(rivalActivo?.EQUIPO ?? ""), id: String(rivalActivo?.ID ?? "") }) : "/duelos";
   const contraste = useContrasteRival(rivalActivo?.EQUIPO ?? "");
   /* El balón parado, plegado: sólo se pide al abrirlo (pesa en el servidor). */
   /* Abierto (17/11/2026, ronda 20, fútbol y marketing): contra un rival que defiende mal el córner es lo que más pesa. */
@@ -1678,7 +1739,8 @@ export default function MatchPreparation() {
   | y el duelo que decide, cada una con su dato. Salen de la proyección y de los
   | duelos de abajo; lo que no tiene dato no sale.
   */
-  const proyeccionJuego = useProyeccionJuego(rivalActivo?.EQUIPO ?? null);
+  const jornadaDelPlan = Number(rivalActivo?.JORNADA) || null;
+  const proyeccionJuego = useProyeccionJuego(rivalActivo?.EQUIPO ?? null, jornadaDelPlan);
   /*
   | CÓMO LE GANAMOS (16/11/2026, ronda 17, jueces de fútbol): arriba del todo,
   | una idea por fase y cada una con la métrica que ya está en pantalla —su
@@ -2912,18 +2974,20 @@ export default function MatchPreparation() {
                           </span>
                         )}
 
-                        <span
-                          className={`
-                            rounded-lg px-2.5 py-1 text-[11px] font-semibold
-                            ${
-                              cuentaAtras.urgente
-                                ? "bg-rose-500/15 text-rose-300"
-                                : "bg-white/[0.05] text-white/50"
-                            }
-                          `}
-                        >
-                          {cuentaAtras.texto}
-                        </span>
+                        {ahora > 0 && (
+                          <span
+                            className={`
+                              rounded-lg px-2.5 py-1 text-[11px] font-semibold
+                              ${
+                                cuentaAtras.urgente
+                                  ? "bg-rose-500/15 text-rose-300"
+                                  : "bg-white/[0.05] text-white/50"
+                              }
+                            `}
+                          >
+                            {cuentaAtras.texto}
+                          </span>
+                        )}
                       </div>
 
                       <p className="mt-5 text-[11px] uppercase tracking-[0.25em] text-white/35">
@@ -2967,7 +3031,7 @@ export default function MatchPreparation() {
                         const medida = String(rivalActivo.DIMENSIONES ?? "").replace(/\s*[xX×]\s*/, "×").replace(/\s*m\.?$/i, "").trim();
                         const partes = [
                           fechaConDia(fechaDe(rivalActivo)),
-                          HORAS_REALES.get(`${rivalActivo.EQUIPO}|${rivalActivo.JORNADA}`) ?? "",
+                          horaDe(rivalActivo),
                           medida ? `campo de ${medida} m` : "",
                         ].filter(Boolean);
 
@@ -3191,7 +3255,7 @@ export default function MatchPreparation() {
               {/* El juego que se espera con Opta y Wyscout; el del balón parado va en /scout-rival-abp. */}
               {rivalActivo.EQUIPO && (
                 <div id="proyeccion" className="mp-no-print scroll-mt-56 print:hidden">
-                  <PanelProyeccion tipo="juego" equipo={String(rivalActivo.EQUIPO)} />
+                  <PanelProyeccion tipo="juego" equipo={String(rivalActivo.EQUIPO)} jornada={jornadaDelPlan} />
                   {/* Si le dejamos tocar, ¿se nos va? (18/11/2026): pases por posesión según el PPDA. */}
                   <PasesSegunPresion equipo={String(rivalActivo.EQUIPO)} />
                   {/* Partido modelo (19/11/2026, idea de X): quién ya le hizo daño robándole alto. */}
@@ -3240,7 +3304,7 @@ export default function MatchPreparation() {
                   )}
                   {abpAbierto && (
                     <div className="space-y-3 px-3 pb-4 md:px-5">
-                      <PanelProyeccion tipo="abp" equipo={String(rivalActivo.EQUIPO)} />
+                      <PanelProyeccion tipo="abp" equipo={String(rivalActivo.EQUIPO)} jornada={jornadaDelPlan} />
                       <p className="px-2 text-[13px]">
                         <Link href={enlacePizarraAbp(rivalActivo)} className="font-semibold text-[#C8A96B] hover:underline">
                           Marcas, lanzadores y pizarra de este partido →

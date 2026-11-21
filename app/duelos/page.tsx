@@ -46,8 +46,9 @@ import { planoDeExtremos, regateDelDuelo, type RegateDelDuelo } from "@/lib/duel
 import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
 import { CarrilExtremo } from "@/components/duelos/carril-extremo";
 import { SegundaJugada } from "@/components/duelos/segunda-jugada";
-import { robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
-import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
+import { lecturaDelAjuste, robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
+import { baseSuyaDe, dibujoDeWyscout, huecosDeBloques, onceProbableDelRival, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
+import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { fuenteUltimoOnce, huecosDelUltimoOnce } from "@/lib/tactics/ultimoOnce";
 import { huecosDeLaPizarra } from "@/lib/tactics/huecosDeLaPizarra";
 import { leeTableroDeOnces, type TableroDeOnces } from "@/lib/tactics/onceDeLaPizarra";
@@ -111,7 +112,7 @@ function ConsignaPartida({ c }: { c: string }) {
       <span className="block"><b style={{ color: ORO }}>Qué le decimos:</b> {queLimpio}</span>
       {/* «Qué entrenamos» (16/11/2026, ronda 18, fútbol): la tarea de 1 contra 1 que mide esa acción. */}
       {tarea && <span className="block"><b className="text-white/90">Qué entrenamos:</b> {tarea.replace(/\.$/, "")}.</span>}
-      {objetivo && <span className="block"><b className="text-white/90">Objetivo:</b> {objetivo} <span className="text-white/55">(percentil contra su puesto, Wyscout)</span></span>}
+      {objetivo && <span className="block"><b className="text-white/90">Objetivo:</b> {objetivo} <span className="text-white/55">({/\bP\d/.test(objetivo) ? "percentil contra su puesto, " : ""}Wyscout)</span></span>}
     </span>
   );
 }
@@ -438,9 +439,29 @@ export default function DuelosPage() {
   /* Los dos onces se arman en lib/duelos-onces.ts, el mismo código que usa el informe del partido. */
   const nuestros = useMemo(() => nuestrosDe(jugadores ?? [], players), [jugadores, players]);
   const suyos = useMemo(() => suyosDe(plantillas, equipoVisto, jugadores ?? []), [plantillas, equipoVisto, jugadores]);
+  /*
+  | Su once probable, el MISMO de /rivals (21/11/2026, jueces de fútbol): sin
+  | once marcado, el que propone el motor con sus últimos onces, en el dibujo
+  | de Plantillas, de Wyscout o de BeSoccer, y cada uno en el bloque que le da
+  | el campograma (`onceProbableDelRival`, capa común).
+  */
+  const perfilesRival = useRivalPerfiles(equipoVisto);
+  const sistemaWyscout = useMemo(() => dibujoDeWyscout(perfilesRival?.sistemas), [perfilesRival]);
+  const probable = useMemo(
+    () =>
+      onceProbableDelRival(
+        plantillas,
+        equipoVisto,
+        findInforme(informes, equipoVisto),
+        { dibujo: dibujoMarcado, puestos: puestosMarcados, titulares: onceMarcado ?? [] },
+        sistemaWyscout,
+      ),
+    [plantillas, equipoVisto, informes, dibujoMarcado, puestosMarcados, onceMarcado, sistemaWyscout],
+  );
+  const colocacion = probable.colocacion;
   const baseSuya = useMemo(
-    () => baseSuyaDe(suyos, onceMarcado, findInforme(informes, equipoVisto)),
-    [suyos, onceMarcado, informes, equipoVisto],
+    () => baseSuyaDe(suyos, onceMarcado, findInforme(informes, equipoVisto), probable.sugerido),
+    [suyos, onceMarcado, informes, equipoVisto, probable.sugerido],
   );
   /*
   | El punto de partida de nuestro once (02/11/2026): el de la pizarra táctica
@@ -460,13 +481,9 @@ export default function DuelosPage() {
       ? fuenteUltimoOnce(ultimoOnce)
       : "Propuesto con los minutos de Wyscout en 4-2-3-1";
   /* El once único (ronda 17): cada uno de los suyos en el bloque del campograma de /rivals (capa común). */
-  const colocacion = useMemo(
-    () => colocacionDelCampograma(plantillas, equipoVisto, findInforme(informes, equipoVisto), { dibujo: dibujoMarcado, puestos: puestosMarcados, titulares: onceMarcado ?? [] }),
-    [plantillas, equipoVisto, informes, dibujoMarcado, puestosMarcados, onceMarcado],
-  );
   const onceSuyo = useMemo(
-    () => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(colocacion, onceMarcado ?? [])),
-    [suyos, baseSuya, aMano.suyo, colocacion, onceMarcado],
+    () => onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(colocacion, probable.titulares)),
+    [suyos, baseSuya, aMano.suyo, colocacion, probable.titulares],
   );
   const onceNuestro = useMemo(
     () => sinChoqueDeNombres(onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, players), onceSuyo),
@@ -1365,7 +1382,6 @@ function FilasClaves({
   color,
   contraria,
   onElige,
-  huecoDe,
 }: {
   equipo: string;
   huecoDe: Map<string, string>;
@@ -1712,7 +1728,7 @@ function bloquesDe(d: ResultadoDuelo, modo: Modo, equipo: string, roboDe: Map<st
 
 const coma = (v: number, d = 1) => v.toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
 
-/** «4,1/90 ajustado (3,2 en bruto · 39 % de posesión)». */
+/** «9,5/90 ajustado (8,4 en bruto · 56 % de posesión)»: con más de la mitad del balón, el ajuste sube. */
 const cifraRobo = (r: RoboJugador) =>
   r.ajustado === null
     ? `${coma(r.bruto)}/90 en bruto (su equipo sin posesión en Wyscout)`
@@ -1742,7 +1758,13 @@ function MarcaRobador({ r }: { r: RoboJugador }) {
     <span
       className="inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider"
       style={{ background: `${PEOR}22`, color: PEOR }}
-      title={r.oculto ? `En bruto sale P${r.percentilBruto}: con su poca posesión, corta como un P${r.percentil}.` : `P${r.percentil} de su puesto, ajustado a la posesión.`}
+      title={
+        r.oculto
+          ? (r.posesion ?? 50) > 50
+            ? `En bruto sale P${r.percentilBruto}: su equipo defiende sólo el ${Math.round(100 - (r.posesion ?? 50))} % del partido y, a medias, corta como un P${r.percentil}.`
+            : `En bruto sale P${r.percentilBruto}; ajustado a la posesión, P${r.percentil}.`
+          : `P${r.percentil} de su puesto, ajustado a la posesión.`
+      }
     >
       Robador
     </span>
@@ -1847,7 +1869,8 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       {/* La población y qué es «ajustado», en una línea fija (16/11/2026, ronda 17). */}
       <p className="mt-1 text-xs leading-snug text-white/60">
         Interceptaciones por 90′ de Wyscout, frente a los de su puesto con 90′ o más. Robador: P{UMBRAL_ROBADOR} o más ajustado, con 450′ o más. La barra es su percentil; la raya, P{UMBRAL_ROBADOR}.
-        {posesion != null && ` «Ajustado» las lleva a un partido con el balón a medias: su equipo tiene el ${Math.round(posesion)} % de posesión media en sus partidos de liga (Wyscout), así que con menos balón corta más de lo que parece en bruto.`}
+        {/* La frase sigue al signo de la cuenta (21/11/2026, jueces): con el 56 % el ajuste sube; antes decía «con menos balón». */}
+        {posesion != null && ` «Ajustado» las lleva a un partido con el balón a medias: ${lecturaDelAjuste(posesion).frase}`}
       </p>
       {lista.length > 0 && (
         <ol className="mt-3 grid grid-cols-1 gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
@@ -1876,8 +1899,8 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       <Explicativo>
         <p className="mt-3 text-[11px] leading-relaxed text-white/45">
           Interceptaciones por 90 de Wyscout llevadas a un partido con el balón a medias: × 50 / (100 − posesión media de su equipo en
-          sus partidos de liga). Quien casi no tiene el balón tiene menos ratos para cortar: así sale el que corta mucho cuando le
-          dejan. El percentil es contra los de su puesto en la categoría (90′ o más) ajustados igual. Robador = P{UMBRAL_ROBADOR} o más;
+          sus partidos de liga). Quien casi no tiene el balón defiende mucho rato y en bruto corta de más: el ajuste le baja la cifra.
+          Quien lo tiene casi siempre defiende poco: el ajuste se la sube, y así sale el que corta mucho en el poco rato que defiende. El percentil es contra los de su puesto en la categoría (90′ o más) ajustados igual. Robador = P{UMBRAL_ROBADOR} o más;
           oculto = en bruto queda por debajo. La zona son sus recuperaciones de la temporada por tercios en Opta, si está.
         </p>
       </Explicativo>

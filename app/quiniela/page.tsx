@@ -854,8 +854,10 @@ function Quiniela() {
         «=» es puesto compartido.
       </p>
       <details id="reglas-quiniela" className="mt-1 scroll-mt-24 text-white/60">
+        {/* 21/11/2026 (jueces): «Reglas completas» salía dos veces seguidas; el
+            botón de la cabecera de «La comida» es el que se queda y abre esto. */}
         <summary className="cursor-pointer select-none text-[#C8A96B]">
-          Reglas completas
+          Ver el detalle
         </summary>
         <p className="mt-1">
           A igual porcentaje, manda quien más acierta; con los dos
@@ -1955,6 +1957,19 @@ function Quiniela() {
               {(() => {
                 const base = tablaBloque.some((fila) => fila.jugados > 0) ? Math.max(...tablaBloque.map((fila) => fila.jugados)) : 0;
                 const invitados = tablaBloque.filter((fila) => fila.invitado);
+                /*
+                | 21/11/2026 (jueces): «Arranca el bloque» sólo si ninguna jornada
+                | del bloque tiene un resultado; con la J11 y la J12 jugadas, en la
+                | J13 se enseña quién come y a cuánto está el tercero.
+                */
+                let conResultados = false;
+                for (let j = bloque.desde; j <= bloque.hasta; j += 1) {
+                  if ((doc.jornadas[String(j)]?.resultados ?? []).some(Boolean)) conResultados = true;
+                }
+                const arranca = !cerrado && (!conResultados || base === 0);
+                const tercero = tablaBloque.find((fila) => !fila.invitado && fila.jugados > 0);
+                const ultimoQueCome = invitados[invitados.length - 1];
+                const aTercero = ultimoQueCome && tercero ? ultimoQueCome.aciertos - tercero.aciertos : null;
                 const corto = (slug: string) => {
                   const persona = PERSONA_POR_SLUG.get(slug);
 
@@ -1994,12 +2009,19 @@ function Quiniela() {
                     {invitados.map((fila) => corto(fila.slug)).join(" y ")}{" "}
                     {cerrado ? (invitados.length === 1 ? "come gratis" : "comen gratis") : invitados.length === 1 ? "come gratis por ahora" : "comen gratis por ahora"}
                     {`: ${invitados[invitados.length - 1].aciertos} de ${base} · ${invitados[invitados.length - 1].porcentaje.toFixed(0)} %`}
+                    {tercero && aTercero !== null ? (
+                      <span className="block text-[13px] font-normal text-white/70">
+                        {aTercero > 0
+                          ? `${corto(tercero.slug)}, el primero que paga, a ${aTercero} ${aTercero === 1 ? "acierto" : "aciertos"}${cerrado ? "." : " del último que come."}`
+                          : `${corto(tercero.slug)}, el primero que paga, con los mismos aciertos.`}
+                      </span>
+                    ) : null}
                   </p>
                 ) : null}
 
                 {/* Sin ningún partido jugado del bloque, el orden no significa nada
                     (07/11/2026, guionista y marketing). */}
-                {!cerrado && base === 0 ? (
+                {arranca ? (
                   <p className="text-[13px] leading-relaxed text-white/75">
                     Arranca el bloque {bloque.desde}-{bloque.hasta}: los dos primeros comen invitados por el resto.
                   </p>
@@ -2010,7 +2032,7 @@ function Quiniela() {
                   los dos que les persiguen; el resto, plegado (eran once filas
                   casi iguales).
                 */}
-                {!cerrado && base === 0 ? null : (() => {
+                {arranca ? null : (() => {
                   const ultimoInvitado = tablaBloque.reduce((m, f, i) => (f.invitado ? i : m), -1);
                   const aLaVista = Math.max(2, ultimoInvitado + 1) + 2;
                   const pintaFila = (filaB: (typeof tablaBloque)[number], indice: number) => {

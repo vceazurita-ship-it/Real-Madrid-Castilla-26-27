@@ -94,6 +94,7 @@ import {
   matchLabel,
 } from "@/lib/ratings/matches";
 import type { MatchMeta } from "@/lib/ratings/types";
+import { alrededorDe } from "@/lib/castilla/calendario";
 import {
   buscaJornada,
   cargaJornadas,
@@ -1245,6 +1246,22 @@ export default function DesplazamientoPage() {
     return mapa;
   }, [besoccer, partidos]);
 
+  /*
+  | EL PRÓXIMO, CON LA REGLA DE LA PORTADA (21/11/2026, jueces): el día del
+  | próximo partido según `alrededorDe` (hora de Madrid de BeSoccer, 2,5 h de
+  | gracia) y la fecha de BeSoccer de cada fila. Antes era «fecha de la hoja de
+  | hoy en adelante»: la J13, jugada el viernes 20/11, seguía de próxima el
+  | sábado porque la hoja la tenía el domingo 22. Sin BeSoccer, la de antes.
+  */
+  const instante = ahora.getTime();
+  const diaDelProximo = useMemo(() => {
+    if (!besoccer?.length) return "";
+
+    const sig = alrededorDe(besoccer.map((p) => ({ golesLocal: null, golesVisitante: null, ...p })), instante).proximo;
+
+    return sig ? sig.cuando.slice(0, 10) : "";
+  }, [besoccer, instante]);
+
   /* «Hoy», una vez al montar (en hora local, como todo `lib/viaje`: en UTC, a
      las 00:30 de un domingo español el «hoy» era el sábado). */
   const [hoy] = useState(() => comoIso(new Date()));
@@ -1255,22 +1272,31 @@ export default function DesplazamientoPage() {
   | montaba uno la pantalla seguía abriendo ese partido ya jugado (19/10/2026).
   | Si la temporada se ha acabado, el último con viaje.
   */
+  const porJugar = useCallback(
+    (item: MatchMeta) => {
+      const fecha = fechaBesoccer.get(item.id) ?? item.date;
+
+      return Boolean(fecha) && fecha >= (diaDelProximo || hoy);
+    },
+    [fechaBesoccer, diaDelProximo, hoy],
+  );
+
   const porDefecto = useMemo(() => {
     if (partidos.length === 0) return "";
 
     /* 30/10/2026: la pantalla es de desplazamientos: abre el próximo partido FUERA; los de casa siguen en el selector. */
-    const proximoFuera = partidos.find((item) => item.date && item.date >= hoy && !item.isHome);
+    const proximoFuera = partidos.find((item) => porJugar(item) && !item.isHome);
 
     if (proximoFuera) return proximoFuera.id;
 
-    const proximo = partidos.find((item) => item.date && item.date >= hoy);
+    const proximo = partidos.find(porJugar);
 
     if (proximo) return proximo.id;
 
     const conViaje = partidos.filter((item) => store.viajes?.[item.id]);
 
     return (conViaje[conViaje.length - 1] ?? partidos[partidos.length - 1]).id;
-  }, [partidos, store.viajes, hoy]);
+  }, [partidos, store.viajes, porJugar]);
 
   const elegido = pedido || porDefecto;
 
@@ -1278,7 +1304,7 @@ export default function DesplazamientoPage() {
 
   const indiceElegido = partidos.findIndex((item) => item.id === elegido);
 
-  const proximoId = useMemo(() => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "", [partidos, hoy]);
+  const proximoId = useMemo(() => partidos.find(porJugar)?.id ?? "", [partidos, porJugar]);
 
   /* El selector enseña las 5 próximas jornadas (y la que se esté mirando); las demás, bajo «Ver todas». */
   const [verTodas, setVerTodas] = useState(false);

@@ -1763,7 +1763,40 @@ async function ronda() {
       .finally(() => enMarcha.delete("datos"));
   }
 
+  /* Fuera de enMarcha: no es una tarea de Ajustes y no debe salir en «ocupado». */
+  if (Date.now() - directoMirado > 60_000 && !directoMirando) {
+    directoMirado = Date.now();
+    directoMirando = true;
+
+    miraDirecto()
+      .catch((error) => apunta(`Directo de Opta: se ha roto (${error.message}).`))
+      .finally(() => {
+        directoMirando = false;
+      });
+  }
+
   if (Date.now() - ultimoLatido > LATIDO_MS) await latido();
+}
+
+/*
+| EL DIRECTO DE OPTA, LANZADO ANTES DE CADA PARTIDO (21/11/2026).
+|
+| El `schedule` del workflow no se cumple (el 20/11, Castilla a las 21:15 sin
+| directo). Cada minuto se mira el calendario y, diez minutos antes de cada
+| partido del grupo, se lanza el workflow una vez: ver
+| scripts/opta-directo-vigia.cjs. Se vuelve a cargar en cada pasada para que
+| un cambio en ese fichero entre sin reiniciar el vigía.
+*/
+let directoMirado = 0;
+
+let directoMirando = false;
+
+const MODULO_DIRECTO = path.join(RAIZ, "scripts", "opta-directo-vigia.cjs");
+
+async function miraDirecto() {
+  delete require.cache[require.resolve(MODULO_DIRECTO)];
+
+  await require(MODULO_DIRECTO).miraDirectoOpta({ supabase, apunta });
 }
 
 /* ------------------------------------------------------------------ */

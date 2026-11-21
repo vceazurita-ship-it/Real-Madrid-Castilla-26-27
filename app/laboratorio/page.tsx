@@ -39,6 +39,7 @@ import { AbpHeader, Button, Notice, Panel } from "@/components/abp/ui";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cargaJornadas, type JornadaRival } from "@/lib/abp/jornada";
+import { jornadaJugada } from "@/lib/rivals/orden-calendario";
 import { todayKey } from "@/lib/session-board/helpers";
 import {
   ETIQUETA_CAMPO,
@@ -74,8 +75,8 @@ export default function LaboratorioPage() {
   useEffect(() => {
     const control = new AbortController();
 
-    cargaJornadas(control.signal)
-      .then((filas) => {
+    Promise.all([cargaJornadas(control.signal), jornadaJugada(control.signal)])
+      .then(([filas, jugada]) => {
         if (control.signal.aborted) return;
 
         setJornadas(filas);
@@ -87,8 +88,15 @@ export default function LaboratorioPage() {
            jugado. Va dentro del `then`, no en el render. */
         const hoy = todayKey();
 
+        /* 21/11/2026: con BeSoccer manda la jornada ya jugada (regla de la portada,
+           `alrededorDe`), no la fecha de la hoja: la J13 se jugó el viernes 20/11 y la
+           hoja la tenía el domingo 22. Sin BeSoccer, la fecha de siempre. */
         const proximo =
-          filas.find((fila) => fila.fecha && fila.fecha >= hoy) ?? filas[0];
+          (jugada > 0
+            ? filas.filter((fila) => Number(fila.jornada) > jugada).sort((a, b) => Number(a.jornada) - Number(b.jornada))[0]
+            : undefined) ??
+          filas.find((fila) => fila.fecha && fila.fecha >= hoy) ??
+          filas[0];
 
         if (proximo) setRivalId(proximo.id);
       })

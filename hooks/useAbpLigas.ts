@@ -11,6 +11,7 @@
 import { useEffect, useState } from "react";
 
 import { cargaCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import type { AbpLigas } from "@/lib/abp-ligas/modelo";
 
 let enVuelo: Promise<AbpLigas> | null = null;
@@ -55,13 +56,12 @@ export function useProximoRival() {
     let vivo = true;
 
     void cargaCalendario().then((partidos) => {
-      const ahora = new Date();
+      /* 21/11/2026: la regla de la portada (`proximoPartido`: hora de Madrid y 2,5 h de
+         gracia), no «el primero con fecha de hoy en adelante», que tras el partido de
+         esta tarde seguía nombrando al rival ya jugado hasta medianoche. */
+      const sig = proximoPartido(partidos, Date.now());
 
-      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
-
-      const sig = partidos.filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy).sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
-
-      if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
+      if (vivo && sig) setProximo(sig.rival);
     });
 
     return () => {

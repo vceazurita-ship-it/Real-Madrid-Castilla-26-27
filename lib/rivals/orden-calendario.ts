@@ -31,6 +31,7 @@ import {
 } from "@/lib/abp/jornada";
 import {
   CLAVE_CALENDARIO,
+  DESDE,
   alrededorDe,
   type PartidoCastilla,
 } from "@/lib/castilla/calendario";
@@ -384,10 +385,12 @@ export async function cargaOrdenRivales(
 | una por partido nuestro.
 */
 function conFechaDeBeSoccer(orden: OrdenRivales, calendario: PartidoCastilla[]): OrdenRivales {
-  const porJornada = new Map(calendario.map((p) => [String(p.jornada), p.cuando]));
+  /* Sólo esta temporada: la ficha de BeSoccer trae dos y la J13 de la pasada no es la nuestra. */
+  const porJornada = new Map(calendario.filter((p) => (p.cuando || "") >= DESDE).map((p) => [String(p.jornada), p.cuando]));
 
   const partidos = orden.partidos.map((partido) => {
-    const cuando = partido.grupo === JUGADO ? undefined : porJornada.get(partido.jornada);
+    /* También la de los ya jugados (21/11/2026): la J13, jugada el viernes 20/11, seguía con el domingo 22 de la hoja. */
+    const cuando = porJornada.get(partido.jornada);
 
     if (!cuando || !/^\d{4}-\d{2}-\d{2}/.test(cuando)) return partido;
 

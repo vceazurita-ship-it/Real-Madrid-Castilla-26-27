@@ -6,8 +6,8 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { ArrowLeftRight, BarChart3, Clapperboard, Crosshair, Home, Plane, ClipboardList, Trophy, Users, Video } from "lucide-react";
 import { traeJson } from "@/lib/hojaCsv";
-import { useCalendario } from "@/hooks/useCalendario";
-import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { useAhora, useCalendario } from "@/hooks/useCalendario";
+import { comoNuestro, ordenaPartidos, proximoPartido } from "@/lib/castilla/calendario";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import type { ClasificacionPortada } from "@/lib/portada/proximo-partido";
@@ -379,6 +379,8 @@ useEffect(() => {
 
 /* Nuestros partidos jugados, con los puntos que llevamos tras cada uno. */
 const { partidos } = useCalendario();
+/* El reloj fuera del render, para el próximo partido con la regla de la portada (21/11/2026). */
+const reloj = useAhora();
 const jugados = useMemo(() => {
   return ordenaPartidos(partidos)
     .map(comoNuestro)
@@ -591,8 +593,14 @@ const tituloPuesto = (() => {
     : `${ahora.p}º tras la J${ahora.j}; el mejor, ${mejor.p}º en la J${mejor.j}; ${inicio}`;
 })();
 
-/* 20/11/2026 (ronda 4): el próximo rival, para su distancia en el título de la tabla (el `proximo` de abajo se calcula después). */
-const proximoRivalTabla = ordenaPartidos(partidos).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? "";
+/*
+| 20/11/2026 (ronda 4): el próximo rival, para su distancia en el título de la tabla.
+| 21/11/2026: el próximo es el de la portada (`proximoPartido`: hora de Madrid y 2,5 h
+| de gracia), no «el primero sin marcador», que con una copia del calendario sin el
+| resultado de anoche seguía nombrando al rival ya jugado.
+*/
+const proximo = useMemo(() => proximoPartido(partidos, reloj), [partidos, reloj]);
+const proximoRivalTabla = proximo?.rival ?? "";
 /* 17/11/2026 (ronda 20): el título de la barra de los 20: a cuánto del de arriba del todo y de la parte baja. */
 const tituloTabla = (() => {
   const t = liga.tablaFinal;
@@ -623,13 +631,6 @@ const tituloTabla = (() => {
 | partido y lo que hay en juego: los puntos al de arriba y al de abajo, de la
 | última tabla completa, sólo si es la de nuestra última jornada.
 */
-const proximo = useMemo(
-  () =>
-    ordenaPartidos(partidos)
-      .map(comoNuestro)
-      .find((uno) => uno.jornada > 0 && !uno.jugado) ?? null,
-  [partidos],
-);
 const enJuego = (() => {
   const v = liga.vecinos;
 

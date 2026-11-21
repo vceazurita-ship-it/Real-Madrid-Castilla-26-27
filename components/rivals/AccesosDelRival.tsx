@@ -31,6 +31,8 @@ import { AccesoClipsHudl } from "@/components/rivals/ClipsDeHudl";
 import type { Tipo } from "@/components/rivals/GolesDelRivalEnVideo";
 import { aJornada, mismoEquipo, type FilaRival, type JornadaRival } from "@/lib/abp/jornada";
 import { traeJson } from "@/lib/hojaCsv";
+import { cargaCalendario } from "@/hooks/useCalendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
 import { trackModuleVisit } from "@/lib/module-usage";
 import { conRivalEnUrl, fijaRivalEnCurso } from "@/lib/rivals/rival-en-curso";
 
@@ -51,10 +53,17 @@ const DESTINOS: Destino[] = [
 const CHIP =
   "inline-flex min-h-9 shrink-0 items-center whitespace-nowrap rounded-full border border-white/15 bg-white/[0.03] px-3 py-1 text-[13px] font-medium text-white/75 transition hover:border-[#C8A96B] hover:text-white sm:min-h-0";
 
-/** La fila de la hoja que le toca a este equipo: el próximo partido contra él y, si ya se jugaron los dos, el último. */
-export function filaDelEquipo(jornadas: JornadaRival[], equipo: string, hoy: string) {
+/**
+ * La fila de la hoja que le toca a este equipo: el próximo partido contra él y, si ya se jugaron los dos, el último.
+ *
+ * `jugadaHasta` (21/11/2026): la última jornada jugada según BeSoccer (`alrededorDe`, la regla de la portada).
+ * Con ella manda la jornada y no la fecha de la hoja, que es la del calendario de principio de temporada: la J13
+ * se jugó el viernes 20/11 y la hoja la tenía el domingo 22, así que el sábado seguía «por venir».
+ */
+export function filaDelEquipo(jornadas: JornadaRival[], equipo: string, hoy: string, jugadaHasta = 0) {
   const suyas = jornadas.filter((j) => mismoEquipo(j.equipo, equipo));
-  const porVenir = suyas.filter((j) => !j.fecha || j.fecha >= hoy).sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999"));
+  const porVenir = suyas
+    .filter((j) => (jugadaHasta > 0 && Number(j.jornada) > 0 ? Number(j.jornada) > jugadaHasta : !j.fecha || j.fecha >= hoy)).sort((a, b) => (a.fecha || "9999").localeCompare(b.fecha || "9999"));
 
   return porVenir[0] ?? [...suyas].sort((a, b) => b.fecha.localeCompare(a.fecha))[0] ?? null;
 }
@@ -87,15 +96,17 @@ export function AccesosDelRival({
 }) {
   const [jornadas, setJornadas] = useState<JornadaRival[]>([]);
   const [hoy, setHoy] = useState("");
+  const [jugadaHasta, setJugadaHasta] = useState(0);
 
   useEffect(() => {
     let vivo = true;
 
-    traeJson<unknown>("/api/rivals?action=rivales")
-      .then((data) => {
+    Promise.all([traeJson<unknown>("/api/rivals?action=rivales"), cargaCalendario()])
+      .then(([data, partidos]) => {
         if (!vivo || !Array.isArray(data)) return;
 
         setHoy(new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Madrid" }).format(new Date()));
+        setJugadaHasta(alrededorDe(partidos, Date.now()).anterior?.jornada ?? 0);
         setJornadas((data as FilaRival[]).filter((fila) => fila && typeof fila === "object").map(aJornada));
       })
       .catch(() => {
@@ -115,8 +126,8 @@ export function AccesosDelRival({
       if (atada) return atada;
     }
 
-    return equipo && hoy ? filaDelEquipo(jornadas, equipo, hoy) : null;
-  }, [jornadas, rivalId, equipo, hoy]);
+    return equipo && hoy ? filaDelEquipo(jornadas, equipo, hoy, jugadaHasta) : null;
+  }, [jornadas, rivalId, equipo, hoy, jugadaHasta]);
 
   const nombre = equipo || fila?.equipo || "";
   const id = rivalId || fila?.id || "";

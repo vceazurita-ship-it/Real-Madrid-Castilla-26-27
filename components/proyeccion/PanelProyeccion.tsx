@@ -45,9 +45,15 @@ type Props = {
   tipo: "abp" | "juego";
   /** El rival que se mira en la pantalla (el nombre de la hoja o de BeSoccer). */
   equipo?: string | null;
+  /**
+   * La jornada del partido que se mira (21/11/2026): el Plan de partido manda
+   * la del plan elegido. Con sólo el rival, el servidor buscaba «el próximo
+   * contra él» y, con la J13 ya jugada, enseñaba la J23 (la vuelta).
+   */
+  jornada?: number | null;
 };
 
-export function PanelProyeccion({ tipo, equipo }: Props) {
+export function PanelProyeccion({ tipo, equipo, jornada = null }: Props) {
   const [datos, setDatos] = useState<Respuesta | null>(null);
   const [cargando, setCargando] = useState(true);
   /* Ver el último partido jugado: lo proyectado frente a lo real (para calibrar). No guarda nada. */
@@ -61,7 +67,10 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
     let vivo = true;
     const q = new URLSearchParams({ que: tipo });
     if (anterior) q.set("anterior", "1");
-    else if (equipo) q.set("rival", equipo);
+    else {
+      if (equipo) q.set("rival", equipo);
+      if (jornada) q.set("jornada", String(jornada));
+    }
     fetch(`/api/proyeccion?${q.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j: Respuesta | null) => {
@@ -77,7 +86,7 @@ export function PanelProyeccion({ tipo, equipo }: Props) {
     return () => {
       vivo = false;
     };
-  }, [tipo, equipo, anterior]);
+  }, [tipo, equipo, jornada, anterior]);
 
   const cambia = () => {
     setCargando(true);
@@ -730,22 +739,26 @@ export function PanelJuego({
 }
 
 /** La proyección del juego de un rival, para quien la necesite fuera del panel (las tres ideas del Plan). */
-export function useProyeccionJuego(equipo?: string | null) {
-  const [datos, setDatos] = useState<{ equipo: string; juego: ProyeccionJuego | null } | null>(null);
+export function useProyeccionJuego(equipo?: string | null, jornada: number | null = null) {
+  const [datos, setDatos] = useState<{ clave: string; juego: ProyeccionJuego | null } | null>(null);
+  /* Con la jornada del plan (21/11/2026): sin ella salía la del próximo partido contra ese rival. */
+  const clave = `${equipo ?? ""}|${jornada ?? ""}`;
   useEffect(() => {
     if (!equipo) return;
     let vivo = true;
-    fetch(`/api/proyeccion?${new URLSearchParams({ que: "juego", rival: equipo }).toString()}`)
+    const q = new URLSearchParams({ que: "juego", rival: equipo });
+    if (jornada) q.set("jornada", String(jornada));
+    fetch(`/api/proyeccion?${q.toString()}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((j: Respuesta | null) => {
-        if (vivo) setDatos({ equipo, juego: j?.success ? (j.juego ?? null) : null });
+        if (vivo) setDatos({ clave, juego: j?.success ? (j.juego ?? null) : null });
       })
       .catch(() => {
-        if (vivo) setDatos({ equipo, juego: null });
+        if (vivo) setDatos({ clave, juego: null });
       });
     return () => {
       vivo = false;
     };
-  }, [equipo]);
-  return datos && datos.equipo === equipo ? datos.juego : null;
+  }, [equipo, jornada, clave]);
+  return datos && datos.clave === clave ? datos.juego : null;
 }

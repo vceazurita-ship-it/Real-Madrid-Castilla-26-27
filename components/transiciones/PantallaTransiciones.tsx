@@ -61,8 +61,8 @@ import {
   Shield,
   FileText,
 } from "lucide-react";
-import { useCalendario } from "@/hooks/useCalendario";
-import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { useAhora, useCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
@@ -588,9 +588,11 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   const T = TEXTOS[modo];
   /* 17/11/2026 (ronda 19): el próximo rival, para ver a un toque cómo le marcan o cómo marca. */
   const { partidos: calendarioLab } = useCalendario();
+  const relojLab = useAhora();
+  /* 21/11/2026: el próximo con la regla de la portada (`proximoPartido`, hora de Madrid y 2,5 h de gracia), no «el primero sin marcador». */
   const proximoRivalLab = useMemo(
-    () => nombreEquipo(ordenaPartidos(calendarioLab).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? ""),
-    [calendarioLab],
+    () => nombreEquipo(proximoPartido(calendarioLab, relojLab)?.rival ?? ""),
+    [calendarioLab, relojLab],
   );
 
   const COLOR_ACCION = useMemo(

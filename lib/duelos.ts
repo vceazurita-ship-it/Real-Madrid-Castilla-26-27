@@ -639,6 +639,32 @@ const BUSCAR: Record<string, Plantilla> = {
   [AEREO.titulo]: (n, s) => `${n}: balón por arriba hacia él; le gana a ${s}`,
 };
 
+/** Una cifra de Wyscout en su unidad: «91,2 %», «2,3 por 90′». */
+export function cifraDeColumna(columna: string, valor: number): string {
+  const coma = (t: string) => t.replace(".", ",").replace(/^-/, "−");
+  if (/%/.test(columna)) return `${coma(valor.toFixed(1))} %`;
+  const uno = valor.toFixed(1);
+  const cifra = coma(uno === "0.0" && valor !== 0 ? valor.toFixed(2) : uno);
+  return /\/\s*90/.test(columna) ? `${cifra} por 90′` : cifra;
+}
+
+/** Desde este percentil, el objetivo ya no es subir de puesto sino mantener la cifra. */
+export const PERCENTIL_MANTENER = 95;
+
+/*
+| EL OBJETIVO CUANDO GANAMOS EL ENFRENTAMIENTO (21/11/2026, jueces de fútbol):
+| «que Cestero siga por encima de P99» no se puede pedir ni medir en una
+| sesión. Se dice en la unidad de la tarea: con P95 o más, «mantener su acierto
+| de pase (91,2 %)»; por debajo, no bajar de su cifra de hoy.
+*/
+function objetivoAFavor(quien: string, m: Medida, columnaWy: string, metrica: string): string {
+  const cifra = cifraDeColumna(columnaWy, m.valor);
+  const que = metrica || "cifra";
+  return m.percentil >= PERCENTIL_MANTENER
+    ? `que ${quien} mantenga su ${que} (${cifra})`
+    : `que ${quien} no baje de ${cifra} en ${que}; hoy está en P${m.percentil}`;
+}
+
 /** El sentido que manda en la consigna: con el balón suyo si ahí perdemos; si no, con el nuestro. */
 export const sentidoDeLaConsigna = (d: Pick<ResultadoDuelo, "conBalon" | "sinBalon">): "con" | "sin" =>
   (d.sinBalon ?? 0) <= -UMBRAL_DUELO ? "sin" : "con";
@@ -668,17 +694,22 @@ export function consignaDelDuelo(d: ResultadoDuelo, sentido: "con" | "sin"): str
   if (!plantilla) return "";
   /* El nuestro que más lo sufre (o más lo gana) y el suyo que más lo hace. */
   const porPercentil = (ms: Medida[], alto: boolean) => [...ms].sort((a, b) => (alto ? b.percentil - a.percentil : a.percentil - b.percentil))[0];
-  const n = porPercentil(elegida.nuestros, !peor)?.jugador;
-  const s = porPercentil(elegida.suyos, Boolean(peor))?.jugador;
+  const mn = porPercentil(elegida.nuestros, !peor);
+  const ms = porPercentil(elegida.suyos, Boolean(peor));
+  const n = mn?.jugador;
+  const s = ms?.jugador;
   if (!n || !s) return "";
   const nombre = (j: JugadorDuelo) => j.corto ?? apellido(j.nombre);
   /* La tarea y el objetivo medible (16/11/2026, jueces): no sólo la orden. */
   const tarea = (sentido === "sin" ? TAREA_DEFENDER : TAREA_ATACAR)[elegida.titulo];
-  const columna = rotuloColumna(sentido === "sin" || peor ? elegida.columnaSuya : elegida.columnaNuestra).toLowerCase();
+  const columnaWy = sentido === "sin" || peor ? elegida.columnaSuya : elegida.columnaNuestra;
+  const columna = rotuloColumna(columnaWy).toLowerCase();
   const en = columna ? ` en ${columna}` : "";
+  /* «acierto de pase %» → «acierto de pase»: la unidad va en la cifra. */
+  const sinUnidad = columna.replace(/\s*(%|\/\s*90)$/, "").trim();
   const objetivo = peor
-    ? `que ${nombre(s)} no pase de la mediana de su puesto (P50)${en}; hoy está en P${elegida.suyo}`
-    : `que ${nombre(n)} siga por encima de P${elegida.nuestro}${en}`;
+    ? `que ${nombre(s)} no pase de la mediana de su puesto (P50)${en}; hoy está en P${ms.percentil} (${cifraDeColumna(columnaWy, ms.valor)})`
+    : objetivoAFavor(nombre(n), mn, columnaWy, sinUnidad);
   /* Qué se cuenta en la tarea, en la misma unidad que el objetivo (17/11/2026, ronda 19, jueces de fútbol). */
   return `${plantilla(nombre(n), nombre(s))} (${elegida.titulo.toLowerCase()}: P${elegida.nuestro} frente a P${elegida.suyo}).${tarea ? ` Tarea: ${tarea}${columna ? `, contando ${columna}` : ""}.` : ""} Objetivo: ${objetivo}.`;
 }

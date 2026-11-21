@@ -19,7 +19,9 @@ import { bajaDe } from "@/lib/rivals/bajas";
 import { nombrePuesto } from "@/lib/posiciones";
 import type { InformeEquipo } from "@/lib/rivals/informe";
 import { colocacionDelOnce, ladoDeLaHoja, puestoDelRival, slotDeLaHoja } from "@/lib/rivals/colocacion-once";
-import { leePosicionesDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
+import { dibujoParecido, leePosicionesDeLaTemporada } from "@/lib/rivals/posiciones-temporada";
+import { sugiereOnce,type JugadorDeLaHoja, type OnceSugerido } from "@/lib/rivals/once-sugerido";
+import { DIBUJO_POR_DEFECTO } from "@/lib/rivals/campograma-motor";
 import {
   HUECO_VACIO,
   alturaEnCm,
@@ -174,8 +176,17 @@ export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugado
 /** Lesionado o sancionado: no entra solo en el once (sí si alguien lo pone a mano). */
 const fuera = (j: JugadorDuelo) => j.baja === "lesionado" || j.baja === "sancionado";
 
-/** Su once de partida: el marcado, su último once o los de más minutos. */
-export function baseSuyaDe(suyos: JugadorDuelo[], marcados: string[] | null, informe: InformeEquipo | null) {
+/**
+ * Su once de partida: el marcado, el probable que enseña /rivals sin nadie
+ * marcado (`sugerido`, de `onceProbableDelRival`), su último once o los de
+ * más minutos.
+ */
+export function baseSuyaDe(
+  suyos: JugadorDuelo[],
+  marcados: string[] | null,
+  informe: InformeEquipo | null,
+  sugerido: OnceSugerido | null = null,
+) {
   const porClave = new Map(suyos.map((j) => [j.clave, j]));
   /*
   | 08/11/2026 (jueces, ronda 14): el once marcado llevaba a Yago Cantero, con
@@ -189,6 +200,21 @@ export function baseSuyaDe(suyos: JugadorDuelo[], marcados: string[] | null, inf
   };
   const deLaMarca = (marcados ?? []).map((k) => porClave.get(k)).filter((j): j is JugadorDuelo => Boolean(j));
   if (deLaMarca.length >= 7) return { lista: sinBajas(deLaMarca), fuente: `Once probable marcado en Plantillas rivales${nota(deLaMarca)}` };
+  /*
+  | Sin once marcado, el MISMO once probable que enseña /rivals (21/11/2026,
+  | jueces de fútbol): antes se cogía su último once de BeSoccer y salían
+  | Calçada y Mesa en vez de Manin e I. Ramos, con Díez de delantero.
+  */
+  if (sugerido) {
+    const lista = sugerido.titulares.map((k) => porClave.get(k)).filter((j): j is JugadorDuelo => Boolean(j));
+    if (lista.length >= 7) {
+      const n = sugerido.alineaciones;
+      return {
+        lista: sinBajas(lista),
+        fuente: `Su once probable de Plantillas rivales en ${sugerido.dibujo}, propuesto con ${n === 1 ? "su último once" : `sus últimos ${n} onces`}${sugerido.conAmistosos ? " (con pretemporada)" : ""}${nota(lista)}: nadie lo ha marcado`,
+      };
+    }
+  }
   const ultimo = informe?.onces?.find((o) => o.jugadores.length > 0);
   if (ultimo) {
     const lista = ultimo.jugadores.map((u) => casaNombre(u.nombre, suyos, (j) => j.nombre)).filter((j): j is JugadorDuelo => Boolean(j));
@@ -343,11 +369,50 @@ const HUECO_DEL_BLOQUE: Record<string, string> = {
   dc: "del",
 };
 
+/*
+| Los bloques sin hueco propio en nuestro 4-2-3-1 (21/11/2026): el central del
+| medio de una línea de tres y la doble punta, o el segundo de un bloque ya
+| ocupado. Van al hueco libre más cercano en el campo, después de colocar a
+| todos los que sí lo tienen; antes se quedaban para el relleno por puesto,
+| que llegó a poner a un central de delantero.
+*/
+const HUECO_SEGUNDO: Record<string, string[]> = {
+  dfc: ["cen-d", "cen-i", "piv-d", "piv-i"],
+  dcd: ["del", "media", "ban-d"],
+  dci: ["del", "media", "ban-i"],
+  card: ["lat-d", "ban-d"],
+  cari: ["lat-i", "ban-i"],
+  dfcd: ["cen-d", "cen-i"],
+  dfci: ["cen-i", "cen-d"],
+  mcd: ["piv-d", "piv-i", "media"],
+  mci: ["piv-i", "piv-d", "media"],
+  intd: ["piv-d", "media", "piv-i"],
+  inti: ["piv-i", "media", "piv-d"],
+  ed: ["ban-d", "media"],
+  md: ["ban-d", "media"],
+  ei: ["ban-i", "media"],
+  mi: ["ban-i", "media"],
+  mp: ["media", "piv-d", "piv-i"],
+  dc: ["del", "media"],
+};
+
 export function huecosDePlantillas(puestos: Record<string, string> | undefined, titulares: string[]): Record<string, string> {
   const salida: Record<string, string> = {};
+  const colocados = new Set<string>();
   for (const clave of titulares) {
     const hueco = HUECO_DEL_BLOQUE[puestos?.[clave] ?? ""];
-    if (hueco && !salida[hueco]) salida[hueco] = clave;
+    if (hueco && !salida[hueco]) {
+      salida[hueco] = clave;
+      colocados.add(clave);
+    }
+  }
+  for (const clave of titulares) {
+    if (colocados.has(clave)) continue;
+    const hueco = (HUECO_SEGUNDO[puestos?.[clave] ?? ""] ?? []).find((h) => !salida[h]);
+    if (hueco) {
+      salida[hueco] = clave;
+      colocados.add(clave);
+    }
   }
   return salida;
 }
@@ -384,6 +449,58 @@ export function colocacionDelCampograma(
     { dibujo: doc.dibujo || lectura.dibujo, sitios: lectura.porJugador, puestos: doc.puestos, titulares: doc.titulares },
   );
   return new Map([...colocados].map(([clave, bloque]) => [clave, bloque.key]));
+}
+
+/** La plantilla de la hoja como la lee /rivals para su once (`jugadoresPlantilla`): clave, dorsal, nombre, slot y lado. */
+export function plantillaDeLaHoja(filasHoja: Fila[], equipo: string): JugadorDeLaHoja[] {
+  return filasHoja
+    .filter((f) => texto(f.NOMBRE_EQUIPO) === equipo && texto(f.ESTADO).toUpperCase() !== "NO EN PLANTILLA")
+    .map((f) => ({
+      clave: playerKey(f as never),
+      dorsal: texto(f.DORSAL),
+      nombre: texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR) || "Sin nombre",
+      slot: slotDeLaHoja(texto(f["POSICIÓN"]))?.key ?? "otros",
+      lado: ladoDeLaHoja(texto(f["POSICIÓN"])),
+    }));
+}
+
+/** Su sistema más usado según Wyscout, en el vocabulario del campograma («4-3-3»), como en /rivals; null sin Wyscout. */
+export function dibujoDeWyscout(sistemas: { partidos: number; lista: { sistema: string }[] } | null | undefined): string | null {
+  const primero = sistemas?.lista[0];
+  if (!sistemas || !primero || sistemas.partidos === 0) return null;
+  return dibujoParecido(primero.sistema);
+}
+
+/**
+ * EL ONCE PROBABLE DE /rivals, FUERA DE LA PANTALLA (21/11/2026, jueces de
+ * fútbol: Duelos ponía a Díez, central, de delantero y no sacaba a Manin).
+ *
+ * La misma cuenta que `onceSugeridoVivo` y `titularesEnSuHueco` de
+ * app/rivals/page.tsx:
+ * - dibujo: el elegido en Plantillas; si no, el más usado en Wyscout; si no,
+ *   el que más repite en BeSoccer; si no, el de siempre;
+ * - titulares: los marcados; sin ninguno, los que propone `sugiereOnce` con
+ *   sus últimos onces y lo jugado esta temporada (sin escribir nada);
+ * - el bloque de cada uno: `colocacionDelOnce`, con lo puesto a mano (que
+ *   manda) y, si no, el bloque que le da la sugerencia.
+ */
+export function onceProbableDelRival(
+  filasHoja: Fila[],
+  equipo: string,
+  informe: InformeEquipo | null,
+  doc: { dibujo?: string; puestos?: Record<string, string>; titulares?: string[] },
+  sistemaWyscout: string | null = null,
+): { titulares: string[]; colocacion: Map<string, string>; sugerido: OnceSugerido | null; dibujo: string } {
+  const plantilla = plantillaDeLaHoja(filasHoja, equipo);
+  const lectura = leePosicionesDeLaTemporada(informe, plantilla);
+  const dibujo = doc.dibujo || sistemaWyscout || lectura.dibujo || DIBUJO_POR_DEFECTO;
+  const marcados = doc.titulares ?? [];
+  const sugerido =
+    marcados.length === 0 && informe && plantilla.length > 0 ? sugiereOnce(informe, plantilla, { dibujo, sitios: lectura.porJugador }) : null;
+  const titulares = marcados.length > 0 ? marcados : (sugerido?.titulares ?? []);
+  const puestos = sugerido ? { ...sugerido.puestos, ...(doc.puestos ?? {}) } : doc.puestos;
+  const colocacion = colocacionDelCampograma(filasHoja, equipo, informe, { dibujo, puestos, titulares });
+  return { titulares, colocacion, sugerido, dibujo };
 }
 
 /** Los titulares, a nuestro hueco del 4-2-3-1 según su bloque del campograma (sin equivalencia, nada). */
@@ -463,12 +580,21 @@ export function duelosDelPartido(entrada: {
   puestosPlantillas?: Record<string, string>;
   /** El dibujo elegido en Plantillas rivales para su campograma. */
   dibujoPlantillas?: string;
+  /** Su sistema más usado en Wyscout (`dibujoDeWyscout`), como en /rivals. */
+  sistemaWyscout?: string | null;
 }): { duelos: ResultadoDuelo[]; fuenteSuya: string } {
   const nuestros = nuestrosDe(entrada.jugadores, entrada.fichas);
   const suyos = suyosDe(entrada.filasHoja, entrada.equipo, entrada.jugadores);
-  const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe);
+  const probable = onceProbableDelRival(
+    entrada.filasHoja,
+    entrada.equipo,
+    entrada.informe,
+    { dibujo: entrada.dibujoPlantillas, puestos: entrada.puestosPlantillas, titulares: entrada.marcados ?? [] },
+    entrada.sistemaWyscout ?? null,
+  );
+  const base = baseSuyaDe(suyos, entrada.marcados, entrada.informe, probable.sugerido);
   const referencias = referenciasPorPuesto(entrada.jugadores);
-  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDeBloques(colocacionDelCampograma(entrada.filasHoja, entrada.equipo, entrada.informe, { dibujo: entrada.dibujoPlantillas, puestos: entrada.puestosPlantillas, titulares: entrada.marcados ?? [] }), entrada.marcados ?? []));
+  const onceSuyo = onceSuyoDe(suyos, base.lista, entrada.aMano.suyo, huecosDeBloques(probable.colocacion, probable.titulares));
   const onceNuestro = sinChoqueDeNombres(onceNuestroDe(nuestros, entrada.aMano.nuestro, entrada.baseNuestra, entrada.fichas), onceSuyo);
   return {
     duelos: separaSinPareja(mideDuelos(onceNuestro, onceSuyo, referencias), onceSuyo).conPareja,

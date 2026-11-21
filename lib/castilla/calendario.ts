@@ -82,6 +82,30 @@ export function alrededorDe(partidos: PartidoCastilla[], ahora: number) {
   return { proximo, anterior: anteriores[anteriores.length - 1] ?? null, todos: nuestros };
 }
 
+/**
+ * EL PRÓXIMO PARTIDO, IGUAL EN TODAS LAS PANTALLAS (21/11/2026).
+ *
+ * Cada pantalla lo decidía a su manera («el primero sin marcador», «la fila de
+ * la hoja con fecha de hoy en adelante», «el de la semana del calendario»…) y
+ * el sábado tras la J13 unas decían J13 y otras J14. Ésta es la regla de la
+ * portada (`alrededorDe`): el primero cuya fecha y hora de Madrid no ha pasado,
+ * con 2,5 h de gracia para el que se está jugando. Sin reloj (`ahora` = 0, el
+ * primer render antes del efecto) o sin calendario, `null`.
+ *
+ * `ahora` se apunta en un efecto (ver components/portada/ProximoPartido.tsx):
+ * nada de `Date.now()` en el render.
+ */
+export function proximoPartido(partidos: PartidoCastilla[], ahora: number): PartidoNuestro | null {
+  if (!ahora || !partidos.length) return null;
+
+  return alrededorDe(partidos, ahora).proximo;
+}
+
+/** La jornada del próximo partido por la misma regla; 0 si no se sabe. */
+export function jornadaProxima(partidos: PartidoCastilla[], ahora: number): number {
+  return proximoPartido(partidos, ahora)?.jornada ?? 0;
+}
+
 /* ------------------------------------------------------------------ */
 /*  LA FORMA DE LA SEMANA                                              */
 /* ------------------------------------------------------------------ */

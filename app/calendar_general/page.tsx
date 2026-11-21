@@ -45,6 +45,7 @@ import { buscadorDeEscudos, traeEscudos, type Escudos } from "@/lib/data-analisi
 import { cn } from "@/lib/utils";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
 import { CALENDARIO_CASTILLA_KEY, type PartidoBesoccer } from "@/lib/viaje/calendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
 import { viajeVacio, type ViajeStore } from "@/lib/viaje/modelo";
 
 type EventType =
@@ -771,10 +772,12 @@ export default function CalendarGeneralPage() {
 
       setAutoEventos(lista);
 
-      /* El próximo partido, para la franja de arriba. */
-      const siguiente = (calendario?.partidos ?? [])
-        .filter((p) => typeof p?.cuando === "string" && p.cuando.slice(0, 10) >= hoy)
-        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
+      /* El próximo partido, para la franja de arriba. 21/11/2026: con la regla de la
+         portada (`alrededorDe`: hora de Madrid y 2,5 h de gracia), no «el primero con
+         fecha de hoy», que tras el partido de esta tarde seguía en él hasta medianoche. */
+      const conFecha = (calendario?.partidos ?? []).filter((p) => typeof p?.cuando === "string");
+      const jornadaSig = alrededorDe(conFecha.map((p) => ({ golesLocal: null, golesVisitante: null, ...p })), Date.now()).proximo;
+      const siguiente = jornadaSig ? conFecha.find((p) => p.cuando === jornadaSig.cuando && p.jornada === jornadaSig.jornada) : undefined;
 
       if (siguiente) {
         const enCasa = /castilla/i.test(siguiente.local);

@@ -16,8 +16,8 @@ import { nombreEquipo } from "@/lib/equipos";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { useEscudos } from "@/hooks/useEscudos";
 import { cn } from "@/lib/utils";
-import { useCalendario } from "@/hooks/useCalendario";
-import { comoNuestro, ordenaPartidos, type PartidoCastilla } from "@/lib/castilla/calendario";
+import { useAhora, useCalendario } from "@/hooks/useCalendario";
+import { proximoPartido, type PartidoCastilla } from "@/lib/castilla/calendario";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
@@ -350,9 +350,11 @@ export default function Page() {
   }, [golesLiga.value.partidos]);
 
   /* 17/11/2026 (ronda 19, marketing): el próximo rival, para su plan a un toque junto al título. */
+  const relojPlanes = useAhora();
+  /* 21/11/2026: el próximo con la regla de la portada (`proximoPartido`, hora de Madrid y 2,5 h de gracia), no «el primero sin marcador». */
   const proximoRival = useMemo(
-    () => ordenaPartidos(calendario as PartidoCastilla[]).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado) ?? null,
-    [calendario],
+    () => proximoPartido(calendario as PartidoCastilla[], relojPlanes),
+    [calendario, relojPlanes],
   );
 
   /* 30/10/2026: la base de esa media (cuántos equipos y jornadas), para escribirla una vez bajo las tarjetas. */

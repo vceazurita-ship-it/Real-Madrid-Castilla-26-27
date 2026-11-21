@@ -19,6 +19,7 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 
 import { colorPercentil, MEJOR, ORO, PEOR, useEscudos } from "@/components/data/graficas";
 import { cargaCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import type { FilaJugador, FilaPartido } from "@/lib/data-analisis/leer";
 import { GRUPOS, formatea } from "@/lib/data-analisis/metricas";
 import { PUESTOS } from "@/lib/data-analisis/individual";
@@ -219,14 +220,11 @@ export function PanelEquipo({
   useEffect(() => {
     let vivo = true;
     void cargaCalendario().then((partidos) => {
-      /* El día de aquí, no el de Greenwich (19/10/2026): con `toISOString`,
-         entre las 00:00 y las 02:00 «hoy» era todavía ayer. */
-      const ahora = new Date();
-      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
-      const sig = partidos
-        .filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy)
-        .sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
-      if (vivo && sig) setProximo(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
+      /* 21/11/2026: la regla de la portada (`proximoPartido`: hora de Madrid y 2,5 h
+         de gracia), no «el primero con fecha de hoy», que tras el partido de esta
+         tarde seguía abriendo el rival ya jugado hasta medianoche. */
+      const sig = proximoPartido(partidos, Date.now());
+      if (vivo && sig) setProximo(sig.rival);
     });
     return () => {
       vivo = false;

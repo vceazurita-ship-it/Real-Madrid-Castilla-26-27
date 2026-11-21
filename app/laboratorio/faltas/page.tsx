@@ -62,8 +62,8 @@ import { OptaLaboratorio } from "@/components/opta-partido/OptaLaboratorio";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { BarrasFrenteAMedia } from "@/components/analisis/BarrasFrenteAMedia";
-import { useCalendario } from "@/hooks/useCalendario";
-import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { useAhora, useCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
@@ -215,9 +215,11 @@ export default function FaltasPage() {
   const enVisual = vistaPantalla === "visual";
   /* 17/11/2026 (ronda 19): el próximo rival, para su balón parado a un toque. */
   const { partidos: calendarioFaltas } = useCalendario();
+  const relojFaltas = useAhora();
+  /* 21/11/2026: el próximo con la regla de la portada (`proximoPartido`, hora de Madrid y 2,5 h de gracia), no «el primero sin marcador». */
   const proximoRivalFaltas = useMemo(
-    () => nombreEquipo(ordenaPartidos(calendarioFaltas).map(comoNuestro).find((uno) => uno.jornada > 0 && !uno.jugado)?.rival ?? ""),
-    [calendarioFaltas],
+    () => nombreEquipo(proximoPartido(calendarioFaltas, relojFaltas)?.rival ?? ""),
+    [calendarioFaltas, relojFaltas],
   );
   const [filtro, setFiltro] = useState<Filtro>("todas");
   /*

@@ -2,12 +2,18 @@
  * EL ROBADOR OCULTO DEL RIVAL (13/11/2026), para /duelos.
  *
  * Un jugador sólo puede cortar cuando el balón lo tiene el otro. En un equipo
- * que casi no tiene el balón, sus cortes por 90 salen normales aunque corte
- * muchísimo en el rato que le dejan; en uno que lo tiene siempre, al revés.
+ * que casi no tiene el balón defiende mucho rato y sus cortes por 90 salen
+ * inflados; en uno que lo tiene casi siempre defiende poco y salen cortos.
  * Se lleva la cifra a un partido con la posesión repartida a medias, con la
- * misma fórmula que la Comparativa (`lib/comparativa-posesion.ts`):
+ * misma fórmula que la Comparativa (`lib/comparativa-posesion.ts`, el PAdj
+ * de siempre):
  *
  *   ajustada = interceptaciones/90 × 50 / (100 − posesión media de su equipo)
+ *
+ *   Con el 56 % de balón defiende el 44 %: 8,4 × 50 / 44 = 9,5 (SUBE).
+ *   Con el 39 % defiende el 61 %: 3,2 × 50 / 61 = 2,6 (BAJA).
+ *   (21/11/2026: el texto de la pantalla decía «con menos balón corta más»
+ *   para un equipo del 56 %; la cuenta era buena y la frase, al revés.)
  *
  * - **La cifra** es «Interceptaciones/90» de Wyscout: la descarga de jugadores
  *   no trae las recuperaciones sueltas, y la intercepción es el corte limpio.
@@ -37,6 +43,26 @@ export const MUESTRA_ROBO = 450;
 
 /** Desde este percentil (ajustado) se marca como robador. */
 export const UMBRAL_ROBADOR = 80;
+
+/**
+ * Hacia dónde mueve el ajuste las cifras de un equipo con esta posesión, y la
+ * frase que lo explica en pantalla (21/11/2026, jueces de fútbol). Con más de
+ * la mitad del balón el ajuste SUBE (defiende menos rato del que tendría en un
+ * partido a medias); con menos, BAJA; con el 50 %, no cambia.
+ */
+export function lecturaDelAjuste(posesion: number): { sentido: "sube" | "baja" | "igual"; defiende: number; factor: number; frase: string } {
+  const pos = Math.round(posesion);
+  const defiende = 100 - pos;
+  const factor = factorPosesion(posesion);
+  const sentido = Math.abs(factor - 1) < 0.005 ? "igual" : factor > 1 ? "sube" : "baja";
+  const frase =
+    sentido === "igual"
+      ? `su equipo tiene el ${pos} % de posesión media en sus partidos de liga (Wyscout): defiende la mitad del partido y el ajuste no cambia sus cifras.`
+      : sentido === "sube"
+        ? `su equipo tiene el balón el ${pos} % (posesión media en sus partidos de liga, Wyscout) y defiende sólo el ${defiende} % del partido: con la mitad del partido para defender cortaría más, así que el ajuste sube sus cifras.`
+        : `su equipo tiene el balón el ${pos} % (posesión media en sus partidos de liga, Wyscout) y defiende el ${defiende} % del partido: le sobran ratos para cortar, así que el ajuste baja sus cifras.`;
+  return { sentido, defiende, factor, frase };
+}
 
 /** Por debajo de tantas recuperaciones en Opta, la zona no se dice. */
 const MINIMO_ZONA = 5;

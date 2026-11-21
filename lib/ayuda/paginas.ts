@@ -116,6 +116,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (19/11/2026): ocasiones que concede el rival",
         filas: [
+          { que: "Próximo rival (abre con él)", es: "El del próximo partido según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia), en «Un equipo de un vistazo», el ABP de la categoría y la clasificación justa." },
           { que: "Vídeo del partido", es: "Los botones (Coding, Hudl, Grabación táctica, Resumen) llevan el rótulo entero; si no caben en una línea, la fila pasa a la siguiente." },
           { que: "Selector de partido", es: "Cada partido se lee corto: «J12 · Nàstic 0-1» (jornada, rival en su nombre corto y marcador con el local primero, como la cabecera)." },
           { que: "Pestañas del partido (móvil)", es: "En el móvil, «El partido / En directo / Partidos ya jugados» van en su propia fila, encima de la cinta fija, y pasan de línea si no caben; desde tableta siguen dentro de la cinta." },
@@ -381,7 +382,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== MICROCICLOS ==================== */
@@ -820,11 +821,13 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "Las láminas de ABP del partido: quién va en cada puesto, sus carreras por fases y lo que se exporta a la sala y a cada jugador.",
     origen:
       "El documento «abp-pizarra» de la app (Supabase), el calendario (partidos jugados + hoja RIVALES) y el once de la pizarra táctica. Las fotos, de la plantilla.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Montar la jornada",
         filas: [
+          { que: "Jornada que se abre y «· próximo»", es: "La próxima según BeSoccer con la regla de la portada (fecha y hora de Madrid y 2,5 h de gracia). Si no hay calendario, la primera fila con fecha de hoy en adelante." },
+          { que: "Jugadas y por jugar", es: "Con BeSoccer, cuenta como jugada cualquier jornada hasta la última que se ha jugado, aunque la hoja RIVALES la tenga con una fecha posterior." },
           { que: "Control de la convocatoria", es: "Avisa de quién falta en una diapositiva donde cabe (la de falta directa ofensiva, de lanzadores, nunca cuenta), de nombres de las consignas sin ficha y de consignas que dan a alguien otro papel: «Rematadores: … Sergio» con Sergio en «Saque y corta» en el panel" },
           { que: "Avisos de convocatoria", es: "Botón ámbar junto a Exportar con el número de avisos; lleva a «Control de la convocatoria» y lo abre" },
           { que: "Asignaciones", es: "La lámina es azul noche en los dos temas; el rótulo «Asignaciones» se queda en oro claro también en modo día" },
@@ -1284,11 +1287,15 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Duelos",
     resumen: "Nuestro once contra el once probable del rival, duelo a duelo y en los dos sentidos: dónde les podemos hacer daño con nuestro balón y dónde nos lo pueden hacer con el suyo.",
     origen: "Nuestro once: el de la pizarra táctica (tablero «Once 4-2-3-1», si es de este rival y tiene siete casados); si no, nuestro último once de Valoraciones; si no, el propuesto con los minutos de Wyscout. Su once: el marcado en Plantillas rivales; si no, su último once de BeSoccer; si no, los de más minutos, siempre sin sus bajas. Métricas: descarga de jugadores de Wyscout de toda la categoría. Posesión de cada equipo: media de sus partidos de liga de esta temporada en Wyscout. Zona de robo: «opta:jugadores» (Opta). Carril de su extremo: evento a evento de Opta de sus últimos partidos («opta:directo:<partido>»). Nombres: los nuestros con el nombre corto de la plantilla (el mismo de la pizarra); los suyos, con nombre y apellido si dos comparten apellido. Lo cambiado a mano se guarda por rival (documento «duelos:<rival>»). Segunda jugada: evento a evento de Opta de los últimos partidos del rival y del Castilla («opta:directo:<partido>»).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Lo nuevo (19/11/2026): la segunda jugada tras el balón largo",
         filas: [
+          { que: "Su once (21/11/2026)", es: "Sin once marcado en Plantillas rivales, el mismo once probable que enseña /rivals: el que propone el motor con sus últimos onces (y lo jugado esta temporada), en el dibujo elegido en Plantillas, si no el más usado en Wyscout, si no el que más repite en BeSoccer. Cada uno va al bloque que le da el campograma de /rivals y de ahí a nuestro 4-2-3-1; la doble punta, el central del medio de una línea de tres o un segundo jugador en el mismo bloque van al hueco libre más cercano. Con once marcado, el marcado. Lo cambiado aquí manda sobre todo. La fuente se dice bajo «Once de …» («Su once probable de Plantillas rivales en 4-2-3-1, propuesto con sus últimos 5 onces: nadie lo ha marcado»)." },
+          { que: "Ajustado a la posesión", es: "Interceptaciones por 90′ × 50 / (100 − posesión media de su equipo en sus partidos de liga, Wyscout): las lleva a un partido con el balón a medias. Con más del 50 % de balón el equipo defiende menos rato y el ajuste SUBE la cifra (56 %: defiende el 44 %, 8,4 × 50 / 44 = 9,5); con menos del 50 % defiende más rato y el ajuste la BAJA (39 %: 3,2 × 50 / 61 = 2,6). La frase de la tarjeta dice hacia dónde va en cada equipo." },
+          { que: "Robador oculto", es: "P80 o más ajustado y por debajo de P80 en bruto: el que corta mucho en el poco rato que su equipo defiende (equipo de mucha posesión)." },
+          { que: "Objetivo de la consigna", es: "En la misma unidad que la tarea. Si el duelo se gana y nuestro jugador ya está en P95 o más: «que mantenga su acierto de pase (su cifra de hoy, en %)». Por debajo de P95: «que no baje de su cifra de hoy» (con su percentil). Si se pierde: que el suyo no pase de la mediana de su puesto (P50), con su percentil y su cifra de hoy. «(percentil contra su puesto, Wyscout)» sólo sale cuando el objetivo lleva percentil." },
           { que: "Qué hacemos · el que decide", es: "El duelo de más peso con consigna va el primero, rotulado «el que decide, como en el Plan»" },
           { que: "Quién nos roba el balón · enlaces", es: "Cada fila con «Su ficha y vídeo» en Scout individual" },
           { que: "Segunda jugada · nombres", es: "Los de Opta se escriben con el nombre corto del once; sin cruce o con sólo la inicial, con el de nuestra plantilla" },
@@ -1482,11 +1489,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
     origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI sólo está en esta ayuda (abajo): la pantalla no depende de él.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
+          { que: "Siguiente partido y próximo rival", es: "El próximo según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia), ya no el primero sin marcador. También sale de aquí la distancia en puntos con el próximo rival en el título de la tabla." },
           { que: "Una sola fuente para el titular y las tarjetas", es: "El titular («6º de 20 con 19 puntos tras 12 jornadas»), las cuatro tarjetas de «Clasificación y marcadores» y la frase «Siguiente: J13…» salen ahora del mismo sitio que las láminas: el calendario de BeSoccer y la liga entera (goles:analisis), que se ponen al día cada noche. El puesto es el de la tabla calculada con todos los partidos de la liga hasta nuestra última jornada (desempate: diferencia de goles y goles a favor)." },
           { que: "Si una fuente va atrasada", es: "La clasificación guardada en los informes de rival sólo se renueva cuando se regenera un informe y podía quedarse jornadas atrás. Manda la más nueva: si los informes llevan más partidos que el calendario, se usan ellos (y la línea de encima de las tarjetas dice «tras N partidos»); si no, el calendario. Si la tabla de nuestra última jornada no está completa, no se da puesto y la tarjeta «Puesto» no sale." },
           { que: "Datos hasta la J·", es: "Debajo del título, el sello «Datos hasta la J12 · rival · fecha · 12 partidos»: el último partido nuestro con marcador en el calendario de BeSoccer, como en el resto de pantallas del área." },
@@ -1541,11 +1549,15 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plan de Partido",
     resumen: "La preparación de cada jornada: contexto, proyección del juego, plan con y sin balón, duelos, análisis del rival y recursos de vídeo.",
     origen: "El plan lo escribe el cuerpo técnico en la hoja RIVALES (un partido por fila) y se guarda solo. Fecha y hora del partido: calendario de BeSoccer. Duelos: Wyscout de toda la categoría, con nuestro once de la pizarra táctica (o el último de Valoraciones) y el suyo de Duelos o Plantillas. Proyección: Opta y Wyscout del grupo. Dibujo de referencia: alineaciones de BeSoccer. Vídeos y documentos: Supabase. Partido modelo (robo alto): evento a evento de Opta de todos los partidos del rival (opta:directo:<partido>) y opta:partidos.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Lo nuevo (19/11/2026): partido modelo robándole alto",
         filas: [
+          { que: "Partido que se abre", es: "El próximo según el calendario de BeSoccer, con la misma regla que la portada: el primero cuya fecha y hora de Madrid no ha pasado, con 2,5 h de gracia para el que se está jugando. Si no hay calendario, la primera fila de la hoja con fecha de hoy en adelante. El ?rival= del enlace manda sobre esto." },
+          { que: "Fecha, hora y cuenta atrás", es: "Salen de BeSoccer para la jornada del plan, también si ya se jugó (la hoja tiene la fecha del calendario de principio de temporada). «Mañana», «Ayer» o «Faltan n días» se cuentan desde esa fecha." },
+          { que: "Proyección de la jornada", es: "Es la del partido del plan que tienes abierto (su jornada y su rival), no la del próximo partido contra ese rival." },
+          { que: "Enlaces a Duelos, ABP y vídeos", es: "Llevan el rival del plan elegido, con ?equipo= y ?rival=." },
           { que: "Duelos · el que decide", es: "El resumen abre con el duelo que decide (el de «Cómo le ganamos»), rotulado, y luego los dos que más pesan" },
           { que: "Balón parado (plegado)", es: "A la vista, su córner en contra con su puesto y la orden, y el enlace a su ABP con el rival puesto" },
           { que: "Cómo le ganamos", es: "Cada tarjeta entera, sin cortar: la orden, el dato y su fuente en línea aparte" },
@@ -1801,11 +1813,13 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Lo nuevo (19/11/2026): cómo define el delantero rival",
         filas: [
+          { que: "Fecha de cada rival (J y título)", es: "La de BeSoccer para esa jornada, también si ya se jugó. Antes los partidos jugados se quedaban con la fecha de la hoja." },
+          { que: "«Plan de partido Jnn» en la tira de accesos", es: "La jornada que toca contra ese equipo la marca la última que se ha jugado según BeSoccer, no la fecha de la hoja." },
           { que: "Once probable sin nadie marcado", es: "Si nadie ha marcado el once a mano, se enseña el que propone el motor con sus últimos onces de liga de BeSoccer (lib/rivals/once-sugerido.ts, sugiereOnce). No se guarda: el contador dice «11 titulares probables», cada línea plegada da sus nombres y el campograma los pinta como titulares. Al tocar a un jugador, el once sugerido se queda puesto y ese jugador cambia, como con «Sugerir el once»." },
           { que: "Mientras llega el once", es: "Hasta que llegan el once guardado y el informe del rival, el contador, las líneas y «El once de un vistazo» enseñan un esqueleto en vez de «0 titulares» o «Sin titulares marcados»." },
           { que: "La base del dibujo", es: "Al lado del dibujo va de dónde sale: «Once probable en 4-2-3-1 · sus últimos 5 onces · su sistema en 7 de 12 · Wyscout». Si el dibujo del campo no es el que más repite, se dice «su sistema más usado: 4-3-3 (7 de 12 · Wyscout)», la misma cuenta que Scout Colectivo. Con el once marcado a mano dice «marcado a mano»." },
@@ -2303,11 +2317,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Área Condicional",
     resumen: "El seguimiento semanal del área de rendimiento: las imágenes y los PDF de cada semana de la temporada.",
     origen: "Lo sube el área condicional desde la propia pantalla; los archivos se guardan en Supabase (carpeta 2026/performance), semana a semana.",
-    revisada: "2026-11-17",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
+          { que: "AHORA · Jnn", es: "La jornada del próximo partido en cuanto el de la semana del calendario ya se ha jugado (la misma regla que la portada)." },
           { que: "La línea de resumen", es: "Semanas de la temporada, cuántas imágenes y PDF hay y en cuántas semanas, y si la de ahora ya tiene material" },
           { que: "Las casillas", es: "Una por semana ya pasada: dorada con ✓ si tiene material, en blanco si no; «ahora» es la semana en curso" },
           { que: "Todas las imágenes · Todos los PDFs", es: "Lo de toda la temporada junto, con salto a su semana" },
@@ -2329,11 +2344,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Desplazamiento de Partido",
     resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
     origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap; la distancia y el tiempo de Valdebebas al estadio, de la ruta de OSRM (o de la memoria de trayectos del analista).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Lo primero de la pantalla",
         filas: [
+          { que: "Partido que se abre", es: "El próximo partido fuera, con la fecha de BeSoccer de cada partido y la regla de la portada (fecha y hora de Madrid y 2,5 h de gracia). Si no hay calendario, la fecha de la hoja." },
           { que: "Datos por poner", es: "Sin errores ni avisos, lo que falta es una pastilla «N datos por poner»; al abrirla, una fila con un botón por dato que lleva a su campo" },
           { que: "Enlaces del rival", es: "Plan de partido, Informe del rival, Su ABP y Análisis de sus goles a la vista, con el rival ya elegido; el resto en «Más del rival»" },
           { que: "Horario tipo", es: "Sin guardar, la cabecera dice «Horario tipo por la hora del partido»" },
@@ -2599,11 +2615,15 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
     bloques: [
       {
         titulo: "Cómo se rellena",
         filas: [
+          { que: "Ranking sin entrar", es: "El ranking de acierto de la temporada y «La comida» se ven sin entrar en la quiniela: sólo los pronósticos de la jornada que sigue abierta son privados. Salen de las jornadas cerradas con resultado (de la J4 en adelante)." },
+          { que: "Documento recompuesto", es: "El 20/11 la quiniela quedó guardada con el historial troceado letra a letra (el rescate de Supabase la dejó como texto y una apuesta de la J13 la esparció). Al leer y al guardar, la app junta esas letras, recupera las jornadas 4 a 12 y las funde con lo de ahora (lo nuevo manda); el primer guardado deja el documento limpio." },
+          { que: "La comida", es: "Cuenta sólo el bloque de diez jornadas en curso. Dice «Arranca el bloque» únicamente si ninguna jornada del bloque tiene resultados; en cuanto hay alguna, enseña quién come gratis por ahora, su acierto y a cuántos aciertos está el primero que paga." },
+          { que: "Reglas", es: "«Reglas completas» sale una vez, en la cabecera de «La comida», y abre el detalle de las reglas al pie de «Cómo se cuenta» («Ver el detalle»)." },
           { que: "Ranking de acierto sin entrar", es: "El ranking de la temporada se ve sin entrar, con la jornada abierta o cerrada, y ahora también en «Jornadas anteriores» cuando la jornada está cerrada. Sale en cuanto hay algún resultado en la temporada; mientras se lee el documento, su hueco aparece en gris." },
           { que: "Acertados / jugados", es: "Cada persona lleva sus acertados y sus jugados: en escritorio, en la columna «Acertados / jugados» (43/80); en el móvil, bajo el nombre («43 de 80 acertados»). Jugados son los partidos con resultado desde su primera apuesta; el que no se pone cuenta como fallo." },
           { que: "Un solo «Entrar»", es: "Con la jornada cerrada y sin haber entrado, el acceso está sólo al final de la pantalla («Entra para ver lo tuyo»); ya no hay otro botón «Entrar» arriba." },
@@ -3353,6 +3373,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "La cabecera",
         filas: [
+          { que: "Partido de esta semana", es: "La semana es la del calendario (de lunes a domingo). Si el partido de esta semana ya se jugó, la cabecera nombra el próximo, con la misma regla que la portada (fecha y hora de Madrid de BeSoccer y 2,5 h de gracia)." },
+          { que: "AHORA · Jnn", es: "La jornada de ese partido: el próximo en cuanto el de la semana se ha jugado." },
+          { que: "Plan de partido y enlaces al rival", es: "Son los del próximo partido, con su rival ya elegido." },
           { que: "Lista de la semana con subida directa", es: "Convocatoria, horario y (si hay partido) plan de partido, cada uno con su casilla. Se marca leyendo el nombre de los archivos de la semana en curso (convoca, horario, plan). Cada cosa que falta tiene su botón «Subir…», que abre el selector de archivos y sube a la semana en curso; si el nombre del archivo no dice qué es, se le antepone («Convocatoria-…») para que la casilla quede marcada. «Otro material» sube cualquier otro archivo (JPG, PNG, WEBP o PDF, hasta 20)." },
           { que: "Plan de partido del rival", es: "En la casilla Plan de partido, «Abrir el de la J..» lleva al Plan de partido con el rival de la semana ya elegido (?rival=ID de la hoja RIVALES, buscado por la fecha del calendario de BeSoccer)." },
           { que: "Accesos de la semana, en un solo sitio", es: "Contenidos del microciclo, la plantilla del rival y su ABP van en la tarjeta de la semana en curso, arriba. Si la semana en curso está vacía, no se repite abajo otra tarjeta de la misma semana; con material, abajo sale su contenido sin repetir los accesos." },
@@ -3388,7 +3411,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Dos personas subiendo a la vez no se pisan: viaja sólo el cambio, no la temporada entera.",
       "La lectura se renueva sola: ya no hay botón «Actualizar». En el buscador (Ctrl+K) sale con «repositorio» o «general».",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== IDENTIDAD EN EL CAMPO (12/11/2026) ==================== */
@@ -3541,6 +3564,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo que sale solo",
         filas: [
+          { que: "Próximo partido (franja de arriba)", es: "El próximo según la regla de la portada: deja de serlo 2,5 h después de su hora de Madrid, no a medianoche." },
           { que: "Titular de la sesión", es: "El contenido con más minutos de lo que se hizo: las tareas del plan que no se hicieron (según los equipos) no cuentan; sin minutos, «Sesión hecha · N tareas»" },
           { que: "Sesión hecha", es: "Con equipos en Jugadores sesión, «Sesión hecha» (no «Planificada») y su carga; lo que no se hizo, tachado («… · no se hizo»)" },
           { que: "Viajes", es: "Chip con la hora delante («Salida 13:00 · Traslado al estadio») en dos líneas como mucho, que abre el desplazamiento" },
@@ -3585,7 +3609,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una fuente no llega en 15 s se ofrece reintentar; lo que sí llegó se pinta igual.",
       "Entrenos y partidos se cuentan igual que en /micro_calendar: la fila de competición no es sesión.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
   /* ==================== CALENDARIO CONDICIONAL (12/11/2026) ==================== */
   {
@@ -3782,6 +3806,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Qué se redacta",
         filas: [
+          { que: "Rival que se abre", es: "La primera jornada de la hoja RIVALES después de la última que se ha jugado según BeSoccer. Si no hay calendario, la primera con fecha de hoy en adelante." },
           { que: "Partido", es: "Las jornadas de la hoja RIVALES; abre en el próximo partido (el primero con fecha de hoy en adelante)" },
           { que: "Motor", es: "«Motor gratuito» (el del dictado por voz, sin coste) o «Motor de pago» (se cobra por uso)" },
           { que: "Redactar el borrador", es: "Manda el scouting y los planes de ejemplo al motor; tarda unos veinte segundos" },
@@ -3809,7 +3834,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Ningún texto se escribe en la hoja: lo que no se copie y se pegue en el plan, se pierde al cambiar de partido.",
       "Un rival sin scouting escrito no da borrador.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-21",
   },
 
   /* ==================== LABORATORIO ABP · EL BALÓN PARADO DE CADA LIGA (12/11/2026) ==================== */
@@ -3911,6 +3936,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
+          { que: "Próximo rival", es: "El del próximo partido según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia)." },
           { que: "Defensores por delante", es: "Con su franja «Lo normal» (de los partidos anteriores) y el número de faltas en el pie" },
           { que: "Lo que pide trabajo esta semana", es: "Se elige la cifra que se sale de la franja mínimo–máximo de los anteriores hacia su lado malo, con su tarea, qué contar y el criterio de volver dentro de lo normal. Si ninguna se sale: «Sin alarma esta semana» con la más justa y sin tarea. «Tendencia» en el titular. «Ver las N faltas en vídeo» abre la lista ya filtrada" },
           { que: "A un toque", es: "Robos, pérdidas, post, el que más comete y su seguimiento, ABP y Plan contra el próximo rival, y ABP ofensivo" },
@@ -3962,7 +3988,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
       "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
@@ -3977,6 +4003,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
+          { que: "Próximo rival", es: "El del próximo partido según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia)." },
           { que: "Sin alarma esta semana", es: "Cuando nada sale de lo normal, una sola línea con la cifra más justa, sin bloque ni tarea" },
           { que: "Frente a los anteriores", es: "Cada cifra en barra con la raya de la media; la palabra (mejor, peor, normal) en su columna y, debajo, la regla: «Lo normal: de X a Y en los N anteriores» o «Fuera de lo normal». El título dice cuántos anteriores son de Opta, que cuenta distinto; con pocos casos, «tendencia»" },
           { que: "¿Por qué no coincide con Opta?", es: "Nota plegada bajo el mapa: en una línea los robos de aquí y las recuperaciones e intercepciones del agregado de Opta; dentro, qué cuenta cada uno" },
@@ -4026,7 +4053,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "La transición son los 15 s tras el robo: lo que llega después cuenta como posesión.",
       "La «recuperación» de Opta no es la misma cuenta que el robo de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== PÉRDIDAS Y TRANSICIONES DEFENSIVAS (12/11/2026) ==================== */
@@ -4041,6 +4068,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Mandos",
         filas: [
+          { que: "Próximo rival", es: "El del próximo partido según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia)." },
           { que: "Sin alarma esta semana", es: "Cuando nada sale de lo normal, una sola línea con la cifra más justa, sin bloque ni tarea" },
           { que: "Frente a los anteriores", es: "Cada cifra en barra con la raya de la media; la palabra (mejor, peor, normal) en su columna y, debajo, la regla con la franja de los anteriores; con pocos casos, «tendencia»" },
           { que: "¿Por qué no coincide con Opta?", es: "Nota plegada bajo el mapa: las pérdidas de aquí y el total «PossLost» de Opta; dentro, qué cuenta cada uno" },
@@ -4091,7 +4119,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Pérdida es un balón nuestro que pasa al rival en juego: pase que no llega, conducción cortada, control o duelo perdido. Remates, despejes y faltas pitadas no cuentan.",
       "La «pérdida» de Opta no es la misma cuenta que la de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== CREAR O EDITAR EL MICROCICLO (12/11/2026) ==================== */
@@ -4172,6 +4200,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "El balance",
         filas: [
+          { que: "Plan del próximo partido", es: "El próximo según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia), ya no el primero sin marcador." },
           { que: "¿Cómo va la temporada?", es: "Con menos de 20 partidos, la comparación con el equipo medio lleva «· N partidos, tendencia»" },
           { que: "Botones de cada tarjeta", es: "Siempre «Post del partido» (Análisis de datos con el partido elegido) y «▶ Goles»; robos, pérdidas y faltas etiquetados, plegados en «Análisis (n)»" },
           { que: "Curva de puntos", es: "Misma escala que Histórico de la Competición: hasta el máximo real, en pasos de 3 o 6" },
@@ -4199,7 +4228,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-21",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */

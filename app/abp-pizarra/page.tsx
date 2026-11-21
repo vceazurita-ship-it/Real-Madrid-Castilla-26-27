@@ -31,7 +31,8 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { cargaCalendario } from "@/hooks/useCalendario";
+import { cargaCalendario, useAhora } from "@/hooks/useCalendario";
+import { alrededorDe, type PartidoCastilla } from "@/lib/castilla/calendario";
 import { cambiaEnTextosDelTablero, mencionesFuera } from "@/lib/abp/textos-jugadores";
 import { enLaLamina, enlazaNombres, mencionesDe } from "@/lib/abp/menciones";
 import Link from "next/link";
@@ -263,6 +264,11 @@ function rivalCorto(nombre: string) {
   }
 
   return corto || nombre;
+}
+
+/** El número de jornada de un partido («Jornada 13» → 13); 0 si no lo trae (un amistoso). */
+function numeroDePartido(partido: MatchMeta) {
+  return Number(partido.competition.match(/^Jornada\s+(\d+)/i)?.[1] ?? 0);
 }
 
 function etiquetaPartido(partido: MatchMeta, fechas?: Map<number, string>, corto = false) {
@@ -603,6 +609,8 @@ export default function PizarraAbpPage() {
   */
   /* La fecha real de cada jornada, del calendario de BeSoccer. */
   const [fechasReales, setFechasReales] = useState<Map<number, string>>(() => new Map());
+  /* El calendario entero y si ya llegó (21/11/2026): con él se decide la próxima jornada. */
+  const [calendarioBs, setCalendarioBs] = useState<PartidoCastilla[] | null>(null);
 
   useEffect(() => {
     let vivo = true;
@@ -617,6 +625,7 @@ export default function PizarraAbpPage() {
       }
 
       setFechasReales(mapa);
+      setCalendarioBs(lista);
     });
 
     return () => {
@@ -644,6 +653,33 @@ export default function PizarraAbpPage() {
   const [hoy] = useState(() => new Date().toLocaleDateString("sv-SE"));
 
   /*
+  | LA PRÓXIMA JORNADA, LA DE LA PORTADA (21/11/2026, jueces). Antes era «la
+  | primera con fecha de hoy en adelante», con la fecha de la hoja RIVALES: la
+  | J13 se jugó el viernes 20/11 y la hoja la tenía el domingo 22, así que el
+  | sábado la pizarra seguía abriendo la J13. Ahora manda `alrededorDe` sobre
+  | el calendario de BeSoccer (hora de Madrid, 2,5 h de gracia); sin él, la
+  | regla de antes. El reloj se apunta fuera del render.
+  */
+  const ahora = useAhora();
+  const vecinas = useMemo(
+    () => (calendarioBs && calendarioBs.length && ahora ? alrededorDe(calendarioBs, ahora) : null),
+    [calendarioBs, ahora],
+  );
+  const jornadaProx = vecinas?.proximo?.jornada ?? 0;
+  const jornadaJugada = vecinas?.anterior?.jornada ?? 0;
+
+  /* El desplegable abre con lo jugado, el próximo partido y el que esté
+     abierto; el resto del calendario (hasta 38 jornadas) va plegado en un
+     grupo aparte para que en el móvil no sean 38 filas seguidas. */
+  const proximoId = useMemo(
+    () =>
+      (jornadaProx ? partidos.find((item) => numeroDePartido(item) === jornadaProx)?.id : undefined) ??
+      partidos.find((item) => item.date && item.date >= hoy)?.id ??
+      "",
+    [partidos, hoy, jornadaProx],
+  );
+
+  /*
   | Al entrar manda el último tablero tocado —preparar el ABP es tarea de toda
   | la semana—, y si no hay ninguno se abre la **próxima** jornada, que es la
   | que se va a preparar, no la primera de la temporada.
@@ -658,14 +694,12 @@ export default function PizarraAbpPage() {
     | jornada que viene encima del tablero del amistoso, y al llegar la hoja el
     | partido cambiaba solo debajo de las manos.
     */
-    if (cargando || partidos.length === 0) return "";
+    if (cargando || partidos.length === 0 || calendarioBs === null || !ahora) return "";
 
     /* Lo primero que se ve es lo que hay que preparar: el próximo partido del
        calendario. Abrir el último ya jugado dejaba la semana del Algeciras con
        el Antequera delante. Desde ahí, «Rehacer desde» trae el de antes. */
-    const proximo = partidos.find((item) => item.date && item.date >= hoy);
-
-    if (proximo) return proximo.id;
+    if (proximoId) return proximoId;
 
     const conTablero = partidos.filter((item) => store.tableros?.[item.id]);
 
@@ -682,19 +716,11 @@ export default function PizarraAbpPage() {
 
     return (partidos.find((item) => item.date && item.date >= hoy) ?? partidos[0])
       .id;
-  }, [cargando, partidos, store.tableros, hoy]);
+  }, [cargando, partidos, store.tableros, hoy, calendarioBs, ahora, proximoId]);
 
   const elegido = pedido || porDefecto;
 
   const setElegido = setPedido;
-
-  /* El desplegable abre con lo jugado, el próximo partido y el que esté
-     abierto; el resto del calendario (hasta 38 jornadas) va plegado en un
-     grupo aparte para que en el móvil no sean 38 filas seguidas. */
-  const proximoId = useMemo(
-    () => partidos.find((item) => item.date && item.date >= hoy)?.id ?? "",
-    [partidos, hoy],
-  );
 
   /* Dentro de cada grupo, por fecha ascendente (antes salían J09, J10, J11, J06…). */
   const porFechaPartido = (a: MatchMeta, b: MatchMeta) =>
@@ -705,7 +731,9 @@ export default function PizarraAbpPage() {
   const etiquetaOpcion = (item: MatchMeta) =>
     `${etiquetaPartido(item, fechasReales, true).replace(/(\d{1,2} [a-zé]+\.?) \d{4}/i, "$1")}${item.id === proximoId ? " · próximo" : ""}`;
 
-  const esJugado = (item: MatchMeta) => item.id !== proximoId && Boolean(item.date) && (item.date as string) < hoy;
+  const esJugado = (item: MatchMeta) =>
+    item.id !== proximoId &&
+    (jornadaJugada > 0 && numeroDePartido(item) > 0 ? numeroDePartido(item) <= jornadaJugada : Boolean(item.date) && (item.date as string) < hoy);
 
   const partido = useMemo(
     () => partidos.find((item) => item.id === elegido) ?? null,
@@ -774,11 +802,15 @@ export default function PizarraAbpPage() {
   const gruposJornada = useMemo(() => {
     const porFecha = (a: JornadaRival, b: JornadaRival) =>
       (a.fecha || "9999").localeCompare(b.fecha || "9999") || a.id.localeCompare(b.id);
-    const jugadas = jornadas.filter((item) => item.fecha && item.fecha < hoy).sort(porFecha);
-    const proximas = jornadas.filter((item) => !item.fecha || item.fecha >= hoy).sort(porFecha);
+    /* 21/11/2026: con BeSoccer manda la jornada (la última jugada), no la fecha de la hoja. */
+    const yaJugada = (item: JornadaRival) =>
+      jornadaJugada > 0 && Number(item.jornada) > 0 ? Number(item.jornada) <= jornadaJugada : Boolean(item.fecha) && item.fecha < hoy;
+    const jugadas = jornadas.filter(yaJugada).sort(porFecha);
+    const proximas = jornadas.filter((item) => !yaJugada(item)).sort(porFecha);
+    const laProxima = jornadaProx ? proximas.find((item) => Number(item.jornada) === jornadaProx) : undefined;
 
-    return { jugadas, proximas, siguienteId: proximas.find((item) => item.fecha)?.id ?? "" };
-  }, [jornadas, hoy]);
+    return { jugadas, proximas, siguienteId: laProxima?.id ?? proximas.find((item) => item.fecha)?.id ?? "" };
+  }, [jornadas, hoy, jornadaJugada, jornadaProx]);
 
   /** Atada a mano: manda sobre el parecido de nombres. */
   const atada = Boolean(tablero?.rivalId);

@@ -16,7 +16,7 @@ import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { COMPARADO, MEJOR, ORO, PEOR, tinta, useEscudos } from "@/components/data/graficas";
 import { cargaCalendario } from "@/hooks/useCalendario";
-import { alrededorDe } from "@/lib/castilla/calendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { clasificacionJusta, jornadasDe, type FilaJusta } from "@/lib/data-analisis/clasificacion-justa";
 import { CASTILLA_OPTA } from "@/lib/opta";
@@ -50,11 +50,9 @@ export function useProximoRival(): string {
   useEffect(() => {
     let vivo = true;
     void cargaCalendario().then((partidos) => {
-      /* El mismo corte que la portada (13/11/2026): el de hoy deja de ser el
-         próximo en cuanto tiene marcador o pasan 2 h 30 desde su hora. */
-      const ahora = Date.now();
-      const pendientes = partidos.filter((p) => !(p.golesLocal !== null && p.golesVisitante !== null && Date.parse(p.cuando) <= ahora));
-      const sig = alrededorDe(pendientes, ahora).proximo;
+      /* El mismo corte que la portada (13/11/2026; 21/11/2026, la misma función
+         `proximoPartido` en todas las pantallas): hora de Madrid y 2 h 30 de gracia. */
+      const sig = proximoPartido(partidos, Date.now());
       if (vivo) setProximo(sig?.rival ?? "");
     });
     return () => {

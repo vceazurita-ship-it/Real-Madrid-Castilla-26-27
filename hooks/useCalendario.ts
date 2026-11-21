@@ -84,3 +84,20 @@ export function useCalendario() {
 
   return { partidos, cargando, fallo, reintentar };
 }
+
+/**
+ * El reloj, apuntado una vez y fuera del render (21/11/2026): 0 en el primer
+ * render y `Date.now()` justo después, el mismo patrón que la portada
+ * (components/portada/ProximoPartido.tsx). Para `proximoPartido(partidos, ahora)`.
+ */
+export function useAhora() {
+  const [ahora, setAhora] = useState(0);
+
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
+  return ahora;
+}

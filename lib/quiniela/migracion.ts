@@ -56,8 +56,94 @@ function migraJornada(clave: string, jornada: JornadaQuiniela): JornadaQuiniela 
   };
 }
 
+/*
+| EL DOCUMENTO TROCEADO LETRA A LETRA (21/11/2026).
+|
+| El 20/11 el rescate de Supabase dejó la quiniela guardada como UN TEXTO con
+| el JSON dentro. Antes de que `readDoc` aprendiera a leerlo (desdeTexto), una
+| apuesta de la J13 pasó por `{ ...QUINIELA_VACIA, ...data }`: esparcir un
+| texto da un objeto con una clave por letra («0»: "{", «1»: "\"", …), y se
+| guardó así, con `jornadas` sólo con la J13. En pantalla el ranking y la
+| comida desaparecieron: de la J4 a la J12 no quedaba nada a la vista.
+|
+| Pero nada se perdió: esas ~9.800 claves son, en orden, el documento entero.
+| Aquí se vuelven a juntar, se lee lo que había y se funde con lo de ahora
+| (lo de ahora manda; lo viejo rellena lo que falte). Se aplica al leer y al
+| guardar: el primer guardado deja el documento limpio en la base.
+*/
+function juntaLetras(doc: Record<string, unknown>): Record<string, unknown> | null {
+  if (!Object.prototype.hasOwnProperty.call(doc, "0")) return null;
+
+  const letras: string[] = [];
+
+  for (let i = 0; Object.prototype.hasOwnProperty.call(doc, String(i)); i += 1) {
+    const letra = doc[String(i)];
+
+    if (typeof letra !== "string" || letra.length !== 1) return null;
+
+    letras.push(letra);
+  }
+
+  try {
+    const dentro: unknown = JSON.parse(letras.join(""));
+
+    return dentro && typeof dentro === "object" && !Array.isArray(dentro)
+      ? (dentro as Record<string, unknown>)
+      : null;
+  } catch {
+    return null;
+  }
+}
+
+function funde(vieja: JornadaQuiniela | undefined, nueva: JornadaQuiniela | undefined): JornadaQuiniela {
+  if (!vieja) return nueva as JornadaQuiniela;
+  if (!nueva) return vieja;
+
+  const resultadosNuevos = nueva.resultados ?? [];
+  const resultadosViejos = vieja.resultados ?? [];
+  const largo = Math.max(resultadosNuevos.length, resultadosViejos.length);
+
+  return {
+    ...vieja,
+    ...nueva,
+    pronosticos: { ...(vieja.pronosticos ?? {}), ...(nueva.pronosticos ?? {}) },
+    resultados: Array.from({ length: largo }, (_, i) => resultadosNuevos[i] ?? resultadosViejos[i] ?? null),
+  };
+}
+
+export function recomponeTroceado(doc: DocumentoQuiniela): DocumentoQuiniela {
+  const plano = doc as unknown as Record<string, unknown>;
+
+  const dentro = juntaLetras(plano);
+
+  if (!dentro) return doc;
+
+  /* Por si se troceó más de una vez. */
+  const viejo = recomponeTroceado(dentro as unknown as DocumentoQuiniela);
+
+  const limpio = Object.fromEntries(Object.entries(plano).filter(([clave]) => !/^\d+$/.test(clave))) as unknown as DocumentoQuiniela;
+
+  const claves = new Set([...Object.keys(viejo.jornadas ?? {}), ...Object.keys(limpio.jornadas ?? {})]);
+
+  const unir = <T,>(a?: T[], b?: T[]) => (a || b ? [...new Set([...(a ?? []), ...(b ?? [])])] : undefined);
+
+  return {
+    ...viejo,
+    ...limpio,
+    jornadas: Object.fromEntries(
+      [...claves].map((clave) => [clave, funde(viejo.jornadas?.[clave], limpio.jornadas?.[clave])]),
+    ),
+    jugadores: limpio.jugadores?.length ? limpio.jugadores : viejo.jugadores ?? [],
+    extras: { ...(viejo.extras ?? {}), ...(limpio.extras ?? {}) },
+    avisadas: unir(viejo.avisadas, limpio.avisadas),
+    recordadas: unir(viejo.recordadas, limpio.recordadas),
+  };
+}
+
 /** El documento con todas sus jornadas ya en el calendario de nueve. */
-export function sinCastilla(doc: DocumentoQuiniela): DocumentoQuiniela {
+export function sinCastilla(entrada: DocumentoQuiniela): DocumentoQuiniela {
+  const doc = recomponeTroceado(entrada);
+
   return {
     ...doc,
     jornadas: Object.fromEntries(

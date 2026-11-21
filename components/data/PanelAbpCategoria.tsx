@@ -31,6 +31,7 @@ import { BotonesAccion, irAFila, opcionesDeAccion, propsBolita, useMenuAccion, t
 import { useAbpTodas } from "@/hooks/useAbpAcciones";
 import { useAdmin } from "@/hooks/useAdmin";
 import { cargaCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import { aMetros, dibujable, enlaceAccionLab, tiempoVideo, videoDe, zonaDe, type Accion, type PuntoWy, type TipoAccion } from "@/lib/abp-lab/acciones";
 import { DOC_CORTES_ABP, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 import type { Zona } from "@/lib/abp-lab/modelo";
@@ -267,11 +268,10 @@ export function PanelAbpCategoria() {
     let vivo = true;
 
     void cargaCalendario().then((partidos) => {
-      const ahora = new Date();
-      const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
-      const sig = partidos.filter((p) => p.cuando && p.cuando.slice(0, 10) >= hoy).sort((a, b) => a.cuando.localeCompare(b.cuando))[0];
+      /* 21/11/2026: la regla de la portada (`proximoPartido`: hora de Madrid y 2,5 h de gracia). */
+      const sig = proximoPartido(partidos, Date.now());
 
-      if (vivo && sig) setProximoBs(/castilla/i.test(sig.local) ? sig.visitante : sig.local);
+      if (vivo && sig) setProximoBs(sig.rival);
     });
 
     return () => {

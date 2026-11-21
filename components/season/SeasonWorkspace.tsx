@@ -32,7 +32,7 @@ import WeekPanel from "./WeekPanel";
 import { useCalendario } from "@/hooks/useCalendario";
 import { partidoDeLaSemana, rotuloPartido } from "@/lib/season/partido-semana";
 import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
-import type { PartidoNuestro } from "@/lib/castilla/calendario";
+import { proximoPartido, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { urlPostDelPartido } from "@/lib/post-partido";
 
 interface Props {
@@ -188,7 +188,26 @@ export default function SeasonWorkspace({ area }: Props) {
   | Plan de partido y al ABP del rival con el rival ya elegido.
   */
   const jornadasRivales = useJornadasRivales();
-  const partidoActual = useMemo(() => partidoDeLaSemana(calendario, currentWeek), [calendario, currentWeek]);
+  /*
+  | EL PARTIDO «DE ESTA SEMANA» ES EL PRÓXIMO (21/11/2026, jueces): la semana
+  | sigue siendo la del calendario (lunes a domingo), pero el sábado tras la
+  | J13 (vie 20/11) la cabecera decía «J13 vs Real Murcia · 0-2» y «AHORA ·
+  | J13» cuando ya tocaba la J14. Si el de la semana ya se jugó, se nombra el
+  | próximo por la regla de la portada (`proximoPartido`: hora de Madrid y
+  | 2,5 h de gracia). El reloj, en un efecto: nada de `Date.now()` al pintar.
+  */
+  const [ahora, setAhora] = useState(0);
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+    return () => clearTimeout(id);
+  }, []);
+  const partidoActual = useMemo(() => {
+    if (!ahora) return null;
+    const deLaSemana = partidoDeLaSemana(calendario, currentWeek);
+    if (!deLaSemana) return null;
+    const proximo = proximoPartido(calendario, ahora);
+    return proximo && deLaSemana.cuando < proximo.cuando ? proximo : deLaSemana;
+  }, [calendario, currentWeek, ahora]);
   const enlacesActual = useMemo(
     () => (partidoActual && !partidoActual.jugado ? enlacesDelRival(jornadasRivales, partidoActual.rival, partidoActual.cuando) : []),
     [jornadasRivales, partidoActual]
