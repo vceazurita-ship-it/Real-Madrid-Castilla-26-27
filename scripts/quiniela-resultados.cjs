@@ -159,8 +159,14 @@ function entorno() {
 /*  LA PASADA                                                          */
 /* ------------------------------------------------------------------ */
 
+/* 20/11/2026: el documento pudo quedar guardado como texto con el JSON dentro (jsonb 'string'). */
+function desdeTexto(v) {
+  if (typeof v !== "string") return v;
+  try { return JSON.parse(v); } catch { return v; }
+}
+
 async function main() {
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 10);
 
   const jornadas = jornadaPedida ? [jornadaPedida] : jornadasQueTocan(hoy);
 
@@ -178,7 +184,7 @@ async function main() {
 
   if (error) throw new Error(`No se ha podido leer la quiniela: ${error.message}`);
 
-  const doc = fila?.data ?? { jornadas: {}, jugadores: [] };
+  const doc = desdeTexto(fila?.data) ?? { jornadas: {}, jugadores: [] };
 
   doc.jornadas = doc.jornadas ?? {};
 
@@ -327,7 +333,10 @@ async function main() {
 
   if (alReleer) throw new Error(`No se ha podido releer la quiniela: ${alReleer.message}`);
 
-  const fresco = ahora?.data ?? doc;
+  const fresco = desdeTexto(ahora?.data) ?? doc;
+
+  /* Un texto no admite propiedades: se escribiría sin los resultados. */
+  if (!fresco || typeof fresco !== "object") throw new Error("La quiniela de la base no es un documento: no se escribe.");
 
   fresco.jornadas = fresco.jornadas ?? {};
 

@@ -366,7 +366,8 @@ export function InformePartidoDialog({
         setMicros(lista.filter((m) => !/no\s+competici/i.test(m.rival)));
         setSinCompeticion(lista.filter((m) => /no\s+competici/i.test(m.rival)));
 
-        const hoy = new Date().toISOString().slice(0, 10);
+        /* El día de Madrid (toISOString es UTC: de 0:00 a 1:00 daba ayer). */
+        const hoy = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 10);
         const sig = [...(calendario ?? [])].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando.slice(0, 10) >= hoy);
         const norma = (t: string) => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
         const rival = sig ? norma(/castilla/i.test(sig.local) ? sig.visitante : sig.local) : "";
