@@ -164,7 +164,15 @@ export function UltimoPartido3D() {
     {
       tema: "Balón parado",
       dato: `${n(x.Corners)} córners nuestros y ${n(y.Corners)} suyos`,
-      base: tieneAbp ? `xG a balón parado: ${coma(n(x.xGSetPly))} nuestro y ${coma(n(y.xGSetPly))} suyo` : "",
+      /* 20/11/2026 (ronda 7, fútbol): el desenlace con su base: cuántas ocasiones dio el balón parado a cada uno (Opta, ChncSetPl) y su xG. */
+      base: [
+        typeof x.ChncSetPl === "number" && typeof y.ChncSetPl === "number"
+          ? `a balón parado: ${n(x.ChncSetPl)} ${n(x.ChncSetPl) === 1 ? "ocasión nuestra" : "ocasiones nuestras"} · ${n(y.ChncSetPl)} ${n(y.ChncSetPl) === 1 ? "suya" : "suyas"}`
+          : "",
+        tieneAbp ? `xG a balón parado ${coma(n(x.xGSetPly))} nuestro y ${coma(n(y.xGSetPly))} suyo` : "",
+      ]
+        .filter(Boolean)
+        .join(" · "),
       entrenar: n(y.Corners) > n(x.Corners) ? "defensa del córner: marcas y rechace" : "nuestros córners: primer palo y segunda jugada",
       href: hrefMapas,
     },

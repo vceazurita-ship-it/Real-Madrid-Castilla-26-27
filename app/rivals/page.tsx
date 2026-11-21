@@ -1175,13 +1175,6 @@ export default function RivalPlayersPage() {
     [once, pitchTeam],
   );
 
-  const ciclarOnceDe = useCallback(
-    (player: RivalPlayer) =>
-      player.NOMBRE_EQUIPO === pitchTeam
-        ? () => once.ciclar(playerKey(player))
-        : undefined,
-    [once, pitchTeam],
-  );
 
   const onceResumen = useMemo(() => {
     const claves = new Set(plantillaCampo.map((player) => playerKey(player)));
@@ -1689,6 +1682,94 @@ export default function RivalPlayersPage() {
       : "";
 
   /*
+  | EL ONCE QUE SE VE SIN NADIE MARCADO (20/11/2026, jueces): el campograma
+  | decía «Once probable en 4-2-3-1» con «0 titulares de 25» y «Sin titulares
+  | marcados» en cada línea. Sin once marcado a mano, se enseña el que propone
+  | el motor (`sugiereOnce`, sus últimos onces) **sin escribirlo**: el contador,
+  | las líneas, el reparto por hueco y «El once de un vistazo» leen de aquí. Al
+  | tocar a alguien se deja puesto y se cambia como siempre.
+  */
+  const onceSugeridoVivo = useMemo(() => {
+    if (!pitchTeam || pitchTeam !== selectedTeam || onceResumen.titulares > 0) return null;
+
+    const informe = findInforme(informeDoc, pitchTeam);
+
+    if (!informe || jugadoresPlantilla.length === 0) return null;
+
+    return sugiereOnce(informe, jugadoresPlantilla, {
+      dibujo: dibujoDelEquipo,
+      sitios: lecturaTemporada.porJugador,
+    });
+  }, [pitchTeam, selectedTeam, onceResumen.titulares, informeDoc, jugadoresPlantilla, dibujoDelEquipo, lecturaTemporada.porJugador]);
+
+  /* Mientras llegan el once guardado o el informe del rival: esqueleto, no avisos. */
+  const onceSugeridoCargando =
+    onceResumen.titulares === 0 && !onceSugeridoVivo && (once.status === "loading" || (!informeDoc && !informeFalta));
+
+  const titularesVistos = useMemo(
+    () => (onceResumen.titulares > 0 ? once.doc.titulares : (onceSugeridoVivo?.titulares ?? [])),
+    [onceResumen.titulares, once.doc.titulares, onceSugeridoVivo],
+  );
+
+  const titularesVistosSet = useMemo(() => new Set(titularesVistos), [titularesVistos]);
+
+  /*
+  | Tocar a alguien con el once sugerido a la vista lo deja puesto primero
+  | (como «Sugerir el once») y después cambia a ese jugador: si no, el primer
+  | clic dejaba un once de uno y los otros diez desaparecían.
+  */
+  const ciclarOnceDe = useCallback(
+    (player: RivalPlayer) =>
+      player.NOMBRE_EQUIPO === pitchTeam
+        ? () => {
+            if (onceSugeridoVivo) {
+              once.proponer(onceSugeridoVivo.titulares, onceSugeridoVivo.campo, { dibujo: onceSugeridoVivo.dibujo });
+            }
+
+            once.ciclar(playerKey(player));
+          }
+        : undefined,
+    [once, pitchTeam, onceSugeridoVivo],
+  );
+
+  /* El estado que se pinta: el marcado y, si no hay ninguno, el sugerido como titular. */
+  const onceVistoDe = useCallback(
+    (player: RivalPlayer): OnceEstado => {
+      const marcado = onceDe(player);
+
+      if (marcado || !onceSugeridoVivo || player.NOMBRE_EQUIPO !== pitchTeam) return marcado;
+
+      return titularesVistosSet.has(playerKey(player)) ? "titular" : null;
+    },
+    [onceDe, onceSugeridoVivo, pitchTeam, titularesVistosSet],
+  );
+
+  /*
+  | Su base, junto al dibujo (20/11/2026, jueces): «4-2-3-1 · sus últimos 5
+  | onces», el dato con el que el motor ha puesto a cada uno; y si el dibujo no
+  | es el que más repite, el suyo con su cuenta, para no contradecir a Scout
+  | Colectivo («4-3-3 en 7 de 12»).
+  */
+  const baseDelDibujo = useMemo(() => {
+    const partes: string[] = [];
+
+    if (onceSugeridoVivo) {
+      const n = onceSugeridoVivo.alineaciones;
+      partes.push(`${n === 1 ? "su último once" : `sus últimos ${n} onces`}${onceSugeridoVivo.conAmistosos ? " (con pretemporada)" : ""}`);
+    } else if (onceResumen.titulares > 0) {
+      partes.push("marcado a mano");
+    }
+
+    if (dibujoSuyo && baseDelSistema) {
+      partes.push(dibujoDelEquipo !== dibujoSuyo ? `su sistema más usado: ${dibujoSuyo} (${baseDelSistema})` : `su sistema en ${baseDelSistema}`);
+    } else if (!once.doc.dibujo && !dibujoSuyo) {
+      partes.push("dibujo de partida: aún no hay alineaciones suyas");
+    }
+
+    return partes.join(" · ");
+  }, [onceSugeridoVivo, onceResumen.titulares, dibujoSuyo, baseDelSistema, dibujoDelEquipo, once.doc.dibujo]);
+
+  /*
   | Arrastrar a alguien a otro puesto del campograma.
   |
   | Se guarda con el once —es lo mismo: análisis de este rival que hay que
@@ -1770,7 +1851,9 @@ export default function RivalPlayersPage() {
   */
   const titularesEnSuHueco = useMemo(() => {
     const bloques = dibujoDeCampo(dibujoDelEquipo);
-    const titulares = new Set(once.doc.titulares);
+    /* Con el once sugerido (nadie ha marcado), el suyo y en los huecos que le da el motor. */
+    const titulares = titularesVistosSet;
+    const fijadoDe = (clave: string) => once.doc.puestos?.[clave] ?? (onceResumen.titulares > 0 ? undefined : onceSugeridoVivo?.puestos[clave]);
     const suyos = plantillaCampo.filter((player) => titulares.has(playerKey(player)));
 
     if (suyos.length === 0) return { asignados: {} as Record<string, string>, vacios: [] as string[], sobran: [] as string[], fuera: [] as { clave: string; nombre: string; hueco: string }[] };
@@ -1784,7 +1867,7 @@ export default function RivalPlayersPage() {
     */
     const sitio = (player: RivalPlayer) => sitioDelJugador(player, lecturaTemporada.porJugador);
     const reparto = asignaTitulares(suyos, sitio, bloques, {
-      fijado: (player) => once.doc.puestos?.[playerKey(player)],
+      fijado: (player) => fijadoDe(playerKey(player)),
       rellena: true,
     });
 
@@ -1809,7 +1892,7 @@ export default function RivalPlayersPage() {
       .map((player) => conTildes(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim()));
 
     return { asignados, vacios, sobran, fuera };
-  }, [dibujoDelEquipo, once.doc.titulares, once.doc.puestos, plantillaCampo, lecturaTemporada.porJugador]);
+  }, [dibujoDelEquipo, titularesVistosSet, once.doc.puestos, onceResumen.titulares, onceSugeridoVivo, plantillaCampo, lecturaTemporada.porJugador]);
 
 
 
@@ -3255,7 +3338,8 @@ export default function RivalPlayersPage() {
       | defensiva. Ahí manda lo que nos hace el duelo con su balón: sus
       | debilidades se quedan para «Dónde hacerles daño».
       */
-      return delDuelo ? { ...uno, rasgos: delDuelo.enContra ? [] : uno.rasgos, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra } : uno;
+      /* 20/11/2026 (ronda 7, fútbol): `decide` para que la tarjeta lo rotule y vaya la primera aunque su jugador ya tenga tarjeta de amenaza. */
+      return delDuelo ? { ...uno, rasgos: delDuelo.enContra ? [] : uno.rasgos, accion: delDuelo.accion, cifra: "", duelo: delDuelo.duelo, enContra: delDuelo.enContra, decide: esElQueDecide } : uno;
     }).filter((uno) => uno.accion);
   }, [players, perfilesRival, perfilesPorFicha, selectedTeam, statsDoc, centralesAnalista, analistaLeidoDe, duelosDelRival, duelosListos, dibujoDelEquipo, titularesEnSuHueco]);
 
@@ -3269,7 +3353,7 @@ export default function RivalPlayersPage() {
   | una. Cada lectura lleva su cifra y su base; lo que no tiene dato no sale.
   */
   const resumenDelOnce = useMemo((): LineaResumen[] => {
-    if (pitchTeam !== selectedTeam || once.doc.titulares.length === 0) return [];
+    if (pitchTeam !== selectedTeam || titularesVistos.length === 0) return [];
 
     /*
     | 18/11/2026 (jueces): las líneas son las del dibujo (`lineasDelDibujo`), las
@@ -3278,7 +3362,7 @@ export default function RivalPlayersPage() {
     */
     const bloques = dibujoDeCampo(dibujoDelEquipo);
     const lineas = lineasDelDibujo(dibujoDelEquipo);
-    const titulares = new Set(once.doc.titulares);
+    const titulares = titularesVistosSet;
     const suyos = plantillaCampo.filter((player) => titulares.has(playerKey(player)));
     const fuera = new Set(titularesEnSuHueco.fuera.map((uno) => uno.clave));
 
@@ -3323,6 +3407,8 @@ export default function RivalPlayersPage() {
             veredicto: null,
             /* 20/11/2026 (ronda 5, fútbol): Usse Diao, 234′, sin aviso aquí y con él en Scout individual. */
             muestraCorta: perfil && perfil.minutos < MINUTOS_TENDENCIA ? `${Math.round(perfil.minutos).toLocaleString("es-ES")}′` : "",
+            /* 20/11/2026 (ronda 7, análisis): su Scout individual con el rival y él ya elegidos, el mismo enlace que su ficha. */
+            individual: `/scout-rival-individual?equipo=${encodeURIComponent(String(player.NOMBRE_EQUIPO || selectedTeam || ""))}&jugador=${encodeURIComponent(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || ""))}`,
           } as FichaResumen,
           porque,
           corto,
@@ -3351,7 +3437,10 @@ export default function RivalPlayersPage() {
         .sort((a, b) => a.x - b.x)
         .map((uno) => uno.ficha),
     }));
-  }, [pitchTeam, selectedTeam, once.doc.titulares, dibujoDelEquipo, plantillaCampo, titularesEnSuHueco, perfilesPorFicha]);
+  }, [pitchTeam, selectedTeam, titularesVistos, titularesVistosSet, dibujoDelEquipo, plantillaCampo, titularesEnSuHueco, perfilesPorFicha]);
+
+  /* «Once probable en 4-2-3-1 · sus últimos 5 onces», el mismo rótulo del campograma (20/11/2026). */
+  const dibujoDelResumen = `Once probable en ${dibujoDelEquipo}${baseDelDibujo ? ` · ${baseDelDibujo}` : ""}`;
 
   /* Del resumen a la ficha: la clave del once → su fila de la plantilla. */
   const abreDelOnce = useCallback(
@@ -4282,27 +4371,18 @@ export default function RivalPlayersPage() {
                       renglones (no se corta nada); en el ordenador, un degradado
                       del color de la página sobre el borde y la flecha dorada.
                     */}
-                    <div className="relative min-w-0 flex-1">
-                      <div id="fila-de-rivales" className="scrollbar-none flex min-w-0 gap-1.5 pb-1 max-sm:flex-wrap sm:overflow-x-auto sm:pr-12">
-                        {teams.filter((team) => team !== proximo).map((team) => chip(team, false))}
+                    {/*
+                    | 20/11/2026 (ronda 7, análisis): la fila que se deslizaba dejaba
+                    | el último escudo cortado («Huesc…»). En el ordenador salen el
+                    | próximo y los tres siguientes del calendario, enteros, y el
+                    | resto se elige en «Ir a rival…», a la vista. En el móvil, al
+                    | pulsar «Cambiar equipo», la lista entera en renglones.
+                    */}
+                    <div className="min-w-0 flex-1">
+                      <div id="fila-de-rivales" className="flex min-w-0 flex-wrap gap-1.5 pb-1">
+                        {teams.filter((team) => team !== proximo).map((team, i) => (i < 3 ? chip(team, false) : <span key={team.name} className="contents sm:hidden">{chip(team, false)}</span>))}
                       </div>
-                      <span
-                        aria-hidden
-                        className="pointer-events-none absolute inset-y-0 right-0 hidden w-14 sm:block"
-                        style={{ background: "linear-gradient(to right, transparent, var(--rmcf-page, var(--background)) 70%)" }}
-                      />
                     </div>
-                    {/* Que se vea que la fila sigue (17/11/2026, ronda 20, análisis): una flecha que la desliza. */}
-                    <button
-                      type="button"
-                      aria-label="Ver más equipos"
-                      aria-controls="fila-de-rivales"
-                      title={`${teams.length - (proximo ? 1 : 0)} equipos: desliza o pulsa para ver más`}
-                      onClick={() => document.getElementById("fila-de-rivales")?.scrollBy({ left: 260, behavior: "smooth" })}
-                      className="hidden h-9 shrink-0 items-center justify-center gap-1 rounded-full border border-[#C8A96B]/60 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 sm:flex"
-                    >
-                      {teams.length - (proximo ? 1 : 0)} <span className="text-lg leading-none">›</span>
-                    </button>
                     {/* «Ir a rival» (20/11/2026, jueces de análisis): con 18 en la fila, cualquiera a un toque y ya elegido. */}
                     <select
                       aria-label="Ir a un rival"
@@ -4313,9 +4393,9 @@ export default function RivalPlayersPage() {
                         setCambiandoEquipo(false);
                         setSearch("");
                       }}
-                      className="hidden h-9 shrink-0 rounded-full border border-white/15 bg-[#0F141B] px-3 text-[12px] font-semibold text-white/75 outline-none transition hover:border-white/30 sm:block"
+                      className="hidden h-9 shrink-0 rounded-full border border-[#C8A96B]/60 bg-[#C8A96B]/10 px-3 text-[13px] font-semibold text-[#C8A96B] outline-none transition hover:bg-[#C8A96B]/20 sm:block"
                     >
-                      <option value="">Ir a rival…</option>
+                      <option value="">{`Ir a rival… (${teams.length})`}</option>
                       {teams.map((team) => (
                         <option key={team.name} value={team.name}>
                           {team.name}
@@ -4401,7 +4481,12 @@ export default function RivalPlayersPage() {
 
                   <div className="order-1 min-w-0 space-y-4 lg:order-none">
                     {/* EL ONCE DE UN VISTAZO — la conclusión antes de los 25 (17/11/2026, jueces de fútbol). */}
-                    {selectedTeam && <ResumenDelOnce equipo={selectedTeam} dibujo={`Once probable en ${dibujoDelEquipo}`} lineas={resumenDelOnce} abrir={abreDelOnce} />}
+                    {/* En el móvil, aquí; en el escritorio va encima del campograma (20/11/2026, jueces: sólo se veía en el móvil). */}
+                    {selectedTeam && (
+                      <div className="min-w-0 lg:hidden">
+                        <ResumenDelOnce equipo={selectedTeam} dibujo={dibujoDelResumen} lineas={resumenDelOnce} abrir={abreDelOnce} cargando={onceSugeridoCargando} />
+                      </div>
+                    )}
 
                     {/* FILTROS */}
 
@@ -4574,9 +4659,15 @@ export default function RivalPlayersPage() {
                                 {line.title}
                               </span>
                               {!lineaVisible(line.key) && (
-                                <span className="mt-0.5 block truncate text-[11px] normal-case tracking-normal text-white/50">
-                                  {line.players.filter((player) => onceDe(player) === "titular").map((player) => conTildes(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim())).join(" · ") || "Sin titulares marcados"}
-                                </span>
+                                onceSugeridoCargando ? (
+                                  /* El once sugerido aún no ha llegado (20/11/2026): esqueleto, no «Sin titulares marcados». */
+                                  <span aria-hidden className="mt-1 block h-2.5 w-28 max-w-full animate-pulse rounded-full bg-white/10" />
+                                ) : (
+                                  <span className="mt-0.5 block truncate text-[11px] normal-case tracking-normal text-white/50">
+                                    {line.players.filter((player) => player.NOMBRE_EQUIPO === pitchTeam && titularesVistosSet.has(playerKey(player))).map((player) => conTildes(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "").trim())).join(" · ") ||
+                                      (onceSugeridoVivo ? "Ninguno en el once probable" : onceResumen.titulares > 0 ? "Ninguno en el once marcado" : "Sin titulares marcados")}
+                                  </span>
+                                )
                               )}
                             </span>
 
@@ -4628,7 +4719,7 @@ export default function RivalPlayersPage() {
                                       key={idDeJugador(player)}
                                       player={player}
                                       showTeam={teamsInResults.length > 1}
-                                      onceEstado={onceDe(player)}
+                                      onceEstado={onceVistoDe(player)}
                                       onCiclarOnce={ciclarOnceDe(player)}
                                       onEtiquetas={abrirEtiquetasDe(player)}
                                       temporada={temporadaDe(player)}
@@ -4661,7 +4752,7 @@ export default function RivalPlayersPage() {
                               key={idDeJugador(player)}
                               player={player}
                               showTeam={teamsInResults.length > 1}
-                              onceEstado={onceDe(player)}
+                              onceEstado={onceVistoDe(player)}
                               onCiclarOnce={ciclarOnceDe(player)}
                               onEtiquetas={abrirEtiquetasDe(player)}
                               temporada={temporadaDe(player)}
@@ -4723,7 +4814,14 @@ export default function RivalPlayersPage() {
                   {/* ============================================ */}
 
                   {/* En el móvil (390 px) va DEBAJO de la lista por línea: ahí las fichas del campo no se leen (18/11/2026, jueces). */}
-                  <div className="order-2 flex min-w-0 lg:order-none">
+                  <div className="order-2 flex min-w-0 flex-col gap-4 lg:order-none">
+                    {/* EL ONCE DE UN VISTAZO, en el escritorio: encima del campograma, minicampo y lista lado a lado (20/11/2026, jueces). */}
+                    {selectedTeam && (
+                      <div className="hidden min-w-0 lg:block">
+                        <ResumenDelOnce equipo={selectedTeam} dibujo={dibujoDelResumen} lineas={resumenDelOnce} abrir={abreDelOnce} cargando={onceSugeridoCargando} ancho />
+                      </div>
+                    )}
+
                     <div className="campograma-capa sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
                       {/*
                         La cabecera se **parte en dos renglones** cuando no
@@ -4757,16 +4855,8 @@ export default function RivalPlayersPage() {
                         {pitchPlayers.length > 0 && (
                           <p className="mt-1 text-[13px] text-white/70">
                             {/* «Once probable en 4-3-3 · su sistema en 7 de 12 · Wyscout» (17/11/2026, jueces de fútbol). */}
-                            {(() => {
-                              if (!dibujoSuyo) return `Once probable en ${dibujoDelEquipo}.`;
-
-                              /* Un dato, sin tono de error (18/11/2026): el once guardado manda y su sistema se cuenta al lado. */
-                              if (dibujoDelEquipo !== dibujoSuyo) {
-                                return `Once probable en ${dibujoDelEquipo} · su sistema más usado: ${dibujoSuyo} (${baseDelSistema}).`;
-                              }
-
-                              return `Once probable en ${dibujoDelEquipo} · su sistema en ${baseDelSistema}.`;
-                            })()}
+                            {/* 20/11/2026 (jueces): con su base al lado, «4-2-3-1 · sus últimos 5 onces · su sistema más usado: 4-3-3 (7 de 12 · Wyscout)». */}
+                            {baseDelDibujo ? `Once probable en ${dibujoDelEquipo} · ${baseDelDibujo}.` : `Once probable en ${dibujoDelEquipo}.`}
                           </p>
                         )}
 
@@ -4961,8 +5051,12 @@ export default function RivalPlayersPage() {
 
                           {/* ONCE PROBABLE — cuántos hay puestos y cuántas dudas */}
 
+                          {onceSugeridoCargando ? (
+                            /* El once sugerido aún no ha llegado (20/11/2026): esqueleto, no «0 titulares». */
+                            <span aria-label="Cargando el once probable" className="block h-6 w-28 animate-pulse rounded-full bg-white/10 sm:h-5" />
+                          ) : (
                           <span
-                            title="Titulares marcados en el once probable"
+                            title={onceSugeridoVivo ? `Once probable propuesto con sus últimos onces (${explicaSugerencia(onceSugeridoVivo)}). Pulsa a cualquiera para dejarlo puesto y cambiarlo` : "Titulares marcados en el once probable"}
                             className="flex items-center gap-1 rounded-full border px-2.5 py-1 font-semibold sm:px-2 sm:py-0.5"
                             style={{
                               borderColor: `${ONCE_COLOR.titular}55`,
@@ -4971,8 +5065,12 @@ export default function RivalPlayersPage() {
                             }}
                           >
                             {/* «11 titulares de 28» (30/10/2026): «11/11» sobre un campo con 28 fichas no decía cuáles. */}
-                            {onceResumen.titulares} {onceResumen.titulares === 1 ? "titular" : "titulares"} de {plantillaCampo.length}
+                            {/* Sin nadie marcado, los del once sugerido (20/11/2026): «11 titulares probables». */}
+                            {onceSugeridoVivo
+                              ? `${onceSugeridoVivo.titulares.length} ${onceSugeridoVivo.titulares.length === 1 ? "titular probable" : "titulares probables"}`
+                              : `${onceResumen.titulares} ${onceResumen.titulares === 1 ? "titular" : "titulares"} de ${plantillaCampo.length}`}
                           </span>
+                          )}
 
                           {onceResumen.dudas > 0 && (
                             <span
@@ -5386,7 +5484,7 @@ export default function RivalPlayersPage() {
                         players={pitchPlayers}
                         selectedId={selectedPlayer ? idDeJugador(selectedPlayer) : undefined}
                         activeTags={activeTags}
-                        onceEstado={onceDe}
+                        onceEstado={onceVistoDe}
                         onCiclarOnce={ciclarOnceDe}
                         onEtiquetas={abrirEtiquetasDe}
                         onPlayerClick={openPlayer}
@@ -8746,7 +8844,9 @@ function layoutPitch(
       14 +
       (adornos.get(bloque.key)?.code.length ?? 3) * 5.6 +
       4 +
-      String(bloque.jugadores.length).length * 5.4;
+      String(bloque.jugadores.length).length * 5.4 +
+      /* 20/11/2026 (ronda 7): el «+N ▾» va pegado a la chapa; ocupa su sitio. */
+      ((ocultosDe.get(bloque.key)?.length ?? 0) > 0 ? 34 : 0);
   });
 
   /* 2 · Medidas de la ficha de pantalla. */
@@ -8868,6 +8968,37 @@ function layoutPitch(
       total: totalDe.get(bloque.key) ?? bloque.cuantos,
       ocultos: ocultosDe.get(bloque.key) ?? [],
     };
+  });
+
+  /*
+  | DENTRO DEL CAMPO (20/11/2026, ronda 7, fútbol). En el ordenador la caja del
+  | DC (Ortuño/Giménez) salía cortada por el borde derecho. Sólo en pantalla
+  | (el .pptx usa el motor tal cual): la caja que se sale se mete entera, con
+  | su chapa y sus fichas, a un margen del borde.
+  */
+  const margenCampo = compact ? 4 : 10;
+
+  clusters.forEach((caja) => {
+    const izquierda = caja.boxX - caja.boxWidth / 2;
+    const derecha = caja.boxX + caja.boxWidth / 2;
+    let dx = 0;
+    let dy = 0;
+
+    if (derecha > width - margenCampo) dx = width - margenCampo - derecha;
+    if (izquierda + dx < margenCampo) dx = margenCampo - izquierda;
+    if (caja.boxTop + caja.boxHeight > height - margenCampo) dy = Math.max(height - margenCampo - caja.boxTop - caja.boxHeight, margenCampo + chipHeight - caja.boxTop);
+    if (dy > 0) dy = 0;
+    if (!dx && !dy) return;
+
+    caja.boxX += dx;
+    caja.x += dx;
+    caja.boxTop += dy;
+    caja.y += dy;
+    placed.forEach((ficha) => {
+      if (ficha.bloque !== caja.key) return;
+      ficha.x += dx;
+      ficha.y += dy;
+    });
   });
 
   return {
@@ -9367,71 +9498,66 @@ function TacticalPitch({
         />
       )}
 
+      {/*
+      | 20/11/2026 (ronda 7, fútbol): el «+N» iba en la esquina de la caja y,
+      | en el móvil, se montaba sobre las fichas del EI y del DC. Ahora va
+      | pegado a la chapa del puesto, por encima de la caja: nunca tapa a nadie.
+      */}
       {clusters.map((cluster) => (
-        <span
+        <div
           key={cluster.key}
-          className="pointer-events-none absolute z-10 flex -translate-x-1/2 -translate-y-full items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider"
-          /* Chapa sólida del color de la línea: es el rótulo del bloque y
-             tiene que ganarle al césped y a los bloques de al lado. Antes era
-             texto de color sobre fondo oscuro y, en una columna con tres
-             bloques seguidos, no marcaba dónde empezaba cada uno. */
-          style={{
-            left: cluster.x,
-            top: cluster.y,
-            color: "#0B0F14",
-            borderColor: "rgba(8,12,16,0.45)",
-            background: cluster.color,
-          }}
+          className="pointer-events-none absolute z-30 flex -translate-x-1/2 -translate-y-full items-center gap-1"
+          style={{ left: cluster.x, top: cluster.y }}
         >
-          {cluster.code}
-
-          <span className="font-semibold text-black/45">{cluster.total}</span>
-        </span>
-      ))}
-
-      {/* «+N»: los demás de un hueco amontonado, en un desplegable junto a la chapa. */}
-      {clusters
-        .filter((cluster) => cluster.ocultos.length > 0)
-        .map((cluster) => (
-          <div
-            key={`mas-${cluster.key}`}
-            data-export-hide
-            className="absolute z-30"
-            style={{ left: cluster.boxX + cluster.boxWidth / 2 - 4, top: cluster.boxTop - 4, transform: "translate(-100%, 0)" }}
+          <span
+            className="flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider"
+            style={{
+              color: "#0B0F14",
+              borderColor: "rgba(8,12,16,0.45)",
+              background: cluster.color,
+            }}
           >
-            <button
-              type="button"
-              onClick={() => setMasAbierto((cual) => (cual === cluster.key ? null : cluster.key))}
-              aria-expanded={masAbierto === cluster.key}
-              title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
-              aria-label={`Ver los otros ${cluster.ocultos.length} de ${cluster.code}`}
-              className="rounded-full border border-black/30 px-2 py-0.5 text-[12px] font-bold tabular-nums shadow"
-              style={{ background: cluster.color, color: "#0B0F14" }}
-            >
-              +{cluster.ocultos.length} ▾
-            </button>
+            {cluster.code}
 
-            {masAbierto === cluster.key && (
-              <ul className="absolute right-0 top-full mt-1 w-44 space-y-0.5 rounded-xl border border-white/15 bg-[#11161D] p-1.5 shadow-xl">
-                {cluster.ocultos.map((player) => (
-                  <li key={idDeJugador(player)}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setMasAbierto(null);
-                        onPlayerClick(player);
-                      }}
-                      className="flex w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[12px] text-white/80 hover:bg-white/[0.06] hover:text-white"
-                    >
-                      {player.DORSAL && <span className="shrink-0 tabular-nums text-[#C8A96B]">{player.DORSAL}</span>}
-                      <span className="truncate">{conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "")))}</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        ))}
+            <span className="font-semibold text-black/45">{cluster.total}</span>
+          </span>
+
+          {cluster.ocultos.length > 0 && (
+            <div data-export-hide className="pointer-events-auto relative">
+              <button
+                type="button"
+                onClick={() => setMasAbierto((cual) => (cual === cluster.key ? null : cluster.key))}
+                aria-expanded={masAbierto === cluster.key}
+                title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
+                aria-label={`Ver los otros ${cluster.ocultos.length} de ${cluster.code}`}
+                className="rounded-full border border-black/30 px-1.5 py-[1px] text-[10px] font-bold leading-tight tabular-nums shadow"
+                style={{ background: cluster.color, color: "#0B0F14" }}
+              >
+                +{cluster.ocultos.length} ▾
+              </button>
+                {masAbierto === cluster.key && (
+                  <ul className="absolute right-0 top-full mt-1 w-44 space-y-0.5 rounded-xl border border-white/15 bg-[#11161D] p-1.5 shadow-xl">
+                    {cluster.ocultos.map((player) => (
+                      <li key={idDeJugador(player)}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMasAbierto(null);
+                            onPlayerClick(player);
+                          }}
+                          className="flex w-full min-w-0 items-center gap-1.5 rounded-lg px-1.5 py-1 text-left text-[12px] text-white/80 hover:bg-white/[0.06] hover:text-white"
+                        >
+                          {player.DORSAL && <span className="shrink-0 tabular-nums text-[#C8A96B]">{player.DORSAL}</span>}
+                          <span className="truncate">{conTildes(nombrePropio(String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "")))}</span>
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+            </div>
+          )}
+        </div>
+      ))}
 
       {/* JUGADORES */}
 
@@ -9712,8 +9838,19 @@ function TacticalPitch({
             })()}
             {/* Sólo en los del once probable: en el banquillo casi todos tienen pocos minutos y el campo se llenaría de avisos. */}
             {corta && enElOnce && (
-              <span className="mt-0.5 whitespace-nowrap rounded bg-black/75 px-1 text-[11px] font-semibold leading-tight text-amber-300" title={`Muestra corta: ${corta} en Wyscout (menos de 450′)`}>
-                muestra corta
+              /*
+              | 20/11/2026 (ronda 7, análisis y marketing): en modo día el ámbar
+              | se volvía marrón sobre el negro (1,66). La chapa es oscura en los
+              | dos modos (`siempre-oscuro`) y el ámbar claro se queda. En el
+              | móvil, en dos renglones dentro del ancho de la ficha: antes se
+              | salía y pisaba a la de al lado.
+              */
+              <span
+                className={`siempre-oscuro mt-0.5 rounded bg-black/75 px-1 text-center font-semibold leading-tight ${compact ? "text-[10px]" : "whitespace-nowrap text-[11px]"}`}
+                style={compact ? { maxWidth: nameWidth } : undefined}
+                title={`Muestra corta: ${corta} en Wyscout (menos de 450′)`}
+              >
+                <span className="text-amber-300/90">muestra corta</span>
               </span>
             )}
 

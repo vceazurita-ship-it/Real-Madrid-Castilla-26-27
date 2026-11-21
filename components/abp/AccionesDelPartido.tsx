@@ -32,11 +32,20 @@ const A_LA_VISTA = 6;
 const MUESTRA_PARTIDO = 15;
 
 /** «Saca Aguado · remata Mario»: sólo lo que la hoja tiene; cada nombre, a su ficha si la hay (16/11/2026). */
-function quienes(f: FilaAbpCorte, fichaDe?: (nombre: string) => string | null): ReactNode[] {
+function quienes(f: FilaAbpCorte, fichaDe?: (nombre: string) => string | null, visibles = false): ReactNode[] {
   const nombre = (n: string) => {
     const href = fichaDe?.(n);
     return href ? (
-      <Link href={href} className="font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]" title={`La ficha de ${n}`}>
+      <Link
+        href={href}
+        className={
+          visibles
+            ? "font-semibold underline decoration-[#C8A96B]/60 underline-offset-2 hover:decoration-[#C8A96B]"
+            : "font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]"
+        }
+        style={visibles ? { color: "var(--rmcf-gold-ink)" } : undefined}
+        title={`La ficha de ${n}`}
+      >
         {n}
       </Link>
     ) : (
@@ -74,11 +83,14 @@ export function AccionesDelPartido({
   acciones,
   enlaces,
   fichaDe,
+  enlacesVisibles = false,
 }: {
   acciones: AccionDeLista[];
   enlaces: Map<string, EnlaceAccionAbp>;
   /** Dónde abre la ficha de un jugador citado (sacador, rematador); `null` si no la tiene. */
   fichaDe?: (nombre: string) => string | null;
+  /** 20/11/2026 (ronda 7, ABP ofensivo): los nombres con ficha, en oro, para que se vea que abren. */
+  enlacesVisibles?: boolean;
 }) {
   const [todas, setTodas] = useState(false);
 
@@ -141,7 +153,7 @@ export function AccionesDelPartido({
             const tono = final === "gol en contra" ? "text-rose-400" : final === "gol" || /marcamos$/.test(final) ? "text-emerald-400" : "text-white/70";
             /* 10/11/2026 (jueces): el gol en contra, en una fila destacada y no sólo en rojo. */
             const destacada = final === "gol en contra";
-            const trozosDetalle: ReactNode[] = [soloEnvio(a.fila), ...quienes(a.fila, fichaDe)].filter(Boolean);
+            const trozosDetalle: ReactNode[] = [soloEnvio(a.fila), ...quienes(a.fila, fichaDe, enlacesVisibles)].filter(Boolean);
             const detalle = trozosDetalle.length
               ? trozosDetalle.map((t, k) => (
                   <span key={k}>

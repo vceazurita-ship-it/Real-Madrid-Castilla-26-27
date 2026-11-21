@@ -22,6 +22,7 @@ export function ConclusionPlegada({
   marca,
   enlace,
   className = "",
+  aLaVista = 2,
 }: {
   titular?: string;
   items: (string | null | undefined | false)[];
@@ -31,6 +32,8 @@ export function ConclusionPlegada({
   marca?: string;
   enlace?: { href: string; rotulo: string };
   className?: string;
+  /** 20/11/2026 (ronda 7): cuántas lecturas van a la vista antes de «N lecturas más» (por defecto, dos, como hasta ahora). */
+  aLaVista?: number;
 }) {
   const [abierto, setAbierto] = useState(false);
   const frases = items.filter((x): x is string => Boolean(x && x.trim()));
@@ -66,9 +69,9 @@ export function ConclusionPlegada({
         </p>
       ) : null}
       {/* 17/11/2026 (jueces, ronda 20): las dos primeras lecturas, a la vista; el resto, plegado. */}
-      {resto.length ? (
+      {resto.length && aLaVista > 0 ? (
         <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-[13px] leading-snug text-white/80 md:grid-cols-2">
-          {resto.slice(0, 2).map((frase) => (
+          {resto.slice(0, aLaVista).map((frase) => (
             <li key={frase} className="flex min-w-0 gap-2">
               <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
               <span className="min-w-0">{frase}</span>
@@ -76,7 +79,7 @@ export function ConclusionPlegada({
           ))}
         </ul>
       ) : null}
-      {resto.length > 2 ? (
+      {resto.length > aLaVista ? (
         <>
           <button
             type="button"
@@ -84,12 +87,12 @@ export function ConclusionPlegada({
             aria-expanded={abierto}
             className="mt-2 inline-flex min-h-9 items-center gap-1 rounded-full border border-white/10 px-3 py-1 text-[12px] font-semibold text-white/75 hover:bg-white/[0.05]"
           >
-            {abierto ? "Menos" : `${resto.length === 3 ? "Una lectura más" : `${resto.length - 2} lecturas más`}`}
+            {abierto ? "Menos" : `${resto.length - aLaVista === 1 ? "Una lectura más" : `${resto.length - aLaVista} lecturas más`}`}
             <ChevronDown size={13} className={`transition-transform ${abierto ? "rotate-180" : ""}`} aria-hidden />
           </button>
           {abierto ? (
             <ul className="mt-2 grid gap-x-6 gap-y-1.5 text-[13px] leading-snug text-white/80 md:grid-cols-2">
-              {resto.slice(2).map((frase) => (
+              {resto.slice(aLaVista).map((frase) => (
                 <li key={frase} className="flex min-w-0 gap-2">
                   <span className="mt-[7px] h-1 w-1 shrink-0 rounded-full bg-[#C8A96B]" aria-hidden />
                   <span className="min-w-0">{frase}</span>

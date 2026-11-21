@@ -25,11 +25,12 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, ChevronDown, ClipboardList, Film, Footprints, Goal, LayoutGrid, Mountain, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
+import { ArrowRight, CalendarDays, ChevronDown, ClipboardList, Film, Footprints, Goal, LayoutGrid, Loader2, Mountain, ShieldAlert, Swords, Timer, Trophy, Video } from "lucide-react";
 import { leeEventos } from "@/lib/opta-directo-mapas";
-import { retrato } from "@/lib/opta-retrato";
+import { NO_ES_ACCION, retrato } from "@/lib/opta-retrato";
 import { fraseCampoPisado, nombreCorto } from "@/lib/partido-frases";
 import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
+import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { ClavesDelPartido, fichaJugador, pc, useLaboratorioDelPartido, type CifrasLaboratorio } from "@/components/data/ClavesDelPartido";
 import { ORO, PEOR } from "@/components/data/graficas";
@@ -232,10 +233,15 @@ export function PanelPostPartido({
     const [l, v] = casa === false ? [p.rival, nuestro] : [nuestro, p.rival];
     return { local: l, visitante: v, marcador };
   };
+  /*
+  | 20/11/2026 (jueces, ronda 8): a 390 px el desplegable se cortaba en
+  | «0-1 Ca». Etiqueta corta, sólo el rival en su nombre corto y el marcador
+  | (local primero, como la cabecera): «J12 · Nàstic 0-1».
+  */
   const etiqueta = (p: PartidoPost) => {
     const j = jornadaDe(p);
     const m = marcadorLocal(p, "Castilla");
-    return `${j ? `J${j} · ` : ""}${m.local}${m.marcador ? ` ${m.marcador} ` : " - "}${m.visitante}`;
+    return `${j ? `J${j} · ` : ""}${cortoRival(p.rival)}${m.marcador ? ` ${m.marcador}` : ""}`;
   };
 
   if (cargando) {
@@ -272,12 +278,15 @@ export function PanelPostPartido({
       {avisoWyscout}
 
       {/* EL PARTIDO: el único selector, y lo que manda sobre todo lo de abajo. */}
-      <div className="mt-5 flex min-w-0 flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 sm:px-5">
+      {/* 20/11/2026 (ronda 7, análisis): el selector ocupaba mucho antes del
+          contenido; ahora una franja baja (marcador y desplegable en una
+          línea) y las tres claves justo debajo. */}
+      <div className="mt-4 flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1.5 rounded-2xl border border-white/10 bg-white/[0.03] px-3.5 py-2 sm:px-4">
         <div className="min-w-0">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-white/45">
+          <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">
             {[jornada ? `Jornada ${jornada}` : "", fechaCorta(visto.fecha), enCasa === null ? "" : enCasa ? "en casa" : "fuera", resultado].filter(Boolean).join(" · ")}
           </p>
-          <p className="mt-0.5 break-words text-lg font-semibold text-white sm:text-xl">
+          <p className="break-words text-base font-semibold leading-snug text-white sm:text-lg">
             {cabecera.local}{" "}
             {cabecera.marcador && <span className="tabular-nums text-[#C8A96B]">{cabecera.marcador} </span>}
             {cabecera.visitante}
@@ -298,7 +307,16 @@ export function PanelPostPartido({
           toque y con el partido ya elegido, lo que lo completa. Sustituye al
           bloque «Visto en el vídeo» del pie. */}
       {/* 17/11/2026 (ronda 21): las tres conclusiones del partido, en dibujo, antes de cualquier tabla. */}
-      <ClavesDelPartido datos={datos} visto={visto} rival={cortoRival(nombreRival)} lab={lab} onIr={onIr} />
+      <ClavesDelPartido datos={datos} visto={visto} rival={cortoRival(nombreRival)} lab={lab} onIr={onIr} jornada={jornada} />
+
+      {/* 20/11/2026 (ronda 7, análisis): el coding y el vídeo del partido, a un
+          toque desde las tres claves (Hudl, grabación táctica en el ordenador
+          principal y resumen de la RFEF: lo que no existe no sale). */}
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
+        {/* 20/11/2026 (jueces, ronda 8): a 390 px salían «Codi…», «Resu…»: rótulos enteros y la fila pasa de línea. */}
+        <span className="shrink-0 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">Vídeo del partido</span>
+        <AccesosVideo dia={visto.fecha.slice(0, 10)} jugado coding="/coding?ambito=partido" completos className="min-w-0 max-w-full" />
+      </div>
 
       {/* 17/11/2026 (ronda 21, marketing): los botones con el mismo nombre que
           en el menú, y cada uno abre ya en este partido (o en este rival). */}
@@ -344,21 +362,32 @@ export function PanelPostPartido({
         >
           {/* 10/11/2026: dos proveedores en la misma pantalla; sin esta línea,
               2,0 de xG aquí y 1,6 arriba parecían una contradicción. */}
-          {visto.opta && (
-            <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-snug text-white/70">
-              Cifras de Wyscout: cuenta distinto que Opta (el cara a cara de arriba), así que xG, posesión o pases no coinciden. Aquí se comparan sólo con nuestra media de Wyscout.
-            </p>
-          )}
-          <PanelCampograma
-            /* Con la clave del partido: cambiarlo arriba empieza el bloque de cero. */
-            key={visto.clave}
-            nuestros={nuestrosW}
-            contrarios={contrariosW}
-            liga={ligaW}
-            equipos={equiposW}
-            temporada={temporada}
-            fijo={`${visto.wyscout.fecha}|${visto.wyscout.rival}`}
-          />
+          {/* 20/11/2026 (ronda 7, marketing): la pantalla pasaba de tres alturas;
+              a la vista quedan las claves y el cara a cara, y el campo de
+              Wyscout se abre aquí. */}
+          <details className="group min-w-0">
+            <summary className="inline-flex min-h-[40px] cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-[#C8A96B] hover:border-[#C8A96B]/50 [&::-webkit-details-marker]:hidden">
+              <span className="group-open:hidden">Ver el partido en el campo: cada fase frente a nuestra media ▾</span>
+              <span className="hidden group-open:inline">Plegar el partido en el campo ▴</span>
+            </summary>
+            <div className="mt-3 min-w-0">
+              {visto.opta && (
+                <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-snug text-white/70">
+                  Cifras de Wyscout: cuenta distinto que Opta (el cara a cara de arriba), así que xG, posesión o pases no coinciden. Aquí se comparan sólo con nuestra media de Wyscout.
+                </p>
+              )}
+              <PanelCampograma
+                /* Con la clave del partido: cambiarlo arriba empieza el bloque de cero. */
+                key={visto.clave}
+                nuestros={nuestrosW}
+                contrarios={contrariosW}
+                liga={ligaW}
+                equipos={equiposW}
+                temporada={temporada}
+                fijo={`${visto.wyscout.fecha}|${visto.wyscout.rival}`}
+              />
+            </div>
+          </details>
         </Bloque>
       )}
 
@@ -761,13 +790,51 @@ function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
   const { caja, abierto } = useAsoma<HTMLDivElement>();
   const lista = useMemo(() => [...goles].sort((a, b) => a.minuto - b.minuto), [goles]);
   if (!lista.length) return null;
+  /*
+  | 20/11/2026 (ronda 7, marketing): en escritorio quedaba un hueco en blanco
+  | de ~120 px (el título y nada debajo mientras llegaban los vídeos, o para
+  | siempre si ningún gol tenía vídeo). Ahora, mientras carga, una línea con
+  | «Cargando…»; si ningún gol tiene vídeo, el bloque entero no sale.
+  */
+  const titulo = <h3 className="mb-2 text-sm font-semibold text-white">Los goles del partido en vídeo</h3>;
+  const cargandoVideo = (
+    <>
+      {titulo}
+      <p className="flex min-h-[36px] items-center gap-2 text-[12px] text-white/55" role="status">
+        <Loader2 size={14} className="animate-spin" aria-hidden />
+        Cargando el vídeo {lista.length === 1 ? "del gol" : `de los ${lista.length} goles`}…
+      </p>
+    </>
+  );
   return (
-    <div ref={caja} id="goles-del-partido" className="mt-5 min-w-0 scroll-mt-44 border-t border-white/10 pt-4">
-      <h3 className="mb-2 text-sm font-semibold text-white">Los goles del partido en vídeo</h3>
+    <div ref={caja} id="goles-del-partido" className="min-w-0 scroll-mt-44 [&:has(>*)]:mt-5 [&:has(>*)]:border-t [&:has(>*)]:border-white/10 [&:has(>*)]:pt-4">
       {abierto ? (
-        <GolesDeSeguido goles={lista} titulo={lista.length === 1 ? "El gol del partido" : `Los ${lista.length} goles del partido`} conLista />
+        <GolesDeSeguido
+          goles={lista}
+          titulo={lista.length === 1 ? "El gol del partido" : `Los ${lista.length} goles del partido`}
+          conLista
+          cabecera={titulo}
+          mientras={cargandoVideo}
+          ocultarSinVideo
+          /* 20/11/2026 (jueces, ronda 8): a los 12 s sin vídeo, «Reintentar» en vez de «Cargando…» para siempre. */
+          alAgotar={(reintentar) => (
+            <>
+              {titulo}
+              <p className="flex min-h-[36px] flex-wrap items-center gap-2 text-[12px] text-white/60" role="status">
+                El vídeo de los goles no ha llegado.
+                <button
+                  type="button"
+                  onClick={reintentar}
+                  className="inline-flex min-h-[32px] items-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
+                >
+                  Reintentar
+                </button>
+              </p>
+            </>
+          )}
+        />
       ) : (
-        <div className="h-40 rounded-2xl bg-white/[0.04]" />
+        cargandoVideo
       )}
     </div>
   );
@@ -821,9 +888,25 @@ function RelieveDelPartido({ partido, xgFinal }: { partido: string; xgFinal?: Re
   const idY = y ? String(y.teamId ?? "") : "";
   const nomX = x ? nom(x) : "";
   const nomY = y ? nom(y) : "";
-  const frase = useMemo(() => {
-    if (!doc?.eventos?.filas?.length || !idX || !idY) return null;
-    return fraseCampoPisado(retrato(leeEventos(doc.eventos), idX, idY), nomX, nomY, idX === CASTILLA_OPTA);
+  /*
+  | 20/11/2026 (jueces, ronda 8): «Pisamos campo rival el 62 %» no decía de qué
+  | sale. Es por ACCIONES, no por tiempo: del evento a evento de Opta, las
+  | acciones con balón (sin faltas ni saques de esquina o de falta) de los dos
+  | equipos que caen en campo rival, y qué parte son nuestras (`retrato` →
+  | `territorioRetrato`, con un suavizado de ~4 m en el campo). La base es el
+  | recuento de esas acciones, sin suavizar.
+  */
+  const { frase, base } = useMemo(() => {
+    if (!doc?.eventos?.filas?.length || !idX || !idY) return { frase: null, base: null };
+    const ev = leeEventos(doc.eventos);
+    const enCampoRival = (id: string) =>
+      ev.filter((e) => e.teamId === id && !NO_ES_ACCION.has(e.tipo) && !(e.x === 0 && e.y === 0) && e.x >= 50).length;
+    const nX = enCampoRival(idX);
+    const nY = enCampoRival(idY);
+    return {
+      frase: fraseCampoPisado(retrato(ev, idX, idY), nomX, nomY, idX === CASTILLA_OPTA),
+      base: nX + nY > 0 ? { nX, nY } : null,
+    };
   }, [doc, idX, idY, nomX, nomY]);
   if (doc === undefined) return null;
   const hay = !!(doc?.eventos?.filas?.length && x && y);
@@ -833,6 +916,11 @@ function RelieveDelPartido({ partido, xgFinal }: { partido: string; xgFinal?: Re
       <div className="mt-1 flex min-w-0 flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <p className="min-w-0 flex-1 basis-[260px] text-[15px] font-semibold leading-snug text-white">
           {frase ?? "Quién mandó en cada tramo y dónde llegaron los remates, minuto a minuto."}
+          {frase && base ? (
+            <span className="mt-1 block text-[12px] font-normal leading-snug text-white/60">
+              Por acciones, no por tiempo: de las {base.nX + base.nY} acciones con balón en campo rival de los dos equipos (sin faltas ni córners), {base.nX} son de {nomX} y {base.nY} de {nomY}. Opta, evento a evento.
+            </span>
+          ) : null}
         </p>
         {hay && (
           <button

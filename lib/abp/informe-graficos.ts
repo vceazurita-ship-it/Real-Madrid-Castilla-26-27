@@ -286,6 +286,9 @@ const APODOS: Record<string, string> = {
   "algeciras cf": "Algeciras",
   "cd teruel": "Teruel",
   "hercules cf": "Hércules",
+  /* 20/11/2026 (ronda 8): BeSoccer lo escribe entero y la regla de la palabra más larga daba «Alicante». */
+  "hercules de alicante cf": "Hércules",
+  "hercules de alicante": "Hércules",
 };
 
 function sinTildes(texto: string) {

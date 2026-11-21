@@ -254,7 +254,17 @@ async function vuelta(S) {
   const juegos = await consulta(
     `SELECT game.gameId, game.gameDate, game.status FROM game 'g' ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT 60`, S, "game g");
   /* Con PARTIDO, el que sea (también uno ya jugado); si no, los de hoy. */
-  const delDia = juegos.filas.filter((g) => (SOLO ? g[0] === SOLO : String(g[1]).startsWith(dia)));
+  let delDia = juegos.filas.filter((g) => (SOLO ? g[0] === SOLO : String(g[1]).startsWith(dia)));
+  /*
+  | 21/11/2026: de 0:00 a 6:00 (Madrid), si hoy no hay partidos, los de AYER.
+  | El de las 21:15 del 20/11 se quedó sin directo (GitHub no lanzó las
+  | pasadas de cada 30 min) y el botón «Directo» pulsado a la 1:00 buscaba
+  | los del 21: ninguno. Así el botón de madrugada recoge los de la noche.
+  */
+  if (!SOLO && !delDia.length && Number(new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(11, 13)) < 6) {
+    const ayer = new Date(Date.now() - 864e5).toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 10);
+    delDia = juegos.filas.filter((g) => String(g[1]).startsWith(ayer));
+  }
 
   const ids = delDia.map((g) => g[0]);
   let cifras = { cols: [], filas: [] };
@@ -322,7 +332,7 @@ async function vuelta(S) {
     if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
   /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
-  if (!process.env.SIN_INDICE) await guarda("opta:directo", { dia: SOLO && delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
+  if (!process.env.SIN_INDICE) await guarda("opta:directo", { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
 
   /* EL ARCHIVO (14/11/2026): todos los partidos que ya tienen su documento, para el
      desplegable «Ver otro partido» de la pantalla (sólo salen los que tienen datos). */

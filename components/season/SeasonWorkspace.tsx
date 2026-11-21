@@ -2,18 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import dynamic from "next/dynamic";
 import { AlertTriangle, ChevronDown, ExternalLink, FileText, ImageIcon, LineChart, ListFilter, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
-import { loadSeasonData, saveWeekChange } from "@/lib/season/api";
+import { loadSeasonData, saveWeekChange, uploadSeasonFile } from "@/lib/season/api";
+import { AREA_CONFIG } from "@/lib/season/config";
 import {
   aplicaCambio,
   CambioSemana,
   inverso,
   poneSemana,
 } from "@/lib/season/fusion";
-import { FileKind, MonthData, SeasonArea } from "@/lib/season/types";
+import { FileKind, MonthData, SeasonArea, WeekData } from "@/lib/season/types";
 import {
   collectFiles,
   findWeekForDate,
@@ -36,6 +38,8 @@ import { urlPostDelPartido } from "@/lib/post-partido";
 interface Props {
   area: SeasonArea;
 }
+
+const MiniaturaArchivo = dynamic(() => import("./MiniaturaArchivo"), { ssr: false });
 
 export default function SeasonWorkspace({ area }: Props) {
   const [season, setSeason] = useState<MonthData[]>([]);
@@ -163,6 +167,8 @@ export default function SeasonWorkspace({ area }: Props) {
           pdfs: week.pdfs?.length ?? 0,
           /* 20/11/2026 (ronda 5, fútbol y marketing): el último archivo de la semana, con enlace directo. */
           ultimo: ultimoArchivo(week.images ?? [], week.pdfs ?? []),
+          /* 20/11/2026 (ronda 7, análisis): convocatoria, horario y, si hubo partido, plan. */
+          completa: semanaCompleta(week, Boolean(partido)),
         };
       });
   }, [season, currentWeek, calendario]);
@@ -190,26 +196,36 @@ export default function SeasonWorkspace({ area }: Props) {
   const checklist = useMemo(() => {
     if (area !== "general" || !currentWeek) return undefined;
 
-    const nombres = [...(currentWeek.images ?? []), ...(currentWeek.pdfs ?? [])].map((url) =>
-      humanFileName(url, "").toLowerCase()
-    );
-    const tiene = (re: RegExp) => nombres.some((n) => re.test(n));
     const plan = enlacesActual.find((e) => e.texto === "Plan de partido")?.href;
 
     return [
-      { texto: "Convocatoria", hecho: tiene(/convoca/) },
-      { texto: "Horario", hecho: tiene(/horario/) },
-      ...(partidoActual ? [{ texto: "Plan de partido", hecho: tiene(/plan/), href: plan }] : []),
+      { texto: "Convocatoria", hecho: semanaTiene(currentWeek, /convoca/) },
+      { texto: "Horario", hecho: semanaTiene(currentWeek, /horario/) },
+      ...(partidoActual ? [{ texto: "Plan de partido", hecho: semanaTiene(currentWeek, /plan/), href: plan }] : []),
     ];
   }, [area, currentWeek, enlacesActual, partidoActual]);
 
+  /*
+  | 20/11/2026 (ronda 7, fútbol): los accesos de la semana, en un solo sitio
+  | —la tarjeta de la semana en curso, arriba—. El Plan de partido va en su
+  | casilla de la lista; aquí el microciclo, la plantilla y el ABP del rival.
+  */
   const enlacesRival = useMemo(
-    () =>
-      enlacesActual
-        .filter((e) => e.texto === "Plan de partido" || e.texto === "Su ABP")
-        .map((e) => ({ href: e.href, texto: e.texto === "Su ABP" ? `ABP de ${e.equipo}` : e.texto })),
+    () => [
+      { href: "/microcycles", texto: "Contenidos del microciclo" },
+      ...enlacesActual
+        .filter((e) => e.texto === "Su plantilla" || e.texto === "Su ABP")
+        .map((e) => ({ href: e.href, texto: e.texto === "Su ABP" ? `ABP de ${e.equipo}` : `Plantilla de ${e.equipo}` })),
+    ],
     [enlacesActual]
   );
+
+  /* 20/11/2026 (ronda 7, análisis): cuántas semanas tienen todo lo de cada semana. */
+  const cumplimiento = useMemo(() => {
+    if (area !== "general" || tiraSemanas.length < 2) return undefined;
+    const completas = tiraSemanas.filter((s) => s.completa);
+    return { completas: completas.length, total: tiraSemanas.length, ultima: completas[completas.length - 1]?.nombre };
+  }, [area, tiraSemanas]);
 
   const partidoSemanaAbierta = useMemo(
     () => partidoDeLaSemana(calendario, selectedWeek),
@@ -285,6 +301,69 @@ export default function SeasonWorkspace({ area }: Props) {
     [area]
   );
 
+  /*
+  | SUBIR DESDE LA LISTA DE LA SEMANA (20/11/2026, ronda 7, los tres jueces):
+  | cada casilla —convocatoria, horario, plan— abre su propia subida a la
+  | semana en curso. Si el nombre del archivo no dice qué es, se le antepone
+  | («Convocatoria-…»), para que la casilla quede marcada al subirlo.
+  */
+  const [subiendo, setSubiendo] = useState(false);
+  const subirALaSemana = useCallback(
+    async (tipo: string | null, archivos: File[]) => {
+      if (!currentWeek || archivos.length === 0) return;
+      const validos = archivos
+        .filter((f) => /^image\/(jpeg|png|webp)$/.test(f.type) || f.type === "application/pdf")
+        .slice(0, 20);
+      if (validos.length < archivos.length) toast.error("Algunos archivos no se han subido: sólo JPG, PNG, WEBP o PDF, hasta 20.");
+      if (validos.length === 0) return;
+
+      const marca = tipo ? (TIPO_EN_NOMBRE[tipo] ?? null) : null;
+      const renombra = (f: File) =>
+        marca && !marca.re.test(f.name.toLowerCase()) ? new File([f], `${marca.prefijo}-${f.name}`, { type: f.type }) : f;
+      const carpeta = (kind: "images" | "pdf") =>
+        `${AREA_CONFIG[area].storagePrefix}/semana-${currentWeek.id.toString().padStart(2, "0")}/${kind}`;
+      const cuantos = (n: number) => (n === 1 ? "1 archivo" : `${n} archivos`);
+
+      setSubiendo(true);
+      const aviso = toast.loading(`Subiendo ${cuantos(validos.length)} a la ${currentWeek.week.toLowerCase()}...`);
+      try {
+        const sube = async (lista: File[], kind: "images" | "pdf") => {
+          const r = await Promise.allSettled(lista.map((f) => uploadSeasonFile(area, renombra(f), carpeta(kind))));
+          return r.filter((x): x is PromiseFulfilledResult<string> => x.status === "fulfilled").map((x) => x.value);
+        };
+        const imagenes = await sube(validos.filter((f) => f.type.startsWith("image/")), "images");
+        const pdfs = await sube(validos.filter((f) => f.type === "application/pdf"), "pdf");
+        const subidos = imagenes.length + pdfs.length;
+        if (subidos === 0) {
+          toast.error("No se pudo subir ningún archivo.", { id: aviso });
+          return;
+        }
+        try {
+          await updateWeek({
+            weekId: currentWeek.id,
+            anade: { ...(imagenes.length ? { images: imagenes } : {}), ...(pdfs.length ? { pdfs } : {}) },
+          });
+        } catch {
+          toast.dismiss(aviso);
+          return;
+        }
+        const fallidos = validos.length - subidos;
+        if (fallidos) toast.warning(`${subidos} subidos · ${fallidos} con error.`, { id: aviso });
+        else toast.success(`${cuantos(subidos)} en la ${currentWeek.week.toLowerCase()}`, { id: aviso });
+      } catch (error) {
+        console.error(error);
+        toast.error("Error subiendo los archivos.", { id: aviso });
+      } finally {
+        setSubiendo(false);
+      }
+    },
+    [area, currentWeek, updateWeek]
+  );
+
+  /* En el repositorio general, la semana en curso vacía ya es la tarjeta de arriba: no se repite abajo. */
+  const panelDuplicado =
+    area === "general" && !!selectedWeek && selectedWeek.id === currentWeek?.id && !weekHasFiles(selectedWeek);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -311,6 +390,9 @@ export default function SeasonWorkspace({ area }: Props) {
                   semanasCon={semanasCon}
                   tiraSemanas={tiraSemanas}
                   checklist={checklist}
+                  cumplimiento={cumplimiento}
+                  onSubirTipo={area === "general" ? subirALaSemana : undefined}
+                  subiendo={subiendo}
                   partidoActual={partidoActual ? rotuloPartido(partidoActual) : undefined}
                   enlacesRival={enlacesRival}
                   onSelectWeek={(id) => selectWeek(id)}
@@ -366,8 +448,9 @@ export default function SeasonWorkspace({ area }: Props) {
                 */}
                 <div className="mb-4 rounded-2xl border border-white/10 bg-[#11161D] px-4 py-3">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="min-w-0 text-sm font-medium text-white/75">
-                      Últimas semanas con material
+                    {/* 20/11/2026 (ronda 7, marketing): el archivo, en segundo plano, debajo de la semana en curso. */}
+                    <span className={`min-w-0 font-medium ${area === "general" ? "text-[12.5px] uppercase tracking-[0.12em] text-white/65" : "text-sm text-white/75"}`}>
+                      {area === "general" ? "Archivo · últimas semanas con material" : "Últimas semanas con material"}
                     </span>
 
                     <button
@@ -377,7 +460,7 @@ export default function SeasonWorkspace({ area }: Props) {
                       className="inline-flex min-h-9 shrink-0 items-center gap-2 text-sm text-[#C8A96B]"
                     >
                       <ListFilter size={16} />
-                      {navOpen ? "Ocultar la lista" : "Todas, por meses"}
+                      {navOpen ? "Ocultar la lista" : area === "general" ? "Ver todo el archivo" : "Todas, por meses"}
                     </button>
                   </div>
 
@@ -388,6 +471,7 @@ export default function SeasonWorkspace({ area }: Props) {
                           key={s.id}
                           semana={s}
                           elegida={s.id === selectedWeekId}
+                          miniatura={area === "general"}
                           onSelect={() => selectWeek(s.id)}
                         />
                       ))}
@@ -423,7 +507,7 @@ export default function SeasonWorkspace({ area }: Props) {
                     />
                   </div>
 
-                  <div ref={panelRef} className="scroll-mt-6 min-w-0">
+                  <div ref={panelRef} className={`scroll-mt-6 min-w-0 ${panelDuplicado ? "hidden" : ""}`}>
                     <WeekPanel
                       area={area}
                       week={selectedWeek}
@@ -433,6 +517,7 @@ export default function SeasonWorkspace({ area }: Props) {
                       }
                       ultimaConArchivos={ultimaConArchivos}
                       partido={partidoSemanaAbierta}
+                      sinAccesos={area === "general" && selectedWeek?.id === currentWeek?.id}
                       onSelectWeek={selectWeek}
                       onUpdateWeek={updateWeek}
                     />
@@ -456,6 +541,22 @@ export default function SeasonWorkspace({ area }: Props) {
   );
 }
 
+const TIPO_EN_NOMBRE: Record<string, { re: RegExp; prefijo: string }> = {
+  Convocatoria: { re: /convoca/, prefijo: "Convocatoria" },
+  Horario: { re: /horario/, prefijo: "Horario" },
+  "Plan de partido": { re: /plan/, prefijo: "Plan-de-partido" },
+};
+
+/** Si algún archivo de la semana se llama de esa manera (convocatoria, horario, plan). */
+function semanaTiene(week: WeekData, re: RegExp) {
+  return [...(week.images ?? []), ...(week.pdfs ?? [])].some((url) => re.test(humanFileName(url, "").toLowerCase()));
+}
+
+/** Semana completa: convocatoria, horario y, si tuvo partido, plan de partido. */
+function semanaCompleta(week: WeekData, conPartido: boolean) {
+  return semanaTiene(week, /convoca/) && semanaTiene(week, /horario/) && (!conPartido || semanaTiene(week, /plan/));
+}
+
 /** El último archivo de una semana: el último PDF si lo hay; si no, la última imagen. */
 function ultimoArchivo(imagenes: string[], pdfs: string[]) {
   if (pdfs.length) return { url: pdfs[pdfs.length - 1], kind: "pdfs" as FileKind };
@@ -472,6 +573,7 @@ type SemanaTira = {
   imagenes?: number;
   pdfs?: number;
   ultimo?: { url: string; kind: FileKind };
+  completa?: boolean;
 };
 
 /**
@@ -481,10 +583,13 @@ type SemanaTira = {
 function TarjetaSemana({
   semana: s,
   elegida,
+  miniatura = false,
   onSelect,
 }: {
   semana: SemanaTira;
   elegida: boolean;
+  /** La primera página o la imagen en pequeño (sólo el repositorio general). */
+  miniatura?: boolean;
   onSelect: () => void;
 }) {
   const nombreUltimo = s.ultimo ? humanFileName(s.ultimo.url, s.ultimo.kind === "images" ? "Imagen" : "Documento") : "";
@@ -529,7 +634,9 @@ function TarjetaSemana({
           title={`Abrir ${nombreUltimo}`}
           className="mt-1.5 flex min-h-8 min-w-0 items-center gap-1.5 text-[12.5px] text-white/80 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
         >
-          {s.ultimo.kind === "images" ? (
+          {miniatura ? (
+            <MiniaturaArchivo url={s.ultimo.url} kind={s.ultimo.kind} />
+          ) : s.ultimo.kind === "images" ? (
             <ImageIcon size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
           ) : (
             <FileText size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />

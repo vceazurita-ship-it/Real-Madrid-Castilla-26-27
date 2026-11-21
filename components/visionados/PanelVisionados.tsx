@@ -16,9 +16,9 @@
 */
 
 import { useEffect, useMemo, useState } from "react";
-import { Eye, PlayCircle, UserRound } from "lucide-react";
+import { Eye, PlayCircle, RefreshCw, UserRound } from "lucide-react";
 
-import { BloqueYoutube, useDatosYoutube } from "./BloqueYoutube";
+import { BloqueYoutube, ESPERA_MS, useDatosYoutube } from "./BloqueYoutube";
 
 type Visionado = { cuando: string; video: string; titulo: string; equipo: string; jugador: string; puesto: string; quien: string };
 
@@ -88,13 +88,36 @@ export function PanelVisionados() {
   const [guardado, setGuardado] = useState("");
   const [editando, setEditando] = useState(false);
   const yt = useDatosYoutube();
+  /* Si las aperturas de la app no llegan (20/11/2026): se dice y se reintenta, nunca «aún no hay». */
+  const [falloApp, setFalloApp] = useState(false);
+  const [intentoApp, setIntentoApp] = useState(0);
 
   useEffect(() => {
     let vivo = true;
-    fetch("/api/visionados", { cache: "no-store" })
+    const control = new AbortController();
+    const reloj = window.setTimeout(() => control.abort(), ESPERA_MS);
+    fetch("/api/visionados", { cache: "no-store", signal: control.signal })
       .then((r) => r.json())
-      .then((j: { visionados?: Visionado[] }) => vivo && setTodos(j.visionados ?? []))
-      .catch(() => vivo && setTodos([]));
+      .then((j: { visionados?: Visionado[] }) => {
+        if (!vivo) return;
+        setFalloApp(false);
+        setTodos(j.visionados ?? []);
+      })
+      .catch(() => {
+        if (!vivo) return;
+        setFalloApp(true);
+        setTodos([]);
+      })
+      .finally(() => window.clearTimeout(reloj));
+    return () => {
+      vivo = false;
+      window.clearTimeout(reloj);
+      control.abort();
+    };
+  }, [intentoApp]);
+
+  useEffect(() => {
+    let vivo = true;
     try {
       const q = localStorage.getItem("rmcf:quien") ?? "";
       queueMicrotask(() => {
@@ -173,6 +196,14 @@ export function PanelVisionados() {
 
   const cargando = todos === null || yt.resp === null;
   const nada = !cargando && !resumen;
+  /* No es que no haya: es que no ha contestado (20/11/2026). */
+  const fallo = nada && (falloApp || yt.resp?.ok === false);
+  const reintenta = () => {
+    setTodos(null);
+    setFalloApp(false);
+    setIntentoApp((n) => n + 1);
+    yt.reintenta();
+  };
 
   return (
     <div className="space-y-5">
@@ -209,9 +240,15 @@ export function PanelVisionados() {
       ) : nada ? (
         <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90"><Eye size={16} className="text-[#C8A96B]" /> Aún no hay visionados.</p>
+            <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90"><Eye size={16} className="text-[#C8A96B]" /> {fallo ? "No se han podido leer los visionados." : "Aún no hay visionados."}</p>
             {yt.resp?.aviso && <p className="mt-1 text-[13px] text-white/60">{yt.resp.aviso}</p>}
+            {falloApp && <p className="mt-1 text-[13px] text-white/60">Las aperturas desde la app no han llegado.</p>}
           </div>
+          {fallo && (
+            <button type="button" onClick={reintenta} className="inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-1.5 text-[13px] font-semibold text-white/75 transition hover:border-white/30 hover:text-white">
+              <RefreshCw size={13} /> Reintentar
+            </button>
+          )}
           <IrALosClips principal />
         </div>
       ) : (

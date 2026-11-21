@@ -27,7 +27,8 @@ import { useEffect, useMemo, useState } from "react";
 import { CalendarClock, ChevronRight, Film, ShieldHalf, Target } from "lucide-react";
 
 import { useCalendario } from "@/hooks/useCalendario";
-import { comoNuestro, ordenaPartidos } from "@/lib/castilla/calendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { buscaJornada, cargaJornadas, enlaceAbpRival, enlacePlanDePartido, mismoEquipo, type JornadaRival } from "@/lib/abp/jornada";
 import { BotonGolesEnVideo, type GolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
@@ -100,6 +101,7 @@ export function RelacionadoAbp({
   numeroEnHoja,
   marcado = false,
   className = "",
+  compacto = false,
 }: {
   pantalla: PantallaAbp;
   /** El rival del partido que se está mirando (vacío con varios rivales). */
@@ -111,6 +113,12 @@ export function RelacionadoAbp({
   /** 17/11/2026 (ronda 19): la pantalla ve la temporada y este partido sólo va marcado. */
   marcado?: boolean;
   className?: string;
+  /**
+   * 20/11/2026 (ronda 7, ABP ofensivo, marketing): fila del próximo rival más
+   * corta: su ABP se llama «Su ABP» (como en la del partido) y va primero, y
+   * la pantalla hermana no se repite si ya está en la tarjeta del partido.
+   */
+  compacto?: boolean;
 }) {
   const { partidos } = useCalendario();
   const [jornadas, setJornadas] = useState<JornadaRival[]>([]);
@@ -124,13 +132,25 @@ export function RelacionadoAbp({
     return () => ctrl.abort();
   }, []);
 
+  /*
+  | 20/11/2026 (jueces, ronda 8): el próximo ya no es «el primero sin marcador».
+  | Con una copia del calendario guardada en el aparato antes de que BeSoccer
+  | apuntara el resultado, J11 seguía «sin jugar» el 20/11 y la tarjeta decía
+  | Hércules en vez de Real Murcia. Ahora manda la fecha (hora de Madrid, tal
+  | cual la da BeSoccer) con la misma regla que la portada: `alrededorDe`. El
+  | reloj se apunta una vez, fuera del render.
+  */
+  const [ahora, setAhora] = useState(0);
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+    return () => clearTimeout(id);
+  }, []);
+
   const { proximo, ultimo } = useMemo(() => {
-    const nuestros = ordenaPartidos(partidos).map(comoNuestro);
-    return {
-      proximo: nuestros.find((p) => !p.jugado) ?? null,
-      ultimo: [...nuestros].reverse().find((p) => p.jugado) ?? null,
-    };
-  }, [partidos]);
+    if (!ahora) return { proximo: null, ultimo: null };
+    const { proximo: sig, anterior } = alrededorDe(partidos, ahora);
+    return { proximo: sig, ultimo: anterior };
+  }, [partidos, ahora]);
 
   const of = ofensiva(pantalla);
   const banda = pantalla === "throw-ins" || pantalla === "throw-ins-def";
@@ -148,13 +168,13 @@ export function RelacionadoAbp({
         {
           href: urlGolesDelEquipo(rival, of ? "contra" : "favor"),
           texto: of ? "▶ Cómo le marcan" : "▶ Sus goles en vídeo",
-          title: of ? `Los goles que encaja ${rival}, en vídeo` : `Los goles que marca ${rival}, en vídeo`,
+          title: of ? `Los goles que encaja ${nombreCorto(rival)}, en vídeo` : `Los goles que marca ${nombreCorto(rival)}, en vídeo`,
           icono: "video",
           goles: { equipo: rival, lado: of ? "contra" : "favor" },
         },
-        { href: enlaceAbpRival(rival), texto: "Su ABP", title: `El balón parado de ${rival}: cómo ataca y cómo defiende`, icono: "abp" },
+        { href: enlaceAbpRival(rival), texto: "Su ABP", title: `El balón parado de ${nombreCorto(rival)}: cómo ataca y cómo defiende`, icono: "abp" },
         ...(filaRival?.id
-          ? [{ href: enlacePlanDePartido(filaRival), texto: "Plan de aquel partido", title: `El plan de partido contra ${rival}`, icono: "plan" as const }]
+          ? [{ href: enlacePlanDePartido(filaRival), texto: "Plan de aquel partido", title: `El plan de partido contra ${nombreCorto(rival)}`, icono: "plan" as const }]
           : []),
         { href: HERMANA[pantalla].href, texto: HERMANA[pantalla].rotulo, title: "La otra mitad del balón parado del mismo partido" },
       ]
@@ -169,27 +189,27 @@ export function RelacionadoAbp({
           ? {
               href: `${enlaceAbpRival(proximo.rival)}&vista=banda`,
               texto: "Su saque de banda",
-              title: `Los saques de banda de ${proximo.rival}, por zona`,
+              title: `Los saques de banda de ${nombreCorto(proximo.rival)}, por zona`,
               icono: "abp",
             }
           : {
               href: enlaceAbpRival(proximo.rival),
-              texto: of ? "Cómo defiende su ABP" : "Cómo ataca su ABP",
-              title: `El balón parado de ${proximo.rival}`,
+              texto: compacto ? "Su ABP" : of ? "Cómo defiende su ABP" : "Cómo ataca su ABP",
+              title: `El balón parado de ${nombreCorto(proximo.rival)}`,
               icono: "abp",
             },
         {
           href: urlGolesDelEquipo(proximo.rival, of ? "contra" : "favor"),
           texto: of ? "▶ Cómo le marcan" : "▶ Sus goles en vídeo",
-          title: of ? `Los goles que encaja ${proximo.rival}, en vídeo` : `Los goles que marca ${proximo.rival}, en vídeo`,
+          title: of ? `Los goles que encaja ${nombreCorto(proximo.rival)}, en vídeo` : `Los goles que marca ${nombreCorto(proximo.rival)}, en vídeo`,
           icono: "video",
           goles: { equipo: proximo.rival, lado: of ? "contra" : "favor" },
         },
-        { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado contra ${proximo.rival}` },
+        { href: conRival("/abp-pizarra"), texto: "Pizarra ABP", title: `Las diapositivas de balón parado contra ${nombreCorto(proximo.rival)}` },
         /* 17/11/2026 (jueces, ronda 20): también desde el próximo rival, la otra mitad (ataque ↔ defensa). */
-        { href: HERMANA[pantalla].href, texto: HERMANA[pantalla].rotulo, title: `La otra mitad del balón parado, para preparar a ${proximo.rival}` },
+        { href: HERMANA[pantalla].href, texto: HERMANA[pantalla].rotulo, title: `La otra mitad del balón parado, para preparar a ${nombreCorto(proximo.rival)}` },
         { href: "/abp-microciclo", texto: banda ? "Microciclo · saque de banda" : "Microciclo ABP", title: "Qué se trabaja cada día de la semana a balón parado" },
-        { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${proximo.rival}`, icono: "plan" },
+        { href: conRival("/match-preparation"), texto: "Plan de partido", title: `El plan contra ${nombreCorto(proximo.rival)}`, icono: "plan" },
       ]
     : [];
 
@@ -205,7 +225,7 @@ export function RelacionadoAbp({
         <p className="flex min-w-0 items-start gap-2 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.07] px-3 py-2 text-[12px] leading-snug text-white/80">
           <CalendarClock size={14} className="mt-0.5 shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
           <span className="min-w-0">
-            La jornada {pendiente.jornada} ({pendiente.rival}, {fechaCorta(pendiente.cuando)}) ya se jugó y aún no está etiquetada en la hoja: lo último de liga que hay es
+            La jornada {pendiente.jornada} ({nombreCorto(pendiente.rival)}, {fechaCorta(pendiente.cuando)}) ya se jugó y aún no está etiquetada en la hoja: lo último de liga que hay es
             la jornada {numeroEnHoja}.
           </span>
         </p>
@@ -217,7 +237,7 @@ export function RelacionadoAbp({
             <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
               {proximoEsElMismo ? "Rival de la semana · el partido que se mira" : `${marcado ? "El último partido, marcado en oro" : "El partido que se mira"}${etiqueta ? ` · ${etiqueta}` : ""}`}
             </p>
-            <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{rival}</p>
+            <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{nombreCorto(rival)}</p>
             <Atajos atajos={proximoEsElMismo ? [...delPartido, ...delProximo.slice(2).filter((a) => a.href !== HERMANA[pantalla].href)] : delPartido} color="var(--rmcf-gold-ink)" />
           </section>
         ) : null}
@@ -229,8 +249,8 @@ export function RelacionadoAbp({
               {fechaCorta(proximo.cuando) ? ` · ${fechaCorta(proximo.cuando)}` : ""}
               {proximo.lado === "casa" ? " · en casa" : " · fuera"}
             </p>
-            <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{proximo.rival}</p>
-            <Atajos atajos={delProximo} color={AZUL} />
+            <p className="mt-0.5 truncate text-base font-bold uppercase tracking-[0.03em] text-white/90">{nombreCorto(proximo.rival)}</p>
+            <Atajos atajos={compacto && rival ? delProximo.filter((a) => a.href !== HERMANA[pantalla].href) : delProximo} color={AZUL} />
           </section>
         ) : null}
       </div>

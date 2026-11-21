@@ -23,7 +23,7 @@
  * `start`/`end` corta el trozo y al acabar pasa solo al siguiente.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { fechaCorta } from "@/lib/opta-analisis";
 import { cargaResumenesRfef, mismoEquipo, resumenDelPartido } from "@/lib/rivals/resumen-de-partido";
@@ -95,6 +95,12 @@ function cargaMarcas(): Promise<Marcas> {
 /* ---------- los cortes de Opta ---------- */
 
 let cargandoClips: Promise<ClipsOpta> | null = null;
+
+/** 20/11/2026 (ronda 8): tira las peticiones en vuelo de marcas y cortes, para «Reintentar» tras una colgada. */
+function olvidaPeticiones() {
+  cargandoMarcas = null;
+  cargandoClips = null;
+}
 
 function cargaClipsOpta(): Promise<ClipsOpta> {
   cargandoClips ??= fetch("/api/docs?key=opta:goles-video")
@@ -197,7 +203,32 @@ export function tomasDeGoles(goles: Remate[], resumenes: ResumenRfef[], marcas: 
  */
 export type PedidoGol = { gol: Remate };
 
-export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null }: { goles: Remate[]; titulo: string; conLista?: boolean; pedido?: PedidoGol | null }) {
+export function GolesDeSeguido({
+  goles,
+  titulo,
+  conLista = false,
+  pedido = null,
+  cabecera = null,
+  mientras = null,
+  ocultarSinVideo = false,
+  alAgotar = null,
+}: {
+  goles: Remate[];
+  titulo: string;
+  conLista?: boolean;
+  pedido?: PedidoGol | null;
+  /** 20/11/2026 (Análisis de datos, ronda 7): lo que va encima, sólo si el bloque sale. */
+  cabecera?: ReactNode;
+  /** Lo que se pinta mientras llegan los vídeos (por defecto, nada). */
+  mientras?: ReactNode;
+  /** Sin ninguna toma con vídeo, no sale nada (por defecto sale el botón apagado). */
+  ocultarSinVideo?: boolean;
+  /**
+   * 20/11/2026 (jueces, ronda 8): lo que sale si los vídeos no han llegado en
+   * 12 s (por defecto, nada: el bloque se quita). Recibe cómo reintentar.
+   */
+  alAgotar?: ((reintentar: () => void) => ReactNode) | null;
+}) {
   const [resumenes, setResumenes] = useState<ResumenRfef[] | null>(null);
   const [marcas, setMarcas] = useState<Marcas | null>(null);
   const [clips, setClips] = useState<ClipsOpta | null>(null);
@@ -208,21 +239,49 @@ export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null 
   const jugador = useRef<YTPlayer | null>(null);
   const [atendido, setAtendido] = useState<PedidoGol | null>(null);
   const [sinVideo, setSinVideo] = useState<Remate | null>(null);
+  /*
+  | 20/11/2026 (jueces, ronda 8): una petición colgada dejaba «Cargando el vídeo
+  | del gol…» para siempre (la promesa en vuelo se reutiliza y nunca acaba).
+  | Con tope de 12 s: se avisa (o se quita el bloque) y «Reintentar» vuelve a
+  | pedir de cero.
+  */
+  const [agotado, setAgotado] = useState(false);
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     let cancelado = false;
+    let llego = false;
 
-    Promise.all([cargaResumenesRfef(), cargaMarcas(), cargaClipsOpta()]).then(([r, m, c]) => {
-      if (cancelado) return;
-      setResumenes(r);
-      setMarcas(m);
-      setClips(c);
-    });
+    const reloj = window.setTimeout(() => {
+      if (!cancelado && !llego) setAgotado(true);
+    }, 12_000);
+
+    Promise.all([cargaResumenesRfef(), cargaMarcas(), cargaClipsOpta()])
+      .then(([r, m, c]) => {
+        llego = true;
+        window.clearTimeout(reloj);
+        if (cancelado) return;
+        setResumenes(r);
+        setMarcas(m);
+        setClips(c);
+        setAgotado(false);
+      })
+      .catch(() => {
+        if (!cancelado) setAgotado(true);
+      });
 
     return () => {
       cancelado = true;
+      window.clearTimeout(reloj);
     };
-  }, []);
+  }, [intento]);
+
+  const reintentar = () => {
+    /* Las promesas en vuelo de este fichero se tiran: si estaban colgadas, se vuelven a pedir. */
+    olvidaPeticiones();
+    setAgotado(false);
+    setIntento((n) => n + 1);
+  };
 
   const { tomas, sinMarca, deOpta } = useMemo(
     () => (resumenes && marcas && clips ? tomasDeGoles(goles, resumenes, marcas, clips) : { tomas: [], sinMarca: 0, deOpta: 0 }),
@@ -302,7 +361,9 @@ export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null 
     jugador.current = null;
   }, [abierto]);
 
-  if (!resumenes || !marcas || !clips || goles.length === 0) return null;
+  if (goles.length === 0) return null;
+  if (!resumenes || !marcas || !clips) return agotado ? (alAgotar ? alAgotar(reintentar) : null) : mientras;
+  if (ocultarSinVideo && tomas.length === 0) return null;
 
   const boton =
     "inline-flex min-h-[36px] items-center gap-1.5 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20 disabled:opacity-40";
@@ -310,6 +371,7 @@ export function GolesDeSeguido({ goles, titulo, conLista = false, pedido = null 
 
   return (
     <div ref={raiz} className="mb-3 min-w-0 scroll-mt-24">
+      {cabecera}
       {sinVideo && (
         <p className="mb-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] text-white/70" role="status">
           El gol de {sinVideo.tirador} ({minutoTexto(sinVideo.minuto, sinVideo.parte)}) aún no tiene vídeo: se baja cada noche.

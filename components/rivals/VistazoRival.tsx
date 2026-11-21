@@ -2,7 +2,7 @@
 
 import { EnlacesAmenaza, useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
 import Link from "next/link";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { ArrowUpRight, Goal, LayoutGrid, Trophy, UserX } from "lucide-react";
 
@@ -202,7 +202,54 @@ export type Dano = {
   enContra?: boolean;
   /** El duelo de /duelos del que sale la orden, por piezas. */
   duelo?: { titulo: string; conBalon: number | null; sinBalon: number | null; tarea: string; objetivo: string; base: string };
+  /** Es el duelo que decide (lib/duelos.ts, `dueloQueDecide`): el mismo que abre el Plan y Duelos (20/11/2026, ronda 7). */
+  decide?: boolean;
 };
+
+/*
+| DOS RENGLONES Y «VER MÁS» (20/11/2026, ronda 7, marketing): las explicaciones
+| largas de «Dónde nos hacen daño» se cortan a dos líneas; el resto, al tocar.
+*/
+function DosLineas({ children, className = "" }: { children: React.ReactNode; className?: string }) {
+  const [abierto, setAbierto] = useState(false);
+
+  return (
+    <div className={`min-w-0 ${className}`}>
+      <p className={abierto ? "" : "line-clamp-2"}>{children}</p>
+      <button type="button" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} className="min-h-7 text-[12px] font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
+        {abierto ? "Ver menos" : "Ver más"}
+      </button>
+    </div>
+  );
+}
+
+/* El chip del duelo, en palabras, y su explicación en dos renglones. */
+function ChipDuelo({ d, equipo, decide }: { d: NonNullable<Dano["duelo"]>; equipo: string; decide?: boolean }) {
+  if (d.conBalon == null && d.sinBalon == null) return null;
+
+  return (
+    <>
+      <p className="mt-1 flex min-w-0 flex-wrap items-center gap-1.5">
+        {decide && (
+          <span className="rounded-full border border-[#F87171]/60 px-2 py-px text-[12px] font-bold text-red-300" title="El duelo con la cifra más despegada (lib/duelos.ts): el mismo que abre el Plan de partido y Duelos">
+            el que decide, como en el Plan
+          </span>
+        )}
+        <span className="rounded-full border border-white/15 px-2 py-px text-[12px] font-semibold tabular-nums text-white/80" title="El duelo de Duelos, en diferencia de percentil: + a favor del Castilla, − a favor del rival">
+          {[
+            d.conBalon != null ? `con nuestro balón: ${d.conBalon >= 10 ? "ventaja Castilla" : d.conBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.conBalon)})` : "",
+            d.sinBalon != null ? `con el suyo: ${d.sinBalon >= 10 ? "ventaja Castilla" : d.sinBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.sinBalon)})` : "",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </span>
+      </p>
+      <DosLineas className="mt-0.5 text-[12px] text-white/55">
+        Duelo «{d.titulo.toLowerCase()}»: los + y − son puntos de percentil de los nuestros del duelo frente a los suyos de {equipo}, cada uno contra su puesto en la categoría (Wyscout); + es ventaja nuestra.
+      </DosLineas>
+    </>
+  );
+}
 
 /** El mismo jugador dicho de dos formas («Jorge Mier» y «J. Mier»): por el último apellido. */
 const mismoApellido = (a: string, b: string) => {
@@ -229,28 +276,16 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
           )}
           {uno.puesto ? <span className="text-white/55"> · {uno.puesto}</span> : null}
         </p>
-        {d && (d.conBalon != null || d.sinBalon != null) && (
-          /* En palabras (17/11/2026, ronda 20, fútbol): «nuestro balón +20 · el suyo −33» era jerga. */
-          <span className="shrink-0 rounded-full border border-white/15 px-2 py-px text-[12px] font-semibold tabular-nums text-white/80" title="El duelo de Duelos, en diferencia de percentil: + a favor del Castilla, − a favor del rival">
-            {[
-              d.conBalon != null ? `con nuestro balón: ${d.conBalon >= 10 ? "ventaja Castilla" : d.conBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.conBalon)})` : "",
-              d.sinBalon != null ? `con el suyo: ${d.sinBalon >= 10 ? "ventaja Castilla" : d.sinBalon <= -10 ? `ventaja ${equipo}` : "parejo"} (${signoDuelo(d.sinBalon)})` : "",
-            ]
-              .filter(Boolean)
-              .join(" · ")}
-          </span>
-        )}
       </div>
       {/*
         18/11/2026 (ronda 23, fútbol): «+20 / −33» sin decir qué es. La cifra se
         explica en el propio rótulo: puntos de percentil, los nuestros del duelo
         menos los suyos, cada uno frente a los de su puesto en la categoría.
+        17/11/2026 (ronda 20): en palabras, no «nuestro balón +20 · el suyo −33».
+        20/11/2026 (ronda 7): el chip, bajo el nombre; la explicación, en dos
+        renglones con «Ver más»; y el duelo que decide, rotulado.
       */}
-      {d && (d.conBalon != null || d.sinBalon != null) && (
-        <p className="mt-0.5 text-[12px] text-white/55">
-          Duelo «{d.titulo.toLowerCase()}»: los + y − son puntos de percentil de los nuestros del duelo frente a los suyos de {equipo}, cada uno contra su puesto en la categoría (Wyscout); + es ventaja nuestra.
-        </p>
-      )}
+      {d && <ChipDuelo d={d} equipo={equipo} decide={uno.decide} />}
 
       {/* La orden, en una línea y la primera (17/11/2026, jueces de marketing). */}
       {accion && <p className="mt-1 font-medium text-white">{accion}.</p>}
@@ -714,10 +749,26 @@ export function VistazoRival({
           defensivas (tapar a Romero) con las de ataque.
         */
         <div className="mt-3 grid min-w-0 gap-3 lg:grid-cols-2">
-          {[
-            { clave: "ataque", titulo: "Dónde hacerles daño", sub: "con nuestro balón", color: "#34D399", lista: dano.filter((d) => !d.enContra) },
-            { clave: "defensa", titulo: "Dónde nos hacen daño", sub: "con el suyo", color: "#F87171", lista: dano.filter((d) => d.enContra && !amenaza.some((p) => mismoApellido(p.jugador, d.nombre))) },
-          ]
+          {/*
+            20/11/2026 (ronda 7, fútbol): el duelo que decide (Leiva contra Jorge
+            Mier, −57, el del Plan y Duelos) se perdía: Jorge Mier ya tenía su
+            tarjeta de amenaza y la del duelo se quitaba, y salía primero el de
+            Romero (−37). Ahora el que decide va el primero —dentro de la tarjeta
+            de amenaza de su jugador si la tiene— con «el que decide, como en el Plan».
+          */}
+          {(() => {
+            const decideD = dano.find((d) => d.decide && d.enContra);
+            const amenazaDecide = decideD ? amenaza.find((p) => mismoApellido(p.jugador, decideD.nombre)) : undefined;
+            const amenazaOrden = amenazaDecide ? [amenazaDecide, ...amenaza.filter((p) => p !== amenazaDecide)] : amenaza;
+            const defensa = dano
+              .filter((d) => d.enContra && !amenaza.some((p) => mismoApellido(p.jugador, d.nombre)))
+              .sort((a, b) => Number(Boolean(b.decide)) - Number(Boolean(a.decide)));
+
+            return [
+              { clave: "ataque", titulo: "Dónde hacerles daño", sub: "con nuestro balón", color: "#34D399", lista: dano.filter((d) => !d.enContra), amenazas: [] as typeof amenaza, decideD, amenazaDecide },
+              { clave: "defensa", titulo: "Dónde nos hacen daño", sub: "con el suyo", color: "#F87171", lista: defensa, amenazas: amenazaOrden, decideD, amenazaDecide },
+            ];
+          })()
             .filter((b) => b.lista.length > 0 || (b.clave === "defensa" && amenaza.length > 0))
             .map((bloque) => (
               <div key={bloque.clave} className="min-w-0">
@@ -726,14 +777,24 @@ export function VistazoRival({
                   <span className="text-[12px] font-medium normal-case tracking-normal text-white/55">{bloque.sub}</span>
                 </p>
                 <ul className="grid min-w-0 gap-2">
-                  {bloque.clave === "defensa" &&
-                    amenaza.map((p) => (
+                  {bloque.amenazas.map((p) => {
+                    const delDuelo = p === bloque.amenazaDecide ? bloque.decideD?.duelo : undefined;
+
+                    return (
                       <li key={p.clave} className="min-w-0 rounded-xl border px-3 py-2 text-sm" style={{ borderColor: `${bloque.color}44`, background: `${bloque.color}0f` }}>
                         <p className="font-medium text-white">{p.orden.charAt(0).toUpperCase() + p.orden.slice(1)}.</p>
-                        <p className="mt-0.5 text-[13px] tabular-nums text-white/70">{p.dato}.</p>
+                        {delDuelo && <ChipDuelo d={delDuelo} equipo={equipo} decide />}
+                        {/* 20/11/2026 (ronda 7, marketing): el dato en dos renglones, el resto con «Ver más». */}
+                        <DosLineas className="mt-0.5 text-[13px] tabular-nums text-white/70">{p.dato}.</DosLineas>
                         <EnlacesAmenaza punto={p} equipo={equipo} />
+                        {delDuelo && (
+                          <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+                            Su duelo <ArrowUpRight size={12} aria-hidden />
+                          </Link>
+                        )}
                       </li>
-                    ))}
+                    );
+                  })}
                   {bloque.lista.map((uno) => (
                     <TarjetaDano key={uno.nombre} uno={uno} color={bloque.color} equipo={equipo} abre={abreJugador?.(uno.nombre) ?? null} />
                   ))}

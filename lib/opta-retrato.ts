@@ -23,7 +23,8 @@ export const GX = 52;
 export const GY = 34;
 const RADIO = 2; // celdas (≈ 4 m)
 const TIROS = new Set(["Goal", "Miss", "AttemptSaved", "Post"]);
-const NO_ES_ACCION = new Set(["FreeKick", "Corner", "Foul"]);
+/** Lo que no cuenta como acción con balón (faltas y saques a balón parado). Lo usa también la base de «Pisamos campo rival» (PanelPostPartido). */
+export const NO_ES_ACCION = new Set(["FreeKick", "Corner", "Foul"]);
 
 export type TiroRetrato = { minuto: number; gx: number; gy: number; xg: number; gol: boolean; aPuerta: boolean; deA: boolean; jugadorId: string };
 

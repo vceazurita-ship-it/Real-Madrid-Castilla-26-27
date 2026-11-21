@@ -29,6 +29,16 @@ import {
 } from "@/lib/alertas/modelo";
 import { STAFF } from "@/lib/quiniela/staff";
 import { comoNuestro, type PartidoCastilla } from "@/lib/castilla/calendario";
+import { buscaJornada, type JornadaRival } from "@/lib/abp/jornada";
+
+/** El día del partido al que va un aviso, «AAAA-MM-DD» (el aviso más sus días). */
+function diaDelPartido(aviso: Date, dias: number) {
+  const dia = new Date(aviso.getTime());
+
+  dia.setDate(dia.getDate() + dias);
+
+  return `${dia.getFullYear()}-${String(dia.getMonth() + 1).padStart(2, "0")}-${String(dia.getDate()).padStart(2, "0")}`;
+}
 
 /*
 | Para qué partido sale el aviso (30/10/2026): «vie 6 nov» a secas no decía
@@ -265,6 +275,8 @@ interface Props {
   comprobando?: boolean;
   /** La agenda de la hoja: da el nombre de cada correo cuando lo tiene. */
   agenda?: ContactoAgenda[];
+  /** Las jornadas de la hoja RIVALES: dan el `ID` con el que abre el plan de partido (sólo en la pantalla). */
+  jornadas?: JornadaRival[];
 }
 
 export default function ListaAlertas({
@@ -277,6 +289,7 @@ export default function ListaAlertas({
   partidos = [],
   comprobando = false,
   agenda = [],
+  jornadas = [],
 }: Props) {
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
   const [ahora, setAhora] = useState(0);
@@ -345,13 +358,13 @@ export default function ListaAlertas({
   const silenciadas = todasSilenciadas.filter((a) => !caducada(a));
   const caducadas = todasSilenciadas.filter(caducada);
 
-  const gruposSilenciadas = silenciadas.reduce<{ clave: string; partido: string; alertas: Alerta[] }[]>((grupos, a) => {
+  const gruposSilenciadas = silenciadas.reduce<{ clave: string; partido: string; fecha: string; alertas: Alerta[] }[]>((grupos, a) => {
     const s = a.repeticion === "partido" && ahora > 0 ? saldriaSiSeReactiva(a, partidos, new Date(ahora)) : null;
     const partido = s ? partidoDelAviso(partidos, s.cuando, s.dias) : "";
     const grupo = grupos.find((g) => g.partido === partido);
 
     if (grupo) grupo.alertas.push(a);
-    else grupos.push({ clave: partido || "otras", partido, alertas: [a] });
+    else grupos.push({ clave: partido || "otras", partido, fecha: s ? diaDelPartido(s.cuando, s.dias) : "", alertas: [a] });
 
     return grupos;
   }, []);
@@ -502,7 +515,8 @@ export default function ListaAlertas({
               const destino = listaDestino(alerta.destinatarios, agenda);
               const piezas = destino.externo ? [...destino.nombres, destino.externo] : destino.nombres;
               const abiertos = destinosAbiertos === alerta.id;
-              const visibles = abiertos || piezas.length <= 2 ? piezas : piezas.slice(0, 2);
+              /* 20/11/2026 (ronda 7, fútbol y marketing): hasta cuatro, todos por su nombre («y 1 más» no decía a quién llega). */
+              const visibles = abiertos || piezas.length <= 4 ? piezas : piezas.slice(0, 3);
               const resto = piezas.length - visibles.length;
 
               return (
@@ -520,11 +534,11 @@ export default function ListaAlertas({
                       <AlarmClock className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
                     )}
                     {principal}
+                    {/* 20/11/2026 (ronda 7, marketing): la fecha de salida es el dato principal; la regla y el partido, en su renglón. */}
                     {regla && !sinRegla ? (
-                      <>
-                        {" · "}
+                      <span className="mt-0.5 block pl-5">
                         {(() => {
-                          const texto = regla.charAt(0).toLowerCase() + regla.slice(1);
+                          const texto = regla;
                           const marca = rivalDeLaTarea ? `vs ${rivalDeLaTarea}` : "";
                           const i = marca ? texto.indexOf(marca) : -1;
 
@@ -543,14 +557,19 @@ export default function ListaAlertas({
                             </>
                           );
                         })()}
-                      </>
+                      </span>
                     ) : null}
                   </p>
 
                   {/* Los destinatarios, todos y por nombre: «Víctor Cea y 1 más» no decía quién (30/10/2026). */}
                   <p title={todos} className="[overflow-wrap:anywhere]">
                     <Users className="mr-1.5 inline-block h-3.5 w-3.5 -translate-y-px" aria-hidden />
-                    {piezas.length ? visibles.join(", ") : "Sin destinatarios"}{resto > 0 ? " " : ""}
+                    {piezas.length
+                      ? resto > 0 || visibles.length < 2
+                        ? visibles.join(", ")
+                        : `${visibles.slice(0, -1).join(", ")} y ${visibles[visibles.length - 1]}`
+                      : "Sin destinatarios"}
+                    {resto > 0 ? " " : ""}
                     {resto > 0 ? (
                       <button
                         type="button"
@@ -656,20 +675,22 @@ export default function ListaAlertas({
                     }`}
                   >
                     <Pencil className="h-3.5 w-3.5" aria-hidden />
-                    {caducada(alerta) ? "Ponerle fecha nueva" : "Editar"}
+                    {caducada(alerta) ? "Darle nueva fecha" : "Editar"}
                   </button>
                 )}
 
-                {/* 17/11/2026: a un toque, la pantalla donde se hace lo que pide la tarea. */}
-                {destinoTarea && (
-                  <Link
-                    href={destinoTarea.href}
-                    className="inline-flex min-h-10 min-w-0 shrink items-center gap-1 rounded-full px-2.5 py-1.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                {/* 20/11/2026 (ronda 7, fútbol): la caducada, con «Borrar» a la vista junto a «Darle nueva fecha» (pide confirmación igual). */}
+                {caducada(alerta) ? (
+                  <button
+                    type="button"
+                    onClick={() => setBorrando(alerta.id)}
+                    disabled={bloqueada}
+                    className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
                   >
-                    <span className="min-w-0 break-words leading-tight">{destinoTarea.texto}</span>
-                    <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
-                  </Link>
-                )}
+                    <Trash2 className="h-3.5 w-3.5" aria-hidden />
+                    Borrar
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -683,6 +704,18 @@ export default function ListaAlertas({
                   <MoreHorizontal className="h-4 w-4" aria-hidden />
                 </button>
               </div>
+
+              {/* 17/11/2026: a un toque, la pantalla donde se hace lo que pide la tarea.
+                  20/11/2026 (ronda 7, fútbol): en su renglón, a todo el ancho, debajo del botón (a 390 px ocupaba tres renglones al lado de «Reactivar»). */}
+              {destinoTarea && (
+                <Link
+                  href={destinoTarea.href}
+                  className="mt-1 flex min-h-10 w-full min-w-0 items-center justify-between gap-1 rounded-xl px-2.5 py-1.5 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                >
+                  <span className="min-w-0 truncate">{destinoTarea.texto}</span>
+                  <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                </Link>
+              )}
 
               {menu === alerta.id && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1 rounded-2xl bg-white/[0.03] p-1">
@@ -777,14 +810,24 @@ export default function ListaAlertas({
                   {(() => {
                     const rival = /^vs (.+?)(?: \(|$)/.exec(g.partido)?.[1];
 
+                    /* 20/11/2026 (ronda 7, marketing y análisis): «Abrir a Rayo» no decía qué abría. Ahora su plan de partido (con ?rival= de la hoja RIVALES) y su plantilla, cada uno con su nombre. */
+                    const id = rival ? buscaJornada(jornadas, { rival, fecha: g.fecha })?.id ?? "" : "";
+                    const chip =
+                      "inline-flex min-h-9 items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12.5px] font-semibold normal-case tracking-normal text-[#C8A96B] transition hover:bg-[#C8A96B]/20";
+
                     return rival ? (
-                      <Link
-                        href={`/rivals?equipo=${encodeURIComponent(rival)}`}
-                        className="inline-flex min-h-8 items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2.5 text-[12px] font-semibold normal-case tracking-normal text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                      >
-                        Abrir a {rival}
-                        <ChevronRight className="h-3.5 w-3.5" aria-hidden />
-                      </Link>
+                      <>
+                        {id ? (
+                          <Link href={`/match-preparation?rival=${encodeURIComponent(id)}`} className={chip}>
+                            Ver el plan del partido vs {rival}
+                            <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                          </Link>
+                        ) : null}
+                        <Link href={`/rivals?equipo=${encodeURIComponent(rival)}`} className={chip}>
+                          {id ? "Su plantilla" : `La plantilla de ${rival}`}
+                          <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                        </Link>
+                      </>
                     ) : null;
                   })()}
                 </p>
@@ -803,7 +846,8 @@ export default function ListaAlertas({
         /* 17/11/2026 (análisis): si todas llevan más de 30 días caducadas, plegadas: ya no hacen ruido. */
         /* 20/11/2026 (ronda 4, marketing): plegadas fuera de la vista principal; el
            resumen ya dice cuáles, por qué y desde cuándo, y el aviso de arriba las cuenta. */
-        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3">
+        /* 20/11/2026 (ronda 7, marketing; y la ronda 5, análisis: «que no quede plegada»): abierta, con «Darle nueva fecha» y «Borrar» en su tarjeta. */
+        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open>
 
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}

@@ -46,6 +46,8 @@ interface Props {
   /** El partido del Castilla que cae en esa semana (calendario de BeSoccer), si lo hay. */
   partido?: PartidoNuestro | null;
   onSelectWeek?: (weekId: number) => void;
+  /** Sin la fila de accesos (20/11/2026, ronda 7): en el repositorio general la semana en curso ya los lleva arriba. */
+  sinAccesos?: boolean;
   /** Sólo lo que cambia: el servidor lo aplica sobre lo último guardado. */
   onUpdateWeek: (cambio: CambioSemana) => Promise<void>;
 }
@@ -57,6 +59,7 @@ export default function WeekPanel({
   ultimaConArchivos,
   partido = null,
   onSelectWeek,
+  sinAccesos = false,
   onUpdateWeek,
 }: Props) {
   /* Se abre en la pestaña que tiene contenido; si la semana está vacía, en
@@ -298,7 +301,7 @@ export default function WeekPanel({
               la completa —el microciclo y, si el partido aún no se ha jugado,
               el plan y la plantilla del rival, con el rival ya elegido—.
             */}
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className={`mt-3 flex-wrap gap-2 ${sinAccesos ? "hidden" : "flex"}`}>
               <Link
                 href="/microcycles"
                 className="inline-flex min-h-10 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"

@@ -69,7 +69,7 @@ function Reparto({ votos, total, alto }: { votos: Record<Signo, number>; total: 
           votos[signo] > 0 ? (
             <span
               key={signo}
-              className="flex items-center justify-center text-[11px] font-semibold tabular-nums text-black/70"
+              className="flex items-center justify-center text-[12px] font-semibold tabular-nums text-black/70"
               style={{ flex: `${votos[signo]} 1 0`, minWidth: 4, background: COLOR_SIGNO[signo] }}
             >
               {total > 0 && votos[signo] / total > 0.2 ? votos[signo] : null}
@@ -77,7 +77,7 @@ function Reparto({ votos, total, alto }: { votos: Record<Signo, number>; total: 
           ) : null,
         )}
       </span>
-      <span className="mt-0.5 block whitespace-pre text-[11px] tabular-nums text-white/60">{resumen}</span>
+      <span className="mt-0.5 block whitespace-pre text-[12px] tabular-nums text-white/60">{resumen}</span>
     </span>
   );
 }
@@ -148,7 +148,7 @@ export function Parrilla({
       icon={Users}
     >
       {/* La leyenda, arriba: se lee antes de la tabla, no después. */}
-      <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[11px] text-white/60">
+      <ul className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-[12px] text-white/60">
         <li className="flex items-center gap-1.5">
           <span className="h-3 w-3 rounded-sm border border-emerald-400/40 bg-emerald-400/[0.14]" />
           Acierto
@@ -166,7 +166,7 @@ export function Parrilla({
 
         {ejemploSolo && (
           <li className="flex items-center gap-1.5">
-            <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">
+            <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]">
               Solo {ejemploSolo}
             </span>
             : el único que puso ese signo en ese partido
@@ -248,12 +248,12 @@ export function Parrilla({
 
             {(fila.unanime || fila.solitarios.length > 0) && (
               <span className="mt-2 flex flex-wrap gap-1">
-                {fila.unanime && <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">Todos igual</span>}
+                {fila.unanime && <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]">Todos igual</span>}
                 {fila.solitarios.map((slug) => {
                   const persona = PERSONA_POR_SLUG.get(slug);
 
                   return (
-                    <span key={slug} className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11px] text-[#C8A96B]">
+                    <span key={slug} className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]">
                       Solo {persona ? nombreCorto(persona) : slug}
                     </span>
                   );
@@ -293,8 +293,9 @@ export function Parrilla({
                         {persona ? nombreCorto(persona) : slug}
                       </span>
 
+                      {/* 20/11/2026 (jueces, ronda 8): toda la letra pequeña de la parrilla (signos, reparto, «sin apostar») a 12 px; a 10-11 no se leía. */}
                       {filas.every((fila) => !fila.signos[slug]) && (
-                        <span className="block text-[11px] font-normal text-white/45">
+                        <span className="block text-[12px] font-normal text-white/45">
                           sin apostar
                         </span>
                       )}
@@ -321,7 +322,7 @@ export function Parrilla({
                     </span>
 
                     {fila.resultado && (
-                      <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[11px] font-semibold text-white/75">
+                      <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[12px] font-semibold text-white/75">
                         {fila.resultado}
                       </span>
                     )}
@@ -330,7 +331,7 @@ export function Parrilla({
                   {/* Lo que se comenta: el pleno y el que se la jugó solo. */}
                   <span className="mt-1 flex flex-wrap gap-1">
                     {fila.unanime && (
-                      <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]">
+                      <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]">
                         Todos igual
                       </span>
                     )}
@@ -338,7 +339,7 @@ export function Parrilla({
                     {fila.solitarios.map((slug) => (
                       <span
                         key={slug}
-                        className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[11.5px] text-[#C8A96B]"
+                        className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]"
                         title={`Es el único que puso ${fila.signos[slug]}: ${
                           NOMBRE_DEL_SIGNO[fila.signos[slug] as Signo]
                         }`}
@@ -385,7 +386,7 @@ export function Parrilla({
               <tr className="border-t border-white/10">
                 <td
                   colSpan={2}
-                  className="py-2 text-[10px] uppercase tracking-[0.12em] text-white/40"
+                  className="py-2 text-[12px] uppercase tracking-[0.12em] text-white/40"
                 >
                   Aciertos
                 </td>
@@ -412,7 +413,7 @@ export function Parrilla({
         </table>
       </div>
 
-      <p className="mt-3 text-[11px] leading-relaxed text-white/50">
+      <p className="mt-3 text-[12px] leading-relaxed text-white/50">
         Casilla vacía: no apostó. La copa marca, en la fila de aciertos, al que más acertó de la jornada (si empatan, la llevan todos).
       </p>
     </Panel>

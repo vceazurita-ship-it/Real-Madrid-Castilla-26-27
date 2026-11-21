@@ -308,9 +308,10 @@ export function EstadoJornada({
             type="button"
             onClick={onVerCaritas}
             aria-expanded={verCaritas}
-            className="ml-2 inline-flex min-h-[32px] items-center gap-1 text-[12px] text-[#C8A96B] underline-offset-2 transition hover:underline"
+            /* 20/11/2026 (ronda 7, marketing): enlace secundario, sin el oro del botón de apostar. */
+            className="ml-2 inline-flex min-h-[32px] items-center gap-1 text-[12px] text-white/60 underline decoration-white/25 underline-offset-2 transition hover:text-white"
           >
-            <Smile size={13} aria-hidden />
+            <Smile size={13} aria-hidden className="text-white/45" />
             {verCaritas ? "Ocultar las caras" : "Ver las caras"}
           </button>
         ) : null}

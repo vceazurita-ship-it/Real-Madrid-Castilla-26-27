@@ -29,7 +29,10 @@
 import { Fragment, createContext, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
-import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import { useJornadasRivales } from "@/components/rivals/EnlacesDelRival";
+import { filaDelEquipo } from "@/components/rivals/AccesosDelRival";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
+import { hoyMadrid } from "@/lib/apuestas/modelo";
 import {
   CalendarDays,
   Check,
@@ -40,6 +43,7 @@ import {
   ImagePlus,
   ListOrdered,
   Lock,
+  Megaphone,
   Music,
   Quote,
   Save,
@@ -76,6 +80,7 @@ import {
   SIGNOS,
   bloqueCerrado,
   bloqueDe,
+  cuentaLaJornada,
   jornadaDeHoy,
   jornadaVacia,
   marcadorDe,
@@ -102,13 +107,13 @@ import {
   nombreCorto,
 } from "@/lib/quiniela/staff";
 
-/** El día de hoy en "2026-09-16", que es como se guardan las fechas. */
+/**
+ * El día de hoy en "2026-09-16", que es como se guardan las fechas.
+ * 20/11/2026: en hora de Madrid, como el cierre; con la del aparato, un
+ * portátil en otro huso abría la jornada equivocada cerca de medianoche.
+ */
 function hoyTexto() {
-  const ahora = new Date();
-
-  const dos = (n: number) => String(n).padStart(2, "0");
-
-  return `${ahora.getFullYear()}-${dos(ahora.getMonth() + 1)}-${dos(ahora.getDate())}`;
+  return hoyMadrid(new Date());
 }
 
 /** "2026-08-30" → "30 ago". */
@@ -226,6 +231,9 @@ function Quiniela() {
   const ahora = useAhora();
 
   const escudosLiga = useEscudosLiga();
+
+  /* El día de Madrid, para buscar la fila RIVALES de cada equipo (su próximo partido). */
+  const hoy = useMemo(() => hoyMadrid(ahora), [ahora]);
 
   const [jornada, setJornada] = useState(() => jornadaDeHoy(hoyTexto()));
 
@@ -536,6 +544,23 @@ function Quiniela() {
     };
   }, [doc, jugadores, jornada]);
 
+  /*
+  | 20/11/2026 (ronda 7, marketing): la tendencia del líder en sus últimas
+  | cinco jornadas con resultado (hasta la que se mira), para que el ranking
+  | no sea sólo una tabla. Las que no le cuentan (antes de entrar) no salen.
+  */
+  const liderSlug = liderTabla?.slug ?? "";
+  const tendenciaLider = useMemo(() => {
+    if (!liderSlug) return [];
+    const desde = primeraJornadaDe(doc, liderSlug);
+
+    return Object.values(doc.jornadas)
+      .filter((j) => j.jornada <= jornada && j.resultados.some(Boolean) && cuentaLaJornada(j, liderSlug, desde))
+      .sort((a, b) => a.jornada - b.jornada)
+      .slice(-5)
+      .map((j) => ({ numero: j.jornada, ...marcadorDe(j, liderSlug) }));
+  }, [doc, jornada, liderSlug]);
+
   /* La jornada desde la que cuenta cada uno: «entró en la jornada 4». */
   const primeraDe = useMemo(
     () => new Map(jugadores.map((slug) => [slug, primeraJornadaDe(doc, slug)])),
@@ -799,9 +824,9 @@ function Quiniela() {
 
   const jugados = laJornada.resultados.filter(Boolean).length;
 
-  /* Con la jornada cerrada el acceso baja al final: el botón «Entrar» de
-     arriba lleva hasta él. Abierta, la franja de acceso ya va arriba. */
-  const entrarArriba = !yo && !sesion.cargando && plazo.cerrada && vista === "jornada";
+  /* Con la jornada cerrada el acceso baja al final. 20/11/2026 (jueces,
+     ronda 8): ya sin el botón «Entrar» de arriba que llevaba hasta él; salía
+     dos veces, arriba y en el formulario. Abierta, la franja va arriba. */
 
   /* El estado de guardado, en el idioma de `SaveState`. */
   const estadoGuardado =
@@ -862,7 +887,16 @@ function Quiniela() {
             {/* ---------------------- EL RANKING ---------------------- */}
 
             {/* Sin un solo resultado en la temporada no hay ranking que
-                enseñar: el panel no sale. */}
+                enseñar: el panel no sale. 20/11/2026 (jueces, ronda 8):
+                mientras llega el documento, su hueco en gris; antes no salía
+                nada y parecía que no había ranking. */}
+            {!hayRanking && estado === "cargando" && (
+              <div
+                className="mt-5 h-48 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]"
+                aria-busy="true"
+                aria-label="Cargando el ranking de acierto"
+              />
+            )}
             {hayRanking && (
             <div className="mt-5">
               <Panel
@@ -917,16 +951,25 @@ function Quiniela() {
                           <th className="w-32 pb-2 pt-1.5 text-left font-medium sm:w-52">
                             Acierto <span className="normal-case tracking-normal text-white/45">· barra de {escala.suelo} a {escala.techo} %</span>
                           </th>
-                          <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Aciertos</th>
+                          {/* 20/11/2026 (jueces, ronda 8): qué es la cifra, dicho en la cabecera. */}
+                          <th className="hidden w-32 pb-2 pt-1.5 text-right font-medium sm:table-cell">Acertados / jugados</th>
                           {tabla.some((fila) => fila.semana.jugados > 0) && (
                             <th className="hidden w-24 pb-2 pt-1.5 text-right font-medium sm:table-cell">Esta jornada</th>
                           )}
                           {ultimaCerrada && (
-                            <th
-                              title={`Aciertos en la jornada ${ultimaCerrada.numero}`}
-                              className="hidden w-28 pb-2 pt-1.5 text-right font-medium sm:table-cell"
-                            >
-                              Jornada {ultimaCerrada.numero}
+                            <th className="hidden w-32 pb-2 pt-1.5 text-right font-medium sm:table-cell">
+                              {/* 20/11/2026 (ronda 7, marketing): dice qué jornada es y lleva a sus resultados. */}
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setJornada(ultimaCerrada.numero);
+                                  setVista("jornada");
+                                }}
+                                title={`Ver la jornada ${ultimaCerrada.numero}: resultados y lo que puso cada uno`}
+                                className="uppercase tracking-[0.12em] underline decoration-white/25 underline-offset-2 hover:text-white"
+                              >
+                                Última jugada · J{ultimaCerrada.numero}
+                              </button>
                             </th>
                           )}
                           <th className="hidden w-20 pb-2 pt-1.5 text-right font-medium sm:table-cell">Ganadas</th>
@@ -978,14 +1021,24 @@ function Quiniela() {
                                       pinta nada en una apuesta entre
                                       compañeros (17/09/2026). */}
                                   <span className="min-w-0">
-                                    {/* 16/11/2026: el nombre lleva a sus apuestas del staff. */}
-                                    <Link
-                                      href={`/laboratorio/apuestas?quien=${encodeURIComponent(fila.slug)}`}
-                                      title={`Las apuestas de ${persona.nombre}`}
-                                      className="block truncate text-white/85 hover:text-white hover:underline"
-                                    >
-                                      {persona.nombre}
-                                    </Link>
+                                    {/*
+                                      16/11/2026: sus apuestas del staff, a un toque.
+                                      20/11/2026 (ronda 7, marketing): el nombre ya no parece un
+                                      enlace (es del staff, no hay ficha de jugador); el acceso a
+                                      sus apuestas va aparte y dicho.
+                                    */}
+                                    <span className="flex min-w-0 items-center gap-1">
+                                      <span className="truncate text-white/85">{persona.nombre}</span>
+                                      <Link
+                                        href={`/laboratorio/apuestas?quien=${encodeURIComponent(fila.slug)}`}
+                                        title={`Las apuestas del staff de ${persona.nombre}`}
+                                        aria-label={`Las apuestas del staff de ${persona.nombre}`}
+                                        className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/45 transition hover:bg-white/[0.06] hover:text-[#C8A96B]"
+                                      >
+                                        <Megaphone size={13} aria-hidden />
+                                      </Link>
+                                    </span>
+                                    {lider && tendenciaLider.length >= 2 ? <TendenciaLider puntos={tendenciaLider} /> : null}
 
                                     {/* Quien apostó poco sale abajo con un
                                         porcentaje engañoso: se dice por qué. */}
@@ -1013,7 +1066,7 @@ function Quiniela() {
                                     {/* En el móvil no caben las columnas de
                                         aciertos y jornadas: van aquí, pequeñas. */}
                                     <span className="block truncate text-[13px] tabular-nums text-white/60 sm:hidden">
-                                      {fila.total.aciertos}/{fila.total.jugados}
+                                      {`${fila.total.aciertos} de ${fila.total.jugados} acertados`}
                                       {fila.jornadasGanadas > 0
                                         ? ` · ${fila.jornadasGanadas} ${
                                             fila.jornadasGanadas === 1 ? "jornada ganada" : "jornadas ganadas"
@@ -1337,21 +1390,11 @@ function Quiniela() {
             {/* Quién va ganando, lo primero (08/11/2026, guionista y
                 marketing): sale del ranking ya calculado, y el botón «Entrar»
                 sube a esta franja para no buscarlo tres pantallas abajo. */}
-            {(gancho || entrarArriba) && (
+            {gancho && (
               <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-2">
-                {gancho ? (
-                  <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-white">
-                    {gancho}
-                  </p>
-                ) : null}
-                {entrarArriba ? (
-                  <a
-                    href="#acceso-quiniela"
-                    className="inline-flex min-h-11 items-center justify-center rounded-xl border border-[#C8A96B]/45 bg-[#C8A96B]/15 px-5 text-sm font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/25"
-                  >
-                    Entrar
-                  </a>
-                ) : null}
+                <p className="min-w-0 flex-1 text-[14px] font-semibold leading-snug text-white">
+                  {gancho}
+                </p>
               </div>
             )}
 
@@ -1476,6 +1519,9 @@ function Quiniela() {
 
             {!plazo.cerrada && panelRanking}
 
+            {/* 20/11/2026 (jueces, ronda 8): cerrada la jornada, el ranking también en «Jornadas anteriores». */}
+            {plazo.cerrada && vista === "historico" && panelRanking}
+
             {vista === "historico" && (
               <div className="mt-5">
                 <Historico
@@ -1592,15 +1638,15 @@ function Quiniela() {
                         }`}
                       >
                         {/* Local y visitante en una línea (10/11/2026, marketing): los nueve partidos caben en una pantalla. */}
-                        <p className="text-[13px] leading-snug text-white/85">
-                          <span className="mr-1.5 text-[12px] tabular-nums text-white/50">
-                            {indice + 1}
-                          </span>
-                          <Equipo nombre={partido.local} contexto /> <span className="text-white/40">–</span> <Equipo nombre={partido.visitante} contexto />
-                          {partido.fecha && !mismaFecha ? (
-                            <span className="whitespace-nowrap text-[12px] text-white/50">{` · ${fechaCorta(partido.fecha)}`}</span>
-                          ) : null}
+                        {/* 20/11/2026 (ronda 7, marketing): una ficha por equipo, con sus accesos debajo. */}
+                        <p className="mb-1.5 text-[12px] font-semibold uppercase tracking-[0.12em] tabular-nums text-white/50">
+                          Partido {indice + 1}
+                          {partido.fecha && !mismaFecha ? <span className="normal-case tracking-normal">{` · ${fechaCorta(partido.fecha)}`}</span> : null}
                         </p>
+                        <div className="space-y-2.5 pr-8">
+                          <Equipo nombre={partido.local} hoy={hoy} />
+                          <Equipo nombre={partido.visitante} hoy={hoy} />
+                        </div>
 
                         {!yo && !plazo.cerrada && (
                           <p className="mt-1 text-[12px] text-white/50">
@@ -1729,22 +1775,12 @@ function Quiniela() {
                             </td>
 
                             <td className="py-2 pl-2">
-                              {yo ? (
-                                <>
-                              <span className="block break-words text-[14px] text-white/85">
-                                <Equipo nombre={partido.local} contexto />
-                              </span>
-
-                              {/* 20/11/2026 (ronda 4, marketing): el visitante, al mismo tamaño que el local. */}
-                              <span className="block break-words text-[14px] text-white/80">
-                                <Equipo nombre={partido.visitante} contexto />
-                              </span>
-                                </>
-                              ) : (
-                                <span className="text-[14px] text-white/85">
-                                  <Equipo nombre={partido.local} contexto /> <span className="text-white/35">–</span> <Equipo nombre={partido.visitante} contexto />
-                                </span>
-                              )}
+                              {/* 20/11/2026 (ronda 4, marketing): el visitante, al mismo tamaño que el local.
+                                  20/11/2026 (ronda 7): una ficha por equipo, con y sin sesión. */}
+                              <div className="space-y-2.5 py-1">
+                                <Equipo nombre={partido.local} hoy={hoy} />
+                                <Equipo nombre={partido.visitante} hoy={hoy} />
+                              </div>
                             </td>
 
                             {!yo && (
@@ -2083,6 +2119,27 @@ function Quiniela() {
   );
 }
 
+/** Las últimas jornadas del líder en barras: aciertos sobre jugados de cada una. */
+function TendenciaLider({ puntos }: { puntos: { numero: number; aciertos: number; jugados: number; porcentaje: number }[] }) {
+  const texto = puntos.map((p) => `J${p.numero}: ${p.aciertos} de ${p.jugados}`).join(" · ");
+
+  return (
+    <span className="mt-1 flex items-end gap-1.5" title={texto}>
+      <span className="sr-only">{`Sus últimas ${puntos.length} jornadas: ${texto}`}</span>
+      <span aria-hidden className="flex h-6 items-end gap-[3px]">
+        {puntos.map((p) => (
+          <span key={p.numero} className="flex w-3 flex-col items-center justify-end">
+            <span className="w-full rounded-t-sm bg-[#C8A96B]" style={{ height: `${Math.max(2, (p.porcentaje / 100) * 24)}px` }} />
+          </span>
+        ))}
+      </span>
+      <span aria-hidden className="text-[12px] tabular-nums text-white/60">
+        últimas {puntos.length}: {puntos.map((p) => p.aciertos).join(" · ")}
+      </span>
+    </span>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  LA COSECHA                                                         */
 /* ------------------------------------------------------------------ */
@@ -2407,66 +2464,96 @@ function Tripleta({
 | 16/11/2026: cada equipo de la jornada lleva a su ficha de rival (/rivals con
 | el equipo ya elegido): forma, plantilla y goles en vídeo para decidir el
 | 1-X-2.
+|
+| 20/11/2026 (ronda 7, marketing): ficha por equipo y no una línea de 11 px.
+| Escudo grande, el nombre, su puesto y su balance como mini barra V-E-D
+| (BeSoccer), y debajo una sola fila de accesos de 36 px: sus goles, su ABP,
+| su análisis y el plan, con el rival ya elegido (?rival=ID de la hoja
+| RIVALES cuando lo hay; si no, por el nombre).
 */
-function Equipo({ nombre, contexto = false }: { nombre: string; contexto?: boolean }) {
+const CHIP_EQUIPO =
+  "inline-flex min-h-9 items-center gap-1 rounded-lg border border-white/15 px-2.5 text-[12px] font-semibold text-white/75 transition hover:border-[#C8A96B]/60 hover:text-white";
+
+/** «5V 6E 1D» → { v: 5, e: 6, d: 1 }; null si no se entiende. */
+function balanceVed(texto?: string) {
+  const m = /(\d+)\s*V\D+(\d+)\s*E\D+(\d+)\s*D/i.exec(texto ?? "");
+
+  return m ? { v: Number(m[1]), e: Number(m[2]), d: Number(m[3]) } : null;
+}
+
+function BarraVed({ texto }: { texto?: string }) {
+  const ved = balanceVed(texto);
+
+  if (!ved) return texto ? <span className="text-[12px] tabular-nums text-white/60">{texto}</span> : null;
+
+  const total = ved.v + ved.e + ved.d;
+
+  return (
+    <span className="inline-flex items-center gap-1.5" title={`${ved.v} ganados, ${ved.e} empatados y ${ved.d} perdidos (BeSoccer)`}>
+      {total > 0 ? (
+        <span aria-hidden className="flex h-2 w-14 overflow-hidden rounded-full bg-white/[0.08]">
+          <span className="h-full bg-emerald-400" style={{ width: `${(ved.v / total) * 100}%` }} />
+          <span className="h-full bg-slate-400" style={{ width: `${(ved.e / total) * 100}%` }} />
+          <span className="h-full bg-rose-400" style={{ width: `${(ved.d / total) * 100}%` }} />
+        </span>
+      ) : null}
+      <span className="whitespace-nowrap text-[12px] tabular-nums text-white/65">
+        {ved.v}V {ved.e}E {ved.d}D
+      </span>
+    </span>
+  );
+}
+
+function Equipo({ nombre, hoy }: { nombre: string; hoy: string }) {
   const liga = useContext(EscudosLiga).get(nombreOficial(nombre));
   const escudo = liga?.escudo;
   /* 20/11/2026 (ronda 5, marketing): su plan de partido, con el rival ya elegido (?rival=ID de la hoja RIVALES). */
   const jornadasRivales = useJornadasRivales();
-  const plan = contexto ? enlacesDelRival(jornadasRivales, nombre).find((e) => e.texto === "Plan de partido")?.href ?? "" : "";
+  const fila = filaDelEquipo(jornadasRivales, nombre, hoy);
+  const llaves = { equipo: nombre, id: fila?.id ?? "" };
 
   return (
-    <>
-    <Link
-      href={`/rivals?equipo=${encodeURIComponent(nombre)}`}
-      title={`Ficha de ${nombre}: forma, plantilla y goles en vídeo`}
-      className="inline-flex items-center gap-1.5 align-middle underline decoration-white/20 underline-offset-2 hover:text-white hover:decoration-[#C8A96B]"
-    >
-      {escudo ? (
-        /* eslint-disable-next-line @next/next/no-img-element */
-        <img src={escudo} alt="" width={18} height={18} loading="lazy" className="h-[18px] w-[18px] shrink-0 object-contain" />
-      ) : null}
-      {nombre}
-    </Link>
-    {/* 17/11/2026 (marketing): su puesto y su balance, y a un toque sus goles en vídeo. */}
-    {contexto && liga?.puesto ? (
-      <span
-        className="ml-1 whitespace-nowrap align-middle text-[12px] tabular-nums text-white/55"
-        title={`${liga.puesto}.º de la liga con ${liga.puntos ?? 0} puntos · ${liga.balance ?? ""} (BeSoccer)`}
-      >
-        {liga.puesto}.º{liga.balance ? ` · ${liga.balance}` : ""}
-      </span>
-    ) : null}
-    {/* 20/11/2026 (ronda 4, marketing): los accesos con su palabra, no un icono suelto: sus goles y su ABP. */}
-    {contexto && (
-      /* 18/11/2026: en el pop-up de la portada, sin salir de la quiniela. */
-      <BotonGolesEnVideo
-        equipo={nombre}
-        title={`Goles de ${nombre} en vídeo`}
-        className="ml-1.5 inline-flex items-center gap-0.5 align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
-      >
-        <Film size={12} aria-hidden />
-        goles
-      </BotonGolesEnVideo>
-    )}
-    {contexto && (
-      <Link
-        href={`/scout-rival-abp?equipo=${encodeURIComponent(nombre)}`}
-        title={`El balón parado de ${nombre}`}
-        className="ml-1.5 inline-flex align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
-      >
-        ABP
-      </Link>
-    )}
-    {contexto && plan.includes("?rival=") ? (
-      <Link
-        href={plan}
-        title={`El plan de partido contra ${nombre}`}
-        className="ml-1.5 inline-flex align-middle text-[12px] font-semibold text-white/60 hover:text-[#C8A96B]"
-      >
-        Plan
-      </Link>
-    ) : null}
-    </>
+    <div className="min-w-0">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
+        {escudo ? (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={escudo} alt="" width={28} height={28} loading="lazy" className="h-7 w-7 shrink-0 object-contain" />
+        ) : null}
+        <Link
+          href={conRivalEnUrl("/rivals", llaves)}
+          title={`Ficha de ${nombre}: forma, plantilla y goles en vídeo`}
+          className="min-w-0 break-words text-[14px] font-semibold text-white/90 underline decoration-white/20 underline-offset-2 hover:text-white hover:decoration-[#C8A96B]"
+        >
+          {nombre}
+        </Link>
+        {liga?.puesto ? (
+          <span
+            className="whitespace-nowrap text-[12px] font-semibold tabular-nums text-white/70"
+            title={`${liga.puesto}.º de la liga con ${liga.puntos ?? 0} puntos (BeSoccer)`}
+          >
+            {liga.puesto}.º
+          </span>
+        ) : null}
+        <BarraVed texto={liga?.balance} />
+      </div>
+      <div className={`mt-1.5 flex flex-wrap gap-1.5 ${escudo ? "sm:pl-9" : ""}`}>
+        {/* 18/11/2026: en el pop-up de la portada, sin salir de la quiniela. */}
+        <BotonGolesEnVideo equipo={nombre} title={`Goles de ${nombre} en vídeo`} className={CHIP_EQUIPO}>
+          <Film size={13} aria-hidden />
+          Sus goles
+        </BotonGolesEnVideo>
+        <Link href={conRivalEnUrl("/scout-rival-abp", llaves)} title={`El balón parado de ${nombre}`} className={CHIP_EQUIPO}>
+          ABP
+        </Link>
+        <Link href={conRivalEnUrl("/scout-rival-collective", llaves)} title={`El análisis colectivo de ${nombre}`} className={CHIP_EQUIPO}>
+          Análisis
+        </Link>
+        {fila?.id ? (
+          <Link href={conRivalEnUrl("/match-preparation", llaves)} title={`El plan de partido contra ${nombre}`} className={CHIP_EQUIPO}>
+            Plan{fila.jornada ? ` J${fila.jornada}` : ""}
+          </Link>
+        ) : null}
+      </div>
+    </div>
   );
 }

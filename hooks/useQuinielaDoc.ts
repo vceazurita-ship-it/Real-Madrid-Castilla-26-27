@@ -140,6 +140,7 @@ export function useQuinielaDoc(refrescoMs = 0) {
         ok?: boolean;
         doc?: DocumentoQuiniela;
         error?: string;
+        yo?: string | null;
       } | null;
 
       if (!respuesta.ok || !datos?.ok || !datos.doc) {
@@ -147,6 +148,13 @@ export function useQuinielaDoc(refrescoMs = 0) {
       }
 
       setDoc(datos.doc);
+      /*
+      | 20/11/2026: la respuesta va cribada para quien guarda, igual que una
+      | lectura. Si un guardado (un resultado) tiraba la relectura de después de
+      | entrar, `leidoPara` se quedaba en el de antes y la pantalla seguía
+      | «Trayendo tu apuesta guardada…» sin dejar marcar hasta recargar.
+      */
+      if (datos.yo !== undefined) setLeidoPara(datos.yo);
       setGuardadoEn(new Date().toISOString());
       setEstado("listo");
 

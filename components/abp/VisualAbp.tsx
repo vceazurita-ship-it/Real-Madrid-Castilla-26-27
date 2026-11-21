@@ -96,11 +96,40 @@ export type AmbitoMapa = { dentro: string; fuera: string };
 export const MUESTRA_HALLAZGO = 15;
 
 /** Barra apilada al 100 %, con la leyenda y las cifras debajo. */
-export function BarraReparto({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
+export function BarraReparto({
+  filas,
+  categorias,
+  rotulosFuera = false,
+}: {
+  filas: FilaVisualAbp[];
+  categorias: CategoriaVisual[];
+  /** 20/11/2026 (ronda 7, ABP ofensivo): los tramos que no caben en la barra (1 de 94) llevan su rótulo encima. */
+  rotulosFuera?: boolean;
+}) {
   const total = filas.length;
   const tramos = categorias.map((c) => ({ ...c, n: filas.filter((f) => f.cat === c.clave).length })).filter((c) => c.n > 0);
+  const pequenos = rotulosFuera
+    ? tramos.flatMap((t, i) => {
+        const inicio = tramos.slice(0, i).reduce((a, x) => a + x.n / total, 0);
+        return t.n / total < 0.035 ? [{ ...t, centro: (inicio + t.n / total / 2) * 100 }] : [];
+      })
+    : [];
   return (
     <div className="min-w-0">
+      {pequenos.length ? (
+        <div className="relative mb-1 h-4" aria-hidden>
+          {pequenos.map((t) => (
+            <span
+              key={t.clave}
+              className="absolute bottom-0 flex items-center gap-1 whitespace-nowrap text-[11px] font-semibold tabular-nums text-white/85"
+              style={t.centro < 50 ? { left: `max(0px, calc(${t.centro}% - 4px))` } : { right: `max(0px, calc(${100 - t.centro}% - 4px))` }}
+            >
+              <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: t.color }} />
+              {t.rotulo} · {t.n} ↓
+            </span>
+          ))}
+        </div>
+      ) : null}
       <div className="flex h-9 w-full overflow-hidden rounded-lg" role="img" aria-label={tramos.map((t) => `${t.rotulo}: ${t.n}`).join(", ")}>
         {tramos.map((t) => (
           <div
@@ -180,7 +209,7 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
       </div>
       <p className="mt-2 text-[11px] text-white/50">
         Encima de cada columna, «a/b»: las que {exito.varios} (a) de las del partido (b). Orden de calendario.
-        {mediaN !== null ? ` Raya discontinua: la media, ${mediaN.toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido.` : ""}
+        {mediaN !== null ? ` Raya discontinua: la media de acciones por partido, ${mediaN.toLocaleString("es-ES", { maximumFractionDigits: 1 })} (la altura de cada columna es su número de acciones).` : ""}
         {marca && partidos.some((p) => p.jornada.clave === marca) ? " En oro, el último partido." : ""}
       </p>
     </div>
@@ -241,15 +270,21 @@ function gruposPorTipo(filas: FilaVisualAbp[]): [string, FilaVisualAbp[]][] {
 }
 
 /** Una barra apilada por tipo, del que más tiene al que menos, y cuál rinde (o duele) más. */
+/* 20/11/2026 (jueces, ronda 8): por debajo de 10 acciones, la fila va atenuada: poca muestra para leerla sola. */
+const MUESTRA_FILA_TIPO = 10;
+
 function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: CategoriaVisual[] }) {
   const orden = gruposPorTipo(filas);
   const tope = Math.max(...orden.map(([, fs]) => fs.length), 1);
+  const hayPocas = orden.some(([, fs]) => fs.length < MUESTRA_FILA_TIPO);
   return (
+    <>
     <ul className="min-w-0 space-y-2">
       {orden.map(([tipo, fs]) => {
         const k = fs.filter((f) => f.exito).length;
+        const pocas = fs.length < MUESTRA_FILA_TIPO;
         return (
-          <li key={tipo} className="min-w-0">
+          <li key={tipo} className={`min-w-0 ${pocas ? "opacity-50" : ""}`} title={pocas ? `Sólo ${fs.length} ${fs.length === 1 ? "acción" : "acciones"}: poca muestra` : undefined}>
             <div className="flex min-w-0 items-baseline justify-between gap-2 text-[12px]">
               <span className="min-w-0 truncate text-white/80">{mayuscula(tipo)}</span>
               <span className="shrink-0 tabular-nums text-white/60">
@@ -266,6 +301,10 @@ function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: Ca
         );
       })}
     </ul>
+    {hayPocas ? (
+      <p className="mt-2 text-[11px] text-white/50">Atenuados, los tipos con menos de {MUESTRA_FILA_TIPO} acciones: poca muestra para sacar conclusiones.</p>
+    ) : null}
+    </>
   );
 }
 

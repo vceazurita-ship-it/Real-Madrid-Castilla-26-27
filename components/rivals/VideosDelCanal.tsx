@@ -42,6 +42,7 @@ import { toast } from "sonner";
 
 import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { useAdmin } from "@/hooks/useAdmin";
+import { traeJson } from "@/lib/hojaCsv";
 import { useDuelosClave } from "@/hooks/useDuelosClave";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
@@ -71,6 +72,7 @@ import {
   type ListasRivales,
 } from "@/lib/rivals/youtube-listas";
 import { Explicativo } from "@/components/ui/textos-analisis";
+import { VideosDelRival } from "@/components/portada/VideosDelRival";
 import { ClipsHudlJugador, useCuentaHudl } from "@/components/rivals/ClipsDeHudl";
 import { MEJOR, PEOR } from "@/components/data/graficas";
 
@@ -216,8 +218,51 @@ const SIN_LISTA = "-";
 
 const CLAVE_TAMANO = "rmcf-videos-tamano";
 
-/** Lo más que se espera al canal o a una lista antes de ofrecer «Volver a probar» (30/10/2026). */
-const ESPERA_MAXIMA_MS = 8_000;
+/** Lo más que se espera al canal o a una lista antes de ofrecer «Reintentar» (30/10/2026; 12 s desde el 20/11/2026). */
+const ESPERA_MAXIMA_MS = 12_000;
+
+/* Lo que contesta /api/youtube/videos (siempre 200: sin cuenta, `conectado: false`). */
+type RespuestaCanal = { conectado?: boolean; aviso?: string; canal?: string; listas?: ListaCanal[]; videos?: Video[] };
+
+/*
+| La espera, con tope (20/11/2026, jueces): «Preguntando al canal…» no
+| terminaba. La lectura va por `traeJson` —con su copia en el aparato, que se
+| enseña al momento mientras se renueva por detrás— y compite con un reloj de
+| 12 s que se corta con un AbortController: al vencer, aviso y «Reintentar».
+| `traeJson` no se corta (la descarga es de todos los que la esperan).
+*/
+function conTope<T>(promesa: Promise<T>, control: AbortController, ms = ESPERA_MAXIMA_MS): Promise<T> {
+  return new Promise<T>((resuelve, rechaza) => {
+    const reloj = window.setTimeout(() => control.abort(), ms);
+    const alCortar = () => rechaza(new DOMException("Sin respuesta a tiempo", "TimeoutError"));
+
+    if (control.signal.aborted) {
+      window.clearTimeout(reloj);
+      alCortar();
+
+      return;
+    }
+
+    control.signal.addEventListener("abort", alCortar, { once: true });
+
+    promesa.then(
+      (valor) => {
+        window.clearTimeout(reloj);
+        control.signal.removeEventListener("abort", alCortar);
+        resuelve(valor);
+      },
+      (error: unknown) => {
+        window.clearTimeout(reloj);
+        control.signal.removeEventListener("abort", alCortar);
+        rechaza(error);
+      },
+    );
+  });
+}
+
+const esCorte = (error: unknown) => error instanceof DOMException && error.name === "TimeoutError";
+
+const URL_CANAL = "/api/youtube/videos";
 const CLAVE_AGRUPADO = "rmcf-videos-agrupado";
 
 const esTamano = (valor: unknown): valor is TamanoKey =>
@@ -427,58 +472,51 @@ export function VideosDelCanal({
 
   useEffect(() => {
     const control = new AbortController();
+    let vivo = true;
 
-    /*
-    | Tiempo máximo (30/10/2026): si el canal no contesta en 8 s se corta la
-    | petición y se pasa a «no se ha podido leer», con su «Volver a probar».
-    | Antes el «Preguntando al canal…» podía quedarse girando sin fin.
-    */
-    let vencido = false;
-    const reloj = window.setTimeout(() => {
-      vencido = true;
-      control.abort();
-    }, ESPERA_MAXIMA_MS);
+    /* Lo que llega (la copia del aparato o lo nuevo) se pinta igual. */
+    const aplica = (datos: RespuestaCanal | null) => {
+      if (!vivo) return;
+
+      if (!datos?.conectado) {
+        setEstado({
+          fase: "sin-conectar",
+          aviso: datos?.aviso ?? "No hay cuenta de YouTube conectada.",
+        });
+
+        return;
+      }
+
+      setEstado({
+        fase: "listo",
+        canal: datos.canal ?? "nuestro canal",
+        listas: (datos.listas ?? []) as ListaCanal[],
+      });
+    };
 
     /* El estado se toca **después** del `await`: cambiarlo en el cuerpo del
        efecto es un render en cascada y el linter de React lo prohíbe. */
     void (async () => {
       try {
-        const datos = await fetch("/api/youtube/videos", {
-          signal: control.signal,
-        }).then((r) => r.json());
+        /* «Reintentar» salta la copia y vuelve a preguntar de verdad. */
+        const datos = await conTope(
+          traeJson<RespuestaCanal>(URL_CANAL, { forzar: intento > 0, alRenovar: aplica }),
+          control,
+        );
 
-        window.clearTimeout(reloj);
-
-        if (control.signal.aborted) return;
-
-        if (!datos?.conectado) {
-          setEstado({
-            fase: "sin-conectar",
-            aviso: datos?.aviso ?? "No hay cuenta de YouTube conectada.",
-          });
-
-          return;
-        }
-
-        setEstado({
-          fase: "listo",
-          canal: datos.canal ?? "nuestro canal",
-          listas: (datos.listas ?? []) as ListaCanal[],
-        });
+        aplica(datos);
       } catch (error) {
-        window.clearTimeout(reloj);
+        if (!vivo) return;
 
-        if (vencido) {
+        if (esCorte(error)) {
           setEstado({
             fase: "sin-conectar",
-            aviso: "El canal de YouTube tarda demasiado en contestar.",
+            aviso: `El canal de YouTube no ha contestado en ${ESPERA_MAXIMA_MS / 1000} s.`,
             caido: true,
           });
 
           return;
         }
-
-        if (control.signal.aborted) return;
 
         console.error("[VideosDelCanal] canal", error);
 
@@ -493,7 +531,7 @@ export function VideosDelCanal({
     })();
 
     return () => {
-      window.clearTimeout(reloj);
+      vivo = false;
       control.abort();
     };
   }, [intento]);
@@ -518,6 +556,13 @@ export function VideosDelCanal({
 
     return deLaJornada ?? puesta ?? buscaLista(listas, equipo, jornadasDelEquipo);
   }, [clave, elegidas.porEquipo, equipo, estado, jornadasDelEquipo, jornada]);
+
+  /* ¿Hay lista de la jornada elegida arriba? Si no, se dice y se ofrece otra cosa (20/11/2026). */
+  const sinListaDeLaJornada = Boolean(
+    jornada &&
+      estado.fase === "listo" &&
+      !estado.listas.some((item) => jornadaDeLista(item.nombre) === jornada && buscaLista([item], equipo, [jornada])),
+  );
 
   /*
   | ¿Y si la lista puesta a mano no es la de este equipo?
@@ -551,49 +596,41 @@ export function VideosDelCanal({
     if (!listaId) return;
 
     const control = new AbortController();
+    let vivo = true;
 
-    /* El mismo tiempo máximo que el canal (30/10/2026): al vencer, «No se
-       han podido traer los vídeos» con su «Volver a probar». */
-    let vencido = false;
-    const reloj = window.setTimeout(() => {
-      vencido = true;
-      control.abort();
-    }, ESPERA_MAXIMA_MS);
+    const aplica = (datos: RespuestaCanal | null) => {
+      if (!vivo) return;
 
+      /* Un fallo no es una lista vacía: antes se decía «no tiene vídeos»
+         cuando lo que había fallado era la conexión (19/10/2026). */
+      if (!Array.isArray(datos?.videos)) {
+        setTraidos({ listaId, videos: [], fallo: true });
+        return;
+      }
+
+      setTraidos({ listaId, videos: datos.videos as Video[] });
+    };
+
+    /* El mismo tope que el canal (12 s), y la copia del aparato mientras. */
     void (async () => {
       try {
-        const respuesta = await fetch(
-          `/api/youtube/videos?lista=${encodeURIComponent(listaId)}`,
-          { signal: control.signal },
+        const datos = await conTope(
+          traeJson<RespuestaCanal>(`${URL_CANAL}?lista=${encodeURIComponent(listaId)}`, { forzar: intentoVideos > 0, alRenovar: aplica }),
+          control,
         );
 
-        const datos = await respuesta.json().catch(() => null);
-
-        window.clearTimeout(reloj);
-
-        if (control.signal.aborted && !vencido) return;
-
-        /* Un fallo no es una lista vacía: antes se decía «no tiene vídeos»
-           cuando lo que había fallado era la conexión (19/10/2026). */
-        if (!respuesta.ok || !Array.isArray(datos?.videos)) {
-          setTraidos({ listaId, videos: [], fallo: true });
-          return;
-        }
-
-        setTraidos({ listaId, videos: datos.videos as Video[] });
+        aplica(datos);
       } catch (error) {
-        window.clearTimeout(reloj);
+        if (!vivo) return;
 
-        if (control.signal.aborted && !vencido) return;
-
-        console.error("[VideosDelCanal] vídeos", error);
+        if (!esCorte(error)) console.error("[VideosDelCanal] vídeos", error);
 
         setTraidos({ listaId, videos: [], fallo: true });
       }
     })();
 
     return () => {
-      window.clearTimeout(reloj);
+      vivo = false;
       control.abort();
     };
   }, [listaId, intentoVideos]);
@@ -897,7 +934,8 @@ export function VideosDelCanal({
     return (
       <div className="flex items-center justify-center gap-2 rounded-2xl border border-white/10 bg-white/[0.03] py-10 text-sm text-white/40">
         <Loader2 size={15} className="animate-spin" />
-        Preguntando al canal…
+        {/* Con tope (20/11/2026): a los 12 s pasa al aviso con «Reintentar». */}
+        Preguntando al canal… (como mucho {ESPERA_MAXIMA_MS / 1000} s)
       </div>
     );
   }
@@ -931,8 +969,15 @@ export function VideosDelCanal({
           className="mt-3 inline-flex items-center gap-1.5 rounded-xl border border-white/15 px-3 py-1.5 text-xs text-white/70 transition hover:border-white/30 hover:text-white"
         >
           <RefreshCw size={12} />
-          Volver a probar
+          Reintentar
         </button>
+
+        {/* Mientras, lo que sí hay de este rival: sus goles en vídeo (20/11/2026). */}
+        {vista === "clips" && (
+          <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2 border-t border-white/10 pt-3">
+            <VideosDelRival rival={equipo} etiqueta={`${equipo} · vídeo`} />
+          </div>
+        )}
       </div>
     );
   }
@@ -1032,6 +1077,22 @@ export function VideosDelCanal({
           </p>
         </section>
 
+        {/* Nunca en blanco (20/11/2026): sin listas en el canal, qué falta y dónde se hace. */}
+        {estado.listas.length === 0 && (
+          <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+            <p className="text-sm font-medium text-white/85">El canal todavía no tiene listas de reproducción.</p>
+            <p className="mt-1 text-[12px] text-white/55">
+              Se crean al subir los cortes desde Coding: una lista por rival, con la jornada delante («J12 · …»).
+            </p>
+            <Link
+              href="/coding"
+              className="mt-3 inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 py-1 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+            >
+              Ir a Coding
+            </Link>
+          </div>
+        )}
+
         {avisoSospechosa}
       </div>
     );
@@ -1048,15 +1109,7 @@ export function VideosDelCanal({
       | sola. Cambiarla a mano vive en la pestaña «Lista del canal»; aquí sólo
       | queda el aviso si la puesta a mano no parece de este rival.
       */}
-      {!lista && admin && onIrALista && (
-        <p className="text-[12px] text-white/55">
-          Este rival no tiene lista emparejada en el canal.{" "}
-          <button type="button" onClick={onIrALista} className="font-semibold text-[#C8A96B] underline underline-offset-2">
-            Elegir su lista
-          </button>{" "}
-          · sólo lo ves tú
-        </p>
-      )}
+      {/* Sin lista emparejada, el aviso para todos va abajo, con «Abrir la lista del canal» (20/11/2026). */}
 
       {avisoSospechosa}
 
@@ -1270,7 +1323,7 @@ export function VideosDelCanal({
             className="ml-2 inline-flex items-center gap-1 font-semibold text-[#C8A96B] underline underline-offset-2"
           >
             <RefreshCw size={11} />
-            Volver a probar
+            Reintentar
           </button>
         </div>
       )}
@@ -1460,6 +1513,37 @@ export function VideosDelCanal({
 
         return resto.length > 0 ? <RestoDelOnce equipo={equipo} resto={resto} plantilla={plantilla} hayCortes={conVideo.size > 0} /> : null;
       })()}
+
+      {/*
+      | SIN CORTES DE ESA JORNADA (20/11/2026, jueces): la sección no se queda
+      | en blanco ni cargando. Se dice qué falta y se ofrece la lista del canal
+      | (elegir otra) o los goles del rival en vídeo.
+      */}
+      {!cargandoVideos && !falloVideos && (!lista || videos.length === 0 || sinListaDeLaJornada) && (
+        <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+          <p className="text-sm font-medium text-white/85">
+            {!lista
+              ? `${equipo} no tiene cortes en el canal${jornada ? ` de la J${jornada}` : ""}.`
+              : videos.length === 0
+                ? `La lista «${etiquetaLista}» todavía no tiene cortes.`
+                : `No hay cortes de la J${jornada} en el canal: se ven los de «${etiquetaLista}».`}
+          </p>
+          <p className="mt-1 text-[12px] text-white/55">Mientras, sus goles en vídeo, o elige otra lista del canal.</p>
+          <div className="mt-3 flex min-w-0 flex-wrap items-center gap-2">
+            {onIrALista && (
+              <button
+                type="button"
+                onClick={onIrALista}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-white/15 px-3 py-1 text-[13px] font-semibold text-white/80 transition hover:border-[#C8A96B] hover:text-white"
+              >
+                <ListVideo size={13} aria-hidden />
+                Abrir la lista del canal
+              </button>
+            )}
+            <VideosDelRival rival={equipo} etiqueta={`${equipo} · vídeo`} />
+          </div>
+        </div>
+      )}
 
       {/* Sin cortes en el canal, el resto de la plantilla (los titulares ya van arriba). */}
       {!cargandoVideos && (!lista || (!falloVideos && videos.length === 0)) && <PlantillaSinVideos equipo={equipo} plantilla={plantilla} />}

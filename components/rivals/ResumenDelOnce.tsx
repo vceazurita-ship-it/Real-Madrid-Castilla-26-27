@@ -21,6 +21,7 @@
 | (`resumenDelOnce` de app/rivals/page.tsx); aquí sólo se pinta.
 */
 
+import Link from "next/link";
 import { useState } from "react";
 
 import { LEYENDA_JERARQUIA } from "@/lib/rivals/metricas-del-puesto";
@@ -50,6 +51,8 @@ export type FichaResumen = {
   veredicto: Veredicto | null;
   /** Sus minutos si son muestra corta (menos de 450′ en Wyscout): «234′». Vacío si no (20/11/2026, ronda 5, fútbol). */
   muestraCorta?: string;
+  /** Su Scout individual con el rival y el jugador ya elegidos (20/11/2026, ronda 7, análisis). */
+  individual?: string;
 };
 
 export type LineaResumen = {
@@ -112,7 +115,8 @@ function Ficha({ ficha, rotulo, activa, onClick }: { ficha: FichaResumen; rotulo
       >
         {ficha.dorsal || ficha.hueco.slice(0, 2)}
       </span>
-      <span className="block w-full truncate text-center text-[12px] leading-tight text-white/80">
+      {/* 20/11/2026 (ronda 7, fútbol): a 11 px y sin «…» («Gonzál…», «Jor. Mi…»); si no cabe, parte por el espacio. */}
+      <span className="block w-full break-words text-center text-[11px] leading-tight text-white/80 [hyphens:manual]">
         {rotulo}
         {ficha.muestraCorta && <span className="text-white/50">*</span>}
       </span>
@@ -125,6 +129,8 @@ export function ResumenDelOnce({
   dibujo,
   lineas,
   abrir,
+  cargando = false,
+  ancho = false,
 }: {
   equipo: string;
   dibujo: string;
@@ -132,9 +138,31 @@ export function ResumenDelOnce({
   lineas: LineaResumen[];
   /** Abre la ficha de ese jugador (clave del once). */
   abrir: (clave: string) => void;
+  /** El once (marcado o sugerido) aún no ha llegado: esqueleto en vez de nada (20/11/2026). */
+  cargando?: boolean;
+  /** En el escritorio, encima del campograma: minicampo y lista lado a lado (20/11/2026, jueces). */
+  ancho?: boolean;
 }) {
   const [elegida, setElegida] = useState<string | null>(null);
   const conGente = lineas.filter((linea) => linea.fichas.length > 0);
+
+  if (conGente.length === 0 && cargando) {
+    return (
+      <section
+        aria-label={`Cargando el once probable de ${equipo}`}
+        aria-busy="true"
+        className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+      >
+        <header className="border-b border-white/10 px-4 py-3">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">El once de un vistazo</h2>
+          <span aria-hidden className="mt-1.5 block h-2.5 w-40 max-w-full animate-pulse rounded-full bg-white/10" />
+        </header>
+        <div className="px-3 py-3">
+          <div aria-hidden className="h-40 animate-pulse rounded-xl border border-white/10 bg-white/[0.04]" />
+        </div>
+      </section>
+    );
+  }
 
   if (conGente.length === 0) return null;
 
@@ -158,8 +186,9 @@ export function ResumenDelOnce({
         <p className="mt-0.5 text-[12px] text-white/55">{dibujo} · pincha una ficha para ver el porqué</p>
       </header>
 
+      <div className={ancho ? "min-w-0 md:grid md:grid-cols-2 md:items-start" : "min-w-0"}>
       {/* El minicampo: el ataque arriba, como el campograma de pie. */}
-      <div className="px-3 pt-3">
+      <div className={ancho ? "min-w-0 px-3 pt-3 md:pb-3" : "min-w-0 px-3 pt-3"}>
         <ol className="flex min-w-0 flex-col gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-1 py-2">
           {[...conGente].reverse().map((linea) => (
             <li key={linea.clave} className="flex min-w-0 items-start justify-around" aria-label={`${linea.titulo}: ${linea.fichas.map((f) => f.nombre).join(", ")}`}>
@@ -191,7 +220,7 @@ export function ResumenDelOnce({
         <p className="mt-0.5 text-[11px] leading-snug text-white/50">{capital(LEYENDA_JERARQUIA)}.</p>
       </div>
 
-      <div className="space-y-1.5 px-4 pb-3 pt-2 text-[13px] leading-snug text-white/75">
+      <div className={`min-w-0 space-y-1.5 px-4 pb-3 pt-2 text-[13px] leading-snug text-white/75 ${ancho ? "md:pt-3" : ""}`}>
         {activa ? (
           <div className="min-w-0 rounded-lg border border-white/10 bg-white/[0.03] p-2.5">
             <p className="font-semibold text-white">
@@ -215,9 +244,16 @@ export function ResumenDelOnce({
                 {activa.veredicto.base && <span className="text-white/50"> · {activa.veredicto.base}</span>}
               </p>
             )}
-            <button type="button" onClick={() => abrir(activa.clave)} className="mt-1 font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
-              Su ficha ›
-            </button>
+            <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              <button type="button" onClick={() => abrir(activa.clave)} className="min-h-8 font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                Su ficha ›
+              </button>
+              {activa.individual && (
+                <Link href={activa.individual} className="inline-flex min-h-8 items-center font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
+                  Su Scout individual ›
+                </Link>
+              )}
+            </span>
           </div>
         ) : peligros.length + explotables.length === 0 ? null : (
           /*
@@ -256,6 +292,7 @@ export function ResumenDelOnce({
             })}
           </ul>
         )}
+      </div>
       </div>
     </section>
   );

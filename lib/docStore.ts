@@ -58,9 +58,25 @@ export async function readDoc<T = unknown>(
   }
 
   return {
-    data: (data?.data as T) ?? null,
+    data: (desdeTexto(data?.data) as T) ?? null,
     updatedAt: data?.updated_at ?? null,
   };
+}
+
+/*
+| 20/11/2026: un documento guardado como UN TEXTO con el JSON dentro
+| (jsonb_typeof = 'string', lo dejó así un `$1::jsonb` del rescate de Supabase)
+| se lee como lo que es. Sólo si el texto es un objeto o una lista JSON: una
+| cadena de verdad se queda como está. Al volver a guardarse queda bien.
+*/
+function desdeTexto(v: unknown): unknown {
+  if (typeof v !== "string" || !/^\s*[[{]/.test(v)) return v;
+  try {
+    const o: unknown = JSON.parse(v);
+    return o !== null && typeof o === "object" ? o : v;
+  } catch {
+    return v;
+  }
 }
 
 export type ConflictoDoc = {

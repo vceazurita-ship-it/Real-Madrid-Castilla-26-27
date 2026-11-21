@@ -242,7 +242,7 @@ export function AlertasPortada({
                   <span className="min-w-0">
                     {/* 20/11/2026 (ronda 5, análisis): contra quién se compara, arriba y no en la letra pequeña. */}
                     {poblacionDe(alerta.cifra) ? (
-                      <span className="mb-0.5 block text-[11px] font-semibold uppercase tracking-[0.12em] text-white/60">
+                      <span className="mb-0.5 block text-[12px] font-semibold uppercase tracking-[0.1em] text-white/65">
                         {poblacionDe(alerta.cifra)}
                       </span>
                     ) : null}

@@ -28,6 +28,9 @@ type Clip = { id: string; titulo: string; lista: string; publicado: string; vist
 type Respuesta = { ok: boolean; aviso?: string; actualizado?: string; clips?: Clip[]; historia?: Record<string, Record<string, number>> };
 type Fila = { nombre: string; vistas: number; nuevas: number; clips: number };
 
+/** Lo más que se espera al canal antes de ofrecer «Reintentar» (20/11/2026). */
+export const ESPERA_MS = 12_000;
+
 const mediana = (xs: number[]) => {
   if (!xs.length) return 0;
   const o = [...xs].sort((a, b) => a - b);
@@ -59,19 +62,36 @@ function Barras({ titulo, filas }: { titulo: string; filas: Fila[] }) {
 /** Lee el canal una vez; lo usan el resumen de arriba y el bloque. */
 export function useDatosYoutube() {
   const [resp, setResp] = useState<Respuesta | null>(null);
+  const [intento, setIntento] = useState(0);
   const { squads } = useRivalSquads();
   const { jornadaDe } = useOrdenRivales();
 
   useEffect(() => {
     let vivo = true;
-    fetch("/api/youtube/visionados", { cache: "no-store" })
+    /* Con tope (20/11/2026, jueces): la pestaña «Visionados» se quedaba en el esqueleto si el canal no contestaba. */
+    const control = new AbortController();
+    let vencido = false;
+    const reloj = window.setTimeout(() => {
+      vencido = true;
+      control.abort();
+    }, ESPERA_MS);
+    fetch("/api/youtube/visionados", { cache: "no-store", signal: control.signal })
       .then((r) => r.json())
       .then((j: Respuesta) => vivo && setResp(j))
-      .catch(() => vivo && setResp({ ok: false, aviso: "No se ha podido leer el canal." }));
+      .catch(() => vivo && setResp({ ok: false, aviso: vencido ? `El canal de YouTube no ha contestado en ${ESPERA_MS / 1000} s.` : "No se ha podido leer el canal." }))
+      .finally(() => window.clearTimeout(reloj));
     return () => {
       vivo = false;
+      window.clearTimeout(reloj);
+      control.abort();
     };
-  }, []);
+  }, [intento]);
+
+  /* «Reintentar»: vuelve al esqueleto y pregunta otra vez. */
+  const reintenta = () => {
+    setResp(null);
+    setIntento((n) => n + 1);
+  };
 
   const datos = useMemo(() => {
     const clips = resp?.clips ?? [];
@@ -134,14 +154,14 @@ export function useDatosYoutube() {
     };
   }, [resp, squads, jornadaDe]);
 
-  return { resp, datos };
+  return { resp, datos, reintenta };
 }
 
 export type DatosYoutube = ReturnType<typeof useDatosYoutube>;
 
 const fecha = (iso: string) => new Date(iso).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" });
 
-export function BloqueYoutube({ resp, datos }: DatosYoutube) {
+export function BloqueYoutube({ resp, datos }: Pick<DatosYoutube, "resp" | "datos">) {
   if (!resp) return <div className="h-40 animate-pulse rounded-2xl border border-white/10 bg-white/[0.03]" aria-label="Leyendo el canal de YouTube" />;
   /* Sin ninguna foto el bloque no sale: el panel dice cuándo llega. */
   if (!datos) return null;

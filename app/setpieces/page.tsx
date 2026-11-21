@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { traeCsv } from "@/lib/hojaCsv";
@@ -32,7 +33,7 @@ import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
-import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { comparaCronologico, hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
@@ -88,6 +89,7 @@ import { completaMarcador } from "@/lib/abp/marcador-goles";
 import { DOC_GOLES, type PartidoGoles } from "@/lib/goles/analisis";
 import { AccionesDelPartido, type AccionDeLista } from "@/components/abp/AccionesDelPartido";
 import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { DOC_CORTES_ABP, clavesEnOrden, enlacesDeCortes, filaAbpDeHoja, type DocCortesAbp, type EnlaceAccionAbp } from "@/lib/abp/cortes-abp";
 
 import {
@@ -100,7 +102,7 @@ import { traeRespaldoOpta } from "@/lib/opta-respaldo/cliente";
 import { enlacesConOpta, hojaConOpta } from "@/lib/opta-respaldo/abp-pantalla";
 import { esDeOpta, type FilaHojaOpta } from "@/lib/opta-respaldo/tipos";
 import { SelloOpta } from "@/components/opta-respaldo/SelloOpta";
-import { nombreEquipo } from "@/lib/equipos";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { CodingAbpRival } from "@/components/abp/coding/CodingAbpRival";
 import {
   BarChart,
@@ -421,6 +423,110 @@ const LECTOR: LectorAnalisis<Row> = {
 
 /** Cómo se sacó: envío y destino juntos («corto en 2v1», «tenso al primer palo»). */
 const patronDeEnvio = (r: Row) => patronEnvio(r.tipoEnvio, r.zonaCaida);
+
+/*
+| GOL U OCASIÓN POR JORNADA, BAJO LA CONCLUSIÓN (20/11/2026, ronda 7,
+| marketing): el primer vistazo, en dibujo. Una columna por partido con el %
+| de acciones que acaban en gol u ocasión, la raya de la media (la misma
+| cuenta que la barra: todas las acciones juntas) y el último partido en oro.
+| Con menos de tres partidos no sale. Cada columna es un partido corto: se
+| lee como tendencia.
+*/
+/*
+| 20/11/2026 (jueces, ronda 8): la raya va en la misma unidad que las columnas
+| (% de gol u ocasión, con su «k de n»), cada columna lleva encima su «k/n» y
+| los partidos de la hoja que con estos filtros se quedan sin acciones salen
+| rotulados «sin acc.» en vez de desaparecer.
+*/
+function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[]; marca: string | null; todas?: FilaVisualAbp["jornada"][] }) {
+  const porJornada = new Map<string, { jornada: FilaVisualAbp["jornada"]; n: number; k: number }>();
+  const competiciones = new Set(filas.map((f) => f.jornada.competicion));
+  for (const j of todas) {
+    if (j.clave && competiciones.has(j.competicion)) porJornada.set(j.clave, { jornada: j, n: 0, k: 0 });
+  }
+  for (const f of filas) {
+    if (!f.jornada.clave) continue;
+    const g = porJornada.get(f.jornada.clave) ?? { jornada: f.jornada, n: 0, k: 0 };
+    g.n += 1;
+    if (f.exito) g.k += 1;
+    porJornada.set(f.jornada.clave, g);
+  }
+  const partidos = [...porJornada.values()].sort((x, y) => comparaCronologico(x.jornada, y.jornada));
+  const conAcciones = partidos.filter((p) => p.n > 0);
+  if (conAcciones.length < 3) return null;
+  const totalN = partidos.reduce((t, p) => t + p.n, 0);
+  const totalK = partidos.reduce((t, p) => t + p.k, 0);
+  const media = totalN ? (totalK / totalN) * 100 : 0;
+  const tope = Math.max(media, ...conAcciones.map((p) => (p.k / p.n) * 100), 1);
+  const alto = (v: number) => `${(v / tope) * 100}%`;
+  const pcTxt = (v: number) => `${Math.round(v)} %`;
+  return (
+    <figure className="mt-3 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+      <figcaption className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">Gol u ocasión, partido a partido</span>
+        <span className="text-[12px] text-white/70">
+          Raya discontinua: la media, {pcTxt(media)} ({totalK} de {totalN} acciones)
+        </span>
+      </figcaption>
+      <div className="min-w-0 overflow-x-auto">
+        <div
+          className="relative mt-2 flex h-24 items-end gap-1"
+          style={{ minWidth: partidos.length * 30 }}
+          role="img"
+          aria-label={`Gol u ocasión por partido: ${partidos.map((p) => (p.n ? `${p.jornada.corto} ${p.k} de ${p.n}` : `${p.jornada.corto} sin acciones`)).join(", ")}; media ${pcTxt(media)} (${totalK} de ${totalN})`}
+        >
+          <span
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 border-t border-dashed"
+            style={{ bottom: `calc(${alto(media)} * 0.8)`, borderColor: "rgb(var(--rmcf-ink-rgb) / .5)" }}
+          />
+          {partidos.map((p) => {
+            const v = p.n ? (p.k / p.n) * 100 : 0;
+            const marcada = marca === p.jornada.clave;
+            return (
+              <div
+                key={p.jornada.clave}
+                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
+                title={p.n ? `${p.jornada.etiqueta}: ${p.k} de ${p.n} (${pcTxt(v)})` : `${p.jornada.etiqueta}: sin acciones con estos filtros`}
+              >
+                <span
+                  className={`mb-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums ${marcada ? "font-bold" : "text-white/60"}`}
+                  style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}
+                >
+                  {p.n ? `${p.k}/${p.n}` : "sin acc."}
+                </span>
+                <div
+                  className="w-full max-w-[28px] rounded-t-[3px]"
+                  style={{
+                    height: v > 0 ? `calc(${alto(v)} * 0.8)` : "2px",
+                    background: v > 0 ? (marcada ? COLOR_DESENLACE.oro : COLOR_DESENLACE.mejor) : p.n ? "rgb(var(--rmcf-ink-rgb) / .25)" : "transparent",
+                    borderTop: p.n ? undefined : "1px dashed rgb(var(--rmcf-ink-rgb) / .3)",
+                    outline: marcada ? "2px solid var(--rmcf-gold-ink)" : undefined,
+                    outlineOffset: 1,
+                  }}
+                />
+              </div>
+            );
+          })}
+        </div>
+        <div className="mt-1 flex gap-1" style={{ minWidth: partidos.length * 30 }} aria-hidden>
+          {partidos.map((p) => (
+            <span
+              key={p.jornada.clave}
+              className={`min-w-0 flex-1 text-center text-[10.5px] tabular-nums ${marca === p.jornada.clave ? "font-bold" : "text-white/55"}`}
+              style={marca === p.jornada.clave ? { color: "var(--rmcf-gold-ink)" } : undefined}
+            >
+              {p.jornada.corto}
+            </span>
+          ))}
+        </div>
+      </div>
+      <p className="mt-1.5 text-[11.5px] leading-snug text-white/55">
+        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b), de {Math.min(...conAcciones.map((p) => p.n))} a {Math.max(...conAcciones.map((p) => p.n))}: se lee como tendencia. El detalle, en «¿Va a mejor?».
+      </p>
+    </figure>
+  );
+}
 
 export default function Page() {
 
@@ -1033,7 +1139,7 @@ const comparativa = (() => {
   ];
 
   return {
-    partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
+    partido: rivalDe ? `${elegida.etiqueta} · ${nombreCorto(rivalDe)}` : elegida.etiqueta,
     anteriores: anteriores.length,
     /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
     filasAnteriores: anteriores.flat(),
@@ -2852,9 +2958,34 @@ const conclusionesVista = (() => {
 
   /* Con la decisión ya en el titular, la tarea no repite las cifras: sólo el objetivo. */
   if (titularDecision) {
+    /*
+    | 20/11/2026 (ronda 7, fútbol): «Qué entrenamos» repetía la frase del
+    | titular. Ahora dice la tarea (lo que se hace, no lo que falla), qué se
+    | cuenta en ella y el objetivo con su base («34 %, 21 de 62»). Con el
+    | balón directo, la tarea parte de la rutina que mejor rinde, si la hay.
+    */
+    const [que, ...resto] = lectura.entrenar.titulo.split(": ");
+    const accion = resto.join(": ");
+    const sinRutinaAhora = /sin rutina|balón directo/i.test(que);
+    const mejorRutina = sinRutinaAhora
+      ? mejorGrupo(
+          filtered.filter((r) => !/^(nada|ninguna|ninguno|sin rutina)?$/i.test((r.rutina || "").trim())),
+          (r) => r.rutina,
+          (g) => g.filter(LECTOR.peligro).length / g.length,
+        )
+      : null;
+    const tareaTexto = sinRutinaAhora
+      ? `rutina para el envío directo${mejorRutina && mejorRutina.valor > 0 ? `, partiendo de la que mejor rinde (${mejorRutina.nombre.toLocaleLowerCase("es-ES")}: ${Math.round(mejorRutina.valor * mejorRutina.n)} de ${mejorRutina.n}${mejorRutina.n < MUESTRA_FIRME ? ", tendencia" : ""})` : ""}`
+      : accion
+        ? `${accion.charAt(0).toLocaleLowerCase("es-ES")}${accion.slice(1)} (${que.toLocaleLowerCase("es-ES")})`
+        : que.toLocaleLowerCase("es-ES");
+    const objetivoTexto =
+      mediaAntes !== null
+        ? `${mediaAntes} %, la media de las ${nAnterioresConclusion} jornadas anteriores`
+        : `${pcH(h.aciertosResto, h.resto)} % (${h.aciertosResto} de ${h.resto}), lo que da el resto de nuestro balón parado`;
     return [
       ...conclusiones,
-      `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${lectura.entrenar.titulo} → objetivo ${mediaAntes ?? pcH(h.aciertosResto, h.resto)} % en gol u ocasión (${mediaAntes !== null ? `media de las ${nAnterioresConclusion} jornadas anteriores` : "lo que da el resto"}).`,
+      `Qué entrenamos${h.n < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: tarea de ${tareaTexto}. Se cuenta, en cada serie, cuántos envíos acaban en gol u ocasión · objetivo ${objetivoTexto}.`,
     ];
   }
 
@@ -2991,6 +3122,7 @@ const categoriasVisual: CategoriaVisual[] = [
     numeroEnHoja={numeroEnHoja}
     marcado={jornada === "ALL" && rival === "ALL"}
     className="mt-6"
+    compacto
   />
 
 
@@ -3143,7 +3275,7 @@ const categoriasVisual: CategoriaVisual[] = [
     }
   `}
 >
-  {nombreEquipo(equipo)}
+  {nombreCorto(equipo)}
 </button>
       ))}
   </div>
@@ -3154,6 +3286,7 @@ const categoriasVisual: CategoriaVisual[] = [
     {/* 17/11/2026 (jueces, ronda 19): en Visual, primero el gráfico de cómo
         acaban, luego el titular y la orden; el resto de frases, plegado. */}
     {enVisual ? (
+      <>
       <ConclusionPlegada
         items={conclusionesVista}
         titular={titularConclusiones}
@@ -3162,9 +3295,11 @@ const categoriasVisual: CategoriaVisual[] = [
           filasVisual.length ? (
             <>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"}
+                {/* 20/11/2026 (ronda 7, análisis): la base en el título. */}
+                ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"} · {filasVisual.length} {filasVisual.length === 1 ? "acción" : "acciones"}
               </p>
-              <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
+              {/* 20/11/2026 (ronda 7, análisis): el gol (1 de 94) no se veía en la barra: rótulo encima. */}
+              <BarraReparto filas={filasVisual} categorias={categoriasVisual} rotulosFuera />
               {/* 17/11/2026 (jueces, ronda 20): la barra separa gol y ocasión; aquí, la suma que daba la tarjeta (que en Visual ya no sale). */}
               <p className="mt-2 text-[12px] leading-snug text-white/75">
                 <b className="font-semibold text-white/90">Gol u ocasión: {accionesPeligrosas} de {metrics.total}</b> ({cifra(tasaPeligro, 1)} %)
@@ -3174,8 +3309,12 @@ const categoriasVisual: CategoriaVisual[] = [
           ) : null
         }
         enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo" }}
+        /* 20/11/2026 (ronda 7, análisis y marketing): titular + «Qué entrenamos» a la vista; las demás lecturas, todas tras un solo botón. */
+        aLaVista={0}
         className="mt-5"
       />
+      <PeligroPorJornada filas={filasVisual} marca={jornada === "ALL" ? jornadaMarca : null} todas={jornada === "ALL" && rival === "ALL" ? jornadas : []} />
+      </>
     ) : vista === "resumen" ? (
       <Conclusiones
         items={conclusionesVista}
@@ -3236,11 +3375,8 @@ const categoriasVisual: CategoriaVisual[] = [
       <Card
         title="Goles"
         value={metrics.goals}
-        hint={
-          enVisual && metrics.shots >= 5
-            ? `Marcados a balón parado · ${metrics.goals} de ${metrics.shots} remates (${cifra(metrics.conversion, 1)} %)`
-            : "Marcados a balón parado"
-        }
+        /* 20/11/2026 (ronda 7, marketing): en Visual, la misma base que la barra (de las acciones), sin una segunda (de los remates). */
+        hint="Marcados a balón parado"
         /* 16/11/2026 (jueces): la misma base que las demás tarjetas. 17/11 (ronda 20): con menos de 5 goles, tendencia. */
         muestra={{ n: metrics.goals, de: metrics.total, unidad: "acciones" }}
         pocosCasos
@@ -3376,6 +3512,9 @@ const categoriasVisual: CategoriaVisual[] = [
                   nodo: (
                     <ABPZoneMap
                       mode="offensive"
+                      /* 20/11/2026 (ronda 7, fútbol y análisis): abre en «Envíos recibidos», la capa de la que habla el titular; césped claro en modo día y el campo recortado al área. */
+                      metricaInicial="caidas"
+                      claroEnDia
                       zonaFiltro={zonaAreaFilter === "ALL" ? null : zonaAreaFilter}
                       onZonaFiltro={(zona) => setZonaAreaFilter(zona ?? "ALL")}
                       rows={sin("zonaArea").map((r) => ({
@@ -3395,10 +3534,20 @@ const categoriasVisual: CategoriaVisual[] = [
                 acciones={
                   accionesLista.length
                     ? {
-                        titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${rivalAnalizado}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
+                        titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${nombreCorto(rivalAnalizado)}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
                         nodo: (
                           <>
-                            <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} />
+                            <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} enlacesVisibles />
+                            {/* 20/11/2026 (ronda 7, fútbol): del rival del partido, a sus goles encajados (Análisis de goles, en contra). */}
+                            {rivalAnalizado && new Set(accionesLista.map((a) => a.rival)).size <= 1 ? (
+                              <Link
+                                href={urlGolesDelEquipo(rivalAnalizado, "contra")}
+                                className="mr-2 mt-3 inline-flex min-h-9 items-center rounded-full border border-white/10 px-3 py-1.5 text-[12px] font-semibold hover:bg-white/[0.05]"
+                                style={{ color: "var(--rmcf-gold-ink)" }}
+                              >
+                                Los goles que encaja {nombreCorto(rivalAnalizado)} →
+                              </Link>
+                            ) : null}
                             {listaDeLaMarca && jornadaMarca ? (
                               <button
                                 type="button"
@@ -3505,7 +3654,7 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {accionesLista.length > 0 && (
               <Panel title="Acción a acción" className="mt-6">
-                <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} />
+                <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} enlacesVisibles />
               </Panel>
             )}
             </div>

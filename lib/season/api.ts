@@ -23,8 +23,22 @@ const NOMBRES_MES = [
  * `general` almacena el array directamente y `performance` lo anida en `{ data }`.
  * Desenvolvemos ambas para no depender del área.
  */
+/*
+| 20/11/2026: la base puede devolver la temporada como UN TEXTO con el JSON
+| dentro (jsonb_typeof = 'string'; así la dejó un `$1::jsonb` del rescate de
+| Supabase). Sin esto la pantalla la leía como vacía: «Selecciona una semana».
+*/
+function desdeTexto(v: unknown): unknown {
+  if (typeof v !== "string") return v;
+  try {
+    return JSON.parse(v);
+  } catch {
+    return v;
+  }
+}
+
 function unwrapSeason(payload: unknown): MonthData[] {
-  const season = (payload as { season?: unknown })?.season;
+  const season = desdeTexto((payload as { season?: unknown })?.season);
 
   if (Array.isArray(season)) {
     return season as MonthData[];

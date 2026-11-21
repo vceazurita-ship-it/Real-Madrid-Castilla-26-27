@@ -132,7 +132,7 @@ const MIDE = `(() => {
   const cuerpo = `admin.${Date.now() + 6 * 3_600_000}`;
   const firmada = `${cuerpo}.${require("crypto").createHmac("sha256", `admin:${env.QUINIELA_SECRET ?? env.SUPABASE_SERVICE_ROLE_KEY}`).update(cuerpo).digest("base64url")}`;
   await envia("Network.setCookie", { name: "admin_sesion", value: process.env.CAPTURA_ADMIN || firmada, url: BASE });
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 10); /* el día de Madrid, como AvisoBaseDatos: en UTC, de 0:00 a 1:00 salía el aviso en las fotos */
   await envia("Page.addScriptToEvaluateOnNewDocument", { source: `try{localStorage.setItem("rmcf-theme","light");localStorage.setItem("rmcf:aviso-base-datos","${hoy}")}catch(e){}` });
 
   const medidas = {};
@@ -164,6 +164,8 @@ const MIDE = `(() => {
       }
       const v = (await envia("Runtime.evaluate", { expression: MIDE, returnByValue: true }))?.result?.value ?? {};
       /* Página entera hasta 3 pantallas de alto, para que se vea más que la cabecera. */
+      /* Avisos flotantes (p. ej. «7 tareas atrasadas»): en una foto de página entera salen en mitad de la pantalla y los jueces los toman por parte de ella. */
+      await envia("Runtime.evaluate", { expression: "document.querySelectorAll('[role=status][data-export-hide]').forEach(e => e.style.display = 'none')" });
       const alto = Math.min(movil ? 2500 : 3000, (await envia("Runtime.evaluate", { expression: "document.documentElement.scrollHeight", returnByValue: true }))?.result?.value ?? 1000);
       const foto = await envia("Page.captureScreenshot", { format: "jpeg", quality: 50, captureBeyondViewport: true, clip: { x: 0, y: 0, width: movil ? 390 : 1440, height: alto, scale: movil ? 1 : 0.6 } });
       if (foto?.data) fs.writeFileSync(path.join(carpeta, `${nombre}-${modo}.jpg`), Buffer.from(foto.data, "base64"));

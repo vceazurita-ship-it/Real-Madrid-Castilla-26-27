@@ -47,7 +47,17 @@ export async function guardaCambioSemana(
       };
     }
 
-    const aplicado = aplicaCambio(fila.data, cambio);
+    /* 20/11/2026: si la base la devolvió como texto (jsonb 'string'), se lee el JSON de dentro; al escribir queda bien otra vez. */
+    let datos: unknown = fila.data;
+    if (typeof datos === "string") {
+      try {
+        datos = JSON.parse(datos);
+      } catch {
+        /* se queda como está y aplicaCambio dice que no hay semana */
+      }
+    }
+
+    const aplicado = aplicaCambio(datos, cambio);
 
     if (!aplicado) {
       return {

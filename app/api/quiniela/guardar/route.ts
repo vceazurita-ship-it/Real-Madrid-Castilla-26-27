@@ -169,6 +169,8 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    /* 20/11/2026: para quién va cribado, como en /leer (la pantalla lo usa para saber que ya tiene lo suyo). */
+    yo: slug,
     doc: {
       ...guardado,
       jornadas: Object.fromEntries(

@@ -101,7 +101,13 @@ const ORO = "#D8B45A";
 const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
 
-export function ProximoPartido() {
+/**
+ * `videosEnPanel`: el rival en vídeo va en su tarjeta oscura (la de la
+ * derecha), así que aquí no se repite. `junto`: una tarjeta más al lado de
+ * la racha y la liga (20/11/2026, ronda 7: el «goles frente a lo esperado»
+ * del Castilla, que en el panel oscuro del rival parecía suyo).
+ */
+export function ProximoPartido({ videosEnPanel = false, junto = null }: { videosEnPanel?: boolean; junto?: ReactNode } = {}) {
   const { partidos, cargando: sinCalendario, fallo: calendarioTarda, reintentar: reintentaCalendario } = useCalendario();
   const [informe, setInforme] = useState<RespuestaPortada | null>(null);
 
@@ -577,7 +583,8 @@ export function ProximoPartido() {
                 Activación + ABP ofensivo»— con lo escrito en la hoja de
                 registro. Sin sesión escrita no sale: el día se sigue
                 abriendo pinchando su casilla. */}
-            {diaDeHoy && sesionDeHoy.length > 0 && (
+            {/* 20/11/2026 (ronda 7, fútbol): el día de partido la hoja sólo dice «Competición»; ese chip no llevaba a ningún sitio nuevo y ya lo dicen la chapa «Hoy MD» y la casilla del MD. */}
+            {diaDeHoy && sesionDeHoy.length > 0 && !sesionDeHoy.every((s) => /^s*competici[oó]ns*$/i.test(s)) && (
               <button
                 type="button"
                 onClick={() =>
@@ -654,8 +661,9 @@ export function ProximoPartido() {
             href={enlacePlantilla}
             title={nombreRival ? `La plantilla de ${nombreRival}` : undefined}
             onClick={() => trackModuleVisit("/rivals")}
-            className="group inline-flex min-h-[48px] items-center justify-center gap-2 bg-gradient-to-r from-[#2563EB] to-[#1D4ED8] px-5 py-3 text-[15px] font-semibold shadow-[0_14px_30px_-14px_rgba(37,99,235,.8)] transition-all duration-300 hover:-translate-y-0.5 hover:shadow-[0_18px_36px_-14px_rgba(37,99,235,.9)]"
-            style={{ color: "#fff", borderRadius: 16 }}
+            /* 20/11/2026 (ronda 7, fútbol): en oro, la paleta del club (el azul rompía el oro y blanco). */
+            className="group inline-flex min-h-[48px] items-center justify-center gap-2 px-5 py-3 text-[15px] font-semibold shadow-[0_14px_30px_-16px_rgba(216,180,90,.9)] transition-all duration-300 hover:-translate-y-0.5 hover:brightness-105"
+            style={{ background: "linear-gradient(90deg, #D8B45A, #C8A96B)", color: "#0B0F14", borderRadius: 16 }}
           >
             <Users className="h-[17px] w-[17px]" />
             Plantilla del rival
@@ -752,7 +760,7 @@ export function ProximoPartido() {
             <div className="mt-5 space-y-4">
               {/* 16/11/2026 (los tres jueces): el rival en vídeo, lo primero de la fila del rival y con su propio rótulo; lo que el cuerpo técnico busca el lunes. */}
               {/* 17/11/2026: de MD-4 a MD-1 el vídeo del rival va en su tarjeta oscura, junto a sus cifras (una sola vez). */}
-              {nombreRival && !semanaDelRival ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null}
+              {nombreRival && !semanaDelRival && !videosEnPanel ? <VideosDelRival key={nombreRival} rival={nombreRival} /> : null}
 
               {/*
                 17/11/2026 (fútbol): «Hoy toca» y «Más del rival» eran dos
@@ -782,6 +790,8 @@ export function ProximoPartido() {
         <Racha ultimos={ultimos} cargando={cargando} ultimo={anterior} />
 
         <Clasificacion informe={informe} jugados={(alrededor?.todos ?? []).filter((uno) => uno.jugado).length} />
+
+        {junto ? <div className="min-w-0 sm:col-span-2">{junto}</div> : null}
       </div>
     </div>
   );

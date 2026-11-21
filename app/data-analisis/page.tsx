@@ -1524,9 +1524,22 @@ export default function DataAnalisisPage() {
   | acción»…). Una sola fila de navegación antes del primer dato, y se queda
   | fija al bajar (también en el móvil).
   */
-  const subareas =
+  /*
+  | 20/11/2026 (jueces, ronda 8): a 390 px «Partidos ya jugados» se salía por la
+  | derecha de la cinta (que se desliza en horizontal). En el móvil las áreas
+  | del bloque van en su propia fila, que pasa de línea; desde `sm`, en la cinta.
+  */
+  const pintaSubareas = (movil: boolean) =>
     bloqueDe(area).areas.length > 1 || bloqueDe(area).enlace ? (
-      <div role="group" aria-label={`Áreas de ${bloqueDe(area).label}`} className="flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-0.5">
+      <div
+        role="group"
+        aria-label={`Áreas de ${bloqueDe(area).label}`}
+        className={
+          movil
+            ? "flex min-w-0 flex-wrap items-center gap-1 rounded-2xl border border-white/10 bg-white/[0.03] p-0.5"
+            : "flex shrink-0 items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] p-0.5"
+        }
+      >
         {bloqueDe(area).areas.map((clave) => {
           const item = AREAS.find((a) => a.key === clave)!;
           const activa = cabezaDe(area) === clave;
@@ -1576,7 +1589,28 @@ export default function DataAnalisisPage() {
                   fila sólo desde 1600 px, cuando caben las siete pestañas.
                 */}
                 <div data-pastillas-areas className="mt-4 flex min-w-0 flex-col gap-3 min-[1600px]:flex-row min-[1600px]:items-center min-[1600px]:justify-between">
-                  <div className="min-w-0 flex-1">
+                  {/* 20/11/2026 (ronda 7, marketing): a 390 px la tira de siete
+                      pestañas se cortaba («Resum…»); en el móvil va un
+                      desplegable con los siete bloques y «Más de Análisis» al
+                      lado, y la tira sólo desde 640 px. */}
+                  <div className="flex min-w-0 items-center gap-2 sm:hidden">
+                    <label className="flex min-w-0 flex-1 items-center gap-2">
+                      <span className="sr-only">Bloque de Análisis de datos</span>
+                      <select
+                        value={bloqueDe(area).clave}
+                        onChange={(e) => setArea(entradaDe((BLOQUES.find((x) => x.clave === e.target.value) ?? BLOQUES[0]).areas[0]))}
+                        className="min-h-[40px] w-full min-w-0 rounded-xl border border-white/15 bg-white/[0.04] px-3 text-sm font-semibold text-white outline-none focus:border-[#C8A96B]/50"
+                      >
+                        {BLOQUES.map((g) => (
+                          <option key={g.clave} value={g.clave} className="bg-[#11161C]">
+                            {g.label}
+                          </option>
+                        ))}
+                      </select>
+                    </label>
+                    <EnlacesSeccion className="shrink-0" />
+                  </div>
+                  <div className="min-w-0 flex-1 max-sm:hidden">
                     <Pestanas<Bloque>
                       etiqueta="Bloques de Análisis de datos"
                       pegada={false}
@@ -1671,12 +1705,13 @@ export default function DataAnalisisPage() {
                 )}
 
                 {/* LA CINTA FIJA (17/11/2026, ronda 21): áreas del bloque y bloques de la pantalla, en una fila. */}
+                {pintaSubareas(true) ? <div className="mt-3 min-w-0 sm:hidden">{pintaSubareas(true)}</div> : null}
                 <IndiceBloques
                   clave={area}
                   antes={
                     <>
                       <SelectorArea valor={area} areas={AREAS} bloques={BLOQUES_NAV} onIr={irA} />
-                      {subareas}
+                      {pintaSubareas(false) ? <div className="hidden shrink-0 sm:block">{pintaSubareas(false)}</div> : null}
                     </>
                   }
                 />

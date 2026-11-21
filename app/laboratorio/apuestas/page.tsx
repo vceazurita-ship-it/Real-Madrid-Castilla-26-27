@@ -320,7 +320,17 @@ export default function ApuestasPage() {
   const { doc, estado, guarda } = useApuestasDoc();
 
   const quien = useSyncExternalStore(suscribeUrl, leeQuien, () => "");
-  const filtroQuien = quien && PERSONA_POR_SLUG.has(quien) ? quien : "";
+  /*
+  | 20/11/2026: «Ver todas» era un Link a la misma pantalla; la navegación de
+  | Next no lanza `popstate`, así que el filtro por persona se quedaba puesto.
+  | Ahora se quita aquí y la dirección se limpia a mano.
+  */
+  const [sinQuien, setSinQuien] = useState(false);
+  const filtroQuien = !sinQuien && quien && PERSONA_POR_SLUG.has(quien) ? quien : "";
+  const quitaQuien = () => {
+    setSinQuien(true);
+    window.history.replaceState(window.history.state, "", "/laboratorio/apuestas");
+  };
 
   const { vivas, resueltas } = useMemo(() => {
     const todas = ordenadas(doc.apuestas, hoy);
@@ -335,12 +345,19 @@ export default function ApuestasPage() {
 
   const [filtro, setFiltro] = useState<Filtro>("todas");
 
-  /* Los bloques plegados que están abiertos (por su clave). */
-  const [abiertos, setAbiertos] = useState<Set<string>>(() => new Set());
+  /*
+  | Los bloques plegados que están abiertos (por su clave). 20/11/2026 (ronda
+  | 7, marketing): mientras nadie toque nada, el primero va abierto, con sus
+  | apuestas a la vista (`null` = «el de por defecto»).
+  */
+  const [abiertosElegidos, setAbiertos] = useState<Set<string> | null>(null);
+
+  /* La parada de la línea de tiempo que filtra las listas (20/11/2026, ronda 7). */
+  const [parada, setParada] = useState<string | null>(null);
 
   const alterna = (clave: string) =>
     setAbiertos((antes) => {
-      const nuevo = new Set(antes);
+      const nuevo = new Set(antes ?? abiertos);
 
       if (nuevo.has(clave)) nuevo.delete(clave);
       else nuevo.add(clave);
@@ -356,21 +373,35 @@ export default function ApuestasPage() {
     filtro === "mias" ? esMia(a, yo) : filtro === "sin-contrario" ? bandos(a).contra.length === 0 : true;
 
   /* 18/11/2026 (ronda 23): el filtro va encima de «El resto» y sólo vale para él. */
-  const loVivo = vivas.filter((a) => esViva(a));
+  const enParada = (a: Apuesta) => !parada || grupoDe(a, hoy).clave === parada;
+  const loVivoTodo = vivas.filter((a) => esViva(a));
+  const loVivo = loVivoTodo.filter(enParada);
   const resto = vivas.filter((a) => !esViva(a));
-  const grupos = agrupa(resto.filter(pasaFiltro), hoy);
+  const grupos = agrupa(resto.filter(pasaFiltro).filter(enParada), hoy);
+  const primerGrupo = agrupa(resto, hoy)[0]?.clave;
+  const abiertos = abiertosElegidos ?? new Set(primerGrupo ? [primerGrupo] : []);
 
   /* La línea de tiempo va con TODAS las vivas, sin el filtro. */
   const sinContrario = resto.filter((a) => bandos(a).contra.length === 0).length;
 
   const paradas = useMemo(() => agrupa(vivas, hoy), [vivas, hoy]);
 
-  /* Saltar desde la línea de tiempo: abre el bloque plegado o baja a lo vivo. */
+  /*
+  | Saltar desde la línea de tiempo: abre el bloque plegado o baja a lo vivo.
+  | 20/11/2026 (ronda 7, marketing): además filtra las listas de abajo a esa
+  | parada; pulsarla otra vez quita el filtro.
+  */
   const irABloque = (clave: string) => {
+    if (parada === clave) {
+      setParada(null);
+      return;
+    }
+
+    setParada(clave);
     setFiltro("todas");
-    setAbiertos((antes) => new Set(antes).add(clave));
+    setAbiertos((antes) => new Set(antes ?? abiertos).add(clave));
     window.setTimeout(() => {
-      const destino = document.getElementById(`bloque-${clave}`) ?? document.getElementById("lo-vivo");
+      const destino = document.getElementById("filtro-parada") ?? document.getElementById(`bloque-${clave}`);
 
       destino?.scrollIntoView({ behavior: "smooth", block: "start" });
     }, 60);
@@ -541,7 +572,25 @@ export default function ApuestasPage() {
             )}
 
             {estado === "listo" && vivas.length > 0 && (
-              <LineaDeTiempo paradas={paradas} total={vivas.length} onIr={irABloque} />
+              <LineaDeTiempo paradas={paradas} total={vivas.length} onIr={irABloque} elegida={parada} />
+            )}
+
+            {estado === "listo" && parada && paradas.some((p) => p.clave === parada) && (
+              <p id="filtro-parada" className="mt-3 flex scroll-mt-24 flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] px-3 py-2 text-[13px] text-white/85">
+                {(() => {
+                  const p = paradas.find((x) => x.clave === parada);
+                  const n = p?.apuestas.length ?? 0;
+
+                  return (
+                    <span>
+                      Sólo las que se deciden <span className="font-semibold">{p?.frase}</span>: {n === 1 ? "1 apuesta" : `${n} apuestas`}
+                    </span>
+                  );
+                })()}
+                <button type="button" onClick={() => setParada(null)} className="min-h-8 font-semibold text-[#C8A96B] hover:underline">
+                  Ver todas
+                </button>
+              </p>
             )}
 
             {estado === "listo" && vivas.length === 0 && doc.apuestas.length > 0 && (
@@ -557,9 +606,9 @@ export default function ApuestasPage() {
               <p className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] px-3 py-2 text-sm text-white/85">
                 <Avatar slug={filtroQuien} lado={24} />
                 Las apuestas en las que está {nombreDe(filtroQuien)}
-                <Link href="/laboratorio/apuestas" className="font-semibold text-[#C8A96B] hover:underline">
+                <button type="button" onClick={quitaQuien} className="min-h-8 font-semibold text-[#C8A96B] hover:underline">
                   Ver todas
-                </Link>
+                </button>
                 <Link href="/quiniela" className="font-semibold text-[#C8A96B] hover:underline">
                   Su quiniela →
                 </Link>
@@ -623,7 +672,7 @@ export default function ApuestasPage() {
 
             {/* ------------------------ LO VIVO ------------------------ */}
 
-            {cargadas && vivas.length > 0 && (
+            {cargadas && vivas.length > 0 && !(parada && loVivo.length === 0) && (
               <section id="lo-vivo" aria-labelledby="lo-vivo-titulo" className="mt-6 scroll-mt-24">
                 <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                   <div className="min-w-0">
@@ -639,7 +688,7 @@ export default function ApuestasPage() {
 
                 <Leyenda juegan={quienesJuegan.length} />
 
-                {loVivo.length === 0 && (
+                {loVivo.length === 0 && !parada && (
                   <p className="mt-3 text-[13px] text-white/65">Ninguna se decide en los próximos {VIVO_DIAS} días.</p>
                 )}
 
@@ -661,7 +710,7 @@ export default function ApuestasPage() {
                     )}
                   </div>
                 )}
-                {disputada && (
+                {disputada && loVivo.some((a) => a.id === disputada.id) && (
                   <p className="mt-2 text-[12px] text-white/55">
                     La más disputada es la de bandos más igualados (quien la lanza cuenta a favor); a igualdad, la de más gente y luego la que antes se decide.
                   </p>
@@ -723,7 +772,7 @@ export default function ApuestasPage() {
 
             {/* ------------------------ EL RESTO, PLEGADO -------------- */}
 
-            {cargadas && resto.length > 0 && (
+            {cargadas && resto.length > 0 && !(parada && grupos.length === 0) && (
               <section aria-labelledby="resto-titulo" className="mt-6">
                 {resto.length > 1 && (
                   <div role="group" aria-label="Filtrar el resto de apuestas" className="mb-3 flex flex-wrap gap-2">
@@ -1054,6 +1103,21 @@ function BalancePorPersona({ apuestas, hoy, juegan }: { apuestas: Apuesta[]; hoy
     .sort((a, b) => b.ganadas - b.perdidas - (a.ganadas - a.perdidas) || b.pendientes - a.pendientes);
 
   if (!filas.length) return null;
+
+  const decididasAntes = filas.reduce((s, f) => s + f.ganadas + f.perdidas, 0);
+
+  /*
+  | 20/11/2026 (ronda 7, marketing): sin ningún veredicto, las barras eran
+  | todas grises («0 · 0 · 19»). Hasta que haya uno, una línea.
+  */
+  if (decididasAntes === 0) {
+    return (
+      <p className="mt-6 text-[13px] text-white/75">
+        <span className="font-semibold text-white/90">Balance por persona:</span> aún no se ha decidido ninguna;{" "}
+        {filas.length} {filas.length === 1 ? "persona tiene" : "personas tienen"} apuestas en juego.
+      </p>
+    );
+  }
 
   const tope = Math.max(...filas.map((f) => f.ganadas + f.perdidas + f.pendientes));
   const decididas = filas.reduce((s, f) => s + f.ganadas + f.perdidas, 0);
@@ -1510,10 +1574,13 @@ function LineaDeTiempo({
   paradas,
   total,
   onIr,
+  elegida = null,
 }: {
   paradas: (Grupo & { apuestas: Apuesta[] })[];
   total: number;
   onIr: (clave: string) => void;
+  /** La parada que filtra las listas de abajo (20/11/2026, ronda 7). */
+  elegida?: string | null;
 }) {
   if (paradas.length === 0) return null;
 
@@ -1536,7 +1603,7 @@ function LineaDeTiempo({
 
   return (
     <section aria-labelledby="linea-tiempo-titulo" className="mt-5 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
-      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Cuándo se decide cada una</p>
+      <p className="text-[12px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Cuándo se decide cada una · pulsa para ver sólo ésas</p>
       <h2 id="linea-tiempo-titulo" className="fuente-club mt-1 text-[20px] font-bold leading-tight text-white sm:text-[24px]">
         {conclusion}
       </h2>
@@ -1559,8 +1626,11 @@ function LineaDeTiempo({
               <button
                 type="button"
                 onClick={() => onIr(p.clave)}
-                aria-label={`${p.titulo}: ${cuantas === 1 ? "1 apuesta" : `${cuantas} apuestas`}. Ir al bloque`}
-                className="group flex w-full flex-col items-center rounded-xl px-0.5 pb-1 pt-0.5 transition hover:bg-white/[0.04]"
+                aria-pressed={elegida === p.clave}
+                aria-label={`${p.titulo}: ${cuantas === 1 ? "1 apuesta" : `${cuantas} apuestas`}. ${elegida === p.clave ? "Quitar el filtro" : "Ver sólo éstas"}`}
+                className={`group flex w-full flex-col items-center rounded-xl px-0.5 pb-1 pt-0.5 transition hover:bg-white/[0.04] ${
+                  elegida === p.clave ? "bg-[#C8A96B]/[0.10] ring-1 ring-[#C8A96B]/60" : ""
+                }`}
               >
                 <span className="flex h-[76px] flex-col items-center justify-end">
                   <span className={`text-[15px] font-bold leading-none tabular-nums ${esMayor ? "text-white" : "text-white/80"}`}>{cuantas}</span>
@@ -1575,10 +1645,11 @@ function LineaDeTiempo({
                   <span className={`absolute top-1/2 h-px -translate-y-1/2 bg-white/20 ${tramo}`} />
                   <span className={`relative h-2.5 w-2.5 rounded-full border-2 ${esMayor ? "border-[#C8A96B] bg-[#C8A96B]" : "border-[#C8A96B]/70 bg-[#0B0F14]"}`} />
                 </span>
-                <span className={`mt-1 block max-w-full text-center text-[12px] font-semibold leading-tight sm:text-[13px] ${esMayor ? "text-white" : "text-white/80"} group-hover:text-white`}>
+                {/* 20/11/2026 (ronda 7, marketing): rótulos a 12-14 px. */}
+                <span className={`mt-1 block max-w-full text-center text-[13px] font-semibold leading-tight sm:text-[14px] ${esMayor ? "text-white" : "text-white/80"} group-hover:text-white`}>
                   {p.corto}
                 </span>
-                <span className="block max-w-full text-center text-[11px] leading-tight text-white/55 sm:text-[12px]">{p.pie}</span>
+                <span className="block max-w-full text-center text-[12px] leading-tight text-white/65">{p.pie}</span>
               </button>
             </li>
           );

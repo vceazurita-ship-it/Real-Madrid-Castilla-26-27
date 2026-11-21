@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import {
   CalendarCheck,
   Check,
+  ClipboardCheck,
   FileText,
   ImageIcon,
   Loader2,
@@ -34,7 +35,7 @@ interface Props {
   /** En cuántas semanas hay imágenes y en cuántas PDFs (ya no se pinta: la línea de resumen da el total de semanas con material). */
   semanasCon?: { images: number; pdfs: number };
   /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
-  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number }[];
+  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number; completa?: boolean }[];
   onSelectWeek?: (id: number) => void;
   /** Lo que debería haber esta semana (sólo el repositorio general) y si ya está. */
   checklist?: { texto: string; hecho: boolean; href?: string }[];
@@ -42,6 +43,11 @@ interface Props {
   partidoActual?: string;
   /** Plan de partido y ABP del rival de esta semana, con el rival ya elegido. */
   enlacesRival?: { href: string; texto: string }[];
+  /** Semanas con convocatoria, horario y plan (sólo el repositorio general). */
+  cumplimiento?: { completas: number; total: number; ultima?: string };
+  /** Subir a la semana en curso con el tipo ya elegido («Convocatoria», …; null = otro material). */
+  onSubirTipo?: (tipo: string | null, archivos: File[]) => void;
+  subiendo?: boolean;
   saving: boolean;
   onGoToCurrentWeek: () => void;
   onOpenImages: () => void;
@@ -59,6 +65,9 @@ export default function SeasonHeader({
   checklist,
   partidoActual,
   enlacesRival = [],
+  cumplimiento,
+  onSubirTipo,
+  subiendo = false,
   saving,
   onGoToCurrentWeek,
   onOpenImages,
@@ -66,6 +75,15 @@ export default function SeasonHeader({
   onReload,
 }: Props) {
   const config = AREA_CONFIG[area];
+
+  /* 20/11/2026 (ronda 7): una sola entrada de archivos; cada casilla dice qué tipo se sube. */
+  const entradaRef = useRef<HTMLInputElement>(null);
+  const tipoRef = useRef<string | null>(null);
+  const pideArchivos = (tipo: string | null) => {
+    tipoRef.current = tipo;
+    entradaRef.current?.click();
+  };
+  const general = area === "general";
 
   /* En el móvil la tira va en una fila que se desliza (10/11/2026): se abre centrada en la semana en curso, moviendo sólo la tira. */
   const tiraRef = useRef<HTMLDivElement>(null);
@@ -212,7 +230,56 @@ export default function SeasonHeader({
               <span className="font-semibold tabular-nums text-white/90">{conMaterial}</span> de {tiraSemanas.length} semanas
               {stats.images + stats.pdfs > 0 ? "" : " con material"}
             </span>
+            {/* 20/11/2026 (ronda 7, marketing): la última subida va en esta misma línea, no en la tarjeta. */}
+            {general && actualVacia && ultimaConMaterial ? (
+              <span>
+                <span aria-hidden className="mr-2 text-white/35">·</span>
+                último:{" "}
+                <button
+                  type="button"
+                  onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
+                  title={weekRangeLabel(ultimaConMaterial) || undefined}
+                  className="font-semibold text-white/90 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B] hover:decoration-[#C8A96B]"
+                >
+                  {ultimaConMaterial.week.toLowerCase()}
+                </button>
+              </span>
+            ) : null}
           </p>
+        ) : null}
+
+        {/*
+          CUMPLIMIENTO (20/11/2026, ronda 7, análisis): la lectura visual de la
+          temporada —en cuántas semanas están las tres cosas de cada semana—,
+          con su base dicha y la última semana completa.
+        */}
+        {cumplimiento ? (
+          <div className="mt-3 max-w-3xl">
+            <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-white/75">
+              <span>
+                Semanas con convocatoria, horario y plan:{" "}
+                <span className="font-semibold tabular-nums text-white/90">
+                  {cumplimiento.completas} de {cumplimiento.total}
+                </span>
+              </span>
+              {cumplimiento.ultima ? (
+                <span className="text-[12px] text-white/65">{`La última completa: ${cumplimiento.ultima.toLowerCase()}`}</span>
+              ) : null}
+            </p>
+            <div
+              className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-white/[0.08]"
+              role="img"
+              aria-label={`${cumplimiento.completas} de ${cumplimiento.total} semanas con convocatoria, horario y plan`}
+            >
+              <div
+                className="h-full rounded-full bg-[#C8A96B]"
+                style={{ width: `${cumplimiento.total ? Math.round((cumplimiento.completas / cumplimiento.total) * 100) : 0}%` }}
+              />
+            </div>
+            <p className="mt-1 text-[12px] text-white/60">
+              El plan sólo cuenta en las semanas con partido; cada cosa se reconoce por el nombre del archivo.
+            </p>
+          </div>
         ) : null}
 
         {/*
@@ -241,34 +308,93 @@ export default function SeasonHeader({
                     {partidoActual ? <span className="font-normal text-white/70"> {partidoActual}.</span> : null}
                   </p>
 
-                  <ul className="mt-2 flex flex-wrap gap-1.5" aria-label="Lo que debería haber cada semana">
+                  {/*
+                    20/11/2026 (ronda 7, los tres jueces): la lista de comprobación
+                    con casilla, y cada cosa que falta abre su propia subida con el
+                    tipo ya elegido. Fuera el botón «Subir a la semana N»: con la
+                    zona de abajo eran dos subidas iguales. El Plan de partido,
+                    además, lleva al plan de este rival para hacerlo o bajarlo.
+                  */}
+                  <input
+                    ref={entradaRef}
+                    type="file"
+                    multiple
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const archivos = Array.from(e.target.files ?? []);
+                      e.target.value = "";
+                      if (archivos.length) onSubirTipo?.(tipoRef.current, archivos);
+                    }}
+                  />
+                  <ul className="mt-2.5 space-y-1.5" aria-label="Lo que debería haber cada semana">
                     {checklist.map((c) => (
                       <li
                         key={c.texto}
-                        className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[12.5px] font-medium ${
-                          c.hecho ? "border-[#C8A96B]/50 text-white/85" : "border-white/20 text-white/75"
+                        className={`flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border px-3 py-1.5 ${
+                          c.hecho ? "border-[#C8A96B]/50" : "border-white/20"
                         }`}
                       >
-                        {c.hecho ? (
-                          <Check size={13} strokeWidth={3} className="text-[#C8A96B]" aria-hidden />
-                        ) : (
-                          <span aria-hidden className="inline-block h-3 w-3 rounded-[3px] border border-white/40" />
-                        )}
-                        {c.texto}
-                        <span className="sr-only">{c.hecho ? ", subido" : ", falta"}</span>
+                        <span className="inline-flex min-w-0 flex-1 items-center gap-2 text-[14px] font-medium text-white/85">
+                          <span
+                            aria-hidden
+                            className={`inline-flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-[4px] border ${
+                              c.hecho ? "border-[#C8A96B] bg-[#C8A96B] text-[#0B0F14]" : "border-white/45"
+                            }`}
+                          >
+                            {c.hecho ? <Check size={13} strokeWidth={3} /> : null}
+                          </span>
+                          {c.texto}
+                          <span className={`text-[12px] font-normal ${c.hecho ? "text-white/65" : "text-white/60"}`}>
+                            {c.hecho ? "· subido" : "· falta"}
+                          </span>
+                        </span>
+                        {c.texto === "Plan de partido" && c.href ? (
+                          <Link
+                            href={c.href}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 px-2.5 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                          >
+                            <ClipboardCheck size={14} className="text-[#C8A96B]" aria-hidden />
+                            {partidoActual ? `Abrir el de la ${partidoActual.split(" ")[0]}` : "Abrir el plan"}
+                          </Link>
+                        ) : null}
+                        {onSubirTipo && !c.hecho ? (
+                          <button
+                            type="button"
+                            disabled={subiendo}
+                            onClick={() => pideArchivos(c.texto)}
+                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#C8A96B] px-3 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-50"
+                          >
+                            {subiendo ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <UploadCloud size={14} aria-hidden />}
+                            {`Subir ${c.texto === "Convocatoria" ? "la" : "el"} ${c.texto.toLowerCase()}`}
+                          </button>
+                        ) : null}
                       </li>
                     ))}
                   </ul>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={onGoToCurrentWeek}
-                      className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#C8A96B] px-3.5 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
-                    >
-                      <UploadCloud size={15} aria-hidden />
-                      {`Subir a la ${currentWeek.week.toLowerCase()}`}
-                    </button>
+                    {onSubirTipo ? (
+                      <button
+                        type="button"
+                        disabled={subiendo}
+                        onClick={() => pideArchivos(null)}
+                        title="JPG · PNG · WEBP · PDF · hasta 20 archivos"
+                        className="inline-flex min-h-10 items-center gap-1.5 rounded-lg border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white disabled:opacity-50"
+                      >
+                        <UploadCloud size={15} className="text-[#C8A96B]" aria-hidden />
+                        Otro material
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={onGoToCurrentWeek}
+                        className="inline-flex min-h-10 w-full shrink-0 items-center justify-center gap-2 rounded-lg bg-[#C8A96B] px-3.5 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 sm:w-auto"
+                      >
+                        <UploadCloud size={15} aria-hidden />
+                        {`Subir a la ${currentWeek.week.toLowerCase()}`}
+                      </button>
+                    )}
                     {enlacesRival.map((e) => (
                       <Link
                         key={e.href}
@@ -280,7 +406,11 @@ export default function SeasonHeader({
                     ))}
                   </div>
 
-                  {actualVacia && ultimaConMaterial ? (
+                  {onSubirTipo ? (
+                    <p className="mt-2 text-[12px] text-white/65">JPG · PNG · WEBP · PDF · hasta 20 archivos por subida.</p>
+                  ) : null}
+
+                  {!onSubirTipo && actualVacia && ultimaConMaterial ? (
                     <p className="mt-2 text-[12.5px] text-white/65">
                       Último material:{" "}
                       <button
@@ -336,7 +466,8 @@ export default function SeasonHeader({
                 <span className="inline-block h-3 w-3 rounded-[3px] bg-[#C8A96B]" /> con material
               </span>
               {/* 20/11/2026 (ronda 5, fútbol y marketing): el circulito de cada casilla, en la leyenda: cuántos archivos tiene. */}
-              <span className="inline-flex items-center gap-1.5">
+              {/* 20/11/2026 (ronda 7): en el repositorio general la cuenta va dentro de la casilla, debajo del número. */}
+              <span className={`items-center gap-1.5 ${general ? "hidden" : "inline-flex"}`}>
                 <span
                   aria-hidden
                   className="siempre-oscuro inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[11px] font-bold tabular-nums"
@@ -349,6 +480,12 @@ export default function SeasonHeader({
               <span className="inline-flex items-center gap-1.5">
                 <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30" /> sin material
               </span>
+              {general ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-[3px] border-2 border-[#C8A96B] bg-[#C8A96B]/30" /> esta semana
+                </span>
+              ) : null}
+              {general ? <span className="text-white/60">· debajo del número, cuántos archivos</span> : null}
               {quedanAntes > 0 ? (
                 <button
                   type="button"
@@ -379,6 +516,48 @@ export default function SeasonHeader({
                     ].filter(Boolean).join(" y ") || "con material"
                   : "sin material";
                 const detalle = [semana.nombre, semana.fechas, semana.partido, contenido].filter(Boolean);
+
+                const archivos = (semana.imagenes ?? 0) + (semana.pdfs ?? 0);
+
+                /*
+                  CASILLA DEL REPOSITORIO GENERAL (20/11/2026, ronda 7, los tres
+                  jueces): 44 px, el número arriba y la cuenta dentro, a 11 px,
+                  debajo («3 arch.»; «vacía» si no hay nada), en vez del
+                  circulito de 8 px montado encima. La semana en curso, rellena.
+                */
+                if (general) {
+                  return (
+                    <button
+                      key={semana.id}
+                      type="button"
+                      data-actual={semana.actual ? "1" : undefined}
+                      onClick={() => onSelectWeek?.(semana.id)}
+                      title={detalle.join(" · ")}
+                      aria-label={detalle.join(", ")}
+                      aria-current={semana.actual ? "true" : undefined}
+                      className={`relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[8px] leading-none tabular-nums transition hover:scale-105 ${
+                        semana.actual
+                          ? "border-2 border-[#C8A96B] bg-[#C8A96B]/30 text-white"
+                          : semana.conMaterial
+                            ? "bg-[#C8A96B] text-[#0B0F14]"
+                            : "border border-white/20 bg-white/[0.04] text-white/70"
+                      }`}
+                    >
+                      <span className="text-[14px] font-semibold">{i + 1}</span>
+                      <span className={`mt-1 text-[11px] font-medium ${semana.conMaterial && !semana.actual ? "" : "text-white/65"}`}>
+                        {semana.conMaterial ? `${archivos || ""} arch.`.trim() : "vacía"}
+                      </span>
+                      {semana.actual && (
+                        <span
+                          aria-hidden
+                          className="pointer-events-none absolute -bottom-[18px] left-1/2 -translate-x-1/2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.08em] text-[#C8A96B]"
+                        >
+                          {partidoActual ? `ahora · ${partidoActual.split(" ")[0]}` : "ahora"}
+                        </span>
+                      )}
+                    </button>
+                  );
+                }
 
                 return (
                   <button

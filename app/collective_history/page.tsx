@@ -19,6 +19,7 @@ import { EnlacesRapidos } from "@/components/ui/EnlacesRapidos";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
+import { SelloDeFechas } from "@/components/data/SelloJornada";
 
 const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -362,13 +363,13 @@ export default function CollectiveHistoryPage() {
 | informe» llevaban al mismo Power BI (expertos de fútbol, análisis y
 | marketing): queda un solo botón, a pestaña nueva.
 */
-const [tabla, setTabla] = useState<ClasificacionPortada | null>(null);
+const [tablaInforme, setTablaInforme] = useState<ClasificacionPortada | null>(null);
 
 useEffect(() => {
   let vivo = true;
   traeJson<{ clasificacion?: ClasificacionPortada | null }>("/api/data-analisis?portada=1")
     .then((r) => {
-      if (vivo) setTabla(r?.clasificacion ?? null);
+      if (vivo) setTablaInforme(r?.clasificacion ?? null);
     })
     .catch(() => {});
   return () => {
@@ -393,6 +394,9 @@ const jugados = useMemo(() => {
       return [...lista, { ...uno, gf, gc, puntos, acumulados: antes + puntos }];
     }, []);
 }, [partidos]);
+
+/* 20/11/2026 (jueces, ronda 8): las fechas de nuestros partidos con marcador, para el sello «Datos hasta la J·». */
+const fechasJugadas = useMemo(() => jugados.map((u) => u.cuando.slice(0, 10)).filter(Boolean), [jugados]);
 
 /*
 | La liga entera (goles:analisis, de BeSoccer) para dos cosas: la media de
@@ -493,6 +497,42 @@ const conPuesto = jugados.length > 0 && jugados.every((u) => liga.puestos.has(u.
 const conPuestoRival = conPuesto && jugados.every((u) => liga.puestosRival.has(u.jornada));
 
 /*
+| 20/11/2026 (jueces, ronda 8): el titular y las cuatro tarjetas decían «10º,
+| 15 puntos, J10» y las láminas «6º, 19 puntos, J12». Había dos fuentes: la
+| fila del Castilla en la clasificación de los informes de rival
+| (/api/data-analisis?portada=1), que sólo se renueva al regenerar un
+| informe, y el calendario de BeSoccer con la liga entera (goles:analisis),
+| que entra cada noche. Ahora manda la más nueva: si el calendario llega a
+| los mismos partidos o a más, titular, tarjetas y «Siguiente» salen de él y
+| de la tabla calculada tras nuestra última jornada; el informe sólo manda si
+| va por delante. Sin la tabla completa de esa jornada no se da puesto.
+*/
+type Clasificacion = Omit<ClasificacionPortada, "puesto"> & { puesto: number | null; deCalendario: boolean };
+const tabla = useMemo<Clasificacion | null>(() => {
+  const ult = jugados.at(-1);
+  /* Sin el calendario todavía no se pinta la del informe: saldría la vieja un instante. */
+  if (partidos.length === 0) return null;
+  if (tablaInforme && (!ult || tablaInforme.jugados > jugados.length)) return { ...tablaInforme, deCalendario: false };
+  if (!ult) return null;
+  const mismoCorte = tablaInforme !== null && tablaInforme.jugados === jugados.length;
+  const puesto = liga.puestos.get(ult.jornada) ?? (mismoCorte ? tablaInforme.puesto : null);
+  const deCuantos =
+    liga.tablaFinal?.jornada === ult.jornada ? liga.tablaFinal.filas.length : mismoCorte ? tablaInforme.deCuantos : liga.equipos;
+  return {
+    puesto,
+    deCuantos,
+    puntos: ult.acumulados,
+    jugados: jugados.length,
+    ganados: jugados.filter((u) => u.puntos === 3).length,
+    empatados: jugados.filter((u) => u.puntos === 1).length,
+    perdidos: jugados.filter((u) => u.puntos === 0).length,
+    favor: jugados.reduce((s, u) => s + u.gf, 0),
+    contra: jugados.reduce((s, u) => s + u.gc, 0),
+    deCalendario: true,
+  };
+}, [tablaInforme, jugados, liga, partidos.length]);
+
+/*
 | 30/10/2026: la tarjeta PUESTO decía «tendencia, tras 9 jornadas», que no se
 | entendía (fútbol). Ahora lleva la base y el movimiento de la última jornada,
 | sacados de la misma columna Puesto de la tabla.
@@ -500,7 +540,7 @@ const conPuestoRival = conPuesto && jugados.every((u) => liga.puestosRival.has(u
 const movimientoPuesto = (() => {
   if (!tabla) return "";
   const base = `tras ${tabla.jugados} jornadas`;
-  if (jugados.length < 2) return base;
+  if (jugados.length < 2 || !tabla.deCalendario) return base;
   const antes = liga.puestos.get(jugados[jugados.length - 2].jornada);
   const ahora = liga.puestos.get(jugados[jugados.length - 1].jornada);
   if (antes === undefined || ahora === undefined) return base;
@@ -641,14 +681,15 @@ const golesTabla = useMemo(
 );
 
 useEffect(() => {
-  if (!tabla || jugados.length === 0) return;
+  const t = tablaInforme;
+  if (!t || jugados.length === 0 || t.jugados !== jugados.length) return;
 
-  if (jugados.length !== tabla.jugados || golesTabla.favor !== tabla.favor || golesTabla.contra !== tabla.contra) {
+  if (golesTabla.favor !== t.favor || golesTabla.contra !== t.contra) {
     console.warn(
-      `Histórico: la tabla de jornadas suma ${golesTabla.favor}-${golesTabla.contra} en ${jugados.length} partidos y la clasificación ${tabla.favor}-${tabla.contra} en ${tabla.jugados}.`,
+      `Histórico: la tabla de jornadas suma ${golesTabla.favor}-${golesTabla.contra} en ${jugados.length} partidos y la clasificación de los informes ${t.favor}-${t.contra} en ${t.jugados}.`,
     );
   }
-}, [tabla, jugados, golesTabla]);
+}, [tablaInforme, jugados, golesTabla]);
 
 
   return (
@@ -679,20 +720,24 @@ useEffect(() => {
                 <div className="h-px flex-1 bg-gradient-to-r from-[#C8A96B]/30 via-white/10 to-transparent" />
               </div>
 
+              {/* 20/11/2026 (jueces, ronda 8): hasta qué jornada llega, como el resto de pantallas del área. */}
+              <SelloDeFechas fuente="BeSoccer" fechas={fechasJugadas} queEs="marcadores" cuantos={jugados.length} compacto />
               {/* 07/11/2026: el titular con el dato, no sólo la etiqueta de la sección. */}
               {tabla && tabla.jugados > 0 ? (
                 <p className="mt-3 text-base font-medium text-white/85 sm:text-lg">
                   {/* 10/11/2026: el movimiento de la última jornada, también en el titular. */}
                   {(() => {
-                    if (jugados.length < 2) return `${tabla.puesto}º de ${tabla.deCuantos}`;
+                    const ahora = tabla.puesto;
+                    if (ahora === null) return "";
+                    if (jugados.length < 2 || !tabla.deCalendario) return `${ahora}º de ${tabla.deCuantos} `;
                     const antes = liga.puestos.get(jugados[jugados.length - 2].jornada);
-                    return antes !== undefined && antes !== tabla.puesto
-                      ? `${antes > tabla.puesto ? "Subimos" : "Bajamos"} de ${antes}º a ${tabla.puesto}º de ${tabla.deCuantos}`
-                      : `${tabla.puesto}º de ${tabla.deCuantos}`;
-                  })()}{" "}
-                  con {tabla.puntos} puntos tras {tabla.jugados}{" "}
+                    return antes !== undefined && antes !== ahora
+                      ? `${antes > ahora ? "Subimos" : "Bajamos"} de ${antes}º a ${ahora}º de ${tabla.deCuantos} `
+                      : `${ahora}º de ${tabla.deCuantos} `;
+                  })()}
+                  {tabla.puesto === null ? "Con" : "con"} {tabla.puntos} puntos tras {tabla.jugados}{" "}
                   {tabla.jugados === 1 ? "jornada" : "jornadas"}
-                  {corte && ultimo?.jornada === tabla.jugados ? ` (${corte})` : ""}
+                  {corte && tabla.deCalendario ? ` (${corte})` : ""}
                   {liga.mediaPuntos !== null
                     ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
                     : "."}
@@ -961,7 +1006,9 @@ useEffect(() => {
             {/* 17/11/2026 (ronda 20, marketing): las cuatro tarjetas, debajo de las láminas. */}
             {/* 16/11/2026 (expertos, ronda 18): la fuente y el corte, una vez encima de las cuatro tarjetas. */}
             {tabla && corte ? (
-              <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/55">Clasificación y marcadores · BeSoccer · hasta {corte}</p>
+              <p className="mb-2 text-[11px] uppercase tracking-[0.14em] text-white/55">
+                Clasificación y marcadores · BeSoccer · {tabla.deCalendario ? `hasta ${corte}` : `tras ${tabla.jugados} ${tabla.jugados === 1 ? "partido" : "partidos"}`}
+              </p>
             ) : null}
             {tabla ? (
               <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -975,7 +1022,9 @@ useEffect(() => {
                   /* 29/10/2026: la cifra grande es el dato y debajo, pequeña, la referencia (fútbol y marketing). */
                   const tarjetas: { etiqueta: string; valor: ReactNode; largo?: boolean; referencia: string }[] = [
                     /* 17/11/2026 (ronda 19, análisis): con quién estamos a la par, en la tarjeta. */
-                    { etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: [movimientoPuesto, puestoALaPar].filter(Boolean).join("\n") },
+                    ...(tabla.puesto !== null
+                      ? [{ etiqueta: "Puesto", valor: `${tabla.puesto}º de ${tabla.deCuantos}`, referencia: [movimientoPuesto, puestoALaPar].filter(Boolean).join("\n") }]
+                      : []),
                     {
                       etiqueta: "Puntos",
                       valor: String(tabla.puntos),

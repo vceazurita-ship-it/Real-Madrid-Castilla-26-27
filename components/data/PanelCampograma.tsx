@@ -431,8 +431,15 @@ export function PanelCampograma({
         </Panel>
       </div>
 
-      {/* La tabla, para quien quiera el número exacto. */}
-      <div className="mt-5">
+      {/* La tabla, para quien quiera el número exacto. 20/11/2026 (ronda 7,
+          marketing): plegada por defecto; repite el campo de arriba. */}
+      <details className="group mt-5 min-w-0">
+        <summary className="inline-flex min-h-[40px] cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-[#C8A96B] hover:border-[#C8A96B]/50 [&::-webkit-details-marker]:hidden">
+          <Scale size={14} aria-hidden />
+          <span className="group-open:hidden">Detalle: las cifras del momento, en columna ▾</span>
+          <span className="hidden group-open:inline">Plegar las cifras del momento ▴</span>
+        </summary>
+        <div className="mt-3">
         <Panel
           title="Las cifras del momento"
           subtitle={`Lo mismo del campo, en columna, por si hace falta el número exacto. La referencia es ${
@@ -507,7 +514,8 @@ export function PanelCampograma({
             </table>
           </div>
         </Panel>
-      </div>
+        </div>
+      </details>
     </>
   );
 }

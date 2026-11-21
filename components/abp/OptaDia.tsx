@@ -205,6 +205,22 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
       ? /* 20/11/2026 (jueces, ronda 4): una frase corta; los porcentajes de esta tarjeta son de Opta y llevan su base de Opta. */
         `Aquí la base es Opta: ${saquesOpta} saques en ${ctx.partidos} partidos (los registra todos); el resto de la página usa la hoja, ${hoja.acciones} etiquetados en el vídeo.`
       : "";
+  /*
+  | 20/11/2026 (ronda 7, fútbol, ABP ofensivo): «Remates de córner 1,58 por
+  | partido» (unos 19) no cuadraba con «Córners que acaban en remate 8,6 % de
+  | 58» (unos 5). Cuentan cosas distintas: se dice con las dos cifras.
+  */
+  const lineaRematesCrnr = area === "abp" && lado === "favor" ? ctx.lineas.find((l) => l.m.clave === "ShotCrnrs") : undefined;
+  const lineaCrnrRemate = area === "abp" && lado === "favor" ? ctx.lineas.find((l) => l.m.clave === "CrnrRemate%") : undefined;
+  const cuadreCorner =
+    lineaRematesCrnr && lineaCrnrRemate && lineaCrnrRemate.casos != null && ctx.partidos > 0
+      ? (() => {
+          const remates = Math.round(lineaRematesCrnr.valor * ctx.partidos);
+          const corners = Math.round(lineaCrnrRemate.casos);
+          const conRemate = Math.round(((lineaCrnrRemate.valor <= 1 ? lineaCrnrRemate.valor * 100 : lineaCrnrRemate.valor) / 100) * corners);
+          return `Córners: «remates de córner» cuenta todos los remates de la jugada, también los del rechace y la segunda jugada (unos ${remates} en ${ctx.partidos} partidos); «córners que acaban en remate» cuenta los córners con al menos un remate en la primera jugada (${conRemate} de ${corners}). Por eso la primera cifra es mayor.`;
+        })()
+      : "";
   const mejor = orden[0];
   const peor = orden.at(-1);
   const pobl = ctx.nGrupo ? "grupo" : "categoría";
@@ -232,6 +248,7 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
       )}
 
       {cuadreSaques && <p className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3 text-[12px] leading-relaxed text-white/80">{cuadreSaques}</p>}
+      {cuadreCorner && <p className="mb-4 rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[12px] leading-relaxed text-white/80">{cuadreCorner}</p>}
       {cuadreGoles && <p className="mb-4 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.06] p-3 text-[12px] leading-relaxed text-white/80">{cuadreGoles}</p>}
 
       <ul className="divide-y divide-white/[0.06]">

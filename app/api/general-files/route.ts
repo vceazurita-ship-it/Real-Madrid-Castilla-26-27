@@ -129,7 +129,16 @@ async function loadSeason(): Promise<MonthData[]> {
 
   if (error || !data) return [];
 
-  const raw = data.data as unknown;
+  let raw = data.data as unknown;
+
+  /* 20/11/2026: guardada como texto con el JSON dentro (jsonb 'string'): se lee el JSON. */
+  if (typeof raw === "string") {
+    try {
+      raw = JSON.parse(raw);
+    } catch {
+      return [];
+    }
+  }
 
   if (Array.isArray(raw)) return raw as MonthData[];
 

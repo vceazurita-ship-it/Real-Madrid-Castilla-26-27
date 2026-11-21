@@ -193,14 +193,35 @@ export function ClavesDelPartido({
   rival,
   lab,
   onIr,
+  jornada = null,
 }: {
   datos: DatosOpta | null;
   visto: PartidoPost;
   rival: string;
   lab: { robos: CifrasLaboratorio | null; perdidas: CifrasLaboratorio | null };
   onIr?: (area: string) => void;
+  /** 20/11/2026 (ronda 7): la jornada del partido, para decir si el etiquetado cubre todos los anteriores. */
+  jornada?: number | null;
 }) {
   const claves: Clave[] = [];
+  /*
+  | 20/11/2026 (ronda 7, análisis): «media 5,7» no decía de cuántos partidos;
+  | ahora la base va pegada al número y, si el vídeo etiquetado no cubre todas
+  | las jornadas anteriores, se dice cuántas y se marca como tendencia.
+  */
+  const baseMedia = (c: CifrasLaboratorio, que: string) => {
+    if (c.media == null) return undefined;
+    const jugados = jornada && jornada > 1 ? jornada - 1 : null;
+    const incompleto = jugados != null && c.anteriores < jugados;
+    const base =
+      c.anteriores === 1
+        ? "el partido anterior"
+        : incompleto
+          ? `${c.anteriores} de los ${jugados} partidos anteriores, los etiquetados`
+          : `${c.anteriores} partidos anteriores`;
+    const tendencia = incompleto || c.anteriores < 15;
+    return `${que}: ${c.clave} · media ${coma(c.media)} (${base}${tendencia ? ", tendencia" : ""}).`;
+  };
   /* 18/11/2026 (ronda 22, guionista): «7 de 40, en 90′»: la cifra del jugador con sus minutos (Opta, ese partido). */
   const enMinutos = (nombre: string) => {
     const f = datos?.castillaPartidos.find((x) => String(x.partido ?? "") === visto.clave && mismoJugador(String(x.jugador ?? ""), nombre));
@@ -244,10 +265,7 @@ export function ClavesDelPartido({
       id: "robos",
       rotulo: r.deOpta ? "Robos · desde Opta" : "Robos · del vídeo",
       titular: `${r.clave} de ${r.total} robos en campo rival (${pc(r.clave, r.total)})`,
-      detalle:
-        r.media != null
-          ? `Robos en campo rival: ${r.clave}; ${r.anteriores === 1 ? "en el anterior" : `media de los ${r.anteriores} anteriores`}, ${coma(r.media)}${r.anteriores < 15 ? " (tendencia)" : ""}.`
-          : undefined,
+      detalle: baseMedia(r, "Robos en campo rival"),
       tono: r.media == null ? "neutro" : mejor ? "bien" : r.clave < r.media ? "mal" : "neutro",
       dibujo: <BarraZonas z={r.zonas} destaca="rival" />,
       ir: { texto: "Robos y transiciones", href: enlaceConPartido("/laboratorio/transiciones", visto) },
@@ -264,10 +282,7 @@ export function ClavesDelPartido({
       id: "perdidas",
       rotulo: p.deOpta ? "Pérdidas · desde Opta" : "Pérdidas · del vídeo",
       titular: `${p.clave} de ${p.total} pérdidas en campo propio (${pc(p.clave, p.total)})`,
-      detalle:
-        p.media != null
-          ? `Pérdidas en campo propio: ${p.clave}; ${p.anteriores === 1 ? "en el anterior" : `media de los ${p.anteriores} anteriores`}, ${coma(p.media)}${p.anteriores < 15 ? " (tendencia)" : ""}.`
-          : undefined,
+      detalle: baseMedia(p, "Pérdidas en campo propio"),
       tono: p.media == null ? "neutro" : peor ? "mal" : p.clave < p.media ? "bien" : "neutro",
       dibujo: <BarraZonas z={p.zonas} destaca="propio" />,
       ir: { texto: "Pérdidas y transiciones", href: enlaceConPartido("/laboratorio/perdidas", visto) },

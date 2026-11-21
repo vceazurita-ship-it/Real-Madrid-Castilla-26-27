@@ -455,6 +455,22 @@ export default function MicroCalendar() {
   const { almacen: almacenEquipos } = useDiasConectados(SIN_FECHAS, { entreno: false });
   const estadoDe = useCallback((key: string, minutos: number, apuntada = false) => estadoDelDia(key, hoyComun || "", registro, almacenEquipos, minutos, apuntada), [hoyComun, registro, almacenEquipos]);
 
+  /*
+  | SÓLO LO HECHO SUMA (20/11/2026, ronda 7, fútbol). El 27/10 daba 43′ con la
+  | tarea «no se hizo» dentro; /calendar_general daba 29′. Los minutos del día,
+  | el VOLUMEN y las UA salen sólo de las tareas hechas, con la misma regla de
+  | lib/sesion-dia/estado-dia.ts (la tarea del plan que no casa con los equipos
+  | de Jugadores sesión no se hizo).
+  */
+  const hechasDe = useCallback(
+    (key: string, tareas: MicrocycleRecord[]) => {
+      const no = estadoDe(key, 0).noHechas;
+
+      return no.size ? tareas.filter((t) => !no.has(String(t.Tarea ?? "").trim())) : tareas;
+    },
+    [estadoDe],
+  );
+
   /** Tareas agrupadas por día. */
   const tasksByDay = useMemo(() => {
     const map = new Map<string, MicrocycleRecord[]>();
@@ -541,9 +557,11 @@ export default function MicroCalendar() {
         const filas = dayTasks.map(filaDeCuenta);
 
         dentro.set(key, filas);
-        const entreno = dayTasks.filter((t, i) => !esFilaDePartido(filas[i]));
+        const entrenoTodo = dayTasks.filter((t, i) => !esFilaDePartido(filas[i]));
+        /* Ronda 7: lo que «no se hizo» no suma minutos ni carga. */
+        const entreno = hechasDe(key, entrenoTodo);
 
-        tareas += entreno.length;
+        tareas += entrenoTodo.length;
 
         dayTasks.forEach((t) => {
           const rotulo = `${t["Contenido Principal"] || t["Tipo Tarea"] || ""}`;
@@ -563,14 +581,14 @@ export default function MicroCalendar() {
         /* La ventana de comparación acaba en el último entreno HECHO (con carga),
            no en un partido ni en un día sólo planificado (10/11/2026). */
         const conCarga = cargaDia > 0 || entreno.some((t) => minutesOf(t) > 0);
-        if (entreno.length > 0 && conCarga) {
+        if (entrenoTodo.length > 0 && conCarga) {
           hechos += 1;
           ultimoDia = Math.max(ultimoDia, date.getDate());
-        } else if (entreno.length > 0 && estadoDe(key, 0).hecha) {
+        } else if (entrenoTodo.length > 0 && estadoDe(key, 0).hecha) {
           hechosSinCarga += 1;
         }
 
-        const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
+        const md = String(entrenoTodo[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
 
         if (md && cargaDia > 0) {
           const uno = porMd.get(md) ?? { carga: 0, dias: 0 };
@@ -599,7 +617,7 @@ export default function MicroCalendar() {
         cognitivaMedia: hechos > 0 ? Math.round(cognitiva / hechos) : 0,
       };
     },
-    [sessionDays, tasksByDay, estadoDe]
+    [sessionDays, tasksByDay, estadoDe, hechasDe]
   );
 
   const monthStats = useMemo(
@@ -641,7 +659,7 @@ export default function MicroCalendar() {
 
     for (const key of sessionDays) {
       const tareas = tasksByDay.get(key) ?? [];
-      const entreno = tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t)));
+      const entreno = hechasDe(key, tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t))));
       const ua = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
 
       if (ua <= 0) continue;
@@ -670,7 +688,7 @@ export default function MicroCalendar() {
     });
 
     return { delMes, media };
-  }, [sessionDays, tasksByDay, active, fechasPartido]);
+  }, [sessionDays, tasksByDay, active, fechasPartido, hechasDe]);
 
   /* El mes anterior, en los mismos días (del 1 al último con registros de este mes). */
   const mesPrevio = useMemo(() => {
@@ -730,24 +748,39 @@ export default function MicroCalendar() {
     | carga media de los MD-1 ya hechos de la temporada (UA por día, como las
     | tarjetas); con menos de 3, no se cita.
     */
-    let cargaMd1 = 0;
-    let diasMd1 = 0;
-    tasksByDay.forEach((tareas, key) => {
-      if (key >= (md1?.fecha ?? "9999")) return;
-      const entreno = tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t)));
-      const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
-      const carga = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
-      if (md === "MD-1" && carga > 0) {
-        cargaMd1 += carga;
-        diasMd1 += 1;
-      }
-    });
-    const baseMd1 = diasMd1 >= 3 ? `: los MD-1 de la temporada se quedan en ${Math.round(cargaMd1 / diasMd1)} UA de media (${diasMd1} sesiones)` : "";
-    if (!baseMd1) return "";
+    /*
+    | 20/11/2026 (ronda 7): cada día citado lleva la media de SU MD. Antes el
+    | sábado (día después del partido) salía con la media de los MD-1, que ya
+    | había pasado: dos bases mezcladas en una frase.
+    */
+    const mediaDe = (etiqueta: string, antesDe: string) => {
+      let carga = 0;
+      let dias = 0;
+      tasksByDay.forEach((tareas, key) => {
+        if (key >= antesDe) return;
+        const entreno = hechasDe(key, tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t))));
+        const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
+        const c = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
+        if (md === etiqueta && c > 0) {
+          carga += c;
+          dias += 1;
+        }
+      });
+      return dias >= 3 ? { ua: Math.round(carga / dias), dias } : null;
+    };
     /* 20/11/2026 (fútbol, ronda 5): sólo los días que vienen; el 20/11 citaba aún el jueves 19 (MD-1). */
     const viene = (iso: string) => Boolean(iso) && Boolean(hoyComun) && iso > (hoyComun ?? "");
-    const partes = [md1 && viene(md1.fecha) ? `el ${corto(md1.fecha)} (MD-1)` : "", viene(despues) ? `el ${corto(despues)} (día después del partido)` : ""].filter(Boolean);
-    return partes.length ? `del micro ${semana.etiqueta} ${partes.join(" y ")}${baseMd1}` : "";
+    const partes = [
+      md1 && viene(md1.fecha) ? { fecha: md1.fecha, md: "MD-1" } : null,
+      viene(despues) ? { fecha: despues, md: "MD+1" } : null,
+    ]
+      .filter((x): x is { fecha: string; md: string } => x !== null)
+      .map((x) => {
+        const m = mediaDe(x.md, x.fecha);
+        return m ? `el ${corto(x.fecha)} (${x.md}) sin pasar de ${m.ua} UA, la media de ${m.dias} ${x.md} de la temporada` : "";
+      })
+      .filter(Boolean);
+    return partes.length ? `del micro ${semana.etiqueta}: ${partes.join("; ")}` : "";
   })();
 
   const lecturaCarga = (() => {
@@ -813,7 +846,7 @@ export default function MicroCalendar() {
   | cinco líneas: arriba queda la frase que manda hacer algo (la última de la
   | lectura) y la explicación con sus cifras pasa al pie del gráfico.
   */
-  const frasesCarga = lecturaCarga.split(/(?<=.)s+(?=[A-ZÁÉÍÓÚ])/).filter(Boolean);
+  const frasesCarga = lecturaCarga.split(/(?<=\.)\s+(?=[A-ZÁÉÍÓÚ])/).filter(Boolean);
   const ordenCarga = frasesCarga.length > 1 ? frasesCarga.slice(1).join(" ") : frasesCarga[0] ?? lecturaCognitiva;
   const porqueCarga = [frasesCarga.length > 1 ? frasesCarga[0] : "", ordenCarga === lecturaCognitiva ? "" : lecturaCognitiva].filter(Boolean).join(" ");
 
@@ -836,16 +869,19 @@ export default function MicroCalendar() {
     */
     /* 17/11/2026 (r20, jueces): la base en el propio titular y, con menos de 25
        entrenos por lado, marcado «tendencia». */
+    /*
+    | 20/11/2026 (ronda 7, fútbol y marketing): en el titular sólo la
+    | conclusión («Noviembre: más carga física (+19 %) y menos cognitiva
+    | (−25 %) que octubre»); la base (entrenos con minutos, días y
+    | «tendencia») baja al subtítulo.
+    */
     if (pctCarga !== null) {
-      const n = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
-      /* 20/11/2026 (fútbol, ronda 5): «8 entrenos frente a 6» chocaba con «11 hechos»: se dice que son los que tienen minutos. */
-      const deHechos = monthStats.hechosVista > monthStats.hechos ? ` de los ${monthStats.hechosVista} hechos` : "";
-      const nBase =
-        monthStats.hechos === mesPrevio.stats.hechos
-          ? `${n} entrenos con minutos${deHechos}`
-          : `${monthStats.hechos}${deHechos} con minutos, frente a ${mesPrevio.stats.hechos}`;
+      const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
+      const parte = (que: string, p: number) => (p === 0 ? `la misma carga ${que}` : `${p > 0 ? "más" : "menos"} carga ${que} (${signo(p)})`);
+      const fisica = parte("física", pctCarga);
+      const cognitiva = pctCog === null ? "" : pctCog === 0 ? " y la misma cognitiva" : ` y ${pctCog > 0 ? "más" : "menos"} cognitiva (${signo(pctCog)})`;
 
-      return `${MONTHS[active.month]}: carga física ${signo(pctCarga)}${pctCog === null ? "" : `, cognitiva ${signo(pctCog)}`} · ${nBase}${n < 25 ? " · tendencia" : ""}`;
+      return `${MONTHS[active.month]}: ${fisica}${cognitiva} que ${mesAntes}`;
     }
     return [
       `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}`,
@@ -862,12 +898,13 @@ export default function MicroCalendar() {
     const mesAhora = MONTHS[active.month].toLowerCase();
     const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"}, ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"})` : ""}`;
     const volumen = monthStats.minutos > 0 ? `${formatMinutes(monthStats.minutos)} de entreno` : "";
+    /* Ronda 7: la base que salía en el titular («8 entrenos con minutos frente a 6, días 1-12 · tendencia»). */
+    const nMin = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
     const base =
       comparable && mesPrevio.stats.cargaMedia > 0 && monthStats.cargaMedia > 0
-        ? /* 16/11/2026 (jueces): corto, «media de 8 entrenos (1-12 nov) frente a 6 (1-12 oct)». */
-          mesPrevio.completo
-          ? `media de ${monthStats.hechos} entrenos frente a ${mesPrevio.stats.hechos} en ${mesAntes}`
-          : `media de ${monthStats.hechos} entrenos (1-${mesPrevio.hasta} ${mesAhora.slice(0, 3)}) frente a ${mesPrevio.stats.hechos} (1-${mesPrevio.hasta} ${mesAntes.slice(0, 3)})`
+        ? `${monthStats.hechos} ${monthStats.hechos === 1 ? "entreno" : "entrenos"} con minutos frente a ${mesPrevio.stats.hechos}${
+            mesPrevio.completo ? ` en ${mesAntes}` : `, días 1-${mesPrevio.hasta} de ${mesAhora} y ${mesAntes}`
+          }${nMin < 25 ? " · tendencia" : ""}`
         : "";
     return [entrenos, volumen, base].filter(Boolean).join(" · ");
   })();
@@ -893,7 +930,9 @@ export default function MicroCalendar() {
   }, [selectedTasks]);
 
   const selectedSummary = useMemo(() => {
-    const minutos = selectedTasks.reduce((s, t) => s + minutesOf(t), 0);
+    /* Ronda 7: los minutos del día, sólo de lo hecho; lo que «no se hizo» se marca en su tarjeta. */
+    const noHechasDia = selectedKey ? estadoDe(selectedKey, 0).noHechas : new Set<string>();
+    const minutos = (selectedKey ? hechasDe(selectedKey, selectedTasks) : selectedTasks).reduce((s, t) => s + minutesOf(t), 0);
     const head = selectedTasks[0];
 
     /* La barra de cada carga se mide contra la tarea más cargada del día
@@ -906,11 +945,12 @@ export default function MicroCalendar() {
       maxCarga,
       maxCognitiva,
       minutos,
+      noHechasDia,
       micro: head?.Micro ?? "",
       md: selectedTasks.map((t) => String(t.MD ?? "").trim()).find(Boolean) ?? "",
       rival: head?.Rival ?? "",
     };
-  }, [selectedTasks]);
+  }, [selectedTasks, selectedKey, estadoDe, hechasDe]);
 
   /** Salta a la sesión anterior/siguiente y sincroniza el mes visible. */
   const goToDay = useCallback(
@@ -966,6 +1006,7 @@ export default function MicroCalendar() {
                     : null
                 }
                 pie={porqueCarga}
+                onElige={setSelectedKey}
               />
             ) : null}
           </div>
@@ -1085,6 +1126,8 @@ export default function MicroCalendar() {
         /* La tarea del plan que no se hizo no se cuenta como contenido del día: va tachada aparte. */
         const noHechas = dayTasks.filter((t) => estadoDia.noHechas.has(String(t.Tarea ?? "").trim()));
         const hechasDelDia = noHechas.length ? dayTasks.filter((t) => !noHechas.includes(t)) : dayTasks;
+        /* Ronda 7 (fútbol): el total del día, sólo con lo hecho (el 27/10 daba 43′ y son 29′). */
+        const minutosHechos = hechasDelDia.reduce((s, t) => s + minutesOf(t), 0);
 
         // Minutos por contenido principal, ordenados de mayor a menor.
         const blocks = new Map<string, number>();
@@ -1138,9 +1181,9 @@ export default function MicroCalendar() {
               {/* 29/10/2026: sin minutos no sale ni píldora ni «sin tiempo»: lo que no hay no se nombra. */}
               {/* 16/11/2026: el día de partido no lleva duración (el 13/11 no la tenía y
                   los demás sí): el partido no es minutos de entreno, y así salen todos igual. */}
-              {totalMinutes > 0 && !esDiaDePartido(dayTasks) && (
+              {minutosHechos > 0 && !esDiaDePartido(dayTasks) && (
                 <span className="rounded-full border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-2 py-0.5 text-[10px] font-semibold text-[#C8A96B]">
-                  {formatMinutes(totalMinutes)}
+                  {formatMinutes(minutosHechos)}
                 </span>
               )}
               {/* 10/11/2026: un entreno que aún no tiene minutos en la hoja es
@@ -1224,11 +1267,11 @@ export default function MicroCalendar() {
                     )}
                   </div>
 
-                  {minutes > 0 && totalMinutes > 0 && (
+                  {minutes > 0 && minutosHechos > 0 && (
                     <div className="mt-1">
                       <MetricBar
                         value={minutes}
-                        max={totalMinutes}
+                        max={minutosHechos}
                         className={theme.bar}
                       />
                     </div>
@@ -1255,11 +1298,12 @@ export default function MicroCalendar() {
               {/* 20/11/2026 (marketing, ronda 5): desde el día, sus equipos y su análisis, con la fecha ya puesta. */}
               {!partido && key <= (hoyComun || "") ? (
                 <span className="flex flex-wrap gap-x-2 text-[11px] font-semibold">
-                  <Link href={`/jugadores-sesion?fecha=${key}`} onClick={sinAbrirElDia} className="text-[#C8A96B] underline-offset-2 hover:underline">
-                    Equipos →
+                  {/* Ronda 7 (marketing): el rótulo dice adónde lleva («Equipos →» no se entendía). */}
+                  <Link href={`/jugadores-sesion?fecha=${key}`} onClick={sinAbrirElDia} title="Jugadores sesión de este día" className="text-[#C8A96B] underline-offset-2 hover:underline">
+                    Jugadores sesión →
                   </Link>
-                  <Link href={`/analisis-entrenamiento?fecha=${key}`} onClick={sinAbrirElDia} className="text-[#C8A96B] underline-offset-2 hover:underline">
-                    Análisis →
+                  <Link href={`/analisis-entrenamiento?fecha=${key}`} onClick={sinAbrirElDia} title="Análisis de entrenamiento de este día" className="text-[#C8A96B] underline-offset-2 hover:underline">
+                    Análisis del entreno →
                   </Link>
                 </span>
               ) : null}
@@ -1393,7 +1437,9 @@ export default function MicroCalendar() {
             )}
 
             {Object.entries(grouped).map(([bloque, tareas]) => {
-              const bloqueMinutos = tareas.reduce((s, t) => s + minutesOf(t), 0);
+              /* Ronda 7: lo que «no se hizo» no suma al bloque. */
+              const noSeHizo = (t: MicrocycleRecord) => selectedSummary.noHechasDia.has(String(t.Tarea ?? "").trim());
+              const bloqueMinutos = tareas.reduce((s, t) => s + (noSeHizo(t) ? 0 : minutesOf(t)), 0);
 
               return (
                 <div
@@ -1440,6 +1486,12 @@ export default function MicroCalendar() {
                             {t.Espacio && (
                               <span className="rounded-full border border-white/10 bg-[#10151C] px-3 py-1 text-[11px] text-white/60">
                                 {t.Espacio}
+                              </span>
+                            )}
+
+                            {noSeHizo(t) && (
+                              <span className="rounded-full border border-white/20 px-3 py-1 text-[11px] font-semibold text-white/70" title="Estaba en el plan y no se hizo (según los equipos de Jugadores sesión): sus minutos no cuentan">
+                                no se hizo · no suma
                               </span>
                             )}
                           </div>
@@ -1537,7 +1589,10 @@ function BarrasCargaMes({
   mes,
   comparacion,
   pie,
+  onElige,
 }: {
+  /** Ronda 7: pinchar la fila de un entreno abre su día (con sus enlaces a Jugadores sesión y al análisis). */
+  onElige?: (key: string) => void;
   dias: { key: string; md: string; ua: number }[];
   media: Map<string, number>;
   mes: string;
@@ -1555,29 +1610,55 @@ function BarrasCargaMes({
     <section aria-label="Carga física por entreno del mes" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <h2 className="text-[14px] font-semibold text-white/90">{titulo}</h2>
       <p className="mt-0.5 text-[12px] text-white/55">
-        Una barra por entreno hecho (UA = minutos × intensidad); la raya es la media de ese MD en la temporada.
+        Una barra por entreno hecho (UA = minutos × intensidad). Encima, sus UA; debajo, el día y su MD (MD-5 = cinco días antes del partido, MD+2 = dos después); la raya es la media de ese MD en la temporada.
       </p>
 
       <div className="mt-3 grid min-w-0 gap-4 md:grid-cols-[minmax(0,1fr)_200px]">
-        <div className="flex h-28 min-w-0 items-end gap-1 overflow-x-auto" role="img" aria-label={`Carga de ${dias.length} entrenos de ${mes}`}>
+        {/*
+        | 20/11/2026 (ronda 7, marketing): «3 / −5» se leía como una diferencia.
+        | Ahora cada barra lleva su valor encima y debajo un solo rótulo con el
+        | día y el MD entero («3 · MD-5»). En el móvil, una fila por entreno con
+        | la cifra escrita (nada que pinchar) que abre su día.
+        */}
+        <div className="hidden h-36 min-w-0 items-end gap-1 overflow-x-auto md:flex" role="img" aria-label={`Carga de ${dias.length} entrenos de ${mes}`}>
           {dias.map((d) => {
             const m = media.get(d.md);
 
             return (
-              <div key={d.key} className="flex min-w-[18px] flex-1 flex-col items-center gap-1" title={`${d.key.slice(8, 10)}/${d.key.slice(5, 7)} · ${d.md || "sin MD"} · ${d.ua} UA${m ? ` (media del ${d.md}: ${m})` : ""}`}>
+              <div key={d.key} className="flex min-w-[30px] flex-1 flex-col items-center gap-1" title={`${d.key.slice(8, 10)}/${d.key.slice(5, 7)} · ${d.md || "sin MD"} · ${d.ua} UA${m ? ` (media del ${d.md}: ${m})` : ""}`}>
+                <span className="text-[11px] font-semibold leading-none tabular-nums text-white/75">{d.ua}</span>
                 <div className="relative h-20 w-full">
                   <span className="absolute inset-x-0 bottom-0 rounded-t-[3px]" style={{ height: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
                   {m ? <span className="absolute inset-x-[-2px] h-0.5 rounded-full" style={{ bottom: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
                 </div>
-                {/* 20/11/2026 (jueces): el día y su MD («3 · −5»), no sólo el número. */}
-                <span className="text-center text-[11px] leading-none tabular-nums text-white/60">
+                <span className="whitespace-nowrap text-center text-[11px] leading-tight tabular-nums text-white/65">
                   {Number(d.key.slice(8, 10))}
-                  {d.md ? <span className="block whitespace-nowrap pt-0.5 text-[10px] text-white/45">{d.md.replace(/^MD/, "")}</span> : null}
+                  {d.md ? <span className="block text-[10px] text-white/55">{d.md}</span> : null}
                 </span>
               </div>
             );
           })}
         </div>
+        <ul className="min-w-0 space-y-1 md:hidden" aria-label={`Carga de ${dias.length} entrenos de ${mes}`}>
+          {dias.map((d) => {
+            const m = media.get(d.md);
+
+            return (
+              <li key={d.key}>
+                <button type="button" onClick={() => onElige?.(d.key)} className="grid min-h-9 w-full grid-cols-[76px_minmax(0,1fr)_52px] items-center gap-2 rounded-md px-1 text-left text-[12px] hover:bg-white/5">
+                  <span className="whitespace-nowrap tabular-nums text-white/70">
+                    {Number(d.key.slice(8, 10))}/{Number(d.key.slice(5, 7))} · {d.md || "sin MD"}
+                  </span>
+                  <span className="relative h-3 rounded-sm bg-white/5">
+                    <span className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
+                    {m ? <span className="absolute inset-y-[-2px] w-0.5 rounded-full" style={{ left: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
+                  </span>
+                  <span className="text-right font-semibold tabular-nums text-white/80">{d.ua} UA</span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
 
         <div className="min-w-0 space-y-2">
           {comparacion ? (

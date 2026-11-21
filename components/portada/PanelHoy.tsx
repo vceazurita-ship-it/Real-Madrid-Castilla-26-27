@@ -92,7 +92,8 @@ function haceCuanto(cuando: number, ahora: number) {
 
 export function PanelHoy({ admin }: { admin: boolean }) {
   return (
-    <div className={`grid min-w-0 gap-4 ${admin ? "lg:grid-cols-[minmax(0,1.05fr)_minmax(0,1fr)] lg:items-start" : ""}`}>
+    /* 20/11/2026 (ronda 7, marketing): «Tu día» y «Atajos» a todo el ancho, uno bajo otro: en dos columnas quedaba un hueco a la derecha de «Atajos». */
+    <div className="grid min-w-0 gap-4">
       {admin && <TuDia />}
       <MesaDeTrabajo admin={admin} />
     </div>
@@ -263,54 +264,81 @@ function TuDia() {
       */}
       {atrasadas.length > 0 && (() => {
         const dia = (f: string) => `${rotuloDia(f).split(" ")[0].slice(0, 3).toLowerCase()} ${Number(f.slice(8, 10))}`;
-        const porDia = new Map<string, number>();
-        for (const t of atrasadas) porDia.set(t.fecha, (porDia.get(t.fecha) ?? 0) + 1);
-        const cuenta = [...porDia.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([f, n]) => `${dia(f)} · ${n}`).join(", ");
+        const porDia = new Map<string, TareaDelDia[]>();
+        for (const t of atrasadas) porDia.set(t.fecha, [...(porDia.get(t.fecha) ?? []), t]);
+        const dias = [...porDia.entries()].sort(([a], [b]) => a.localeCompare(b));
+        const cuenta = dias.map(([f, l]) => `${dia(f)} · ${l.length}`).join(", ");
 
+        /*
+        | 20/11/2026 (ronda 7, los tres jueces): el desglose salía en rosa
+        | pálido sobre rosa (`text-red-200/90` no tiene equivalencia en modo
+        | día) y no se leía. Ahora un botón claro, «7 atrasadas · verlas ›», en
+        | la tinta del tema; el desglose por día sólo desde la tableta (en el
+        | móvil se queda en «7 atrasadas · verlas»). Al abrirlo, las de cada
+        | día bajo su día, cada una a su pantalla y con «Hecha».
+        */
         return (
-          <div className="relative mt-3 min-w-0 rounded-xl border border-red-400/40 bg-red-500/10 text-[13px] leading-snug text-red-200">
+          <div className="portada-celda relative mt-3 min-w-0 text-[13px] leading-snug" style={{ borderRadius: 12, boxShadow: "inset 3px 0 0 var(--rmcf-dif-peor, #D95F02)" }}>
             <button
               type="button"
               onClick={() => setVerAtrasadas((v) => !v)}
               aria-expanded={verAtrasadas}
-              className="flex min-h-10 w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
+              className="flex min-h-11 w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
             >
-              <ShieldAlert className="h-4 w-4 shrink-0 text-red-300" aria-hidden />
-              <span className="min-w-0 flex-1">
-                <b className="font-semibold text-red-300">
+              <ShieldAlert className="h-4 w-4 shrink-0" style={{ color: "var(--rmcf-dif-peor, #D95F02)" }} aria-hidden />
+              <span className="min-w-0 flex-1 text-white/85">
+                <b className="font-bold text-white">
                   {atrasadas.length === 1 ? "1 atrasada" : `${atrasadas.length} atrasadas`}
                 </b>
-                <span className="text-red-200/90"> · {cuenta}</span>
+                <span className="hidden sm:inline"> · {cuenta}</span>
               </span>
-              <ChevronRight className={`h-4 w-4 shrink-0 text-red-300 transition-transform ${verAtrasadas ? "rotate-90" : ""}`} aria-hidden />
+              <span className="inline-flex shrink-0 items-center gap-0.5 font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {verAtrasadas ? "Plegar" : "Verlas"}
+                <ChevronRight className={`h-4 w-4 transition-transform ${verAtrasadas ? "rotate-90" : ""}`} aria-hidden />
+              </span>
             </button>
 
             {verAtrasadas ? (
-              <div className="border-t border-red-400/25 px-3 pb-2.5 pt-1.5">
-                <ul className="space-y-1.5">
-                  {atrasadas.slice(0, 3).map((t) => (
-                    <li key={t.clave} className="flex min-w-0 items-center gap-2">
-                      <span className="min-w-0 flex-1 text-white/85">
-                        {t.texto}
-                        <span className="text-red-200/90"> · {dia(t.fecha)}</span>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => marca(t, true)}
-                        className="inline-flex min-h-8 shrink-0 items-center gap-1 rounded-lg border border-white/20 px-2.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]"
-                      >
-                        <Check className="h-3.5 w-3.5" aria-hidden />
-                        Hecha
-                      </button>
-                    </li>
-                  ))}
-                </ul>
+              <div className="border-t border-white/[0.08] px-3 pb-2.5 pt-1.5">
+                {dias.map(([f, lista]) => (
+                  <div key={f} className="mt-1.5 first:mt-0">
+                    <p className="text-[12px] font-semibold uppercase tracking-[0.12em] text-white/65">
+                      {dia(f)} · {lista.length}
+                    </p>
+                    <ul className="mt-1 space-y-1">
+                      {lista.map((t) => (
+                        <li key={t.clave} className="flex min-w-0 items-center gap-2">
+                          {t.href ? (
+                            <Link
+                              href={t.href}
+                              onClick={() => trackModuleVisit(t.href!)}
+                              className="min-w-0 flex-1 font-medium text-white/90 underline decoration-white/25 underline-offset-2 hover:decoration-current"
+                            >
+                              {t.texto}
+                            </Link>
+                          ) : (
+                            <span className="min-w-0 flex-1 font-medium text-white/90">{t.texto}</span>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => marca(t, true)}
+                            className="inline-flex min-h-9 shrink-0 items-center gap-1 rounded-lg border border-white/20 px-2.5 text-[12px] font-semibold text-white/85 transition hover:bg-white/[0.08]"
+                          >
+                            <Check className="h-3.5 w-3.5" aria-hidden />
+                            Hecha
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
                 <button
                   type="button"
                   onClick={abreAtrasadas}
-                  className="mt-2 text-[12.5px] font-semibold text-red-300 underline underline-offset-2"
+                  className="mt-2 min-h-9 text-[12.5px] font-semibold underline underline-offset-2"
+                  style={{ color: "var(--rmcf-gold-ink)" }}
                 >
-                  {atrasadas.length > 3 ? `Ver las ${atrasadas.length} o pasarlas a hoy` : "Pasarlas a hoy"}
+                  Pasarlas a hoy
                 </button>
               </div>
             ) : null}

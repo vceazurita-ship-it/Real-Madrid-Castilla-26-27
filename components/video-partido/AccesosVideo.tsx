@@ -32,6 +32,7 @@ export function AccesosVideo({
   jugado,
   coding,
   className,
+  completos = false,
 }: {
   /** El día del partido, «AAAA-MM-DD». */
   dia: string;
@@ -40,8 +41,17 @@ export function AccesosVideo({
   /** 16/11/2026: enlace a sus cortes en Coding, en la misma fila y con el mismo peso que el resto. */
   coding?: string;
   className?: string;
+  /**
+   * 20/11/2026 (jueces, ronda 8, Data análisis): los rótulos enteros. En una
+   * fila estrecha (390 px) los botones encogían a «Codi…», «Resu…»; con esto
+   * no encogen y la fila pasa de línea.
+   */
+  completos?: boolean;
 }) {
   const principal = useOrdenadorPrincipal();
+
+  const ANCHO = completos ? "flex-none shrink-0" : "flex-1";
+  const TEXTO = completos ? "whitespace-nowrap" : "truncate";
 
   const enlaces = enlacesDelDia(dia);
 
@@ -78,30 +88,30 @@ export function AccesosVideo({
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {coding && (
-        <Link href={coding} title="Los cortes de este partido en Coding de Partido" className={cn(BOTON, NEUTRO, "flex-1")}>
+        <Link href={coding} title="Los cortes de este partido en Coding de Partido" className={cn(BOTON, NEUTRO, ANCHO)}>
           <Scissors className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="truncate">Coding</span>
+          <span className={TEXTO}>Coding</span>
         </Link>
       )}
 
       {hudl && (
-        <a href={hudl.url} target="_blank" rel="noopener noreferrer" title={hudl.titulo} className={cn(BOTON, NEUTRO, "flex-1")}>
+        <a href={hudl.url} target="_blank" rel="noopener noreferrer" title={hudl.titulo} className={cn(BOTON, NEUTRO, ANCHO)}>
           <Clapperboard className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="truncate">{hudl.texto}</span>
+          <span className={TEXTO}>{hudl.texto}</span>
         </a>
       )}
 
       {tactica && (
-        <span className="flex min-w-0 flex-1 items-stretch">
+        <span className={cn("flex min-w-0 items-stretch", ANCHO)}>
           <a
             href={urlTactica(tactica.jornada)}
             target="_blank"
             rel="noopener noreferrer"
             title={`Abre en este ordenador «${tactica.tactica?.fichero}»`}
-            className={cn(BOTON, NEUTRO, "flex-1 rounded-r-none")}
+            className={cn(BOTON, NEUTRO, ANCHO, "rounded-r-none")}
           >
             <HardDrive className="h-3.5 w-3.5 shrink-0" aria-hidden />
-            <span className="truncate">Grabación táctica</span>
+            <span className={TEXTO}>Grabación táctica</span>
           </a>
           <button
             type="button"
@@ -121,10 +131,10 @@ export function AccesosVideo({
           target="_blank"
           rel="noopener noreferrer"
           title={`Resumen en YouTube · ${resumen.canal} · ${resumen.titulo}`}
-          className={cn(BOTON, NEUTRO, "flex-1")}
+          className={cn(BOTON, NEUTRO, ANCHO)}
         >
           <MonitorPlay className="h-3.5 w-3.5 shrink-0" aria-hidden />
-          <span className="truncate">Resumen</span>
+          <span className={TEXTO}>Resumen</span>
         </a>
       )}
     </div>

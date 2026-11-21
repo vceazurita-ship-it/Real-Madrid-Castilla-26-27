@@ -158,8 +158,11 @@ if (!EN_SECO && process.env.DATOS_PG_URL) {
       if (!n) continue;
 
       /* Se compara en milisegundos: las filas escritas antes del disparador que redondea guardan microsegundos y la fecha leída en JS no los trae. */
+      /* `$1::text::jsonb` y no `$1::jsonb` (20/11/2026): con `::jsonb` postgres.js manda la cadena como JSON y la guarda
+         como UN TEXTO (jsonb_typeof = 'string'). Así dejó 23 filas —temporadas, documentos y clips de rivales,
+         vídeos de informe, desplazamientos— que las pantallas leían como vacías. */
       const r = await sql.unsafe(
-        `update ${tabla} set data = $1::jsonb, updated_at = date_trunc('milliseconds', now()) where ${k} = $2 and date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $3::timestamptz)`,
+        `update ${tabla} set data = $1::text::jsonb, updated_at = date_trunc('milliseconds', now()) where ${k} = $2 and date_trunc('milliseconds', updated_at) = date_trunc('milliseconds', $3::timestamptz)`,
         [d, f.k, f.updated_at],
       );
 

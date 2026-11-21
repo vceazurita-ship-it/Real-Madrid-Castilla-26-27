@@ -70,7 +70,7 @@ import { AreaMejora } from "@/components/individual/AreaMejora";
 import { Tendencia } from "@/components/individual/Tendencia";
 import { OptaFicha } from "@/components/individual/OptaFicha";
 import { playerEntries, sortedMatches, summarizeAll } from "@/lib/ratings/compute";
-import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
+import { EnlacesJugador, hrefJugador, type DestinoJugador } from "@/components/individual/EnlacesJugador";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
 import { cohorteCastilla, esDelCastilla, idVigente, mismoJugador } from "@/lib/fichajes";
@@ -1587,8 +1587,9 @@ function leeVista(): "fichas" | "lista" | "auto" {
   } catch {
     /* sin almacenamiento */
   }
-  /* Sin elección: manda el ancho, por CSS (ver RejillaJugadores). */
-  return "auto";
+  /* 20/11/2026 (ronda 7, análisis): sin elección, la lista en todos los
+     anchos —abría con 22 fotos grandes—; las fichas, a un toque. */
+  return "lista";
 }
 function guardaVista(v: "fichas" | "lista") {
   try {
@@ -1599,7 +1600,7 @@ function guardaVista(v: "fichas" | "lista") {
   avisosVista.forEach((a) => a());
 }
 function useVistaPlantilla() {
-  return useSyncExternalStore(suscribeVista, leeVista, () => "auto" as const);
+  return useSyncExternalStore(suscribeVista, leeVista, () => "lista" as const);
 }
 
 /* La hora de abrir la pantalla, una vez (no en cada render: regla de pureza). */
@@ -1645,37 +1646,226 @@ function estaSinSeguir(player: MergedPlayer) {
 */
 type Rinde = { ultimas3: number | null; nUltimas: number; minutos: number; posibles: number };
 
-function LineaRinde({ rinde }: { rinde?: Rinde }) {
-  /* 17/11/2026: con partidos en Valoraciones, también «0 % min.»: todas las
-     fichas llevan la misma línea (antes las de quien no ha jugado quedaban cojas). */
-  if (!rinde || (rinde.ultimas3 === null && rinde.posibles === 0)) return null;
+/*
+| A QUIÉN ATENDER, EN UN GRÁFICO (20/11/2026, ronda 7, análisis y
+| marketing): cada jugador de campo del Castilla con ficha de scout, por días
+| desde su último seguimiento (eje horizontal) y su nota del scout
+| (vertical). La franja de la derecha, pasados los 14 días, es «a atender»;
+| el titular dice cuántos caen ahí y quién es el mejor valorado de ellos.
+| Quien no tiene ficha de scout no tiene altura: no sale en el gráfico, sí
+| en la lista de al lado.
+*/
+function MapaAtender({
+  filas,
+  tope,
+  onSelect,
+}: {
+  filas: { jugador: MergedPlayer; dias: number | null }[];
+  tope: number;
+  onSelect: (player: MergedPlayer) => void;
+}) {
+  const puntos = filas.filter((f) => f.jugador.score > 0);
+  if (puntos.length < 3) return null;
 
-  const pct = rinde.posibles > 0 ? Math.round((rinde.minutos / rinde.posibles) * 100) : null;
+  const W = 320;
+  const H = 180;
+  const M = { l: 26, r: 10, t: 10, b: 26 };
+  const notas = puntos.map((f) => f.jugador.score);
+  const yMin = Math.max(0, Math.floor(Math.min(...notas) - 0.5));
+  const yMax = Math.min(10, Math.ceil(Math.max(...notas) + 0.5));
+  const x = (d: number | null) => M.l + ((d === null ? tope : Math.min(d, tope)) / tope) * (W - M.l - M.r);
+  const y = (n: number) => M.t + (1 - (n - yMin) / (yMax - yMin || 1)) * (H - M.t - M.b);
+  const xRaya = x(DIAS_SIN_SEGUIMIENTO);
+  const pasa = (d: number | null) => d === null || d > DIAS_SIN_SEGUIMIENTO;
+
+  const atender = puntos.filter((f) => pasa(f.dias)).sort((a, b) => b.jugador.score - a.jugador.score);
+  const mejor = atender[0];
+  const titular =
+    atender.length === 0
+      ? `Ninguno con ficha de scout pasa de ${DIAS_SIN_SEGUIMIENTO} días sin seguimiento`
+      : `${atender.length} con ficha de scout a atender; el mejor valorado, ${nombreVisible(mejor.jugador.name)} (${coma(mejor.jugador.score)})`;
+
+  /* Rótulos sólo de los que hay que atender, sin pisarse: de arriba abajo, 11 unidades como mínimo entre uno y otro. */
+  const rotulos = [...atender]
+    .sort((a, b) => y(a.jugador.score) - y(b.jugador.score))
+    .reduce<{ f: (typeof atender)[number]; xx: number; yy: number; izquierda: boolean }[]>((acc, f) => {
+      const previo = acc.length ? acc[acc.length - 1].yy : -Infinity;
+      const yy = Math.max(y(f.jugador.score) + 3.5, previo + 11);
+      const xx = x(f.dias);
+      return [...acc, { f, xx, yy, izquierda: xx > W * 0.7 }];
+    }, []);
+
+  const marcasY: number[] = [];
+  for (let v = yMin; v <= yMax; v += 1) marcasY.push(v);
 
   return (
-    <span className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-0.5 whitespace-nowrap text-[11px] tabular-nums text-white/65">
-      {rinde.ultimas3 !== null && (
+    <figure className="min-w-0">
+      <figcaption className="text-[13px] font-semibold text-white/90">{titular}</figcaption>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="mt-1.5 w-full max-w-[520px]"
+        role="img"
+        aria-label={`Nota del scout frente a días sin seguimiento. ${titular}.`}
+      >
+        <rect x={xRaya} y={M.t} width={W - M.r - xRaya} height={H - M.t - M.b} fill="#C8A96B" opacity={0.12} />
+        <text x={W - M.r - 3} y={M.t + 11} textAnchor="end" fontSize={10.5} fontWeight={600} fill="#C8A96B">a atender</text>
+        {marcasY.map((v) => (
+          <g key={v}>
+            <line x1={M.l} x2={W - M.r} y1={y(v)} y2={y(v)} style={{ stroke: "rgb(var(--rmcf-ink-rgb) / .10)" }} strokeWidth={1} />
+            <text x={M.l - 5} y={y(v) + 3.5} textAnchor="end" fontSize={10.5} style={{ fill: "rgb(var(--rmcf-ink-rgb) / .65)" }}>{v}</text>
+          </g>
+        ))}
+        <line x1={xRaya} x2={xRaya} y1={M.t} y2={H - M.b} style={{ stroke: "rgb(var(--rmcf-ink-rgb) / .55)" }} strokeWidth={1} strokeDasharray="3 3" />
+        <text x={M.l} y={H - 8} fontSize={10.5} style={{ fill: "rgb(var(--rmcf-ink-rgb) / .65)" }}>0 d</text>
+        <text x={xRaya} y={H - 8} textAnchor="middle" fontSize={10.5} style={{ fill: "rgb(var(--rmcf-ink-rgb) / .65)" }}>{`${DIAS_SIN_SEGUIMIENTO} d`}</text>
+        <text x={W - M.r} y={H - 8} textAnchor="end" fontSize={10.5} style={{ fill: "rgb(var(--rmcf-ink-rgb) / .65)" }}>{`${tope} d`}</text>
+        {puntos.map((f) => {
+          const fuera = pasa(f.dias);
+          return (
+            <circle
+              key={f.jugador.idJugador}
+              cx={x(f.dias)}
+              cy={y(f.jugador.score)}
+              r={fuera ? 4.5 : 3.5}
+              style={{ fill: fuera ? "#C8A96B" : "rgb(var(--rmcf-ink-rgb) / .35)", stroke: "rgb(var(--rmcf-ink-rgb) / .8)" }}
+              strokeWidth={fuera ? 1 : 0}
+              className="cursor-pointer"
+              onClick={() => onSelect(f.jugador)}
+            >
+              <title>{`${nombreVisible(f.jugador.name)} · scout ${coma(f.jugador.score)} · ${f.dias === null ? "sin seguimiento" : `${f.dias} días desde el último`}`}</title>
+            </circle>
+          );
+        })}
+        {rotulos.map(({ f, xx, yy, izquierda }) => (
+          <text
+            key={f.jugador.idJugador}
+            x={izquierda ? xx - 7 : xx + 7}
+            y={yy}
+            textAnchor={izquierda ? "end" : "start"}
+            fontSize={10.5}
+            fontWeight={600}
+            style={{ fill: "rgb(var(--rmcf-ink-rgb) / .9)" }}
+          >
+            {nombreVisible(f.jugador.name)}
+          </text>
+        ))}
+      </svg>
+      <p className="mt-1 text-[11px] text-white/60">
+        Nota del scout (0-10) frente a días desde su último seguimiento. Pincha un punto para abrir su ficha.
+        {filas.length > puntos.length ? ` ${filas.length - puntos.length} sin ficha de scout van sólo en la lista.` : ""}
+      </p>
+    </figure>
+  );
+}
+
+/*
+| LAS DOS NOTAS, CADA UNA CON SU FUENTE (20/11/2026, ronda 7, los tres
+| jueces): «scout 7,6» y «7,2 últ. 3» salían sueltas y no se sabía cuál era
+| cuál. Ahora dos renglones fijos, en el mismo orden en todas las fichas:
+| «scout» (su ficha de scout) y «partidos (últ. 3)» (Valoraciones). Lo que
+| no tiene dato no se nombra, pero el hueco se guarda para que las fichas
+| queden alineadas.
+*/
+function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer; rinde?: Rinde; sinScout?: boolean }) {
+  const { valoradas, pocas, detalle } = baseFicha(player);
+  const hayScout = !sinScout && player.score > 0;
+  const hayPartidos = rinde?.ultimas3 != null;
+
+  if (!hayScout && !hayPartidos) return null;
+
+  return (
+    <span className="flex min-w-0 flex-col gap-0.5 text-[11px] tabular-nums text-white/65">
+      {hayScout && (
+        <span title={detalle} className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap">
+          <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(player.score) }} />
+          <span>scout</span>
+          <span className="font-semibold text-white">{coma(player.score)}</span>
+          {pocas && <span>· tend.</span>}
+          {valoradas.length < METRICS.length && <span className="sr-only">, {valoradas.length} de {METRICS.length} competencias</span>}
+        </span>
+      )}
+      {hayPartidos && rinde && rinde.ultimas3 !== null && (
         <span
-          title={`Nota media de sus ${rinde.nUltimas} últimos partidos con nota (Valoraciones)`}
-          className="inline-flex items-center gap-1"
+          title={`Nota media de sus ${rinde.nUltimas} últimos partidos con nota: ${coma(rinde.ultimas3)} · Valoraciones`}
+          className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap"
         >
-          {/* 17/11/2026 (ronda 19): la cifra en tinta (en ámbar u oro sobre
-              blanco no pasaba de 2,3:1); el color, en el punto de al lado. */}
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(rinde.ultimas3) }} />
+          <span>{`partidos (últ. ${rinde.nUltimas})`}</span>
           <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
-          <span>últ. {rinde.nUltimas}</span>
-          {/* 20/11/2026 (ronda 4): con menos de tres notas, tendencia. */}
           {rinde.nUltimas < 3 && <span title="Menos de tres partidos con nota: tendencia">· tend.</span>}
         </span>
       )}
-      {/* 20/11/2026 (ronda 4, jueces): la base entera, como en el Dashboard
-          («702′ de 1080′»), y no un porcentaje suelto; la fuente al pasar. */}
-      {pct !== null && (
-        <span title={`${rinde.minutos}′ de ${rinde.posibles}′ posibles (${pct} %) · minutos de Valoraciones (BeSoccer, 90′ por partido); el Dashboard de plantilla cuenta los de Wyscout`}>
-          {rinde.minutos}′ de {rinde.posibles}′
-        </span>
-      )}
     </span>
+  );
+}
+
+/*
+| MINUTOS CON SU FUENTE (20/11/2026, ronda 7, fútbol): «810′ de 1080′ ·
+| Valoraciones», porque el Dashboard de plantilla cuenta los de Wyscout y
+| las cifras no casan. La misma regla para todos: sin minutos, no sale.
+*/
+function LineaMinutos({ rinde }: { rinde?: Rinde }) {
+  if (!rinde || rinde.posibles === 0 || rinde.minutos <= 0) return null;
+
+  const pct = Math.round((rinde.minutos / rinde.posibles) * 100);
+
+  return (
+    <span
+      className="whitespace-nowrap text-[11px] tabular-nums text-white/65"
+      title={`${rinde.minutos}′ de ${rinde.posibles}′ posibles (${pct} %) · minutos de Valoraciones (BeSoccer, 90′ por partido); el Dashboard de plantilla cuenta los de Wyscout`}
+    >
+      <span className="font-semibold text-white/85">{rinde.minutos}′</span> de {rinde.posibles}′ · Valoraciones
+    </span>
+  );
+}
+
+/*
+| ACCESOS DE LA FICHA CON NOMBRE (20/11/2026, ronda 7, marketing y análisis):
+| eran cuatro o seis iconos iguales sin rótulo. Ahora cada uno dice adónde
+| lleva, en dos columnas, con el jugador ya elegido. El alto es el mismo en
+| todas las fichas (también las de los porteros, que no llevan seguimiento
+| aquí: lo hacen con su entrenador).
+*/
+const ACCESOS_FICHA: { destino: DestinoJugador; texto: string; Icono: typeof Star }[] = [
+  { destino: "notas", texto: "Notas", Icono: Star },
+  { destino: "comparativa", texto: "Comparativa", Icono: Scale },
+  { destino: "videos", texto: "Vídeos", Icono: Video },
+  { destino: "data", texto: "Data", Icono: BarChart3 },
+  { destino: "dashboard", texto: "Seguimiento", Icono: LayoutDashboard },
+  { destino: "calendario", texto: "Calendario", Icono: CalendarDays },
+];
+
+function AccesosFicha({ player, enLista = false }: { player: MergedPlayer; enLista?: boolean }) {
+  const portero = esPortero(player.linea);
+  const jugador = { id: player.idJugador, nombre: nombreVisible(player.name) };
+  const accesos = ACCESOS_FICHA.filter((a) => !portero || (a.destino !== "dashboard" && a.destino !== "calendario"));
+  const titulo: Record<string, string> = {
+    notas: "Sus notas en Valoraciones",
+    comparativa: "Contra la categoría, en su puesto",
+    videos: "Sus vídeos",
+    data: "Sus datos de Wyscout y Opta (Data análisis)",
+    dashboard: "Su seguimiento en el Dashboard Seguimiento, ya filtrado",
+    calendario: "Su seguimiento en el calendario",
+  };
+
+  return (
+    <nav
+      aria-label={`Accesos de ${jugador.nombre}`}
+      className={enLista ? "flex min-w-0 flex-wrap gap-1" : "grid min-h-[100px] min-w-0 grid-cols-2 content-start gap-1"}
+    >
+      {accesos.map(({ destino, texto, Icono }) => (
+        <Link
+          key={destino}
+          href={hrefJugador(destino, jugador)}
+          title={`${titulo[destino]} · ${jugador.nombre}`}
+          onClick={(e) => e.stopPropagation()}
+          className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+        >
+          <Icono size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          <span className="truncate">{texto}</span>
+        </Link>
+      ))}
+    </nav>
   );
 }
 
@@ -1701,7 +1891,6 @@ function PlayerCard({
   /* 30/10/2026: el pie sale en todas en cuanto llegan los seguimientos
      (también con 0), para que ninguna ficha quede más baja que las demás. */
   /* «Sin seguir» en la propia ficha (06/11/2026): del Castilla, de campo y más de 14 días sin registro (PieFicha). */
-  const { valoradas, pocas, detalle: detalleFicha } = baseFicha(player);
 
   /* 17/11/2026 (ronda 19): la ficha es un bloque con dos partes: el botón
      que abre su ficha (foto, nombre y pie) y, debajo, los accesos de un
@@ -1766,16 +1955,7 @@ function PlayerCard({
           <h3 className="truncate text-sm font-semibold leading-tight">
             {nombreVisible(player.name)}
           </h3>
-          {player.score > 0 && (
-            <span title={detalleFicha} className="inline-flex shrink-0 items-center gap-1 text-[11px] tabular-nums text-white/65">
-              <span aria-hidden className="h-2 w-2 shrink-0 self-center rounded-full" style={{ background: scoreColorHex(player.score) }} />
-              <span><span className="sr-only">Nota del </span>scout</span>
-              <span className="font-semibold text-white">{coma(player.score)}</span>
-              {/* Con menos de tres competencias, «tendencia»; cuántas, al pasar. */}
-              {pocas && <span>· tend.</span>}
-              {valoradas.length < METRICS.length && <span className="sr-only">, {valoradas.length} de {METRICS.length} competencias</span>}
-            </span>
-          )}
+          {/* 20/11/2026 (ronda 7): la nota del scout baja al renglón «scout», junto a la de los partidos. */}
         </div>
 
         <p className="truncate text-[11px] uppercase tracking-[0.14em] text-white/55">
@@ -1786,26 +1966,27 @@ function PlayerCard({
       {/* Pie de la misma altura en todas las fichas (07/11/2026; 16/11/2026:
           dos renglones fijos, rendimiento y seguimiento, para que la
           parrilla no quede desalineada con o sin «Sin seguir»). */}
-      <div className="mt-auto flex min-h-[58px] min-w-0 flex-col justify-center gap-1 px-2.5 py-2">
-        <LineaRinde rinde={rinde} />
-        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+      <div className="mt-auto flex min-w-0 flex-col gap-1 px-2.5 py-2">
+        {/* Alto fijo por renglón, para que todas las fichas queden alineadas (20/11/2026, ronda 7). */}
+        <div className="min-h-[34px]">
+          <LineaNotas player={player} rinde={rinde} />
+        </div>
+        <div className="min-h-[16px]">
+          <LineaMinutos rinde={rinde} />
+        </div>
+        <div className="flex min-h-[22px] min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
           <PieFicha player={player} />
         </div>
       </div>
     </button>
       {/* 17/11/2026 (ronda 20, jueces): además de Notas y Comparativa,
           a un toque sus vídeos, su Data análisis y su seguimiento. */}
+      {/* 20/11/2026 (ronda 4 y 5): Notas, Comparativa, vídeos, Data, su
+          Dashboard Seguimiento ya filtrado y su calendario (los porteros
+          llevan el seguimiento con su entrenador). Ronda 7: con rótulo. */}
       {!player.externo && (
-        <div className="flex min-w-0 flex-wrap items-center gap-1 border-t border-white/10 px-2 py-1.5">
-          <EnlacesJugador jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }} destinos={["notas", "comparativa"]} />
-          <EnlacesJugador
-            jugador={{ id: player.idJugador, nombre: nombreVisible(player.name) }}
-            /* 20/11/2026 (ronda 4): también su calendario de seguimiento, ya elegido. Los porteros llevan el suyo con su entrenador. */
-            /* 20/11/2026 (ronda 5): su Dashboard Seguimiento ya filtrado en vez
-               de «Seguimiento», que abría la misma ficha que la propia tarjeta. */
-            destinos={esPortero(player.linea) ? ["videos", "data"] : ["videos", "data", "dashboard", "calendario"]}
-            soloIconos
-          />
+        <div className="min-w-0 border-t border-white/10 px-2 py-1.5">
+          <AccesosFicha player={player} />
         </div>
       )}
     </div>
@@ -1825,21 +2006,26 @@ function baseFicha(player: MergedPlayer) {
 /** Una fila de la vista en lista (07/11/2026): lo mismo que la ficha, en 56 px. */
 function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; onSelect: (player: MergedPlayer) => void; rinde?: Rinde }) {
   const { valoradas, pocas, detalle } = baseFicha(player);
+  /* 20/11/2026 (ronda 7): la lista es la vista de entrada; lleva los mismos accesos, con nombre, que la ficha. */
   return (
+    <div
+      className={`min-w-0 rounded-xl border transition hover:border-[#C8A96B]/50 ${
+        player.externo ? "border-dashed border-[#C8A96B]/40" : "border-white/10 bg-white/[0.025]"
+      }`}
+    >
     <button
       type="button"
       onClick={() => onSelect(player)}
-      className={`flex w-full min-w-0 items-center gap-3 rounded-xl border px-3 py-2 text-left transition hover:border-[#C8A96B]/50 ${
-        player.externo ? "border-dashed border-[#C8A96B]/40" : "border-white/10 bg-white/[0.025]"
-      }`}
+      className="flex w-full min-w-0 items-center gap-3 px-3 pb-1.5 pt-2 text-left"
     >
       <div className="min-w-0 flex-1">
         <p className="flex min-w-0 items-baseline gap-2">
           <span className="truncate text-sm font-semibold">{nombreVisible(player.name)}</span>
-          <span className="shrink-0 truncate text-[11px] uppercase tracking-[0.12em] text-white/50">{player.puesto}</span>
+          <span className="shrink-0 truncate text-[11px] uppercase tracking-[0.12em] text-white/60">{player.puesto}</span>
         </p>
         <div className="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5">
-          <LineaRinde rinde={rinde} />
+          <LineaNotas player={player} rinde={rinde} sinScout />
+          <LineaMinutos rinde={rinde} />
           <PieFicha player={player} />
         </div>
       </div>
@@ -1849,10 +2035,16 @@ function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; o
             <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColor(player.score) }} />
             {coma(player.score)}
           </span>
-          <span className="block text-[10px] text-white/45">{valoradas.length < METRICS.length ? `scout · ${valoradas.length} de ${METRICS.length}` : "scout"}{pocas ? " · tendencia" : ""}</span>
+          <span className="block text-[11px] text-white/60">{valoradas.length < METRICS.length ? `scout · ${valoradas.length} de ${METRICS.length}` : "scout"}{pocas ? " · tendencia" : ""}</span>
         </span>
       )}
     </button>
+      {!player.externo && (
+        <div className="min-w-0 px-3 pb-2">
+          <AccesosFicha player={player} enLista />
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -3776,21 +3968,25 @@ export default function IndividualPage() {
                 >
                   <h2 className="text-sm font-semibold text-white/90">
                     {sinSeguimiento.length > 0
-                      ? <>A quién toca seguir: <span className="text-[#C8A96B]">{sinSeguimiento.length} de {diasCampo.filas.length}</span> sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días</>
+                      ? <>A quién toca seguir: <span className="text-[#C8A96B]">{sinSeguimiento.length} de {diasCampo.filas.length}</span> llevan más de {DIAS_SIN_SEGUIMIENTO} días sin seguimiento</>
                       : <>Todos los {diasCampo.filas.length} con seguimiento en los últimos {DIAS_SIN_SEGUIMIENTO} días</>}
                     {diasCampo.mediana !== null && (
                       <span className="font-normal text-white/60"> · mediana {diasCampo.mediana} {diasCampo.mediana === 1 ? "día" : "días"} desde el último</span>
                     )}
                   </h2>
                   <p className="mt-0.5 text-[11px] text-white/55">
-                    Jugadores de campo del Castilla (los porteros llevan su seguimiento aparte). Días desde su último registro; la raya marca los {DIAS_SIN_SEGUIMIENTO} días del aviso.
+                    Jugadores de campo del Castilla (los porteros llevan su seguimiento aparte). Días desde su último registro; la raya marca los {DIAS_SIN_SEGUIMIENTO} días: cuenta quien pasa de ella ({DIAS_SIN_SEGUIMIENTO + 1} días o más).
                   </p>
+
+                  <div className="mt-3 grid min-w-0 items-start gap-x-6 gap-y-4 lg:grid-cols-2">
+                  <div className="min-w-0">
 
                   {/* 20/11/2026 (ronda 5, marketing): los seis que más
                       llevan, y el resto plegado, para que las fichas se vean
                       sin bajar. El orden ya es de más a menos días. */}
-                  <ul className="mt-3 grid min-w-0 gap-x-6 gap-y-1 lg:grid-cols-2">
-                    {(verTodosSeguir ? diasCampo.filas : diasCampo.filas.slice(0, 6)).map(({ jugador, dias }) => {
+                  {/* 20/11/2026 (ronda 7, análisis): de entrada sólo los que pasan de la raya, para que la lista y la cifra del titular sean los mismos. */}
+                  <ul className="grid min-w-0 gap-y-1">
+                    {(verTodosSeguir || diasCampo.fuera === 0 ? diasCampo.filas : diasCampo.filas.filter((f) => f.dias === null || f.dias > DIAS_SIN_SEGUIMIENTO)).map(({ jugador, dias }) => {
                       const pasa = dias === null || dias > DIAS_SIN_SEGUIMIENTO;
                       const ancho = dias === null ? 100 : Math.max(2, (dias / diasCampo.tope) * 100);
                       const color = dias === null || dias >= 2 * DIAS_SIN_SEGUIMIENTO ? "#F87171" : pasa ? "#C8A96B" : "rgb(var(--rmcf-ink-rgb) / .28)";
@@ -3836,16 +4032,20 @@ export default function IndividualPage() {
                       );
                     })}
                   </ul>
-                  {diasCampo.filas.length > 6 && (
+                  {diasCampo.fuera > 0 && diasCampo.filas.length > diasCampo.fuera && (
                     <button
                       type="button"
                       onClick={() => setVerTodosSeguir((v) => !v)}
                       aria-expanded={verTodosSeguir}
                       className="mt-2 inline-flex min-h-[36px] items-center rounded-full border border-white/15 px-3 text-[11px] font-semibold text-white/70 transition hover:text-white sm:min-h-[28px]"
                     >
-                      {verTodosSeguir ? "Ver sólo los seis que más llevan" : `Ver los ${diasCampo.filas.length}`}
+                      {verTodosSeguir ? `Ver sólo los ${diasCampo.fuera} que pasan de ${DIAS_SIN_SEGUIMIENTO} días` : `Ver los ${diasCampo.filas.length}`}
                     </button>
                   )}
+                  </div>
+
+                  <MapaAtender filas={diasCampo.filas} tope={diasCampo.tope} onSelect={openPlayer} />
+                  </div>
                 </section>
               )}
 
@@ -3930,19 +4130,19 @@ export default function IndividualPage() {
                 <div className="mt-1 space-y-1.5 pl-5">
                   {posiblesValoraciones > 0 && (
                     <p>
-                      «últ. 3», media de sus 3 últimas notas (con menos, «tend.») · sus minutos de los {posiblesValoraciones}′ posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout) · «scout», la nota de su ficha de scout.
+                      «scout», la nota de su ficha de scout · «partidos (últ. 3)», la media de sus 3 últimas notas en Valoraciones (con menos, «tend.») · «810′ de {posiblesValoraciones}′ · Valoraciones», sus minutos de los posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout). Sin minutos, la línea no sale.
                     </p>
                   )}
                   <p>
                     «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
                   </p>
                   <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>Accesos de cada ficha:</span>
+                    <span>Accesos de cada ficha, con el jugador ya elegido:</span>
                     <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden /> Notas en Valoraciones</span>
                     <span className="inline-flex items-center gap-1"><Scale size={12} aria-hidden /> Comparativa</span>
                     <span className="inline-flex items-center gap-1"><Video size={12} aria-hidden /> Vídeos</span>
                     <span className="inline-flex items-center gap-1"><BarChart3 size={12} aria-hidden /> Data análisis</span>
-                    <span className="inline-flex items-center gap-1"><LayoutDashboard size={12} aria-hidden /> Dashboard Seguimiento</span>
+                    <span className="inline-flex items-center gap-1"><LayoutDashboard size={12} aria-hidden /> Seguimiento: Dashboard Seguimiento</span>
                     <span className="inline-flex items-center gap-1"><CalendarDays size={12} aria-hidden /> Calendario de seguimiento</span>
                   </p>
                 </div>

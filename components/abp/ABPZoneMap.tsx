@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTheme } from "@/components/theme-provider";
 
 import BoardViewport from "@/components/board/BoardViewport";
 
@@ -168,8 +169,15 @@ function esGol(v: string | undefined, def: boolean) {
  * generado— y en defensa al rojo —peligro concedido—: el mismo mapa se lee
  * distinto según de quién sea la amenaza.
  */
-function heatColor(t: number, def: boolean) {
-  const stops: { p: number; c: [number, number, number] }[] = def
+function heatColor(t: number, def: boolean, claro = false) {
+  /* 20/11/2026 (ronda 7, ABP ofensivo): rampa sobre césped claro en modo día. */
+  const stops: { p: number; c: [number, number, number] }[] = claro
+    ? [
+        { p: 0, c: [214, 228, 206] },
+        { p: 0.5, c: [200, 169, 107] },
+        { p: 1, c: [116, 86, 28] },
+      ]
+    : def
     ? [
         { p: 0, c: [14, 24, 38] },
         { p: 0.5, c: [122, 58, 58] },
@@ -257,9 +265,15 @@ export default function ABPZoneMap({
   mode = "offensive",
   zonaFiltro,
   onZonaFiltro,
+  metricaInicial = "ocupacion",
+  claroEnDia = false,
 }: {
   rows: ZoneRow[];
   mode?: ABPZoneMode;
+  /** 20/11/2026 (ronda 7): la capa con la que abre (por defecto, Ocupación, como siempre). */
+  metricaInicial?: Metric;
+  /** 20/11/2026 (ronda 7): en modo día, césped claro y campo recortado al área (sin franja negra ni espacio muerto). */
+  claroEnDia?: boolean;
   /**
    * Filtro cruzado de la página. Con `onZonaFiltro` la zona elegida la lleva
    * la página (pulsar una zona filtra todo lo demás) y aquí sólo se resalta;
@@ -271,7 +285,10 @@ export default function ABPZoneMap({
   const def = mode === "defensive";
   const controlado = Boolean(onZonaFiltro);
 
-  const [metric, setMetric] = useState<Metric>("ocupacion");
+  const [metric, setMetric] = useState<Metric>(metricaInicial);
+  const { theme } = useTheme();
+  const claro = claroEnDia && theme === "light";
+  const heat = (t: number, d: boolean) => heatColor(t, d, claro);
   const [zonaLocal, setZonaLocal] = useState<string | null>(null);
 
   /* La elegida: la de la página si manda ella, la propia si no. Puede ser
@@ -446,7 +463,7 @@ export default function ABPZoneMap({
         {/* Campo */}
         <div className="relative mx-auto w-full max-w-[720px]">
           <BoardViewport className="w-full rounded-2xl" label="Mapa de zonas">
-          <svg viewBox="0 0 100 46" className="h-full w-full">
+          <svg viewBox={claroEnDia ? "16 0 68 40" : "0 0 100 46"} className="h-full w-full">
             <defs>
               <filter
                 id="zoneShadowDef"
@@ -472,7 +489,7 @@ export default function ABPZoneMap({
               width="96"
               height="42"
               rx="1.5"
-              fill="#07111F"
+              fill={claro ? "#BFD8B0" : "#07111F"}
               stroke="#E5E7EB"
               strokeWidth="0.4"
             />
@@ -501,14 +518,16 @@ export default function ABPZoneMap({
                     y={z.y}
                     width={z.w}
                     height={z.h}
-                    fill={heatColor(ratio, def)}
+                    fill={heat(ratio, def)}
                     fillOpacity={0.9}
                     stroke={
                       isSelected
                         ? controlado
                           ? "#C8A96B"
                           : "#FFFFFF"
-                        : "#0B1728"
+                        : claro
+                          ? "#FFFFFF"
+                          : "#0B1728"
                     }
                     strokeWidth={isSelected ? 0.7 : 0.3}
                   />
@@ -519,19 +538,26 @@ export default function ABPZoneMap({
                     textAnchor="middle"
                     fontSize="4.4"
                     fontWeight="700"
-                    fill={ratio > 0.55 ? "#0B1728" : "#F8FAFC"}
-                    filter="url(#zoneShadowDef)"
+                    fill={claro ? (ratio > 0.55 ? "#FFFFFF" : "#0B1728") : ratio > 0.55 ? "#0B1728" : "#F8FAFC"}
+                    filter={claro ? undefined : "url(#zoneShadowDef)"}
                   >
                     {format(value)}
                   </text>
 
+                  {/* 20/11/2026 (jueces, ronda 8): el punto de penalti (y = 17,4) tapaba
+                      «6M / PENALTI»; ese rótulo baja bajo el punto y todos llevan un
+                      halo del color de su zona por si algo los pisa. */}
                   <text
                     x={z.x + z.w / 2}
-                    y={z.y + z.h / 2 + 4.6}
+                    y={z.key === "central" ? z.y + z.h - 2.6 : z.y + z.h / 2 + 4.6}
                     textAnchor="middle"
                     fontSize="2.1"
                     fontWeight="600"
-                    fill={ratio > 0.55 ? "#1F2937" : "#94A3B8"}
+                    stroke={heat(ratio, def)}
+                    strokeWidth={0.9}
+                    strokeLinejoin="round"
+                    paintOrder="stroke"
+                    fill={claro ? (ratio > 0.55 ? "#F8FAFC" : "#334155") : ratio > 0.55 ? "#1F2937" : "#94A3B8"}
                   >
                     {z.label.toUpperCase()}
                   </text>
@@ -607,7 +633,7 @@ export default function ABPZoneMap({
             <div
               className="h-2 flex-1 rounded-full"
               style={{
-                background: `linear-gradient(90deg, ${heatColor(0, def)}, ${heatColor(0.5, def)}, ${heatColor(1, def)})`,
+                background: `linear-gradient(90deg, ${heat(0, def)}, ${heat(0.5, def)}, ${heat(1, def)})`,
               }}
             />
 
