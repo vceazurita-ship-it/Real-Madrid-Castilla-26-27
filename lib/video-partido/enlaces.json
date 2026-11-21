@@ -181,6 +181,24 @@
         "canal": "Real Federación Española Fútbol",
         "titulo": "Resumen #PrimeraFederación | Gimnàstic 0-1 Real Madrid Castilla | Jornada 12 | Temporada 2026/2027"
       }
+    },
+    {
+      "jornada": 13,
+      "fecha": "2026-11-20",
+      "partido": "Real Madrid Castilla - Real Murcia",
+      "hudl": {
+        "id": "VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
+        "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg="
+      },
+      "tactica": {
+        "fichero": "J 13 - RM CASTILLA - MURCIA.mov"
+      },
+      "resumen": {
+        "id": "Z5TGE5cZdQw",
+        "url": "https://www.youtube.com/watch?v=Z5TGE5cZdQw",
+        "canal": "Real Federación Española Fútbol",
+        "titulo": "Resumen #PrimeraFederación | RM Castilla 0 – 2 Real Murcia CF | Jornada 13 | Temporada 2026/2027"
+      }
     }
   ]
 }
