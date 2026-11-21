@@ -1,6 +1,7 @@
 import { GoogleGenAI } from "@google/genai";
 import OpenAI from "openai";
 import { NextRequest, NextResponse } from "next/server";
+import { CABECERA_INTERNA, firmaInterna } from "@/lib/acceso/sesion";
 
 import {
   CAMPOS_BORRADOR,
@@ -42,8 +43,8 @@ const HOJA =
 /** Cuántos planes ya escritos se le enseñan como ejemplo de estilo. */
 const EJEMPLOS = 2;
 
-async function leeDe(url: string): Promise<Fila[]> {
-  const respuesta = await fetch(url, { cache: "no-store" });
+async function leeDe(url: string, headers?: Record<string, string>): Promise<Fila[]> {
+  const respuesta = await fetch(url, { cache: "no-store", headers });
 
   if (!respuesta.ok) throw new Error(`la hoja respondió ${respuesta.status}`);
 
@@ -65,7 +66,8 @@ async function leeDe(url: string): Promise<Fila[]> {
 */
 async function leeRivales(peticion: NextRequest): Promise<Fila[]> {
   try {
-    return await leeDe(new URL("/api/rivals?action=rivales", peticion.url).toString());
+    /* 21/11/2026: con la firma interna; sin ella la puerta (proxy.ts) daba 401 y siempre se iba a la hoja. */
+    return await leeDe(new URL("/api/rivals?action=rivales", peticion.url).toString(), { [CABECERA_INTERNA]: firmaInterna() });
   } catch (error) {
     console.warn("[laboratorio/plan] /api/rivals no contestó; a la hoja", error);
 
