@@ -151,7 +151,10 @@ async function main() {
     });
   }
 
-  const { data: claves } = await s.from("app_documents").select("key, updated_at").or("key.like.rival-once:%,key.like.rival-tipologia:%,key.like.rival-analisis:%");
+  /* 21/11/2026: tres .like en vez de .or(): el cliente de la reserva (lib/datos/cliente.cjs) no tiene .or y el paquete caía entero. */
+  const claves = (
+    await Promise.all(["rival-once", "rival-tipologia", "rival-analisis"].map((pre) => s.from("app_documents").select("key, updated_at").like("key", `${pre}:%`)))
+  ).flatMap((r) => r.data ?? []);
   for (const pre of ["rival-once", "rival-tipologia", "rival-analisis"]) {
     const k = (claves ?? []).find((c) => c.key.startsWith(`${pre}:`) && mismo(rival, c.key.slice(pre.length + 1).replace(/-/g, " ")));
     if (!k) continue;
