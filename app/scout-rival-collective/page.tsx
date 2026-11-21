@@ -90,6 +90,7 @@ import { PresionSalida } from "@/components/rivals/PresionSalida";
 import { AmplitudBanda } from "@/components/rivals/AmplitudBanda";
 import { ProgresionRival } from "@/components/rivals/ProgresionRival";
 import { BalonEspalda } from "@/components/rivals/BalonEspalda";
+import { LineaDefensa } from "@/components/rivals/LineaDefensa";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2121,6 +2122,9 @@ export default function ScoutRivalCollective() {
 
           {/* Balón a la espalda (21/11/2026, idea de X): pases largos y en profundidad que le hacen, a sus últimos 25 m por dentro, y en qué acaban (Opta). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <BalonEspalda equipo={rivalActivo.EQUIPO} />}
+
+          {/* Línea de 5 o línea de 4 (21/11/2026, idea de X): sus partidos partidos por el sistema de Wyscout, y el de sus últimos 3 por defecto. */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <LineaDefensa equipo={rivalActivo.EQUIPO} />}
 
           {/*
             Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.

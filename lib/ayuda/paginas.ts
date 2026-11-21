@@ -1998,9 +1998,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga. «Balón a la espalda»: el mismo evento a evento de Opta (opta:directo:<partido>), los pases que le hacen al rival y a cada equipo de su liga.",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga. «Balón a la espalda»: el mismo evento a evento de Opta (opta:directo:<partido>), los pases que le hacen al rival y a cada equipo de su liga. «Línea de 5 o línea de 4»: Wyscout (/api/data-analisis), sus partidos de liga de esta temporada con el sistema de cada uno.",
     revisada: "2026-11-21",
     bloques: [
+      {
+        titulo: "Lo nuevo (21/11/2026): con línea de 5 y con línea de 4",
+        filas: [
+          {
+            que: "Línea de 5 o línea de 4 · qué cambia",
+            es: "Debajo de «Balón a la espalda», sólo si esta temporada ha jugado de las dos maneras: una tabla de dos columnas, «Con 3 centrales» (línea de 5) y «Con 4 defensas» (línea de 4), con cuántos partidos lleva de cada y, por partido, xG en contra, remates en contra, PPDA, centros que le hacen y puntos por partido; ▲ verde la columna en la que le va mejor y ▼ naranja la peor. Debajo, los sistemas de cada columna («3-5-2 ×4») y una fila con sus partidos en orden y su sistema. Si ha cambiado de sistema, el titular lo dice («Desde su 8.º partido juega con línea de 5») y ese partido lleva el aro y «cambio», con fecha, rival y marcador. Por defecto se resalta la columna del sistema de sus últimos 3 partidos; pinchar la otra la resalta y la frase compara con ella. Con menos de 3 partidos en una columna, «tendencia»",
+            cuenta: "Wyscout «Team Stats» (/api/data-analisis), temporada en curso, su competición principal. Sistema del partido: el de más tiempo de «Seleccionar esquema» («3-5-2 (70.4%)»); empieza por 3 o 5 = 3 centrales, por 4 = 4 defensas. Medias por partido: xG en contra (el xG del otro equipo en esa fila de partido), «Tiros en contra», «PPDA», centros que le hacen (los «Centros» del otro equipo en ese partido) y puntos (3/1/0 por el marcador). El n.º de partido es su orden por fecha en la liga. Por defecto: el sistema de más partidos de sus últimos 3 (empate, el del último). Cambio: el primer partido de su racha actual con ese sistema, si antes jugó con el otro. La frase cita las dos cifras que más cambian (10 % o más). Cuentas en lib/rivals/linea-defensa.ts",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (21/11/2026): ¿se le gana la espalda?",
         filas: [
