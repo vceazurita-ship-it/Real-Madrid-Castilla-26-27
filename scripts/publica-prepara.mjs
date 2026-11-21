@@ -35,7 +35,7 @@ const SIN_BUILD = process.argv.includes("--sin-build");
 const raiz = process.cwd();
 const fallos = [];
 
-const sh = (c, o = {}) => execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...o }).trim();
+const sh = (c, o = {}) => `${execSync(c, { encoding: "utf8", stdio: ["ignore", "pipe", "pipe"], ...o }) ?? ""}`.trim();
 const paso = (t) => console.log(`\n== ${t}`);
 
 paso("1/5 · datos de public/data");
