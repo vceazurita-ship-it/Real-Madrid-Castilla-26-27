@@ -291,5 +291,6 @@ await guardaEstado();
 
 for (const n of notas) console.log(n);
 for (const a of avisos) console.log(`AVISO: ${a}`);
-console.log(`  RESUMEN: ${avisos.length ? `${avisos.length} aviso(s)` : "todo en orden"}; ${notas[0] ?? ""}`);
+/* 21/11/2026: el aviso va en el RESUMEN (lo único que guarda el registro del vigía), no sólo cuántos. */
+console.log(`  RESUMEN: ${avisos.length ? `${avisos.length} aviso(s): ${avisos[0].slice(0, 160)}` : "todo en orden"}; ${notas[0] ?? ""}`);
 salir(codigo || (avisos.length ? 3 : 0));
