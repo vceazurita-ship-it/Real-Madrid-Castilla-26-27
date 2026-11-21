@@ -20,7 +20,6 @@ import { Database, X } from "lucide-react";
 import { useAdmin } from "@/hooks/useAdmin";
 
 const CLAVE = "rmcf:aviso-base-datos";
-const CADUCA = "2026-12-14";
 
 type Estado = {
   comprobadoEn?: string;
@@ -64,7 +63,6 @@ export function AvisoBaseDatos() {
       return false;
     }
   });
-  const [quedan] = useState(() => Math.ceil((Date.parse(`${CADUCA}T00:00:00+01:00`) - Date.now()) / 86_400_000));
   const [estado, setEstado] = useState<Estado | null>(null);
   const abierto = admin === true && !vistoHoy;
 
@@ -93,7 +91,6 @@ export function AvisoBaseDatos() {
 
   if (!abierto) return null;
 
-  const dias = estado?.base?.dias ?? quedan;
   const pendientes = estado?.pendientes ?? [];
 
   return (
@@ -119,15 +116,12 @@ export function AvisoBaseDatos() {
             </ul>
           )}
 
-          <div>
+          {/* 21/11/2026: de vuelta en Supabase; el párrafo de la base de reserva sale sólo si la reserva sigue activa (salud-datos pone base.caduca). */}
+          {estado?.base?.caduca && (
             <p className="font-semibold text-amber-300">
-              La base de datos gratis de Render caduca el 14/12/2026{dias != null ? ` (quedan ${dias} días)` : ""}.
+              La base de reserva de Render caduca el {estado.base.caduca}{estado.base.dias != null ? ` (quedan ${estado.base.dias} días)` : ""}.
             </p>
-            <p className="mt-1 text-white/70">
-              Supabase {estado?.supabase === "vuelto" ? "ha vuelto" : "sigue cortado"}. La salida: una base en Neon (gratis y sin caducidad); se copia todo con
-              la copia de cada noche y no se pierde nada.
-            </p>
-          </div>
+          )}
 
           {estado ? (
             <ul className="space-y-3">

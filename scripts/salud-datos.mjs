@@ -53,25 +53,44 @@ const mb = (b) => `${(b / 1e6).toFixed(b < 1e7 ? 1 : 0)} MB`;
 
 async function copia() {
   const url = process.env.DATOS_PG_URL;
-  if (!url) {
-    notas.push("Copia: sin DATOS_PG_URL (la app está en Supabase); se salta.");
-    return null;
-  }
-
-  const postgres = (await import("postgres")).default;
-  const sql = postgres(url, { ssl: /localhost|127\.0\.0\.1/.test(url) ? false : "require", max: 1, prepare: false, onnotice: () => {} });
+  /*
+  | 21/11/2026: de vuelta en Supabase. Sin DATOS_PG_URL la copia se saltaba;
+  | ahora se leen las tablas por REST con la clave de servicio (sin contraseña
+  | de la base), de 100 en 100. El tamaño de la base no se puede pedir por
+  | REST: se queda sin medir (null) y no se pinta esa barra.
+  */
+  const sql = url
+    ? (await import("postgres")).default(url, { ssl: /localhost|127\.0\.0\.1/.test(url) ? false : "require", max: 1, prepare: false, onnotice: () => {} })
+    : null;
+  const leeRest = async (t) => {
+    const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const K = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!U || !K) throw new Error("faltan NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY");
+    const filas = [];
+    for (let desde = 0; ; desde += 100) {
+      const r = await fetch(`${U}/rest/v1/${t}?select=*&order=updated_at.asc`, { headers: { apikey: K, Authorization: `Bearer ${K}`, Range: `${desde}-${desde + 99}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      filas.push(...j);
+      if (j.length < 100) return filas;
+    }
+  };
 
   try {
-    const salida = { hechaEn: new Date().toISOString() };
+    const salida = { hechaEn: new Date().toISOString(), origen: sql ? "reserva" : "supabase" };
     for (const t of TABLAS) {
       try {
-        salida[t] = [...(await sql.unsafe(`select * from ${t}`))];
+        salida[t] = sql ? [...(await sql.unsafe(`select * from ${t}`))] : await leeRest(t);
       } catch (e) {
         salida[t] = [];
         notas.push(`Copia: ${t} no se ha podido leer (${e.message}).`);
       }
     }
-    const [{ bytes }] = await sql`select pg_database_size(current_database())::bigint as bytes`;
+    if (!salida.app_documents.length) {
+      avisos.push("La copia de hoy ha salido vacía (app_documents sin filas): no se guarda para no tapar las buenas.");
+      return null;
+    }
+    const bytes = sql ? (await sql`select pg_database_size(current_database())::bigint as bytes`)[0].bytes : null;
     const gz = zlib.gzipSync(Buffer.from(JSON.stringify(salida)));
 
     fs.mkdirSync(CARPETA, { recursive: true });
@@ -98,9 +117,9 @@ async function copia() {
       }
     }
 
-    return Number(bytes);
+    return bytes == null ? null : Number(bytes);
   } finally {
-    await sql.end({ timeout: 5 });
+    if (sql) await sql.end({ timeout: 5 });
   }
 }
 
@@ -156,7 +175,7 @@ async function miraSupabase() {
     const r = await fetch(`${u}/rest/v1/app_documents?select=key&limit=1`, { headers: { apikey: k, Authorization: `Bearer ${k}` } });
     estado.supabase = r.status === 402 ? "cortado" : r.ok ? "vuelto" : String(r.status);
     if (r.status === 402) notas.push("Supabase sigue cortado (402).");
-    else if (r.ok) notas.push("Supabase ha vuelto: se puede pensar en volver (ver la nota del plan B), pero la reserva sigue mandando mientras DATOS_PG_URL esté puesta.");
+    else if (r.ok) notas.push(process.env.DATOS_PG_URL ? "Supabase ha vuelto: se puede pensar en volver (ver la nota del plan B), pero la reserva sigue mandando mientras DATOS_PG_URL esté puesta." : "Supabase: la app vive en él (desde el 21/11/2026).");
     else notas.push(`Supabase responde ${r.status}.`);
   } catch (e) {
     notas.push(`Supabase: sin respuesta (${e.message}).`);
