@@ -160,6 +160,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros, cortos }: { equipo: str
             titulo={`Su balón largo: ${equipo} se queda`}
             cifra={suyo.parte}
             quien="Los suyos que más la recogen"
+            quienZonaMc="En la zona de nuestro mediocentro, la recogen de los suyos"
             cortos={cortos.suyos}
             ejes={`${equipo} lanza hacia la derecha: a la derecha, nuestra portería`}
             zona={
@@ -178,6 +179,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros, cortos }: { equipo: str
             titulo="Cuando defendemos el balón largo: el Castilla gana"
             cifra={1 - nuestro.parte}
             quien="Los nuestros que más la recogen"
+            quienZonaMc="En la zona del mediocentro, la recogen de los nuestros"
             cortos={cortos.nuestros}
             reserva={cortos.plantilla}
             ejes="El rival lanza hacia la derecha: a la derecha, nuestra portería"
@@ -205,6 +207,7 @@ function Tarjeta({
   titulo,
   cifra,
   quien,
+  quienZonaMc,
   ejes,
   zona,
   cortos,
@@ -217,6 +220,7 @@ function Tarjeta({
   titulo: string;
   cifra: number;
   quien: string;
+  quienZonaMc: string;
   ejes: string;
   zona: string | null;
 }) {
@@ -275,6 +279,21 @@ function Tarjeta({
         </span>
       </p>
       {zona && <p className="mt-2 text-xs leading-relaxed text-white/70">{zona}.</p>}
+      {/* 21/11/2026: quién la recoge ahí dentro, para ver si es el mediocentro o le ayuda otro. */}
+      {zona && datos.recogenZonaMc.length > 0 && (
+        <p className="mt-1 text-xs leading-relaxed text-white/60">
+          {quienZonaMc}:{" "}
+          {datos.recogenZonaMc.map((r, i) => (
+            <span key={r.id}>
+              {i > 0 && ", "}
+              <span className="text-white/85">{cortoDeOpta(r.nombre, cortos, reserva)}</span>{" "}
+              <b className="tabular-nums" style={{ color }}>
+                {r.veces}
+              </b>
+            </span>
+          ))}
+        </p>
+      )}
 
       {datos.recogen.length > 0 && (
         <div className="mt-2">

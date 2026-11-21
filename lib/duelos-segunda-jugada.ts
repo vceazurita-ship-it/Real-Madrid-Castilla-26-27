@@ -60,7 +60,16 @@ export type SegundaJugada = {
   defensaGanaZonaMc: number;
   /** Los tres que más las recogen del equipo que se pide (`recoge`). */
   recogen: Recogedor[];
+  /** Lo mismo, sólo con las que caen en la zona del mediocentro (21/11/2026): ¿la gana nuestro mediocentro o la recoge otro? */
+  recogenZonaMc: Recogedor[];
 };
+
+const tresQueMas = (veces: Map<string, number>, nombres: Map<string, string>): Recogedor[] =>
+  [...veces]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([id, n]) => ({ id, nombre: nombres.get(id) ?? "", veces: n }))
+    .filter((r) => r.nombre);
 
 const metros = (e: EventoDirecto) =>
   e.finX == null || e.finY == null ? 0 : Math.hypot((e.finX - e.x) * 1.05, (e.finY - e.y) * 0.68);
@@ -98,6 +107,7 @@ export function segundaJugada(
   const lanzaEl = (t: string) => (contrarios ? t !== equipo : t === equipo);
   const malla = new Array(CX * CY).fill(0);
   const veces = new Map<string, number>();
+  const vecesZonaMc = new Map<string, number>();
   const nombres = new Map<string, string>();
   let largos = 0, conSegunda = 0, propias = 0, enZonaMc = 0, defensaGanaZonaMc = 0;
   let pasesLanza = 0, largosLanza = 0, pasesOtro = 0, largosOtro = 0;
@@ -132,21 +142,20 @@ export function segundaJugada(
       const ci = Math.min(CX - 1, Math.max(0, Math.floor((x / 100) * CX)));
       const cj = Math.min(CY - 1, Math.max(0, Math.floor((y / 100) * CY)));
       malla[cj * CX + ci] += 1;
-      if (x >= ZONA_MC.x0 && x <= ZONA_MC.x1 && y >= ZONA_MC.y0 && y <= ZONA_MC.y1) {
+      const enZona = x >= ZONA_MC.x0 && x <= ZONA_MC.x1 && y >= ZONA_MC.y0 && y <= ZONA_MC.y1;
+      if (enZona) {
         enZonaMc += 1;
         if (!suya) defensaGanaZonaMc += 1;
       }
       const delQuePide = recogeElEquipo ? suya : !suya;
-      if (delQuePide && t.jugadorId) veces.set(t.jugadorId, (veces.get(t.jugadorId) ?? 0) + 1);
+      if (delQuePide && t.jugadorId) {
+        veces.set(t.jugadorId, (veces.get(t.jugadorId) ?? 0) + 1);
+        if (enZona) vecesZonaMc.set(t.jugadorId, (vecesZonaMc.get(t.jugadorId) ?? 0) + 1);
+      }
     }
   }
 
   if (conSegunda < MIN_BALONES) return null;
-  const recogen = [...veces]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 3)
-    .map(([id, n]) => ({ id, nombre: nombres.get(id) ?? "", veces: n }))
-    .filter((r) => r.nombre);
   return {
     partidos: leidos,
     largos,
@@ -159,7 +168,8 @@ export function segundaJugada(
     max: Math.max(...malla),
     enZonaMc,
     defensaGanaZonaMc,
-    recogen,
+    recogen: tresQueMas(veces, nombres),
+    recogenZonaMc: tresQueMas(vecesZonaMc, nombres),
   };
 }
 
