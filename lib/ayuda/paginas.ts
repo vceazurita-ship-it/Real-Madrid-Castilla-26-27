@@ -1998,9 +1998,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga.",
-    revisada: "2026-11-20",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga. «Balón a la espalda»: el mismo evento a evento de Opta (opta:directo:<partido>), los pases que le hacen al rival y a cada equipo de su liga.",
+    revisada: "2026-11-21",
     bloques: [
+      {
+        titulo: "Lo nuevo (21/11/2026): ¿se le gana la espalda?",
+        filas: [
+          {
+            que: "Balón a la espalda · ¿se le gana en largo?",
+            es: "Debajo de «Cómo progresa»: un campo entero (atacamos hacia la derecha) con una flecha por cada pase largo o en profundidad que le han hecho al rival y ha acabado en sus últimos 25 m por dentro (la zona sombreada). Cada flecha va del origen al destino y su color dice en qué acabó la jugada: remate (verde), falta a favor (oro), despeje (azul), pérdida (naranja) o «sigue sin rematar» (gris); discontinua si el pase no llegó. Pinchar un desenlace de la leyenda deja sólo esas flechas; al pasar por una sale el minuto y, si hubo remate, su xG. Al lado, tres cifras con la media de su liga: % que acaba en remate (con su puesto), xG por balón y de qué carril salen más (nuestra izquierda es su banda derecha). El titular dice si compensa atacarle la espalda, si es perder balones o si está en la media, y debajo por qué carril rinde más. Con menos de 25 balones lleva el chip «tendencia»",
+            cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo; su liga, los equipos que se cruzan con él en el archivo. Balón a la espalda: pase en juego (sin saques de banda ni de puerta) del oponente que sale con x < 76,2 (fuera de los últimos 25 m; x 0-100 = 105 m), avanza al menos 20 m y acaba con x ≥ 76,2 e y entre 20,4 y 79,6 (el ancho del área), llegue o no. Desenlace: lo primero que pasa en los 10 s siguientes y en la misma parte; remate de quien lo envía (su xG es el «xG por balón», sumado y dividido por los balones), falta a su favor, despeje del rival (Clearance, Punch, BlockedPass) o pérdida (el rival da un pase, recupera, intercepta, gana la entrada o bloca el portero; o falta en contra); si no pasa nada, «sigue» si el pase llegó y pérdida si no. Carril de salida desde quien ataca: izquierda y > 66,7, derecha y < 33,3. Media de la liga: la media de los equipos de su liga con 12 balones o más, sin él. «Compensa» si el % de remate o el xG por balón pasa un 15 % la media sin quedar el otro por debajo; «es perder balones» si queda un 15 % por debajo sin pasar el otro. Cuentas en lib/rivals/balon-espalda.ts",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (19/11/2026): cómo progresa el rival",
         filas: [

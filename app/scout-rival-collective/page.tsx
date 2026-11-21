@@ -89,6 +89,7 @@ import { CambioModelo } from "@/components/rivals/CambioModelo";
 import { PresionSalida } from "@/components/rivals/PresionSalida";
 import { AmplitudBanda } from "@/components/rivals/AmplitudBanda";
 import { ProgresionRival } from "@/components/rivals/ProgresionRival";
+import { BalonEspalda } from "@/components/rivals/BalonEspalda";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2117,6 +2118,9 @@ export default function ScoutRivalCollective() {
 
           {/* Cómo progresa (19/11/2026, idea de X): pases largos contra progresivos por dentro, todos los equipos de su liga (Opta). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <ProgresionRival equipo={rivalActivo.EQUIPO} />}
+
+          {/* Balón a la espalda (21/11/2026, idea de X): pases largos y en profundidad que le hacen, a sus últimos 25 m por dentro, y en qué acaban (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <BalonEspalda equipo={rivalActivo.EQUIPO} />}
 
           {/*
             Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.
