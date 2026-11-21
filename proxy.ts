@@ -18,9 +18,10 @@ import { apiVetadaJugador, pantallaDeJugador, rutaPublica } from "@/lib/acceso/r
 
 /* La versión vigente del código de jugadores, con 5 minutos de memoria: al
    cambiar el código en Ajustes, las sesiones viejas caen en ≤ 5 min. */
-let version: { valor: string | null; hasta: number } = { valor: null, hasta: 0 };
+/* `undefined` = aún no se ha podido leer (base caída en un arranque en frío): no se echa a nadie. */
+let version: { valor: string | null | undefined; hasta: number } = { valor: undefined, hasta: 0 };
 
-async function versionVigente(): Promise<string | null> {
+async function versionVigente(): Promise<string | null | undefined> {
   if (Date.now() < version.hasta) return version.valor;
   try {
     const { data } = await readDoc<{ jugadores?: { version?: string } }>("secreto:acceso");
@@ -48,7 +49,8 @@ export async function proxy(request: NextRequest) {
     const suya = leeSesionJugador(request.cookies.get(COOKIE_JUGADOR)?.value);
     const vigente = await versionVigente();
     /* Código cambiado o quitado en Ajustes: esa sesión ya no vale. */
-    if (!vigente || (suya && suya !== vigente)) rol = null;
+    /* Si no se sabe (la base no contesta), la sesión sigue: 21/11/2026, la reserva se cae a ratos. */
+    if (vigente !== undefined && (!vigente || (suya && suya !== vigente))) rol = null;
   }
 
   if (rol === "staff") return NextResponse.next();

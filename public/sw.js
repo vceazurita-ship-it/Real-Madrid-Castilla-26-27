@@ -158,6 +158,16 @@ async function cacheAntes(peticion, cache) {
 async function cacheYRefresco(peticion, cache) {
   const guardada = await caches.match(peticion);
 
+  /*
+  | 21/11/2026: si la copia es de hace menos de un día, ni se pide a la red.
+  | Antes se refrescaba en CADA vista: la caché no ahorraba tráfico y Render da
+  | 5 GB al mes. Una foto cambiada se ve como mucho al día siguiente. (Sin
+  | subir VERSION: tirar las cachés haría que todos lo bajasen todo otra vez.)
+  */
+  const fecha = guardada ? Date.parse(guardada.headers.get("date") || "") : NaN;
+
+  if (guardada && Date.now() - fecha < 24 * 3600 * 1000) return guardada;
+
   const red = fetch(peticion)
     .then((respuesta) => {
       if (guardable(respuesta)) {

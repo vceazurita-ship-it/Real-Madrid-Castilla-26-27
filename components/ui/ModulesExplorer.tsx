@@ -30,6 +30,7 @@ function ModuleCard({ module }: { module: AppModule }) {
 
   return (
     <Link
+      prefetch={false}
       href={module.href}
       onClick={() => trackModuleVisit(module.href)}
       style={{ ["--accent" as string]: chipInk(area.color) }}

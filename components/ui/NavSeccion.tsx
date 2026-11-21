@@ -177,6 +177,7 @@ export function NavSeccion() {
 
           return (
             <Link
+              prefetch={false}
               key={href}
               href={conRival && !activa ? conRivalEnUrl(href, rivalEnCurso) : href}
               aria-current={activa ? "page" : undefined}
@@ -240,6 +241,7 @@ export function EnlacesSeccion({ className = "" }: { className?: string }) {
         {otras.map(({ href, label, icon: Icono }) => (
           <li key={href}>
             <Link
+              prefetch={false}
               href={href}
               onClick={() => caja.current && (caja.current.open = false)}
               className="flex min-h-[40px] items-center gap-2 rounded-lg px-2.5 text-[13px] text-white/80 hover:bg-white/[0.06] hover:text-white"

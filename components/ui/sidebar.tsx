@@ -836,6 +836,7 @@ export function Sidebar() {
                       <Link
                         key={entrada.href}
                         href={entrada.href}
+                        prefetch={false}
                         title={entrada.label}
                         aria-current={esActiva ? "page" : undefined}
                         onClick={() => {

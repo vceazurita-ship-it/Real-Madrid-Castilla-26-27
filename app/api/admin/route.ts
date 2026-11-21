@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { COOKIE_JUGADOR, COOKIE_ROL } from "@/lib/acceso/sesion";
 
 import {
   COOKIE_ADMIN,
@@ -49,6 +50,9 @@ export async function POST(request: NextRequest) {
   const respuesta = NextResponse.json({ ok: true, admin: true });
 
   respuesta.cookies.set(COOKIE_ADMIN, creaSesionAdmin(), OPCIONES_COOKIE_ADMIN);
+  /* 21/11/2026: en un aparato donde antes entró un jugador, fuera su rol: si no, el admin veía el menú de jugador. */
+  respuesta.cookies.set(COOKIE_JUGADOR, "", { path: "/", maxAge: 0 });
+  respuesta.cookies.set(COOKIE_ROL, "", { path: "/", maxAge: 0 });
 
   return respuesta;
 }

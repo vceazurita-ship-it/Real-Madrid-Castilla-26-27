@@ -80,6 +80,8 @@ const nextConfig: NextConfig = {
   },
 
   images: {
+    /* 21/11/2026: un día en el navegador (por defecto 4 h): menos tráfico de Render (5 GB al mes). */
+    minimumCacheTTL: 86400,
     remotePatterns: [
       {
         protocol: "https",
