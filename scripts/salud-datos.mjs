@@ -8,7 +8,8 @@
 |
 | 1. COPIA: las cuatro tablas de la base que esté usando la app (la reserva
 |    de Render o Supabase) a un .json.gz en .cache/copias (se guardan 21) y
-|    otra en Backblaze B2, `copias/datos-AAAA-MM-DD.json.gz` (bucket privado).
+|    otra en Backblaze B2, `copias/datos-AAAA-MM-DD.json.gz` (bucket privado;
+|    allí se quedan los últimos 14 días y la del día 1 de cada mes, 22/11/2026).
 |    Si un día se pierde una base, se vuelve con
 |      node scripts/datos-copia.mjs --desde <el .json> --hacia <url> --hacer
 |    (el .gz se descomprime antes; el formato es el mismo).
@@ -47,6 +48,33 @@ const URL_APP = (process.env.SITIO_PUBLICO || "https://rmcf-castilla.onrender.co
 
 const avisos = [];
 const notas = [];
+
+/*
+| ROTACIÓN DE LAS COPIAS EN B2 (22/11/2026, OK del analista): se guardaban
+| todas para siempre (~9 MB/día, ~1,5 GB en la temporada). Se quedan las de
+| los últimos DIAS_B2 días y la del día 1 de cada mes; el resto se oculta y la
+| regla del bucket (daysFromHidingToDeleting: 1) la borra al día siguiente.
+| Por seguridad nunca se quedan menos de DIAS_B2 copias, aunque falten días.
+*/
+const DIAS_B2 = 14;
+
+export function copiasQueSobran(nombres, hoy) {
+  const limite = new Date(`${hoy}T00:00:00Z`);
+  limite.setUTCDate(limite.getUTCDate() - (DIAS_B2 - 1));
+  const desde = limite.toISOString().slice(0, 10);
+  const copias = nombres.map((n) => [n, n.match(/^copias\/datos-(\d{4}-\d{2}-\d{2})\.json\.gz$/)?.[1]]).filter(([, d]) => d).sort((a, b) => b[1].localeCompare(a[1]));
+  const masNuevas = new Set(copias.slice(0, DIAS_B2).map(([n]) => n));
+  return copias.filter(([n, d]) => d < desde && !d.endsWith("-01") && !masNuevas.has(n)).map(([n]) => n);
+}
+
+async function rotaCopiasB2(b2, enSeco) {
+  const nombres = [...(await b2.lista("copias/")).keys()];
+  const sobran = copiasQueSobran(nombres, HOY);
+  if (!sobran.length) return notas.push(`Copias en Backblaze: ${nombres.length}, ninguna para borrar.`);
+  if (enSeco) return notas.push(`(en seco) en Backblaze se borrarían ${sobran.length} copias viejas: ${sobran.map((n) => n.slice(13, 23)).join(", ")}.`);
+  for (const n of sobran) await b2.oculta(n);
+  notas.push(`Copias en Backblaze: ${sobran.length} viejas borradas, quedan ${nombres.length - sobran.length}.`);
+}
 const mb = (b) => `${(b / 1e6).toFixed(b < 1e7 ? 1 : 0)} MB`;
 
 /* ---------------------------- 1. la copia ---------------------------- */
@@ -103,12 +131,21 @@ async function copia() {
     estado.copia = { dia: HOY, bytes: gz.length };
     notas.push(`Copia de hoy: ${filas} (${mb(gz.length)} comprimida), en .cache/copias.`);
 
-    if (!EN_SECO) {
+    if (EN_SECO) {
+      try {
+        const b2 = require("./b2.cjs");
+        if (b2.configurado()) await rotaCopiasB2(b2, true);
+      } catch (e) {
+        notas.push(`(en seco) no se ha podido mirar la rotación de B2: ${e.message}`);
+      }
+    } else {
       try {
         const b2 = require("./b2.cjs");
         if (b2.configurado()) {
           await b2.sube(`copias/datos-${HOY}.json.gz`, gz, "application/gzip");
           notas.push("Copia subida a Backblaze B2 (copias/).");
+          /* Sólo después de subir la de hoy: si la subida falla, no se borra nada. */
+          await rotaCopiasB2(b2, false).catch((e) => avisos.push(`No se han podido rotar las copias de Backblaze (${e.message}); no pasa nada, se reintenta mañana.`));
         } else {
           avisos.push("La copia de la base sólo está en este ordenador: falta configurar Backblaze B2 en .env.local.");
         }
