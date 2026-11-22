@@ -129,5 +129,5 @@ export function TituloConclusion({ pregunta, children, fuente }: { pregunta: str
 
 /** El marco de una lámina del modo Visual. */
 export function Lamina({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 ${className}`}>{children}</section>;
+  return <section className={`foco-luz superficie-viva lamina-aparece min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5 ${className}`}>{children}</section>;
 }

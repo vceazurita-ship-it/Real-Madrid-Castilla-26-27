@@ -14,9 +14,9 @@
 import type { ComponentType, ReactNode } from "react";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 
-/** Un bloque gris que respira, del tamaño que se le pida. */
+/** Un bloque gris con un brillo que lo cruza (efectos.css), del tamaño que se le pida. */
 export function Hueso({ className = "" }: { className?: string }) {
-  return <div aria-hidden className={`animate-pulse rounded-xl bg-white/[0.06] ${className}`} />;
+  return <div aria-hidden className={`hueso rounded-xl ${className}`} />;
 }
 
 /**

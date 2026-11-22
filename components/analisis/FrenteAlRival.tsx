@@ -22,6 +22,7 @@
 import { useMemo, useState } from "react";
 
 import { COMPARADO, ORO, tinta, useEscudos } from "@/components/data/graficas";
+import { CifraRueda } from "@/components/ui/CifraRueda";
 import { EscudoEquipo } from "@/components/rivals/EscudoEquipo";
 import { Lamina, TituloConclusion } from "@/components/ui/VistaVisual";
 import { useProximoRival } from "@/hooks/useAbpLigas";
@@ -320,7 +321,7 @@ function Marcador({
 }) {
   const total = Math.max(1, nuestros + suyos);
   return (
-    <div className="mt-4 rounded-2xl border border-white/10 bg-gradient-to-r from-[#C8A96B]/[0.10] via-transparent to-[#4F8FE8]/[0.10] px-3 py-3 sm:px-5">
+    <div className="borde-vivo mt-4 rounded-2xl border border-white/10 bg-gradient-to-r from-[#C8A96B]/[0.10] via-transparent to-[#4F8FE8]/[0.10] px-3 py-3 sm:px-5">
       <div className="flex items-center justify-between gap-2">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
           <span className="hidden sm:block"><EscudoEquipo nombre="Real Madrid Castilla" escudo={escudoDe("Real Madrid Castilla") ?? undefined} lado={40} /></span>
@@ -330,13 +331,9 @@ function Marcador({
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-center font-black tabular-nums"><div className="flex items-baseline gap-2">
-          <span className="text-4xl sm:text-5xl" style={{ color: ORO }}>
-            {nuestros}
-          </span>
+          <CifraRueda valor={nuestros} className="text-4xl sm:text-5xl" style={{ color: ORO }} />
           <span className="text-2xl text-white/30">–</span>
-          <span className="text-4xl sm:text-5xl" style={{ color: AZUL }}>
-            {suyos}
-          </span>
+          <CifraRueda valor={suyos} className="text-4xl sm:text-5xl" style={{ color: AZUL }} />
         </div>
           <span className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">cifras ganadas</span>
         </div>
@@ -360,7 +357,7 @@ function Marcador({
         </div>
       </div>
       {/* La barra del marcador: cuánto se lleva cada uno de lo que se juzga. */}
-      <div className="mt-3 flex h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
+      <div key={`${nuestros}-${suyos}`} className="barra-destello mt-3 flex h-2.5 overflow-hidden rounded-full bg-white/[0.06]">
         <div style={{ width: `${(nuestros / total) * 100}%`, background: ORO }} className="transition-all duration-500" />
         <div style={{ width: `${(suyos / total) * 100}%`, background: AZUL }} className="ml-auto transition-all duration-500" />
       </div>
@@ -644,6 +641,12 @@ function Evolucion({
             </circle>
           ),
         )}
+        {(() => {
+          /* La onda «en vivo» sobre el último partido de Castilla. */
+          const i = serieN.map((p) => p.v != null).lastIndexOf(true);
+          const v = i < 0 ? null : serieN[i].v;
+          return v == null ? null : <circle className="punto-vivo" cx={X(i, serieN.length)} cy={Y(v)} r={5} fill={ORO} />;
+        })()}
         {serieN.map((p, i) => {
           if (p.v == null) return null;
           const bien = f.m.mejorAlto == null || f.media == null ? null : (p.v >= f.media) === f.m.mejorAlto;
