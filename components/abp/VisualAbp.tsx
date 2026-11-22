@@ -510,6 +510,7 @@ export function VisualAbp({
   mapa,
   liga,
   ligaPregunta = "¿Y frente a la categoría?",
+  frente,
   comparativa,
   acciones,
   marca,
@@ -525,6 +526,8 @@ export function VisualAbp({
   /** El bloque de la categoría (Opta). */
   liga?: ReactNode;
   ligaPregunta?: string;
+  /** 22/11/2026: el Castilla frente al rival o rivales que se elijan (components/analisis/FrenteAlRival.tsx). */
+  frente?: ReactNode;
   /** Este partido frente a la media de los anteriores (la tabla de «Detalle», en barras). */
   comparativa?: ComparativaVisualDatos | null;
   /** La lista de acciones con su vídeo, bajo el campo. */
@@ -586,6 +589,7 @@ export function VisualAbp({
           <LeyendaComparativa />
         </Lamina>
       ) : null}
+      {frente}
       <div className={`grid min-w-0 gap-4 ${repartoArriba ? "" : "xl:grid-cols-2"}`}>
         {repartoArriba ? null : (
           <Lamina>

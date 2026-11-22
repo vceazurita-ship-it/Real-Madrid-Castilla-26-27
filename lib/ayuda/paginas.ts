@@ -55,6 +55,21 @@ export type AyudaDePagina = {
   revisada?: string;
 };
 
+/* 22/11/2026: la lámina «¿Y frente al rival?» del modo Visual (components/analisis/FrenteAlRival.tsx), la misma en ABP, banda, faltas, robos y pérdidas. */
+const FRENTE_AL_RIVAL: BloqueAyuda = {
+  titulo: "¿Y frente al rival? (Visual)",
+  filas: [
+    { que: "Con quién", es: "Abre con el rival del filtro de la pantalla si hay uno; si no, con el próximo rival (calendario de BeSoccer) y, si no, con el último. Los botones cambian a: el próximo, el último, el del partido que se mira, «Los 5 de arriba» (por puntos en Opta), «Todo el grupo» o los equipos que se elijan con su escudo (uno o varios)" },
+    { que: "Periodo", es: "Temporada, últimos 5 o últimos 3 partidos de CADA equipo (los suyos, no los nuestros)" },
+    { que: "Marcador", es: "En cuántas cifras sale mejor cada uno, con la barra oro (Castilla) y azul (rival). Lo que es estilo (p. ej. cuántos saques de banda) y los empates no se juzgan" },
+    { que: "Radar", es: "El percentil de cada uno entre los equipos de nuestro grupo: hacia fuera, mejor (en lo que menos es mejor, ya está dado la vuelta). La raya discontinua es la mitad", cuenta: "Percentil = equipos por debajo + la mitad de los empatados, sobre los del grupo" },
+    { que: "Barras enfrentadas", es: "Castilla a la izquierda, rival a la derecha, a la misma escala (el máximo del grupo). Barra llena: el que sale mejor; raya blanca: la media del grupo. Debajo, la tira con un punto por equipo del grupo (a la derecha el mejor) y el puesto de cada uno" },
+    { que: "Partido a partido", es: "Al pinchar una cifra, su línea en los últimos partidos de cada uno (hasta 12) con la media del grupo; el borde verde o naranja de nuestros puntos dice si ese partido quedó mejor o peor que la media. Con varios rivales, la media de su partido equivalente" },
+    { que: "Varios rivales", es: "Se juntan sus partidos y se calcula como si fueran un equipo (los porcentajes, sumando aciertos e intentos; nunca media de porcentajes)" },
+    { que: "De dónde sale", es: "Opta (opta:partidos): una fila por equipo y partido de toda Primera RFEF; lo «en contra» es la fila del rival en ese partido. No es la hoja: puede no coincidir con lo etiquetado arriba", cuenta: "Por partido; los porcentajes y «por cada 10», cociente de las sumas" },
+  ],
+};
+
 /* Lo que se repite en varias pantallas, escrito una vez. */
 const PERCENTIL: FilaAyuda = {
   que: "Percentil (p00–p100)",
@@ -479,8 +494,9 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Ofensivo",
     resumen: "Córners y faltas a favor, acción por acción: qué se lanza, dónde cae, quién remata y cuánto peligro deja.",
     origen: "Nuestra hoja de ABP ofensivo, una fila por acción, registrada a mano. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + opta:remates + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, tipo, dónde cae (primer palo, penalti, segundo palo, 6 m, fuera), remate, rematador, xG y desenlace (gol, ocasión, ABP, transición); no salen altura del envío, calidad, defensa, rutina ni segundo balón. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o, si aún no está bajado, «Vídeo en Opta» abre ProVision en ese segundo; las acciones de la hoja sin corte propio lo ganan si casan por minuto (±1) con un saque de Opta del mismo partido, parte y tipo.",
-    revisada: "2026-11-21",
+    revisada: "2026-11-22",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Las tarjetas",
         filas: [
@@ -563,8 +579,9 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "ABP Defensivo",
     resumen: "Córners y faltas en contra, acción por acción: dónde nos atacan, quién nos hace daño y cuánto conceden.",
     origen: "Nuestra hoja de ABP defensivo, una fila por acción del rival. El corte de cada acción, de Hudl (doc «abp:cortes»); la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + opta:remates + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, tipo, dónde cae (primer palo, penalti, segundo palo, 6 m, fuera), remate, rematador, xG y desenlace (gol, ocasión, ABP, transición); no salen altura del envío, calidad, defensa, rutina ni segundo balón. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o, si aún no está bajado, «Vídeo en Opta» abre ProVision en ese segundo; las acciones de la hoja sin corte propio lo ganan si casan por minuto (±1) con un saque de Opta del mismo partido, parte y tipo.",
-    revisada: "2026-11-20",
+    revisada: "2026-11-22",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Las tarjetas",
         filas: [
@@ -625,8 +642,9 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Ofensivo",
     resumen: "Cada saque de banda a favor: dónde se saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda ofensivo, una fila por saque. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, banda, zona de saque (tercio del sacador), envío (corto < 15 m, largo), dónde cae (progresión o retroceso, carril exterior o interior, área) y el resultado de los 15 s siguientes (remate, balón parado ganado, conquista del último tercio o posesional, con «Rival» si el balón acaba suyo). «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo); los saques de la hoja sin corte propio lo ganan si casan por minuto (±1).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-22",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Las cifras",
         filas: [
@@ -690,8 +708,9 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Defensivo",
     resumen: "Cada saque de banda del rival: dónde saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda defensivo, una fila por saque del rival. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, banda, zona de saque (tercio del sacador), envío (corto < 15 m, largo), dónde cae (progresión o retroceso, carril exterior o interior, área) y el resultado de los 15 s siguientes (remate, balón parado ganado, conquista del último tercio o posesional, con «Rival» si el balón acaba suyo). «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo); los saques de la hoja sin corte propio lo ganan si casan por minuto (±1).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-22",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Las cifras",
         filas: [
@@ -3966,6 +3985,7 @@ export const AYUDAS: AyudaDePagina[] = [
     origen:
       "Etiquetado propio, viendo el partido falta a falta (scripts/abp-clips-preparar.mjs y scripts/faltas-datos.mjs escriben lib/faltas/datos.ts). El jugador, del timeline de Hudl por jugador. Al lado, Opta. Respaldo de Opta (17/11/2026): el partido que aún no está etiquetado en Hudl sale de las faltas del evento a evento de Opta (opta:directo, por /api/opta/respaldo; el que la recibe y el que la hace), con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto se etiqueta, manda Hudl. Zona y carril, del punto de la falta hacia la portería que ataca quien la saca; distancia: frontal ≤ 25 m y centrada, media ≤ 40 m, lejana; los defensores entre la falta y la portería no salen de Opta. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo).",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Mandos",
         filas: [
@@ -4021,7 +4041,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los partidos mirados a ojo desde los clips, sin timeline de Hudl, no tienen jugador y no entran en «Por jugador».",
       "El etiquetado no apunta en qué acaba cada falta: el peligro se lee por el sitio.",
     ],
-    revisada: "2026-11-21",
+    revisada: "2026-11-22",
   },
 
   /* ==================== ROBOS Y TRANSICIONES (12/11/2026) ==================== */
@@ -4033,6 +4053,7 @@ export const AYUDAS: AyudaDePagina[] = [
     origen:
       "El timeline de Hudl de cada partido (scripts/partido/robos.cjs, recogido en lib/transiciones/datos.ts por scripts/transiciones-datos.mjs). J2 y J3 se miraron imagen a imagen. Al lado, Opta. Respaldo de Opta (17/11/2026): el partido que aún no está etiquetado en Hudl (no hay ninguno con esa fecha ±1 día y filas de este modo) sale del evento a evento de Opta (opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto se etiqueta, manda Hudl. Robo = recuperación, intercepción o entrada ganada; pérdida = pase fallado, regate perdido o robado en conducción, sin los saques de balón parado; dos a menos de 4 s son una; transición = 15 s; tercio y carril desde el Castilla; el minuto, del reloj de Opta. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo).",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Mandos",
         filas: [
@@ -4086,7 +4107,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "La transición son los 15 s tras el robo: lo que llega después cuenta como posesión.",
       "La «recuperación» de Opta no es la misma cuenta que el robo de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-21",
+    revisada: "2026-11-22",
   },
 
   /* ==================== PÉRDIDAS Y TRANSICIONES DEFENSIVAS (12/11/2026) ==================== */
@@ -4098,6 +4119,7 @@ export const AYUDAS: AyudaDePagina[] = [
     origen:
       "El timeline de Hudl de cada partido (scripts/partido/perdidas.cjs, recogido en lib/transiciones/datos.ts). Salen solas con «Actualizar análisis del partido» de Ajustes. J2 y J3 no tienen pérdidas. Al lado, Opta. Respaldo de Opta (17/11/2026): el partido que aún no está etiquetado en Hudl (no hay ninguno con esa fecha ±1 día y filas de este modo) sale del evento a evento de Opta (opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto se etiqueta, manda Hudl. Robo = recuperación, intercepción o entrada ganada; pérdida = pase fallado, regate perdido o robado en conducción, sin los saques de balón parado; dos a menos de 4 s son una; transición = 15 s; tercio y carril desde el Castilla; el minuto, del reloj de Opta. «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo).",
     bloques: [
+      FRENTE_AL_RIVAL,
       {
         titulo: "Mandos",
         filas: [
@@ -4152,7 +4174,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Pérdida es un balón nuestro que pasa al rival en juego: pase que no llega, conducción cortada, control o duelo perdido. Remates, despejes y faltas pitadas no cuentan.",
       "La «pérdida» de Opta no es la misma cuenta que la de aquí: se enseñan aparte.",
     ],
-    revisada: "2026-11-21",
+    revisada: "2026-11-22",
   },
 
   /* ==================== CREAR O EDITAR EL MICROCICLO (12/11/2026) ==================== */

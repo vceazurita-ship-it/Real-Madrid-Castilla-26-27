@@ -69,6 +69,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { PARTIDOS as PARTIDOS_ETIQUETADOS, type Accion, type Robo } from "@/lib/transiciones/datos";
 import { usePartidosLaboratorio, zonaDeRobo } from "@/lib/transiciones/partidos-laboratorio";
@@ -1820,6 +1821,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {(vista === "resumen" || enVisual) && (
             <>
             {enVisual && bloqueCampo}
+            {/* 22/11/2026: el Castilla frente al rival o rivales que se elijan (Opta). */}
+            {enVisual && <FrenteAlRival area={modo === "robos" ? "robos" : "perdidas"} rivalPartido={partidoElegido?.rival ?? ""} className="mt-5" />}
             {/* 17/11/2026 (ronda 19, análisis): en Visual, cada cifra frente a la media en barras, antes de «qué entrenamos». */}
             {enVisual && comparativa ? (
               <BarrasFrenteAMedia

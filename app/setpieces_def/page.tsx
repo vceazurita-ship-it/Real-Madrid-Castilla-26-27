@@ -33,6 +33,7 @@ import {
 } from "@/components/abp/AnalisisSeccion";
 import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
 import { zonaFaltaEnPalabras } from "@/lib/abp/informe-micro";
@@ -3209,6 +3210,7 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {soloVisual && (
               <VisualAbp
+                frente={<FrenteAlRival area="abp-def" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />}
                 filas={filasVisual}
                 categorias={categoriasVisual}
                 marca={jornada === "ALL" ? jornadaMarca : null}

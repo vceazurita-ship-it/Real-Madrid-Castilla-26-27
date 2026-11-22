@@ -22,6 +22,7 @@ import {
 import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
 import { OptaBandaDia } from "@/components/abp/OptaDia";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
+import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
 import { RelacionadoAbp } from "@/components/abp/RelacionadoAbp";
@@ -2302,6 +2303,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         rótulo suelto: lleva a sus goles en vídeo, su ABP y su plan, y
                         al lado va el de la semana. */}
                     <VisualAbp
+                      frente={<FrenteAlRival area={isOffensive ? "banda-of" : "banda-def"} rivalFiltro={filters.Rival ?? ""} rivalPartido={comparativa?.rival ?? ""} />}
                       filas={filasVisual}
                       categorias={categoriasVisual}
                       marca={!filters.JORNADA && comparativa ? comparativa.elegida.clave : null}

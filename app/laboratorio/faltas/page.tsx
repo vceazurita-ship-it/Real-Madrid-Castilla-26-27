@@ -46,6 +46,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { cn } from "@/lib/utils";
 import { AbpHeader, Panel } from "@/components/abp/ui";
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
+import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { ComparativaPartido, UMBRAL_TENDENCIA_PARTIDOS, numeroCorto, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
@@ -1043,6 +1044,8 @@ export default function FaltasPage() {
             )}
 
             {enVisual && bloqueCampo}
+            {/* 22/11/2026: el Castilla frente al rival o rivales que se elijan (Opta). */}
+            {enVisual && <FrenteAlRival area="faltas" rivalPartido={partido?.rival ?? ""} className="mt-5" />}
 
             {/* ---------------- frente a los anteriores ---------------- */}
 
