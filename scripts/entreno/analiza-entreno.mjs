@@ -302,9 +302,9 @@ async function deHudl(fecha) {
 */
 
 const LIGERA = ["-vf", "fps=1,scale=-2:360", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "32"];
-const CLIP = ["-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart"];
+const CLIP = ["-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "slow", "-crf", "26", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart"];
 /* 04/11/2026: un clip ligero de cada acción para poder revisarla (antes, 2 por objetivo y 123 de 125 sin clip). */
-const CLIP_REVISION = ["-vf", "scale=-2:540", "-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "29", "-movflags", "+faststart"];
+const CLIP_REVISION = ["-vf", "scale=-2:540", "-an", "-c:v", "libx264", "-preset", "slow", "-crf", "31", "-movflags", "+faststart"];
 const TOPE_CLIPS = 60;
 
 function fuenteCamara(ficheros, destino) {

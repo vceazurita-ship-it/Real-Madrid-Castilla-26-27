@@ -144,9 +144,9 @@ function comprime(entrada, salida) {
         "-c:v",
         "libx264",
         "-preset",
-        "veryfast",
+        "slow", /* 22/11/2026: slow + CRF 2 = misma imagen, menos peso */
         "-crf",
-        "27",
+        "29",
         "-pix_fmt",
         "yuv420p",
         "-c:a",

@@ -132,7 +132,7 @@ async function urlDelGol(g) {
 
 function baja(hls, salida) {
   return new Promise((ok) => {
-    const p = spawn(FFMPEG, ["-y", "-loglevel", "error", "-i", hls, "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "veryfast", "-crf", "26", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", salida], { windowsHide: true });
+    const p = spawn(FFMPEG, ["-y", "-loglevel", "error", "-i", hls, "-vf", "scale=-2:720", "-c:v", "libx264", "-preset", "slow", "-crf", "28", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", salida], { windowsHide: true });
     let err = "";
 
     p.stderr.on("data", (d) => (err += d));

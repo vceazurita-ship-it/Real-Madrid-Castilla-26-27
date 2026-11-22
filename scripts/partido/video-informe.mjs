@@ -29,6 +29,7 @@
 
 import fs from "node:fs";
 import path from "node:path";
+import { createHash } from "node:crypto";
 import { createRequire } from "node:module";
 import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
@@ -391,8 +392,13 @@ async function cortesAbpDelPartido(carpeta, timeline, jornada, destino) {
   }));
 }
 
-async function subeCortesAbp(supabase, clave, abp) {
-  for (const c of abp) c.url = await sube(supabase, c.fichero, `2026/informes/clips/${clave}/abp/${path.basename(c.fichero)}`, "video/mp4");
+/* 22/11/2026: un corte de ABP que ya se ha subido entre los cortes del vídeo (mismos bytes) no se sube otra vez: se reutiliza su enlace (~5-10 MB por partido en Backblaze). */
+const huellaDe = (fichero) => createHash("sha1").update(fs.readFileSync(fichero)).digest("hex");
+
+async function subeCortesAbp(supabase, clave, abp, yaSubidos = []) {
+  const porHuella = new Map();
+  for (const c of yaSubidos) if (c.url && c.fichero && fs.existsSync(c.fichero)) porHuella.set(huellaDe(c.fichero), c.url);
+  for (const c of abp) c.url = porHuella.get(huellaDe(c.fichero)) ?? (await sube(supabase, c.fichero, `2026/informes/clips/${clave}/abp/${path.basename(c.fichero)}`, "video/mp4"));
 
   return abp.map(({ fichero: _f, ...c }) => c);
 }
@@ -1241,7 +1247,7 @@ async function principal() {
     await guardaDoc(supabase, `informe-clips:${clave}`, "informe-clips", {
       partido: { jornada: partido.jornada, rival: partido.rival, fecha: partido.fecha, resultado: `${partido.gf}-${partido.gc}`, slug: partido.slug },
       cortes: cortes.map(({ fichero: _f, ...c }) => c),
-      ...(abp?.length ? { abp: await subeCortesAbp(supabase, clave, abp) } : {}),
+      ...(abp?.length ? { abp: await subeCortesAbp(supabase, clave, abp, cortes) } : {}),
       creado: new Date().toISOString(),
     });
     console.log(`  ${cortes.length} cortes en el bucket y en informe-clips:${clave}`);

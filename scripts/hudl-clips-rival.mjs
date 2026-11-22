@@ -455,7 +455,7 @@ async function bajaClip(maestro, desde, dura, fichero) {
       "-i", crudo,
       "-t", String(dura),
       "-vf", "scale=-2:'min(720,ih)'",
-      "-c:v", "libx264", "-preset", "veryfast", "-crf", "24", "-pix_fmt", "yuv420p",
+      "-c:v", "libx264", "-preset", "slow", "-crf", "26", "-pix_fmt", "yuv420p", /* 22/11/2026: slow + CRF 2 = misma imagen, menos peso */
       "-c:a", "aac", "-b:a", "96k", "-ac", "2",
       "-movflags", "+faststart",
       fichero,
