@@ -6,7 +6,7 @@
  * Lo comparten la portada, Ajustes y la propia pantalla del directo:
  *
  * - `enMarcha`: el proceso de GitHub está corriendo (o en cola), según
- *   `/api/opta/directo` (sólo admin) o, para cualquiera, porque el índice
+ *   `/api/opta/directo` (cuerpo técnico, 22/11/2026) o, para cualquiera, porque el índice
  *   `opta:directo` se ha escrito hace menos de 3 minutos y aún no ha pasado
  *   su `hasta`.
  * - `abre()`: si ya está en marcha, sólo lleva a la pantalla; si no, lo lanza
@@ -56,7 +56,7 @@ export function indiceVivo(i: IndiceDirecto | null | undefined, ahora: number): 
   return !Number.isFinite(h) || h > ahora;
 }
 
-export function useDirectoOpta(admin: boolean) {
+export function useDirectoOpta() {
   const router = useRouter();
   const [estado, setEstado] = useState<EstadoDirecto>({ preparado: null, ultima: null, indice: null });
   const [ahora, setAhora] = useState(0);
@@ -68,22 +68,21 @@ export function useDirectoOpta(admin: boolean) {
     let vivo = true;
     void (async () => {
       const [g, indice] = await Promise.all([
-        admin
-          ? fetch("/api/opta/directo", { cache: "no-store" })
-              .then((r) => (r.ok ? r.json() : null))
-              .catch(() => null)
-          : Promise.resolve(null),
+        /* 22/11/2026: lo pide cualquiera; el servidor dice si puede lanzarlo (cuerpo técnico) o no (jugadores). */
+        fetch("/api/opta/directo", { cache: "no-store" })
+          .then((r) => (r.ok ? r.json() : null))
+          .catch(() => null),
         traeOpta<IndiceDirecto>("opta:directo"),
       ]);
       if (!vivo) return;
       setAhora(Date.now());
       setLanzadoEn(leeLanzado());
-      setEstado({ preparado: g?.success ? !!g.preparado : admin ? false : null, ultima: g?.ultima ?? null, indice });
+      setEstado({ preparado: g?.success ? !!g.preparado : false, ultima: g?.ultima ?? null, indice });
     })();
     return () => {
       vivo = false;
     };
-  }, [admin, vuelta]);
+  }, [vuelta]);
 
   const corriendo = !!estado.ultima && estado.ultima.estado !== "completed";
   const recien = lanzadoEn > 0 && ahora - lanzadoEn < RECIEN_MS;
@@ -99,7 +98,7 @@ export function useDirectoOpta(admin: boolean) {
       router.push(RUTA_DIRECTO);
       return;
     }
-    if (!admin) {
+    if (!estado.preparado) {
       router.push(RUTA_DIRECTO);
       return;
     }
@@ -129,7 +128,7 @@ export function useDirectoOpta(admin: boolean) {
       toast.error(e instanceof Error ? e.message : "No se ha podido lanzar.");
       setLanzando(false);
     }
-  }, [admin, enMarcha, router]);
+  }, [estado.preparado, enMarcha, router]);
 
   return { ...estado, enMarcha, corriendo, lanzando, abre, recarga: () => setVuelta((v) => v + 1) };
 }

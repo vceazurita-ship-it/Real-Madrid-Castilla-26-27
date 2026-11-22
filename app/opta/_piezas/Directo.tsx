@@ -19,7 +19,6 @@ import { NOMBRE_CASTILLA, valorPartido, type Fila } from "@/lib/opta-analisis";
 import { defMetrica, nombreMetrica } from "@/lib/opta-nombres";
 
 import { minutoDe, tramosDe } from "@/lib/opta-directo-plan";
-import { useAdmin } from "@/hooks/useAdmin";
 import { cargaCalendario } from "@/hooks/useCalendario";
 import { alrededorDe } from "@/lib/castilla/calendario";
 import { mismoEquipo } from "@/lib/data-analisis/nombres";
@@ -102,8 +101,7 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
     /* Sólo si es de hace menos de media hora: una recarga o un enlace guardado no da un aviso falso. */
     return Number.isFinite(v) && v > 0 && Date.now() - v < 30 * 60_000 ? v : null;
   });
-  const { admin } = useAdmin();
-  const lanzar = useDirectoOpta(Boolean(admin));
+  const lanzar = useDirectoOpta();
   /* ?partido=<id> (enlace de la portada, 14/11/2026): abre ese partido. Lazy: sin setState en un efecto. */
   const [elegido, setElegido] = useState(() => (typeof window === "undefined" ? "" : (new URLSearchParams(window.location.search).get("partido") ?? "").replace(/[^a-z0-9]/gi, "")));
   const [leido, setLeido] = useState<{ clave: string; doc: DocDirecto | null } | null>(null);
@@ -248,7 +246,7 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
       <p className="text-xs text-white/60">
         Mira la última pasada en <Link href="/ajustes" className="underline">Ajustes → Opta</Link>{lanzar.ultima?.enlace ? <> o <a href={lanzar.ultima.enlace} target="_blank" rel="noreferrer" className="underline">en GitHub</a></> : null}. Si falló, reinténtalo.
       </p>
-      {admin && lanzar.preparado && (
+      {lanzar.preparado && (
         <button
           type="button"
           onClick={() => void lanzar.abre((en) => {
@@ -266,7 +264,7 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
   ) : null;
 
   const boton =
-    admin && !vivo && !esperando && !lanzar.enMarcha && lanzar.preparado ? (
+    !vivo && !esperando && !lanzar.enMarcha && lanzar.preparado ? (
       <button
         type="button"
         onClick={() => void lanzar.abre((en) => {

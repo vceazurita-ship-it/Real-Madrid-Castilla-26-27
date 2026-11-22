@@ -1222,7 +1222,7 @@ export default function Home() {
             {/* ======================= TU DÍA Y MESA DE TRABAJO ================= */}
 
             {/* 13/11/2026: el directo de Opta de un toque (lanza y lleva a verlo). */}
-            <DirectoPortada admin={Boolean(admin)} />
+            <DirectoPortada />
 
             <PanelHoy admin={Boolean(admin)} />
 

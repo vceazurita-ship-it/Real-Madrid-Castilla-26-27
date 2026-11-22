@@ -5,8 +5,8 @@
  *
  * Un solo botón: si el directo ya corre, lleva a verlo; si no, lo lanza en
  * GitHub (sin diálogo) y lleva a la pantalla, que espera sola la primera
- * lectura. El administrador lo ve siempre (pequeño si no hay directo); el
- * resto, sólo mientras hay un directo vivo, y su botón sólo lleva a verlo.
+ * lectura. Lo ve todo el cuerpo técnico (pequeño si no hay directo); quien
+ * no puede lanzarlo, sólo mientras hay un directo vivo, y su botón sólo lleva a verlo.
  */
 
 import { Radio } from "lucide-react";
@@ -15,13 +15,12 @@ import { useDirectoOpta } from "@/hooks/useDirectoOpta";
 
 const ROJO = "#E5484D";
 
-export function DirectoPortada({ admin }: { admin: boolean }) {
-  const d = useDirectoOpta(admin);
+export function DirectoPortada() {
+  const d = useDirectoOpta();
 
-  if (!d.enMarcha && !admin) return null;
-  /* Sin token en Render el botón no podría lanzar nada: no se ofrece. */
-  if (!d.enMarcha && admin && d.preparado === false) return null;
-  if (!d.enMarcha && d.preparado === null) return null;
+  /* 22/11/2026 (petición del analista): lo ve y lo lanza todo el cuerpo técnico, no sólo el administrador.
+     Sin directo y sin poder lanzarlo (sin token en Render, o sin permiso), no hay nada que ofrecer. */
+  if (!d.enMarcha && !d.preparado) return null;
 
   const castilla = (d.indice?.partidos ?? []).some((p) => (p.equipos ?? []).includes("Real Madrid II"));
 

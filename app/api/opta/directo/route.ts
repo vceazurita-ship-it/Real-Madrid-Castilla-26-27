@@ -3,7 +3,8 @@
  *
  * POST: pone en marcha `.github/workflows/opta-directo.yml` en GitHub, que
  * sigue los partidos del día sin que el ordenador del club esté encendido.
- * Sólo el administrador. Necesita en Render la variable GITHUB_TOKEN_DIRECTO:
+ * 22/11/2026: cualquiera del cuerpo técnico (no sólo el administrador; los
+ * jugadores, no). Necesita en Render la variable GITHUB_TOKEN_DIRECTO:
  * un token «fine-grained» de GitHub con permiso Actions: Read and write sobre
  * este repositorio (lo crea el analista; nunca va en el código).
  *
@@ -11,7 +12,10 @@
  */
 import { NextRequest, NextResponse } from "next/server";
 
-import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
+import { rolDe } from "@/lib/acceso/sesion";
+
+/** El cuerpo técnico (incluido el administrador); los jugadores y quien no ha entrado, no. */
+const esStaff = (request: NextRequest) => rolDe(request.cookies) === "staff";
 
 const REPO = "vceazurita-ship-it/Real-Madrid-Castilla-26-27";
 const FLUJO = "opta-directo.yml";
@@ -23,8 +27,8 @@ const cabeceras = (token: string) => ({
 });
 
 export async function GET(request: NextRequest) {
-  if (!esAdmin(request.cookies.get(COOKIE_ADMIN)?.value)) {
-    return NextResponse.json({ success: false, error: "Sólo el administrador." }, { status: 401 });
+  if (!esStaff(request)) {
+    return NextResponse.json({ success: false, error: "Sólo el cuerpo técnico." }, { status: 401 });
   }
 
   const token = process.env.GITHUB_TOKEN_DIRECTO;
@@ -51,8 +55,8 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-  if (!esAdmin(request.cookies.get(COOKIE_ADMIN)?.value)) {
-    return NextResponse.json({ success: false, error: "Sólo el administrador." }, { status: 401 });
+  if (!esStaff(request)) {
+    return NextResponse.json({ success: false, error: "Sólo el cuerpo técnico." }, { status: 401 });
   }
 
   const token = process.env.GITHUB_TOKEN_DIRECTO;
