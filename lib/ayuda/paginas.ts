@@ -2000,9 +2000,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/scout-rival-collective",
     titulo: "Scout Colectivo",
     resumen: "Cómo juega el rival como equipo, según el analista y los datos de la categoría.",
-    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga. «Balón a la espalda»: el mismo evento a evento de Opta (opta:directo:<partido>), los pases que le hacen al rival y a cada equipo de su liga. «Línea de 5 o línea de 4»: Wyscout (/api/data-analisis), sus partidos de liga de esta temporada con el sistema de cada uno.",
-    revisada: "2026-11-21",
+    origen: "El informe lo escribe el analista en la hoja RIVALES (la transición ofensiva, en Supabase «scout-rival-colectivo-extra»). Fecha, jornadas y dibujo, de BeSoccer; «Datos del rival» y «Por dónde ataca», de Wyscout y Opta; «Evolución comparada», «¿Ha cambiado su modelo?», «¿Se le rompe la salida si le presionamos?» y «Embudo del ataque», de Opta (opta:partidos); «Reparto del xG», de Opta (opta:jugadores-partidos); «Según el marcador», de Opta (opta:remates, opta:momento y opta:partidos); «Amplitud por banda», del evento a evento de Opta (opta:directo:<partido>). «Cómo progresa»: evento a evento de Opta (opta:directo:<partido>) de los últimos 8 partidos de cada equipo de su liga. «Balón a la espalda»: el mismo evento a evento de Opta (opta:directo:<partido>), los pases que le hacen al rival y a cada equipo de su liga. «Línea de 5 o línea de 4»: Wyscout (/api/data-analisis), sus partidos de liga de esta temporada con el sistema de cada uno. «Primera parte contra segunda parte»: evento a evento de Opta (opta:directo:<partido>), los últimos 8 partidos del rival y de cada equipo de su liga.",
+    revisada: "2026-11-22",
     bloques: [
+      {
+        titulo: "Lo nuevo (22/11/2026): ¿se repliega tras el descanso?",
+        filas: [
+          {
+            que: "Primera parte contra segunda parte · ¿se repliega?",
+            es: "Debajo de «Línea de 5 o línea de 4»: una barra doble en el campo (su portería a la izquierda) que llega hasta donde defiende en la 1.ª parte (oro) y en la 2.ª (azul), con una raya en la media de la liga de esa parte. Debajo, tres datos por parte (1.ª → 2.ª): altura del bloque en metros, % de sus toques en el último tercio y % de duelos ganados; al lado, cuánto cambia el rival entre las dos partes y cuánto cambia de media la liga, con ▲ verde si sube más que la liga y ▼ naranja si baja más. Si su bloque baja más de 5 m que la caída media de la liga, el titular avisa «Se repliega en la 2.ª parte: busca la transición»; si sube más de 5 m, «Tras el descanso adelanta el bloque». Con menos de 5 partidos, «tendencia»",
+            cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo; su liga, los equipos que se cruzan con él en el archivo. Altura del bloque: la x media (Opta 0-100 = 105 m, desde su portería) de sus Tackle, Interception y BallRecovery en esa parte. Último tercio: sus toques con x ≥ 66,7 entre todos sus toques (los mismos toques que el mapa de calor). Duelos: Aerial, TakeOn, Tackle, Challenge y AttemptedTackle suyos, % con resultado ganado. Todo sumado en sus partidos (cociente de sumas). Liga: para cada equipo de su liga con 40 acciones defensivas o más en cada parte, la diferencia 2.ª − 1.ª, y la media de esas diferencias, sin el rival. Aviso de repliegue: (su cambio de altura) − (cambio medio de la liga) < −5 m. Cuentas en lib/rivals/repliegue-partes.ts",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (21/11/2026): con línea de 5 y con línea de 4",
         filas: [

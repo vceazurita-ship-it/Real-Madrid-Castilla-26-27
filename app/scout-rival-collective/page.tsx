@@ -91,6 +91,7 @@ import { AmplitudBanda } from "@/components/rivals/AmplitudBanda";
 import { ProgresionRival } from "@/components/rivals/ProgresionRival";
 import { BalonEspalda } from "@/components/rivals/BalonEspalda";
 import { LineaDefensa } from "@/components/rivals/LineaDefensa";
+import { RepliegueParte } from "@/components/rivals/RepliegueParte";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2125,6 +2126,9 @@ export default function ScoutRivalCollective() {
 
           {/* Línea de 5 o línea de 4 (21/11/2026, idea de X): sus partidos partidos por el sistema de Wyscout, y el de sus últimos 3 por defecto. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <LineaDefensa equipo={rivalActivo.EQUIPO} />}
+
+          {/* Primera parte contra segunda (22/11/2026, idea de X): altura del bloque, territorio y duelos por parte contra la liga (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <RepliegueParte equipo={rivalActivo.EQUIPO} />}
 
           {/*
             Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.
