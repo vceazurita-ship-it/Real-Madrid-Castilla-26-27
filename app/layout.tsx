@@ -22,6 +22,7 @@ import { TrabajoPdfs } from "@/components/abp/pizarra/TrabajoPdfs";
 import { TrabajoExportar } from "@/components/abp/pizarra/TrabajoExportar";
 import { TrabajoInformes } from "@/components/informes/TrabajoInformes";
 import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
+import { ResaltaAncla } from "@/components/ui/ResaltaAncla";
 import { DescargasEnSegundoPlano } from "@/components/ui/DescargasEnSegundoPlano";
 import { AvisoTareasPendientes } from "@/components/portada/AvisoTareasPendientes";
 import { AvisoBaseDatos } from "@/components/ui/AvisoBaseDatos";
@@ -155,6 +156,8 @@ export default function RootLayout({
             <DescargasEnSegundoPlano />
             {/* Los encargos de Ajustes avisan al terminar, estés donde estés (29/10/2026). */}
             <AvisoEncargos />
+            {/* El enlace de una idea de X baja hasta lo nuevo y lo resalta (22/11/2026). */}
+            <ResaltaAncla />
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}
             <AvisoTareasPendientes />
             <AvisoBaseDatos />

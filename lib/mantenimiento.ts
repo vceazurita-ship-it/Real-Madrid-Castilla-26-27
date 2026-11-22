@@ -90,6 +90,8 @@ export type Encargo = {
   ok?: boolean;
   /** La última vez que salió bien: tras un fallo, dice de cuándo es lo publicado. */
   bienEn?: string;
+  /** Dónde se ve lo que ha hecho («/rivals?area=equipo#x-idea-…»); sólo `x-idea`, 22/11/2026. */
+  enlace?: string;
   /** Por dónde va un trabajo largo («3/6 · Timeline de Hudl»); sólo `partido`. */
   paso?: string;
   /**

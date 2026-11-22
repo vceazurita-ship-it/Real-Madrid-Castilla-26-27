@@ -28,7 +28,7 @@ import { usePlegado, type Tono } from "@/components/ajustes/Plegable";
 import { ProgresoEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { confirmar } from "@/lib/avisos";
 import { corriendo, estadoEncargo, vigiaVivo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
-import { CUENTA_X, accionesDe, type AccionIdea, type EstadoIdea, type Idea, type LecturaX } from "@/lib/x-ideas";
+import { CUENTA_X, accionesDe, enlaceSeguro, yaEnLaWeb, type AccionIdea, type EstadoIdea, type Idea, type LecturaX } from "@/lib/x-ideas";
 
 const fecha = (iso: string) =>
   Number.isFinite(Date.parse(iso))
@@ -305,6 +305,46 @@ const ROTULO: Record<AccionIdea, { texto: string; Icono: typeof Plus }> = {
   recuperar: { texto: "Recuperar", Icono: RotateCcw },
 };
 
+/* 22/11/2026: cuándo se publicó la web por última vez (public/publicado.txt), para decir si una idea ya se ve en ella. */
+let publicadoPromesa: Promise<string | null> | null = null;
+
+function usePublicado() {
+  const [publicado, setPublicado] = useState<string | null>(null);
+
+  useEffect(() => {
+    let vivo = true;
+    publicadoPromesa ??= fetch("/publicado.txt", { cache: "no-store" })
+      .then((r) => (r.ok ? r.text() : null))
+      .catch(() => null);
+    void publicadoPromesa.then((p) => {
+      if (vivo) setPublicado(p);
+    });
+    return () => {
+      vivo = false;
+    };
+  }, []);
+
+  return publicado;
+}
+
+/** «Ver lo nuevo»: lleva a la pantalla, su pestaña y el elemento resaltado (components/ui/ResaltaAncla.tsx). */
+function VerLoNuevo({ idea }: { idea: Idea }) {
+  const publicado = usePublicado();
+  const enWeb = yaEnLaWeb(idea, publicado);
+  const enlace = enlaceSeguro(idea.enlace) ?? idea.pantalla;
+
+  return (
+    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
+      <Link href={enlace} className="inline-flex min-h-[32px] items-center gap-1 rounded-full bg-[#C8A96B]/15 px-3 font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/25">
+        Ver lo nuevo <ArrowUpRight size={12} aria-hidden />
+      </Link>
+      {enWeb === true && <span className="text-emerald-200/80">Ya está en la web.</span>}
+      {enWeb === false && <span className="text-amber-200/85">Subida a GitHub: se verá en la web en la próxima publicación en Render.</span>}
+      {!idea.enlace && <span className="text-white/45">(añadida antes del 22/11: abre su pantalla, sin bajar a lo nuevo)</span>}
+    </div>
+  );
+}
+
 function TarjetaIdea({
   idea,
   cola,
@@ -349,6 +389,8 @@ function TarjetaIdea({
           <ChevronDown size={16} aria-hidden className={`text-white/45 transition-transform ${abierto ? "rotate-180" : ""}`} />
         </span>
       </button>
+
+      {idea.estado === "añadida" && <VerLoNuevo idea={idea} />}
 
       {abierto && (
         <>

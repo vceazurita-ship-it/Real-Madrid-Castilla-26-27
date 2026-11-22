@@ -1161,7 +1161,10 @@ async function haceXIdea() {
   /* `acaba` se come la orden: se mira antes. */
   const orden = cortadoPorOrden.get("x-idea");
 
-  await acaba("x-idea", codigo === 0, dice);
+  /* 22/11/2026: el aviso de «hecho» lleva a ver lo nuevo, no a Ajustes. */
+  const enlace = codigo === 0 ? require(path.join(RAIZ, "lib/x-ideas.ts")).enlaceSeguro(texto.match(/^ENLACE: (\S+)$/m)?.[1]) : null;
+
+  await acaba("x-idea", codigo === 0, dice, { enlace: enlace ?? undefined });
   apunta(`Idea de X: ${dice}.`);
 
   /* Cancelada o en pausa a medias: la idea sale de la cola (no se publicó nada); al reiniciar sigue en ella. */

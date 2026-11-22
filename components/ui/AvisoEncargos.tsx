@@ -71,7 +71,8 @@ export function AvisoEncargos() {
                   titulo: encargo.ok === false ? `${NOMBRE[tarea]}: no ha salido` : `${NOMBRE[tarea]}: hecho`,
                   texto: encargo.resultado?.replace(/^RESUMEN:\s*/i, "").slice(0, 160),
                   ok: encargo.ok !== false,
-                  href: "/ajustes",
+                  /* 22/11/2026: una idea de X que ha salido lleva a verla (la pantalla, su pestaña y el elemento resaltado). */
+                  href: tarea === "x-idea" && encargo.ok !== false && encargo.enlace?.startsWith("/") && !encargo.enlace.startsWith("//") ? encargo.enlace : "/ajustes",
                   clave: `${tarea}:${encargo.hechoEn}`,
                 });
               }

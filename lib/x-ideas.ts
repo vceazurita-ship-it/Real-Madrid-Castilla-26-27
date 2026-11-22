@@ -119,7 +119,46 @@ export type Idea = {
   fallo?: string;
   /** Lo que cuenta quien la programó, en una o dos frases. */
   resumen?: string;
+  /**
+   * 22/11/2026: dónde se ve exactamente lo nuevo: la ruta con los parámetros
+   * que abren su pestaña y, si quien la programó puso el ancla, `#x-idea-<id>`
+   * (la página baja hasta ahí y lo resalta: components/ui/ResaltaAncla.tsx).
+   */
+  enlace?: string;
+  /** Cuándo se subió a GitHub: con public/publicado.txt dice si ya está en la web. */
+  anadidaEn?: string;
 };
+
+/** El id que lleva el elemento nuevo de una idea, para llegar a él con `#`. */
+export const anclaDe = (id: string) => `x-idea-${String(id).replace(/[^a-z0-9_-]/gi, "").slice(0, 40)}`;
+
+/**
+ * Un enlace interno que se puede abrir sin miedo: empieza por «/» (no «//»),
+ * sin espacios ni comillas, y como mucho 300 caracteres. Si no, null.
+ */
+export function enlaceSeguro(valor: unknown): string | null {
+  const t = String(valor ?? "").trim().replace(/^`|`$/g, "");
+
+  return /^\/(?!\/)[A-Za-z0-9\-._~/?=&%#:+,]*$/.test(t) && t.length <= 300 ? t : null;
+}
+
+/** Cuándo se añadió (las de antes del 22/11 no lo apuntaban: se saca de su historial). */
+export function cuandoSeAnadio(idea: Idea): string | null {
+  if (idea.estado !== "añadida") return null;
+  if (idea.anadidaEn) return idea.anadidaEn;
+
+  return [...idea.log].reverse().find((a) => /^Añadida y publicada/.test(a.texto))?.en ?? null;
+}
+
+/** Si ya se ve en la web: se añadió antes de la última publicación en Render (public/publicado.txt). */
+export function yaEnLaWeb(idea: Idea, publicado: string | null): boolean | null {
+  const cuando = cuandoSeAnadio(idea);
+  const p = publicado ? Date.parse(publicado.trim()) : NaN;
+
+  if (!cuando || !Number.isFinite(p)) return null;
+
+  return Date.parse(cuando) <= p;
+}
 
 export type DocIdeas = { ideas: Idea[] };
 

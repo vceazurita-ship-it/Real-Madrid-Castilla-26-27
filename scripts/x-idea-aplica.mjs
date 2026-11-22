@@ -326,7 +326,8 @@ function encargoAnadir(idea) {
     `6. Regla de la ayuda (AGENTS.md): actualiza en lib/ayuda/paginas.ts la entrada de ${idea.pantalla} (qué hay, de dónde sale, cómo se calcula) y su \`revisada: "${HOY}"\`; si no tiene entrada, créala.`,
     "7. Funciona en modo día y noche y en móvil, como el resto de la app.",
     "8. Comprueba UNA vez, al final, con `npx tsc --noEmit -p .` y `npx eslint <ficheros que toques>` (en primer plano, sin esperas en bucle); si fallan, arregla y repite sólo lo que falló. NO hagas git (ni commit, ni push) ni `next build`: lo hace el script que te llama, que vuelve a comprobarlo todo.",
-    "Al acabar, la última línea de tu respuesta: «RESUMEN: <qué has cambiado, en una o dos frases>».",
+    `9. Para que el analista lo vea a la primera: pon id="${X.anclaDe(idea.id)}" en el elemento que contiene lo nuevo (la tarjeta, el gráfico o la fila; uno solo, visible en la pantalla, no dentro de un menú cerrado). Si lo nuevo está en una pestaña, área o filtro que no es el que se abre por defecto, mira en el código qué parámetro de la URL lo abre.`,
+    "Al acabar, las dos últimas líneas de tu respuesta: «DONDE: <la ruta exacta en la que se ve, con los parámetros que abren su pestaña o área; p. ej. /data-analisis?area=equipo>» y «RESUMEN: <qué has cambiado, en una o dos frases>».",
     "",
     "<<<IDEA",
     `Título: ${sinMarcas(idea.titulo)}`,
@@ -336,6 +337,8 @@ function encargoAnadir(idea) {
     "IDEA>>>",
   ].join("\n");
 }
+
+const dondeDe = (texto) => texto.split(/\r?\n/).map((l) => l.match(/DONDE:\s*(\S+)/)?.[1]).filter(Boolean).pop() ?? "";
 
 const resumenDe = (texto) => texto.split(/\r?\n/).map((l) => l.match(/RESUMEN:\s*(.+)$/)?.[1]?.trim()).filter(Boolean).pop() ?? "";
 
@@ -370,9 +373,16 @@ async function anadir(idea) {
 
   git(["commit", "-q", "-m", `Idea de X: ${idea.titulo} [skip render]\n\n${idea.idea}\n\nPantalla: ${idea.pantalla}\nPublicación: ${idea.url}\n\nCo-Authored-By: Claude <noreply@anthropic.com>`]);
 
+  /* 22/11/2026: el enlace exacto. La ruta que dice (interna y de la misma pantalla) y el ancla, sólo si de verdad la ha puesto. */
+  const ancla = X.anclaDe(idea.id);
+  const conAncla = git(["show", "--format=", "HEAD"]).includes(`"${ancla}"`);
+  const donde = X.enlaceSeguro(dondeDe(r.texto).split("#")[0]);
+  const base = donde && donde.split("?")[0].startsWith(idea.pantalla.split("?")[0]) ? donde : idea.pantalla;
+  const enlace = X.enlaceSeguro(`${base}${conAncla ? `#${ancla}` : ""}`) ?? idea.pantalla;
+
   const sha = await publica(tocados, idea.pantalla);
 
-  return { sha, resumen, tocados };
+  return { sha, resumen, tocados, enlace };
 }
 
 /* ------------------------------------------------------------------ */
@@ -467,12 +477,13 @@ async function principal() {
 
   try {
     if (accion === "añadir") {
-      const { sha, resumen } = await anadir(idea);
+      const { sha, resumen, enlace } = await anadir(idea);
 
       await cambiaIdea(idea.id, (i) =>
-        X.anota({ ...i, estado: "añadida", pedido: undefined, commits: [sha], revert: undefined, fallo: undefined, resumen: resumen || undefined }, EN_SECO ? `Comprobada en seco (${sha.slice(0, 7)}), sin publicar` : `Añadida y publicada (${sha.slice(0, 7)})`, en()),
+        X.anota({ ...i, estado: "añadida", pedido: undefined, commits: [sha], revert: undefined, fallo: undefined, resumen: resumen || undefined, enlace, anadidaEn: en() }, EN_SECO ? `Comprobada en seco (${sha.slice(0, 7)}), sin publicar` : `Añadida y publicada (${sha.slice(0, 7)})`, en()),
       );
 
+      console.log(`ENLACE: ${enlace}`);
       console.log(`RESUMEN: «${idea.titulo}» añadida y publicada (${sha.slice(0, 7)})`);
     } else {
       const { sha } = await deshacer(idea);
