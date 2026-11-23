@@ -577,9 +577,27 @@ async function conecta() {
 
       if (!e) return null;
 
-      const r = e.getBoundingClientRect();
+      /*
+      | 23/11/2026: centrado y sin nada encima. Tras varios equipos, el clic
+      | en «España» o «Inglaterra» se perdía con el país a la vista: caía en
+      | una capa que lo tapaba. Se guarda el elemento para el clic de
+      | reserva por el DOM (clicHasta, último intento).
+      */
+      window.__rmcfObjetivo = e;
 
-      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+      let r = e.getBoundingClientRect();
+
+      if (r.top < 60 || r.bottom > innerHeight - 40) {
+        e.scrollIntoView({ block: "center", inline: "center" });
+        r = e.getBoundingClientRect();
+      }
+
+      const x = Math.round(r.left + r.width / 2);
+      const y = Math.round(r.top + r.height / 2);
+      const encima = document.elementFromPoint(x, y);
+      const tapado = !!encima && encima !== e && !e.contains(encima) && !encima.contains(e);
+
+      return { x, y, tapado };
     `);
 
   /**
@@ -592,9 +610,17 @@ async function conecta() {
    * `mousedown`.
    */
   const clic = async (texto, { indice = 0, luego = 3500 } = {}) => {
-    const sitio = await donde(texto, indice);
+    let sitio = await donde(texto, indice);
 
     if (!sitio) return false;
+
+    /* Algo encima del sitio (23/11/2026): Escape y se vuelve a medir. */
+    if (sitio.tapado) {
+      await manda("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+      await manda("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+      await espera(600);
+      sitio = (await donde(texto, indice)) ?? sitio;
+    }
 
     await manda("Input.dispatchMouseEvent", {
       type: "mouseMoved", x: sitio.x, y: sitio.y, button: "none",
@@ -634,6 +660,32 @@ async function conecta() {
   const clicHasta = async (texto, patron, { intentos = 3, segundos = 20 } = {}) => {
     for (let i = 0; i < intentos; i++) {
       if (!(await clic(texto, { luego: 900 }))) return false;
+
+      if (await esperaA(patron, segundos)) return true;
+
+      /* Lo que tape el sitio (un aviso, el chat de Hudl…) se cierra con Escape. */
+      await manda("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+      await manda("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+    }
+
+    /*
+    | Reserva (23/11/2026): si tres clics de ratón no han hecho nada, uno por
+    | el DOM sobre el mismo elemento y sus contenedores. En la rejilla de
+    | países y competiciones sí responde; en otros sitios no hace daño.
+    */
+    if (await donde(texto)) {
+      await js(`
+        let e = window.__rmcfObjetivo;
+        for (let n = 0; e && n < 4; n++, e = e.parentElement) {
+          /* Si el primer clic ya ha navegado, el elemento ya no está: basta. */
+          if (!e.isConnected) break;
+          e.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+          e.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+          e.click();
+          if (n === 0) await new Promise((r) => setTimeout(r, 400));
+        }
+        return true;
+      `).catch(() => {});
 
       if (await esperaA(patron, segundos)) return true;
     }
