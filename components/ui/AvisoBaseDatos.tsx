@@ -129,7 +129,7 @@ export function AvisoBaseDatos() {
                 <Barra
                   nombre="Render · minutos de compilación"
                   uso={estado.render.minutosEstimados / estado.render.tope}
-                  detalle={`Unos ${estado.render.minutosEstimados} de 500 este mes. Se publica por lotes (7:00 y 15:00) y se para solo antes del tope.`}
+                  detalle={`Unos ${estado.render.minutosEstimados} de 500 este mes. Sólo se publica cuando lo autorizas, de una vez con todo lo pendiente.`}
                 />
               )}
               {estado.base && <Barra nombre="Base de datos" uso={estado.base.bytes / 1e9} detalle={`${mb(estado.base.bytes)} de 1 GB.`} />}
