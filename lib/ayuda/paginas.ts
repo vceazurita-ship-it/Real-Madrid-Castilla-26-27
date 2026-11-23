@@ -2867,15 +2867,20 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/laboratorio/abp",
     titulo: "Laboratorio de ABP",
     resumen:
-      "Lo que hacen los mejores en balón parado, las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
+      "Lo que hacen los mejores en balón parado, los análisis de fuera que llegan cada mañana (@HybridMarking, con sus vídeos), las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-18",
+    revisada: "2026-11-23",
     bloques: [
       {
         titulo: "Las pestañas",
         filas: [
           { que: "Referentes", es: "Principios, rutinas y formación de Jover, Cueva, Brentford, Georgson, Vio, Grønnemark y Coulston, con buscador y ruta de aprendizaje gratuita. «Al taller» la lleva ya dibujada si hay esquema" },
+          {
+            que: "Análisis externos (23/11/2026, ?seccion=externos)",
+            es: "Los hilos de analistas de balón parado de fuera (por ahora @HybridMarking) que llegan cada mañana: título, equipo y competición, resumen, principios, «Para el Castilla» (qué probar, qué entrenar, de qué cuidarnos), etiquetas y un recuadro por vídeo con el tipo de acción, a favor o en contra, si acabó en gol o remate, qué pasa y «La clave». «Al taller» lleva la acción al Taller como rutina nueva con la fuente. Filtros por tipo, a favor / en contra, «Sólo lo nuevo» y buscador. Arriba, cada cuenta con cuándo se leyó y si hay algún problema. Lo nuevo va marcado en oro; en la pestaña sale cuántos hay sin ver y, en cualquier pantalla de la app, al administrador le salta un aviso con «Ver» que lleva al hilo",
+            cuenta: "scripts/abp-externos.mjs, al acabar las ideas de X de cada mañana (7:45, encargo `x`): lee la pestaña «Respuestas» de la cuenta con el Chrome de X, junta cada hilo (sus respuestas al propio hilo y la publicación que lo cita), toma de la ficha pública de cada publicación el texto, las fotos y los mp4, saca dos fotogramas de cada vídeo y Claude, sin herramientas que escriban, devuelve el análisis en castellano; lo que no es análisis de balón parado se descarta. Va al documento abp-externos (sólo el administrador, vetado en /api/docs): sale sin publicar la web ni reiniciar nada. Los vídeos se ven desde X (no se copian, no gastan almacén): si el autor borra la publicación, deja de verse el vídeo y se queda el análisis. «Nuevo» = llegó después de la última vez que abriste la sección",
+          },
           { que: "Lo mejor de cada jornada", es: "Las cinco mejores acciones a balón parado de cada jornada de Primera RFEF (los dos grupos), LaLiga, Segunda, Premier y Champions: goles primero, luego por xG; vídeo del resumen oficial si lo hay" },
           {
             que: "Patrones que más rinden",

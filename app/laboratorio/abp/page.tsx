@@ -22,12 +22,13 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, BookMarked, Database, FlaskConical, LayoutTemplate, Swords, Target, Trophy } from "lucide-react";
+import { BarChart3, BookMarked, Database, FlaskConical, LayoutTemplate, Newspaper, Swords, Target, Trophy } from "lucide-react";
 import Link from "next/link";
 import { toast } from "sonner";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
 import { traeDeLaPizarra } from "@/components/abp-lab/EnLaPizarra";
+import { Externos } from "@/components/abp-lab/Externos";
 import { MejorJornada, borradorDeAccion } from "@/components/abp-lab/MejorJornada";
 import { OptaAbpEventos } from "@/components/abp-lab/OptaAbpEventos";
 import { OptaBalonParado } from "@/components/abp-lab/OptaBalonParado";
@@ -57,11 +58,13 @@ function defensaDe(texto?: string): Defensa {
   return zona && hombre ? "mixta" : zona ? "zona" : hombre ? "hombre" : "cualquiera";
 }
 
-type Pestana = "referentes" | "jornada" | "pizarra" | "taller" | "retos" | "opta";
+type Pestana = "referentes" | "externos" | "jornada" | "pizarra" | "taller" | "retos" | "opta";
 
 const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Trophy; lema: string }[] = [
   /* Sin lema (30/10/2026): «Lo que hacen los mejores» encima del buscador no aportaba nada. */
   { key: "referentes", label: "Referentes", corto: "Referentes", icon: BookMarked, lema: "" },
+  /* 23/11/2026: lo que publican analistas de fuera (por ahora @HybridMarking), cada mañana y con aviso. */
+  { key: "externos", label: "Análisis externos", corto: "Externos", icon: Newspaper, lema: "X · @HybridMarking, cada mañana, analizado en castellano" },
   { key: "jornada", label: "Lo mejor de cada jornada", corto: "Jornada", icon: Target, lema: "Wyscout, cada mañana" },
   { key: "pizarra", label: "En la pizarra", corto: "Pizarra", icon: LayoutTemplate, lema: "Nuestras jugadas en uso" },
   { key: "taller", label: "Taller", corto: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
@@ -76,6 +79,20 @@ function esPestana(valor: string | null): valor is Pestana {
 
 export default function LaboratorioAbpPage() {
   const [pestana, setPestana] = useState<Pestana>("referentes");
+
+  /* Cuántos análisis externos hay sin ver (el número de su pestaña). */
+  const [externosNuevos, setExternosNuevos] = useState(0);
+
+  useEffect(() => {
+    let vivo = true;
+    void fetch("/api/abp-lab/externos?resumen=1", { cache: "no-store" })
+      .then((r) => r.json() as Promise<{ ok?: boolean; nuevos?: number }>)
+      .then((j) => vivo && j.ok && setExternosNuevos(j.nuevos ?? 0))
+      .catch(() => undefined);
+    return () => {
+      vivo = false;
+    };
+  }, []);
 
   /* Dónde empieza el contenido: al cambiar de sección se vuelve aquí, no al final de la anterior. */
   const contenido = useRef<HTMLDivElement>(null);
@@ -428,6 +445,11 @@ export default function LaboratorioAbpPage() {
                       <Icono size={15} />
                       <span className="sm:hidden">{p.corto}</span>
                       <span className="hidden sm:inline">{p.label}</span>
+                      {p.key === "externos" && externosNuevos > 0 && (
+                        <span className="rounded-full bg-[#C8A96B] px-1.5 text-[10px] font-bold text-[color:var(--rmcf-on-gold)]" aria-label={`${externosNuevos} nuevos`}>
+                          {externosNuevos}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
@@ -471,6 +493,15 @@ export default function LaboratorioAbpPage() {
                       idea: rutina.pasos.map((p, i) => `${i + 1}. ${p}`).join("\n"),
                       ...(esquema ? { roles: esquema.roles.map((r) => ({ ...r })), balon: esquema.balon.map((p) => ({ ...p })) } : {}),
                     });
+                    irA("taller");
+                  }}
+                />
+              )}
+
+              {pestana === "externos" && (
+                <Externos
+                  onAlTaller={(b) => {
+                    setBorrador(b);
                     irA("taller");
                   }}
                 />

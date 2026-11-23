@@ -279,6 +279,19 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/ajustes?pestana=actualizaciones",
   },
   {
+    /* 23/11/2026: al acabar las ideas de X, el mismo encargo lee los análisis de ABP de fuera (scripts/abp-externos.mjs). */
+    clave: "abp-externos",
+    nombre: "Análisis externos de ABP desde X",
+    alimenta: "Laboratorio de ABP → «Análisis externos»: los hilos de @HybridMarking con su análisis en castellano y sus vídeos, y el aviso de lo nuevo",
+    fuente: "X, con la sesión del Chrome de X del ordenador del club; vídeos y fotos desde la ficha pública de cada publicación",
+    cuando: "Cada mañana a las 7:45, después de las ideas de X",
+    grupo: "diario",
+    cadaHoras: 24,
+    docs: ["abp-externos"],
+    encargo: "x",
+    enlace: "/laboratorio/abp?seccion=externos",
+  },
+  {
     /* 23/11/2026: los Team Stats de LaLiga, Premier, Serie A, Bundesliga, Ligue 1, Segunda y 1.ª RFEF G1 (el G2 es el de DATA). */
     clave: "ligas-comparativa",
     nombre: "Comparativa de ligas",

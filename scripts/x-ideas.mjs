@@ -33,204 +33,25 @@
  * Códigos: 0 bien · 3 falta la sesión de X · 4 X pide comprobación · 1 fallo.
  */
 import fs from "node:fs";
-import os from "node:os";
 import path from "node:path";
-import { spawn } from "node:child_process";
 
 import { CACHE, RAIZ, X, cambiaDoc, claro, claude, leeDoc, paso, pausa, require, sal } from "./x-comun.mjs";
+import { leeX } from "./x-lector.mjs";
+import { spawn } from "node:child_process";
 
-const PUERTO = Number(process.env.X_PUERTO ?? 9336);
-const PERFIL = path.join(process.env.LOCALAPPDATA ?? os.homedir(), "rmcf-x");
 const iCuenta = process.argv.indexOf("--cuenta");
 const SOLO = iCuenta > 0 ? String(process.argv[iCuenta + 1] ?? "").toLowerCase() : null;
 const CUENTAS = X.CUENTAS_X.filter((c) => !SOLO || c.cuenta.toLowerCase() === SOLO);
 const iDias = process.argv.indexOf("--dias");
 const DIAS = iDias > 0 ? Math.min(120, Math.max(1, Number(process.argv[iDias + 1]) || 0)) : 0;
-let PERFIL_URL = `https://x.com/${X.CUENTA_X}`;
-const CHROME = [
-  "C:/Program Files/Google/Chrome/Application/chrome.exe",
-  "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe",
-].find((r) => fs.existsSync(r));
-
 const EN_SECO = process.argv.includes("--en-seco");
 const iPrueba = process.argv.indexOf("--prueba");
 const PRUEBA = iPrueba > 0 ? process.argv[iPrueba + 1] : null;
-
 /** La primera vez no se vuelca el perfil entero: sólo lo más reciente. */
 const PRIMERA_VEZ = 5;
 const MAX_NUEVOS = DIAS ? 150 : 15;
 /** Publicaciones por consulta a Claude (con imágenes, menos). */
 const POR_TANDA = 10;
-
-/* ------------------------------------------------------------------ */
-/*  CHROME                                                             */
-/* ------------------------------------------------------------------ */
-
-async function pestanas() {
-  try {
-    return await (await fetch(`http://127.0.0.1:${PUERTO}/json/list`)).json();
-  } catch {
-    return null;
-  }
-}
-
-async function abreChrome() {
-  if (await pestanas()) return true;
-  if (!CHROME) return false;
-
-  fs.mkdirSync(PERFIL, { recursive: true });
-  spawn(
-    CHROME,
-    [`--remote-debugging-port=${PUERTO}`, `--user-data-dir=${PERFIL}`, "--no-first-run", "--no-default-browser-check", "--window-size=1300,950", PERFIL_URL],
-    { stdio: "ignore", detached: true },
-  ).unref();
-
-  for (let i = 0; i < 30 && !(await pestanas()); i++) await pausa(1000, 1000);
-  await pausa(5000, 7000);
-
-  return Boolean(await pestanas());
-}
-
-async function conecta() {
-  let pag = (await pestanas()).find((p) => p.type === "page" && /\/\/(x|twitter)\.com/.test(p.url));
-
-  if (!pag) {
-    const nueva = await fetch(`http://127.0.0.1:${PUERTO}/json/new?${PERFIL_URL}`, { method: "PUT" });
-    pag = await nueva.json();
-    await pausa(6000, 8000);
-  }
-
-  const ws = new WebSocket(pag.webSocketDebuggerUrl);
-  await new Promise((ok, mal) => {
-    ws.onopen = ok;
-    ws.onerror = mal;
-  });
-
-  let id = 0;
-  const pend = new Map();
-  ws.onmessage = (e) => {
-    const m = JSON.parse(e.data);
-    if (m.id && pend.has(m.id)) {
-      pend.get(m.id)(m);
-      pend.delete(m.id);
-    }
-  };
-
-  const manda = (method, params = {}, plazo = 60_000) =>
-    new Promise((ok, mal) => {
-      const i = ++id;
-      const t = setTimeout(() => {
-        pend.delete(i);
-        mal(new Error("Chrome no contesta (plazo agotado)."));
-      }, plazo);
-      pend.set(i, (m) => {
-        clearTimeout(t);
-        if (m.error) mal(new Error(m.error.message));
-        else ok(m.result);
-      });
-      ws.send(JSON.stringify({ id: i, method, params }));
-    });
-
-  const evalua = async (expresion) => {
-    const r = await manda("Runtime.evaluate", { expression: expresion, awaitPromise: true, returnByValue: true });
-    if (r?.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? "Error en la página");
-    return r?.result?.value;
-  };
-
-  const ve = async (url) => {
-    await manda("Page.navigate", { url });
-    await pausa(6000, 9000);
-  };
-
-  return { evalua, ve, cierra: () => ws.close() };
-}
-
-/** Lo que hace falta para saber si hay sesión o comprobación, sin bajar la página entera. */
-const MIRA_PAGINA = `(() => ({
-  url: location.href,
-  marcas: [...new Set([...document.querySelectorAll("[data-testid]")].map((e) => e.getAttribute("data-testid")))].slice(0, 400)
-    .map((t) => 'data-testid="' + t + '"').join(" ") +
-    " " + [...document.querySelectorAll("iframe")].map((f) => f.src).join(" ")
-}))()`;
-
-const ARTICULOS = `[...document.querySelectorAll('article[data-testid="tweet"]')].map((a) => a.outerHTML)`;
-
-/* ------------------------------------------------------------------ */
-/*  LEER                                                               */
-/* ------------------------------------------------------------------ */
-
-/** Una publicación que abre un hilo: se abre para juntar lo que sigue del mismo autor. */
-const ABRE_HILO = /🧵|\b1\s*\/\s*\d+\b|\bhilo\b|\bthread\b|👇/i;
-
-async function leeX(vistos, cuenta) {
-  PERFIL_URL = `https://x.com/${cuenta}`;
-  const corte = DIAS ? Date.now() - DIAS * 86_400_000 : 0;
-  paso(1, 4, "abriendo el Chrome de X");
-
-  if (!(await abreChrome())) return { estado: "sin-chrome", detalle: "no encuentro Chrome o no arranca con el puerto de X" };
-
-  const c = await conecta();
-
-  try {
-    await c.ve(PERFIL_URL);
-
-    const pagina = await c.evalua(MIRA_PAGINA);
-
-    if (X.pideComprobacion(pagina.url, pagina.marcas)) return { estado: "comprobacion", detalle: "X pide comprobación" };
-    if (X.pideEntrar(pagina.url, pagina.marcas)) return { estado: "falta-sesion", detalle: "falta iniciar sesión en X" };
-
-    paso(2, 4, `leyendo @${cuenta}${DIAS ? ` (los últimos ${DIAS} días)` : ""}`);
-
-    const htmls = [];
-
-    /* Dos o tres pantallas, como quien baja con la rueda; se para al llegar a lo ya visto. */
-    /* Con --dias se baja hasta pasar la fecha de corte (como mucho 60 pantallas). */
-    for (let vuelta = 0; vuelta < (DIAS ? 60 : 3); vuelta++) {
-      htmls.push(...((await c.evalua(ARTICULOS)) ?? []));
-
-      const hasta = X.postsDeArticulos(htmls, cuenta, Boolean(DIAS));
-      if (DIAS) {
-        if (hasta.some((p) => Date.parse(p.fecha) < corte) || hasta.length >= MAX_NUEVOS) break;
-      } else if (hasta.some((p) => vistos.has(p.id)) || hasta.length >= MAX_NUEVOS) break;
-
-      await c.evalua("window.scrollBy(0, Math.round(window.innerHeight * 1.6))");
-      await pausa(3500, 6000);
-    }
-
-    let posts = X.postsDeArticulos(htmls, cuenta, Boolean(DIAS));
-    if (DIAS) posts = posts.filter((p) => Date.parse(p.fecha) >= corte);
-
-    console.log(`${posts.length} publicaciones a la vista`);
-
-    /* Los hilos del propio autor: como mucho dos por pasada. */
-    let hilos = 0;
-
-    for (const p of posts) {
-      if (vistos.has(p.id) || hilos >= 2 || !ABRE_HILO.test(p.texto)) continue;
-
-      hilos += 1;
-      await pausa(2500, 4500);
-      await c.ve(p.url);
-
-      const conversacion = X.postsDeArticulos((await c.evalua(ARTICULOS)) ?? [], cuenta)
-        .filter((q) => q.id !== p.id && Date.parse(q.fecha) >= Date.parse(p.fecha))
-        .sort((a, b) => Date.parse(a.fecha) - Date.parse(b.fecha))
-        .slice(0, 12);
-
-      if (conversacion.length) {
-        p.texto = [p.texto, ...conversacion.map((q) => q.texto)].join("\n\n").slice(0, 8000);
-        p.imagenes = [...new Set([...(p.imagenes ?? []), ...conversacion.flatMap((q) => q.imagenes ?? [])])].slice(0, 6);
-        console.log(`hilo ${p.id}: ${conversacion.length} más del mismo autor`);
-      }
-    }
-
-    posts = posts.filter((p) => !vistos.has(p.id));
-
-    return { estado: "ok", posts };
-  } finally {
-    c.cierra();
-  }
-}
 
 /* ------------------------------------------------------------------ */
 /*  LAS IDEAS                                                          */
@@ -349,7 +170,7 @@ async function unaCuenta(cuenta, ahora) {
   let leido;
 
   try {
-    leido = await leeX(vistos, cuenta.cuenta);
+    leido = await leeX(vistos, cuenta.cuenta, { dias: DIAS, maxNuevos: MAX_NUEVOS });
   } catch (e) {
     await apuntaLectura({ estado: "error", detalle: claro(e) });
     console.log(`FALLO: @${cuenta.cuenta}: ${claro(e)}`);
@@ -459,9 +280,49 @@ async function principal() {
     await pausa(3000, 5000);
   }
 
+  /*
+   * 23/11/2026: con el Chrome de X ya abierto, los análisis externos del
+   * Laboratorio de ABP (scripts/abp-externos.mjs). Va aparte para que un fallo
+   * suyo no tumbe las ideas, y como hijo para que valga sin reiniciar el vigía.
+   */
+  const sinSesion = resultados.some((r) => r.codigo === 3 || r.codigo === 4);
+  if (!SOLO && !DIAS && !EN_SECO && !sinSesion) resultados.push(await abpExternos());
+
   console.log(`RESUMEN: ${resultados.map((r) => r.texto).join(" · ")}`);
 
-  return resultados.find((r) => r.codigo !== 0)?.codigo ?? 0;
+  return resultados.find((r) => r.codigo !== 0 && !r.aparte)?.codigo ?? 0;
+}
+
+function abpExternos() {
+  return new Promise((resolve) => {
+    const hijo = spawn(process.execPath, [path.join(RAIZ, "scripts/abp-externos.mjs")], { cwd: RAIZ, windowsHide: true, stdio: ["ignore", "pipe", "pipe"] });
+    let resumen = "";
+    const linea = (l) => {
+      if (!l.trim()) return;
+      const r = l.match(/^RESUMEN:\s*(.+)$/)?.[1];
+      if (r) resumen = r;
+      /* Sus pasos no pisan los de las ideas en la barra de progreso de Ajustes. */
+      else console.log(l.startsWith("PASO:") ? `ABP externos · ${l.slice(5).trim()}` : l);
+    };
+    let resto = "";
+    const recoge = (t) => {
+      const lineas = (resto + t.toString()).split(/\r?\n/);
+      resto = lineas.pop() ?? "";
+      lineas.forEach(linea);
+    };
+    hijo.stdout.on("data", recoge);
+    hijo.stderr.on("data", recoge);
+    const reloj = setTimeout(() => hijo.kill(), 45 * 60_000);
+    hijo.on("close", (codigo) => {
+      clearTimeout(reloj);
+      linea(resto);
+      resolve({ codigo: codigo ?? 1, aparte: true, texto: resumen || `ABP externos: ha salido con código ${codigo}` });
+    });
+    hijo.on("error", (e) => {
+      clearTimeout(reloj);
+      resolve({ codigo: 1, aparte: true, texto: `ABP externos: no arranca (${claro(e)})` });
+    });
+  });
 }
 
 principal()
