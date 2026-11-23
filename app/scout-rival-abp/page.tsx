@@ -63,6 +63,7 @@ import { COLOR_DESENLACE, VisualAbp } from "@/components/abp/VisualAbp";
 import { Explicativo } from "@/components/ui/textos-analisis";
 import type { PatternCatalog } from "@/components/abp/PatternCombo";
 import { AbpWyscoutRival } from "@/components/abp/AbpWyscoutRival";
+import { ComoMarcaCorner } from "@/components/abp/ComoMarcaCorner";
 import { PenaltisLanzadores } from "@/components/abp/PenaltisLanzadores";
 import { useAlturasBesoccer } from "@/hooks/useAlturasBesoccer";
 import { RivalScoutEditor } from "@/components/abp/RivalScoutEditor";
@@ -1407,6 +1408,9 @@ export default function ScoutRivalAbpPage() {
                   )}
                 </>
               )}
+
+              {/* Cómo marca de córner (23/11/2026): primer toque, rechace o en corto, de Opta; en Visual y en Detalle. */}
+              {vista === "resumen" && equipo && grupo === "liga" && <ComoMarcaCorner equipo={equipo} />}
 
               {/* -------------------- estaturas --------------------- */}
 
