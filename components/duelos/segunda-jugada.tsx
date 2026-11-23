@@ -135,7 +135,7 @@ function Bloque({ equipo, teamId, idsRival, idsNuestros, cortos }: { equipo: str
   const directo = suyo ? esJuegoDirecto(suyo) : false;
 
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div id="x-idea-2123322754879373347-2" className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
         <p className="text-sm font-semibold">Segunda jugada · tras el balón largo, ¿quién se queda el balón?</p>
         {suyo && suyo.parteLargosRivales != null && (

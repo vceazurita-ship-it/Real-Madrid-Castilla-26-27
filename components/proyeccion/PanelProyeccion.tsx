@@ -162,9 +162,9 @@ function Tendencia() {
   );
 }
 
-function Bloque({ titulo, icono, children }: { titulo: string; icono: ReactNode; children: ReactNode }) {
+function Bloque({ titulo, icono, children, id }: { titulo: string; icono: ReactNode; children: ReactNode; id?: string }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+    <div id={id} className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <p className="mb-2 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-white/60">
         {icono}
         {titulo}
@@ -498,7 +498,7 @@ function LadoEntrega({ l, rival }: { l: EntregaLado; rival: string }) {
 function ComoSacaElCorner({ e, rival }: { e: EntregaCorner; rival: string }) {
   const m = e.mayor;
   return (
-    <Bloque titulo="Cómo saca el córner" icono={<CornerDownRight size={13} className="text-[#C8A96B]" />}>
+    <Bloque id="x-idea-2121648614506422379-1" titulo="Cómo saca el córner" icono={<CornerDownRight size={13} className="text-[#C8A96B]" />}>
       <p className="mb-3 text-[12px] leading-snug text-white/60">
         {e.n} córners del {rival} en {e.partidos} {e.partidos === 1 ? "partido" : "partidos"}, por dónde caen (destino del pase de Opta) y frente al resto del grupo desde el mismo lado.
         Resaltado, lo que se separa 10 puntos o más{m ? "" : "; esta temporada no se separa en ninguna zona"}.

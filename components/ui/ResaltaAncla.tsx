@@ -40,6 +40,11 @@ export function ResaltaAncla() {
           return;
         }
 
+        /* Si lo nuevo está dentro de un bloque plegado (<details>), se despliega antes de bajar (23/11/2026). */
+        for (let d = el.closest("details"); d; d = d.parentElement?.closest("details") ?? null) {
+          if (!d.open) d.open = true;
+        }
+
         el.scrollIntoView({ behavior: "smooth", block: "center" });
 
         const antes = { outline: el.style.outline, offset: el.style.outlineOffset, transition: el.style.transition };

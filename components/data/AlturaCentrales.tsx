@@ -157,7 +157,7 @@ export function AlturaCentrales({ datos }: { datos: DatosOpta }) {
     `${r.n} ${r.n === 1 ? "partido" : "partidos"}${r.anchura != null ? ` · ${metros(r.anchura)} entre ellos` : ""}`;
 
   return (
-    <div className="mt-6">
+    <div id="x-idea-2120849681257464034-m" className="mt-6">
       <Panel
         titulo="¿A qué altura tocan el balón los centrales?"
         subtitulo={`Posición media de los toques de cada central del Castilla (${MIN_TOQUES} o más en el partido), atacando hacia arriba. Altura en metros desde nuestra portería; anchura, la distancia lateral entre ellos. Borde verde en casa, naranja fuera.`}

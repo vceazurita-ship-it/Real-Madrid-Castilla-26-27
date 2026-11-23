@@ -327,7 +327,7 @@ function encargoAnadir(idea) {
     "7. Funciona en modo día y noche y en móvil, como el resto de la app.",
     "8. Comprueba UNA vez, al final, con `npx tsc --noEmit -p .` y `npx eslint <ficheros que toques>` (en primer plano, sin esperas en bucle); si fallan, arregla y repite sólo lo que falló. NO hagas git (ni commit, ni push) ni `next build`: lo hace el script que te llama, que vuelve a comprobarlo todo.",
     `9. Para que el analista lo vea a la primera: pon id="${X.anclaDe(idea.id)}" en el elemento que contiene lo nuevo (la tarjeta, el gráfico o la fila; uno solo, visible en la pantalla, no dentro de un menú cerrado). Si lo nuevo está en una pestaña, área o filtro que no es el que se abre por defecto, mira en el código qué parámetro de la URL lo abre.`,
-    "Al acabar, las dos últimas líneas de tu respuesta: «DONDE: <la ruta exacta en la que se ve, con los parámetros que abren su pestaña o área; p. ej. /data-analisis?area=equipo>» y «RESUMEN: <qué has cambiado, en una o dos frases>».",
+    "Al acabar, las tres últimas líneas de tu respuesta: «DONDE: <la ruta exacta en la que se ve, con los parámetros que abren su pestaña o área; p. ej. /data-analisis?area=equipo>», «UBICACION: <dónde está dentro de la página, con los nombres que se ven en pantalla: pestaña o área → título del bloque → cerca de qué; p. ej. Pestaña Proyección del juego → tarjeta “Si le dejamos tocar”, debajo de “Cómo sale”>» y «RESUMEN: <qué has cambiado, en una o dos frases>».",
     "",
     "<<<IDEA",
     `Título: ${sinMarcas(idea.titulo)}`,
@@ -339,6 +339,8 @@ function encargoAnadir(idea) {
 }
 
 const dondeDe = (texto) => texto.split(/\r?\n/).map((l) => l.match(/DONDE:\s*(\S+)/)?.[1]).filter(Boolean).pop() ?? "";
+
+const ubicacionDe = (texto) => texto.split(/\r?\n/).map((l) => l.match(/UBICACI[OÓ]N:\s*(.+)$/)?.[1]?.trim()).filter(Boolean).pop()?.slice(0, 300) ?? "";
 
 const resumenDe = (texto) => texto.split(/\r?\n/).map((l) => l.match(/RESUMEN:\s*(.+)$/)?.[1]?.trim()).filter(Boolean).pop() ?? "";
 
@@ -382,7 +384,7 @@ async function anadir(idea) {
 
   const sha = await publica(tocados, idea.pantalla);
 
-  return { sha, resumen, tocados, enlace };
+  return { sha, resumen, tocados, enlace, ubicacion: ubicacionDe(r.texto) || undefined };
 }
 
 /* ------------------------------------------------------------------ */
@@ -477,10 +479,10 @@ async function principal() {
 
   try {
     if (accion === "añadir") {
-      const { sha, resumen, enlace } = await anadir(idea);
+      const { sha, resumen, enlace, ubicacion } = await anadir(idea);
 
       await cambiaIdea(idea.id, (i) =>
-        X.anota({ ...i, estado: "añadida", pedido: undefined, commits: [sha], revert: undefined, fallo: undefined, resumen: resumen || undefined, enlace, anadidaEn: en() }, EN_SECO ? `Comprobada en seco (${sha.slice(0, 7)}), sin publicar` : `Añadida y publicada (${sha.slice(0, 7)})`, en()),
+        X.anota({ ...i, estado: "añadida", pedido: undefined, commits: [sha], revert: undefined, fallo: undefined, resumen: resumen || undefined, enlace, ubicacion, anadidaEn: en() }, EN_SECO ? `Comprobada en seco (${sha.slice(0, 7)}), sin publicar` : `Añadida y publicada (${sha.slice(0, 7)})`, en()),
       );
 
       console.log(`ENLACE: ${enlace}`);

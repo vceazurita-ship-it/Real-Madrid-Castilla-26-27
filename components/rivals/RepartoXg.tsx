@@ -63,7 +63,7 @@ function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const escala = Math.max(...r.jugadores.map((j) => Math.max(j.xg, j.esperado)), 0.01);
 
   return (
-    <section aria-label="Reparto del xG" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2120810470731120818-m" aria-label="Reparto del xG" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
           Reparto del xG · {nombre}

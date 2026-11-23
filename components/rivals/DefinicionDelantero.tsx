@@ -116,7 +116,7 @@ function Tarjeta({ l }: { l: Lectura }) {
   const color = l.etiqueta ? COLOR[l.etiqueta] : null;
 
   return (
-    <section className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+    <section id="x-idea-2122318019565375730-1" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
       <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
           <Crosshair size={12} className="text-[#C8A96B]" />

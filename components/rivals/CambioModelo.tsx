@@ -63,7 +63,7 @@ function Contenido({ equipo }: { equipo: string }) {
   const color = etiqueta === "más reactivo" ? REACTIVO : PROTAGONISTA;
 
   return (
-    <section aria-label="¿Ha cambiado su modelo?" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2122305355028074817-1" aria-label="¿Ha cambiado su modelo?" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         ¿Ha cambiado su modelo?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

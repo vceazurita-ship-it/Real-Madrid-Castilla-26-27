@@ -80,7 +80,7 @@ function Contenido({ equipo }: { equipo: string }) {
   const sinDecision = diferencia == null || Math.abs(diferencia) < 0.3;
 
   return (
-    <section aria-label="Si le dejamos tocar, ¿se nos va?" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2122635655683481916-1" aria-label="Si le dejamos tocar, ¿se nos va?" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Proyección del juego · si le dejamos tocar, ¿se nos va?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

@@ -56,7 +56,7 @@ export function QuienLoEjecutaVista({
   const etiquetaDe = new Map(datos.contenidos.map((c) => [c.columna, c.texto.replace(/\.$/, "")]));
 
   return (
-    <section aria-label="¿Quién lo ejecuta mejor?" className="min-w-0">
+    <section id="x-idea-2120956385563172974-1" aria-label="¿Quién lo ejecuta mejor?" className="min-w-0">
       <p className="break-words text-sm text-gray-300">
         Cada jugador de campo del Castilla con {MINUTOS_CONTENIDO}′ o más de liga, medido contra los {datos.n} {plural} de la
         categoría en los {datos.contenidos.length} contenidos medibles del puesto. La cifra es la media de sus percentiles (0-100,

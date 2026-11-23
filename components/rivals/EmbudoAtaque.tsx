@@ -56,7 +56,7 @@ function Bloque({ equipo }: { equipo: string }) {
   const frase = lecturaEmbudo(embudo, nombre);
 
   return (
-    <section aria-label="Embudo del ataque" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2122060452850962593-1" aria-label="Embudo del ataque" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
           Embudo del ataque

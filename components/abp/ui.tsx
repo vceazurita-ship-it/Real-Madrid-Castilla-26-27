@@ -94,6 +94,7 @@ export function Panel({
   analisis,
   className = "",
   bodyClassName = "p-4 sm:p-5",
+  id,
 }: {
   title?: string;
   subtitle?: string;
@@ -110,9 +111,12 @@ export function Panel({
   analisis?: ReactNode;
   className?: string;
   bodyClassName?: string;
+  /** Ancla de «Ver lo nuevo» (ideas de X, 23/11/2026). */
+  id?: string;
 }) {
   return (
     <section
+      id={id}
       className={`min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] ${className}`}
     >
       {(title || action) && (

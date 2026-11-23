@@ -73,7 +73,7 @@ function Contenido({ equipo }: { equipo: string }) {
             : `Hacen falta ${MIN_PARTIDOS} partidos con dato para calcular la tendencia.`;
 
   return (
-    <section aria-label="¿Se le rompe la salida si le presionamos?" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2122640996244533358-1" aria-label="¿Se le rompe la salida si le presionamos?" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Cómo sale · ¿se le rompe la salida si le presionamos?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

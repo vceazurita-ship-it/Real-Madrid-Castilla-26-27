@@ -102,7 +102,7 @@ function Bloque({ equipo }: { equipo: string }) {
 
   if (filas === null) {
     return (
-      <section aria-label="Línea de 5 o línea de 4" className="portada-tarjeta mt-8 min-w-0 px-4 py-4 sm:px-5">
+      <section id="x-idea-2123838636231987322-1" aria-label="Línea de 5 o línea de 4" className="portada-tarjeta mt-8 min-w-0 px-4 py-4 sm:px-5">
         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Línea de 5 o línea de 4 · qué cambia</p>
         <p className="mt-1 text-sm text-white/60">Leyendo sus partidos en Wyscout…</p>
       </section>
@@ -137,7 +137,7 @@ function Bloque({ equipo }: { equipo: string }) {
       : `; con ${SUB[activa]} las cifras se parecen a las de ${SUB[otra]}.`);
 
   return (
-    <section aria-label="Línea de 5 o línea de 4" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2123838636231987322-1" aria-label="Línea de 5 o línea de 4" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Línea de 5 o línea de 4 · qué cambia
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

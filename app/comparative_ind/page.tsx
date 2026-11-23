@@ -403,6 +403,9 @@ function DosCifrasPosesion({ fila, bruta, posesion }: { fila: FilaComparativa; b
    (no pide Suspense) y sin setState en un efecto. */
 const sinSuscripcion = () => () => {};
 const jugadorDeLaUrl = () => new URLSearchParams(window.location.search).get("jugador");
+/* ?pestana=graficos (23/11/2026): el enlace «Ver lo nuevo» de las ideas de X abre la pestaña donde está. */
+const pestanaDeLaUrl = () => new URLSearchParams(window.location.search).get("pestana");
+const PESTANAS_URL: readonly string[] = ["ranking", "graficos", "ficha", "cara"];
 
 /* Comparables por puesto: por debajo, el puesto se lee como tendencia. */
 const COMPARABLES_FIRMES = 25;
@@ -447,7 +450,9 @@ export default function ComparativaCategoria() {
   const jugadorPedido = useSyncExternalStore(sinSuscripcion, jugadorDeLaUrl, () => null);
   const [pestanaElegida, setPestana] = useState<Pestana | null>(null);
   /* Con ?jugador= se abre su ficha; luego manda lo que se pinche. */
-  const pestana: Pestana = pestanaElegida ?? (jugadorPedido ? "ficha" : "ranking");
+  const pestanaPedida = useSyncExternalStore(sinSuscripcion, pestanaDeLaUrl, () => null);
+  const pestana: Pestana =
+    pestanaElegida ?? (jugadorPedido ? "ficha" : pestanaPedida && PESTANAS_URL.includes(pestanaPedida) ? (pestanaPedida as Pestana) : "ranking");
   /* Visual / Detalle del ranking (16/11/2026, petición del analista): Visual, el índice de cada uno en una escala con su punto de 25/26; Detalle, la tabla de siempre. */
   const [vistaRanking, setVistaRanking] = useVistaAnalisis("comparativa-ranking");
   const rankingVisual = vistaRanking === "visual";
@@ -924,7 +929,7 @@ export default function ComparativaCategoria() {
                         </span>
                       )}
                     </p>
-                    <div className="mt-2">{interruptorPosesion}</div>
+                    <div id="x-idea-2121150280536306151-2" className="mt-2">{interruptorPosesion}</div>
                     <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },

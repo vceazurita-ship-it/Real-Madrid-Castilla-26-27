@@ -185,7 +185,7 @@ export function PorDondeAtaca({
 
   if (compacto) {
     return (
-      <section aria-label="Por dónde ataca" className="mb-6 rounded-2xl border border-sky-400/25 bg-sky-400/[0.05] px-5 py-3">
+      <section id="x-idea-2120920359637856312-1" aria-label="Por dónde ataca" className="mb-6 rounded-2xl border border-sky-400/25 bg-sky-400/[0.05] px-5 py-3">
         <p className="flex flex-wrap items-baseline gap-x-2 text-base font-bold text-sky-300">
           Por dónde ataca
           <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/60">dato · Wyscout, temporada</span>

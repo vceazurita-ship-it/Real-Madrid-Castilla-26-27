@@ -247,7 +247,7 @@ function Bloque({ equipo }: { equipo: string }) {
   const ordenes = ordenesDelMarcador(s, nombre);
 
   return (
-    <section aria-label="Según el marcador" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2121989190145429790-1" aria-label="Según el marcador" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Según el marcador · ganando, empatando, perdiendo
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

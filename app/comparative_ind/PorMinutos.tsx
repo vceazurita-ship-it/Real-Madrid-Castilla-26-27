@@ -137,7 +137,7 @@ export function PorMinutos({
   if (!filas.length) return null;
 
   return (
-    <section className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+    <section id="x-idea-2123775341483491446-1" className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <h3 className="text-sm font-semibold text-white">
         Por minutos jugados
         {destacan.length > 0

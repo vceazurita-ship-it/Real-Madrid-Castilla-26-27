@@ -145,7 +145,7 @@ function Bloque({
   if (!datos) {
     if (!cargando) return null;
     return (
-      <section aria-label="Primera parte contra segunda parte" className="portada-tarjeta mt-8 min-w-0 px-4 py-4 sm:px-5">
+      <section id="x-idea-2124229172826640589-1" aria-label="Primera parte contra segunda parte" className="portada-tarjeta mt-8 min-w-0 px-4 py-4 sm:px-5">
         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Primera parte contra segunda parte · ¿se repliega?</p>
         <p className="mt-1 text-sm text-white/60">Leyendo el evento a evento de {ids.length} partidos de la liga…</p>
       </section>
@@ -181,7 +181,7 @@ function Bloque({
   ];
 
   return (
-    <section aria-label="Primera parte contra segunda parte" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2124229172826640589-1" aria-label="Primera parte contra segunda parte" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Primera parte contra segunda parte · ¿se repliega?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

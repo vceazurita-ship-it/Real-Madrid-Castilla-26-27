@@ -667,6 +667,17 @@ export default function DuelosPage() {
   ).replace(/^\d+ duelos? medidos?/, `${pintados.length} ${pintados.length === 1 ? "duelo medido" : "duelos medidos"}`);
 
   const cargando = jugadores === null || plantillasLeidas === null || (!equipoVisto && !proximoListo);
+  /* «Ver lo nuevo» de las ideas de X (23/11/2026): el plano del regate y el carril del extremo, en la primera tarjeta que los lleva. */
+  const enTarjetas = [
+    ...ZONAS.flatMap((z) => duelosVistos.filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))),
+    ...duelosVistos.filter((d) => ZONAS.some((z) => z.key === d.def.zona) && d.veredicto !== "sin-datos" && tendencias.has(d.def.clave)),
+  ];
+  const dueloConCarril = enTarjetas.find((d) => d.def.tipo === "lateral-extremo" && d.suyos[0]) ?? null;
+  const dueloConRegate = modo !== "nuestro" ? (enTarjetas.find((d) => regateDelDuelo(d, planoRegate, jugadores ?? [])) ?? null) : null;
+  const anclasDe = (d: ResultadoDuelo) => ({
+    anclaCarril: d === dueloConCarril ? "x-idea-2122961967682064398-1" : undefined,
+    anclaRegate: d === dueloConRegate ? "x-idea-2122420358632669660-1" : undefined,
+  });
   const escudo = equipoVisto ? escudoDe(equipoVisto) : null;
 
   return (
@@ -976,7 +987,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
-                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} {...anclasDe(d)} />
                         ))}
                     </div>
                   </div>
@@ -994,7 +1005,7 @@ export default function DuelosPage() {
                       </summary>
                       <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                         {pocos.map((d) => (
-                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} />
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} {...anclasDe(d)} />
                         ))}
                       </div>
                     </details>
@@ -1859,7 +1870,7 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
   /* El bloque acaba en una orden: no conducir hacia el que más roba (16/11/2026, ronda 17). */
   const primero = lista.find((r) => r.robador && r.ajustado != null);
   return (
-    <div className="portada-tarjeta portada-entra min-w-0 p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
+    <div id="x-idea-2121150280536306151-1" className="portada-tarjeta portada-entra min-w-0 p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
       <div className="min-w-0">
         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Dónde nos pueden hacer daño · quién nos roba el balón</p>
         <p className="fuente-club mt-1 text-[22px] font-bold leading-[1.1] text-white sm:text-[26px]">
@@ -1957,6 +1968,8 @@ function Tarjeta({
   huecoDe,
   regate,
   delLado,
+  anclaRegate,
+  anclaCarril,
 }: {
   d: ResultadoDuelo;
   activo: boolean;
@@ -1969,6 +1982,9 @@ function Tarjeta({
   regate?: RegateDelDuelo | null;
   /** Sólo en los duelos lateral–extremo: nuestro pivote de ese lado, por si su extremo se va dentro (18/11/2026). */
   delLado?: { jugador: JugadorDuelo; puesto: string } | null;
+  /** El id de «Ver lo nuevo» (ideas de X), sólo en la primera tarjeta que lleva cada bloque. */
+  anclaRegate?: string;
+  anclaCarril?: string;
 }) {
   const [verParejas, setVerParejas] = useState(false);
   /* Lo que dice la franja del carril de su extremo: null hasta que hay dato. */
@@ -2123,11 +2139,11 @@ function Tarjeta({
 
       <div className="mt-4">{bloquesDe(d, modo, equipo, roboDe)}</div>
 
-      {regate && modo !== "nuestro" && <PlanoRegate r={regate} />}
+      {regate && modo !== "nuestro" && (anclaRegate ? <div id={anclaRegate}><PlanoRegate r={regate} /></div> : <PlanoRegate r={regate} />)}
 
       {/* ¿Extremo de banda o falso extremo? (18/11/2026): el carril de sus toques en campo rival, de Opta. */}
       {d.def.tipo === "lateral-extremo" && d.suyos[0] && (
-        <div className={modo === "nuestro" ? "hidden" : undefined}>
+        <div id={anclaCarril} className={modo === "nuestro" ? "hidden" : undefined}>
           <CarrilExtremo equipo={equipo} extremo={d.suyos[0]} lateral={d.nuestros[0] ?? null} delLado={delLado ?? null} onLectura={setFalsoExtremo} />
         </div>
       )}

@@ -270,3 +270,152 @@ export function posicionEntreLigas(ligas: Liga[], i: number) {
   const max = Math.max(...v);
   return medias.map((x) => (x === null || !Number.isFinite(x) || max === min ? null : (x - min) / (max - min)));
 }
+
+/* ------------------------------------------------------------------ */
+/*  EL CASTILLA EN TODAS PARTES (23/11/2026)                           */
+/* ------------------------------------------------------------------ */
+/*
+| Petición del analista tras ver la primera versión: «visualizaciones y
+| comparaciones muy muy pobres y el Castilla debe estar en todos los sitios».
+| De aquí salen el percentil del Castilla en cada liga, cuánto encaja su estilo
+| con cada una, el mapa de estilos (dos ejes o componentes principales) y la
+| huella de estilo de dos equipos lado a lado.
+*/
+
+/**
+ * Percentil orientado de un valor dentro de una liga: a qué parte de sus
+ * equipos supera (empates a medias). Con `mejor` nulo, a cuántos tiene por
+ * debajo en cifra («más que el 70 %»). `excluir` quita a ese equipo de la liga.
+ */
+export function percentilEn(liga: Liga, i: number, valor: number, mejor: Metrica["mejor"], excluir?: string) {
+  const otros = finitos(liga.equipos.filter((e) => e.nombre !== excluir).map((e) => e.v[i]));
+  if (!otros.length) return null;
+  const supera = otros.filter((x) => (mejor === "bajo" ? x > valor : x < valor)).length;
+  const iguales = otros.filter((x) => x === valor).length;
+  return Math.round((100 * (supera + iguales / 2)) / otros.length);
+}
+
+/** Cuantil q (0..1) con interpolación lineal. */
+export function cuantil(xs: (number | null | undefined)[], q: number) {
+  const v = finitos(xs).sort((a, b) => a - b);
+  if (!v.length) return null;
+  const pos = (v.length - 1) * q;
+  const base = Math.floor(pos);
+  return v[base] + (v[Math.min(base + 1, v.length - 1)] - v[base]) * (pos - base);
+}
+
+export type EscalaEstilo = { idx: number[]; mu: number[]; sd: number[] };
+
+/** Media y desviación de cada métrica de estilo sobre TODOS los equipos de todas las ligas. */
+export function escalaEstilo(ligas: Liga[], ids: readonly string[] = METRICAS_ESTILO): EscalaEstilo {
+  const idx = ids.map(indiceDe).filter((i) => i >= 0);
+  const todos = todosLosEquipos(ligas);
+  const mu: number[] = [];
+  const sd: number[] = [];
+  for (const i of idx) {
+    const xs = todos.map((t) => t.equipo.v[i]);
+    mu.push(media(xs) ?? 0);
+    sd.push(desviacion(xs) || 1);
+  }
+  return { idx, mu, sd };
+}
+
+/** Un equipo (o una media) en desviaciones respecto a todos. */
+export const vectorZ = (v: (number | null)[], e: EscalaEstilo) =>
+  e.idx.map((i, k) => (typeof v[i] === "number" && Number.isFinite(v[i]) ? ((v[i] as number) - e.mu[k]) / e.sd[k] : null));
+
+/** Parecido 0..100 entre dos vectores z (el mismo de `parecidos`). */
+export function parecidoZ(a: (number | null)[], b: (number | null)[]) {
+  const pares = a.map((x, k) => [x, b[k]] as const).filter((p): p is readonly [number, number] => p[0] !== null && p[1] !== null);
+  if (pares.length < a.length * 0.6 || !pares.length) return null;
+  const d = Math.sqrt(pares.reduce((s, [x, y]) => s + (x - y) ** 2, 0) / pares.length);
+  return Math.round(100 * Math.exp(-d / 2));
+}
+
+/** El «equipo medio» de una liga (sin `excluir`), métrica a métrica. */
+export const equipoMedio = (liga: Liga, excluir?: string): (number | null)[] =>
+  METRICAS.map((_, i) => media(liga.equipos.filter((e) => e.nombre !== excluir).map((e) => e.v[i])));
+
+/**
+ * Cuánto se parece el estilo de un equipo al del equipo medio de cada liga, de
+ * más a menos, con el equipo de esa liga que más se le parece.
+ */
+export function encajeEnLigas(ligas: Liga[], liga: string, nombre: string) {
+  const yo = buscaEquipo(ligas, liga, nombre);
+  if (!yo) return [];
+  const escala = escalaEstilo(ligas);
+  const mio = vectorZ(yo.equipo.v, escala);
+  return ligas
+    .map((l) => {
+      const excluir = l.slug === liga ? nombre : undefined;
+      const parecido = parecidoZ(mio, vectorZ(equipoMedio(l, excluir), escala));
+      let gemelo: { nombre: string; parecido: number } | null = null;
+      for (const e of l.equipos) {
+        if (e.nombre === excluir) continue;
+        const p = parecidoZ(mio, vectorZ(e.v, escala));
+        if (p !== null && (!gemelo || p > gemelo.parecido)) gemelo = { nombre: e.nombre, parecido: p };
+      }
+      return { liga: l, parecido, gemelo };
+    })
+    .filter((x): x is typeof x & { parecido: number } => x.parecido !== null)
+    .sort((a, b) => b.parecido - a.parecido);
+}
+
+/**
+ * El mapa de estilos: los dos componentes principales de las métricas de
+ * estilo (z sobre todos los equipos; un hueco cuenta como la media). Cada eje
+ * se explica por las métricas que más pesan en él, y se orienta para que la
+ * posesión vaya hacia la derecha y la presión (PPDA bajo) hacia arriba.
+ */
+export function mapaDeEstilos(ligas: Liga[]) {
+  const escala = escalaEstilo(ligas);
+  const todos = todosLosEquipos(ligas);
+  const Z = todos.map((t) => vectorZ(t.equipo.v, escala).map((x) => x ?? 0));
+  const p = escala.idx.length;
+  const n = Z.length;
+  if (n < 3 || !p) return null;
+
+  const C = Array.from({ length: p }, (_, a) => Array.from({ length: p }, (_, b) => Z.reduce((s, fila) => s + fila[a] * fila[b], 0) / (n - 1)));
+  const traza = C.reduce((s, fila, k) => s + fila[k], 0) || 1;
+
+  const propio = (M: number[][]) => {
+    let v: number[] = Array.from({ length: p }, (_, k) => 1 / Math.sqrt(p) + k * 1e-3);
+    let lambda = 0;
+    for (let it = 0; it < 300; it++) {
+      const w = M.map((fila) => fila.reduce((s, x, k) => s + x * v[k], 0));
+      const norma = Math.sqrt(w.reduce((s, x) => s + x * x, 0)) || 1;
+      lambda = norma;
+      v = w.map((x) => x / norma);
+    }
+    return { v, lambda };
+  };
+
+  const e1 = propio(C);
+  const C2 = C.map((fila, a) => fila.map((x, b) => x - e1.lambda * e1.v[a] * e1.v[b]));
+  const e2 = propio(C2);
+
+  const orienta = (v: number[], id: string, signo: 1 | -1) => {
+    const k = escala.idx.indexOf(indiceDe(id));
+    return k >= 0 && v[k] * signo < 0 ? v.map((x) => -x) : v;
+  };
+  const v1 = orienta(e1.v, "posesion", 1);
+  const v2 = orienta(e2.v, "ppda", -1);
+
+  const explica = (v: number[]) =>
+    escala.idx
+      .map((i, k) => ({ id: METRICAS[i].id, peso: v[k] }))
+      .sort((a, b) => Math.abs(b.peso) - Math.abs(a.peso))
+      .slice(0, 4);
+
+  const puntos = todos.map((t, r) => ({
+    ...t,
+    x: Z[r].reduce((s, z, k) => s + z * v1[k], 0),
+    y: Z[r].reduce((s, z, k) => s + z * v2[k], 0),
+  }));
+
+  return {
+    puntos,
+    ejeX: { explica: explica(v1), varianza: e1.lambda / traza },
+    ejeY: { explica: explica(v2), varianza: e2.lambda / traza },
+  };
+}

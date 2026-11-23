@@ -157,6 +157,12 @@ export type Idea = {
    * (la página baja hasta ahí y lo resalta: components/ui/ResaltaAncla.tsx).
    */
   enlace?: string;
+  /**
+   * 23/11/2026: dónde está dentro de la pantalla, dicho como lo ve el analista
+   * («Pestaña Proyección del juego → tarjeta “…”, debajo de “…”»), para ir
+   * directo sin buscar.
+   */
+  ubicacion?: string;
   /** Cuándo se subió a GitHub: con public/publicado.txt dice si ya está en la web. */
   anadidaEn?: string;
 };

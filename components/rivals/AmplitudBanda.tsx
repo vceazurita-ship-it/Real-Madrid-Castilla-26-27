@@ -103,7 +103,7 @@ function Bloque({ teamId, nombre, ids, nombres }: { teamId: string; nombre: stri
     : `En las dos bandas el lateral se queda en la mitad o menos de los toques por fuera: nuestro extremo puede quedarse arriba para salir a la contra.`;
 
   return (
-    <section aria-label="Amplitud por banda" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2122967480457158743-1" aria-label="Amplitud por banda" className="portada-tarjeta portada-entra mt-8 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Amplitud por banda · ¿quién le da el ancho?
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">

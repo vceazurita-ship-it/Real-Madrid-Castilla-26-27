@@ -96,7 +96,7 @@ function Bloque() {
   const resalte = (f: FilaJusta) => (f.teamId === CASTILLA_OPTA ? ORO : f.teamId === rivalId ? COMPARADO : null);
 
   return (
-    <section aria-label="Clasificación justa" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
+    <section id="x-idea-2120812068043685956-m" aria-label="Clasificación justa" className="portada-tarjeta portada-entra mt-4 min-w-0 px-4 py-4 sm:px-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">

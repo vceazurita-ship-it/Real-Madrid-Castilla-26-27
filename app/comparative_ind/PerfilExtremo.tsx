@@ -130,7 +130,7 @@ export function PerfilExtremo({
   const ordenados = [...puntos].sort((a, b) => Number(a.nuestro) - Number(b.nuestro));
 
   return (
-    <div ref={caja} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div ref={caja} id="x-idea-2122961967682064398-2" className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <p className="text-[11px] uppercase tracking-wider text-white/40">Extremos · ¿conector o regateador?</p>
       <p className="mt-1 text-base font-semibold">
         <span style={{ color: chipInk(ORO) }}>{nombreDe(foco.jugador)}</span> {cuadFoco}

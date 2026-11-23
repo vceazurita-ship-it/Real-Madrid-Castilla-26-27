@@ -178,7 +178,7 @@ function Bloque({
   const maxRem = Math.max(1, ...filas.map((f) => f.remates));
 
   return (
-    <div className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
+    <div id="x-idea-2123325774983754157-1" className="mt-8 rounded-2xl border border-white/10 bg-white/[0.03] p-4">
       <p className="text-sm font-semibold">Partido modelo · quién ya le hizo daño robándole alto</p>
       <p className="mt-1 text-xs text-white/55">
         Por cada partido de {equipo}, lo que hizo el equipo de enfrente: balones robados en su último tercio y remates en los {VENTANA_S} s siguientes.

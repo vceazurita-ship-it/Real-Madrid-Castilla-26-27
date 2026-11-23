@@ -23,7 +23,7 @@
  */
 
 import Link from "next/link";
-import { Fragment, useCallback, useEffect, useState } from "react";
+import { Fragment, useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { AlertTriangle, ArrowUpRight, Check, ChevronDown, Loader2, Plus, RefreshCw, RotateCcw, Undo2, X as Cruz } from "lucide-react";
 import { toast } from "sonner";
 
@@ -361,20 +361,59 @@ function usePublicado() {
   return publicado;
 }
 
+const sinSuscripcion = () => () => undefined;
+
 /** «Ver lo nuevo»: lleva a la pantalla, su pestaña y el elemento resaltado (components/ui/ResaltaAncla.tsx). */
 function VerLoNuevo({ idea }: { idea: Idea }) {
   const publicado = usePublicado();
   const enWeb = yaEnLaWeb(idea, publicado);
   const enlace = enlaceSeguro(idea.enlace) ?? idea.pantalla;
+  const directo = enlace.includes("#x-idea-");
+  const [copiado, setCopiado] = useState(false);
+  /* 23/11/2026: el enlace entero a la vista (y para copiar) y dónde está dentro de la página. */
+  const origen = useSyncExternalStore(
+    sinSuscripcion,
+    () => window.location.origin,
+    () => "",
+  );
+  const completo = `${origen}${enlace}`;
 
   return (
-    <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px]">
-      <Link href={enlace} className="inline-flex min-h-[32px] items-center gap-1 rounded-full bg-[#C8A96B]/15 px-3 font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/25">
-        Ver lo nuevo <ArrowUpRight size={12} aria-hidden />
-      </Link>
-      {enWeb === true && <span className="text-emerald-200/80">Ya está en la web.</span>}
-      {enWeb === false && <span className="text-amber-200/85">Subida a GitHub: se verá en la web en la próxima publicación en Render.</span>}
-      {!idea.enlace && <span className="text-white/45">(añadida antes del 22/11: abre su pantalla, sin bajar a lo nuevo)</span>}
+    <div className="grid min-w-0 gap-1.5 text-[12px]">
+      <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+        <Link href={enlace} className="inline-flex min-h-[32px] items-center gap-1 rounded-full bg-[#C8A96B]/15 px-3 font-semibold text-[#C8A96B] hover:bg-[#C8A96B]/25">
+          {directo ? "Ir directo a lo nuevo" : "Ver lo nuevo"} <ArrowUpRight size={12} aria-hidden />
+        </Link>
+        {enWeb === true && <span className="text-emerald-200/80">Ya está en la web.</span>}
+        {enWeb === false && <span className="text-amber-200/85">Subida a GitHub: se verá en la web en la próxima publicación en Render.</span>}
+      </div>
+      {idea.ubicacion && (
+        <p className="min-w-0 text-white/75">
+          <span className="text-white/40">Dónde: </span>
+          {idea.ubicacion}
+        </p>
+      )}
+      <div className="flex min-w-0 items-center gap-2">
+        <Link href={enlace} className="min-w-0 truncate font-mono text-[11px] text-white/50 hover:text-[#C8A96B] hover:underline" title={completo}>
+          {completo}
+        </Link>
+        <button
+          type="button"
+          onClick={() => {
+            void navigator.clipboard?.writeText(completo).then(
+              () => {
+                setCopiado(true);
+                window.setTimeout(() => setCopiado(false), 1500);
+              },
+              () => undefined,
+            );
+          }}
+          className="shrink-0 rounded-full border border-white/15 px-2 py-0.5 text-[11px] text-white/65 hover:bg-white/[0.06]"
+        >
+          {copiado ? "Copiado" : "Copiar"}
+        </button>
+      </div>
+      {!directo && <span className="text-white/45">(sin ancla: abre la pantalla, sin bajar a lo nuevo)</span>}
     </div>
   );
 }

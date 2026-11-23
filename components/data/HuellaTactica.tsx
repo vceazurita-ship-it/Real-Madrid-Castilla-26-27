@@ -214,7 +214,7 @@ export function HuellaTactica({ datos }: { datos: DatosOpta }) {
   const menosZona = orden[orden.length - 1].v < -0.005 ? zona(orden[orden.length - 1].i) : "";
 
   return (
-    <div className="mt-6">
+    <div id="x-idea-2120917264606048263-m" className="mt-6">
       <Panel
         titulo="Huella táctica: dónde tocamos más y menos que nuestra media"
         subtitulo={`Mapa de calor de nuestros toques en el partido menos el de la media de la temporada (${partidos.length} partidos). Rojo = ahí tocamos más que nuestra media; azul = menos; sin color = como siempre. La misma escala en todos los partidos.`}

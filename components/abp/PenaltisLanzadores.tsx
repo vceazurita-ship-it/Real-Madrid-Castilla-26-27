@@ -160,6 +160,7 @@ export function PenaltisLanzadores({ equipo }: { equipo: string }) {
 
   return (
     <Panel
+      id="x-idea-2121688378752352607-1"
       title="Sus lanzadores de penalti"
       subtitle="Para nuestro portero: cada penalti en la portería vista desde el punto (la izquierda es la del lanzador). Sale también en el PDF del portero de la pizarra de ABP."
       icon={CircleDot}
