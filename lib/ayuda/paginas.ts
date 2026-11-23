@@ -129,6 +129,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas («Clasificación justa» y «Nuestra salida contra la presión», de opta:partidos; el próximo rival, del calendario de BeSoccer). El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
+        titulo: "Lo nuevo (23/11/2026): mapa de la liga con escudos",
+        filas: [
+          { que: "Mapa de la liga · altura defensiva y ocasiones", es: "En Rival y categoría → Un equipo de un vistazo, debajo de «Ocasiones que concede». Cada equipo del grupo con su escudo: a la derecha, defiende más arriba; arriba, más xG por partido. «Eje vertical» cambia entre xG a favor (por defecto) y xG en contra. Dos rayas discontinuas marcan la mediana de cada eje con su cifra en el extremo («X 64,2», «Y 0,98») y dejan cuatro cuadrantes (p. ej. «defiende arriba y crea», «bloque bajo, crea poco»). El próximo rival lleva el nombre sobre fondo amarillo y una flecha; el Castilla, un contorno blanco y su nombre; los demás sólo llevan nombre si se salen de la nube. El titular dice en qué cuadrante cae el próximo rival y el texto, con qué equipos ya jugados se parece más (para reaprovechar el plan que funcionó contra ellos). Al pasar el ratón por un escudo, sus cifras", cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo del grupo del Castilla (con menos de 2 no entra; con menos de 5 el sello dice tendencia). Altura defensiva = x media (Opta 0-100, desde su portería) de sus Tackle, Interception y BallRecovery. xG a favor / en contra por partido = suma del xG de sus remates / de los del contrario (penaltis incluidos) entre partidos. Rayas = mediana de los equipos. Fuera de la nube = distancia a las dos medianas, en desviaciones típicas de cada eje, mayor de 1,5. Parecidos = los 3 equipos que ya han jugado contra el Castilla (en el archivo) más cerca del rival en el mapa, con la misma escala. Escudos de BeSoccer (/api/data-analisis?escudos=1); próximo rival, del calendario de BeSoccer. Cuentas en lib/data-analisis/altura-ocasiones.ts" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (19/11/2026): ocasiones que concede el rival",
         filas: [
           { que: "Próximo rival (abre con él)", es: "El del próximo partido según la regla de la portada (fecha y hora de Madrid de BeSoccer, 2,5 h de gracia), en «Un equipo de un vistazo», el ABP de la categoría y la clasificación justa." },
@@ -397,7 +403,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-22",
+    revisada: "2026-11-23",
   },
 
   /* ==================== MICROCICLOS ==================== */

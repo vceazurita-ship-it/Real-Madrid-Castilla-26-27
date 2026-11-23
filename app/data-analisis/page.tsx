@@ -142,6 +142,7 @@ import { PanelDestacados } from "@/components/data/PanelDestacados";
 import { PanelEquipo } from "@/components/data/PanelEquipo";
 import { ClasificacionJusta } from "@/components/data/ClasificacionJusta";
 import { OcasionesConcedidas } from "@/components/data/OcasionesConcedidas";
+import { AlturaOcasiones } from "@/components/data/AlturaOcasiones";
 import { SalidaContraPresion } from "@/components/data/SalidaContraPresion";
 import { PanelParecidos } from "@/components/data/PanelParecidos";
 import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJornada";
@@ -2854,6 +2855,9 @@ export default function DataAnalisisPage() {
 
                 {/* Ocasiones que concede (19/11/2026): cuántos remates deja y de qué calidad, con su mapa. Opta. */}
                 {area === "equipo" && <OcasionesConcedidas />}
+
+                {/* Mapa de la liga con escudos (23/11/2026): altura defensiva contra xG por partido. Opta. */}
+                {area === "equipo" && <AlturaOcasiones />}
 
                 {area === "parecidos" && <PanelParecidos partidos={datos.partidos ?? []} />}
 
