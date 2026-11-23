@@ -1,6 +1,7 @@
 /**
  * /api/x-ideas (12/11/2026): las ideas para la app sacadas de las
- * publicaciones de @fernandosb9 en X, y sus botones. Sólo el administrador,
+ * publicaciones de las cuentas de X que se siguen (@fernandosb9 y, desde el
+ * 23/11/2026, @Q84_DANI: lib/x-ideas.ts, CUENTAS_X), y sus botones. Sólo el administrador,
  * como el resto de Ajustes.
  *
  * - GET: cómo fue la última lectura de X y la lista de ideas.
@@ -18,8 +19,9 @@ import { pideEncargo } from "@/lib/mantenimientoServidor";
 import {
   ACCIONES_IDEA,
   CLAVE_X_IDEAS,
-  CLAVE_X_LECTURA,
+  CUENTAS_X,
   aplicaAccion,
+  claveLecturaX,
   normalizaIdeas,
   normalizaLectura,
   ordenaIdeas,
@@ -35,14 +37,18 @@ export async function GET(request: NextRequest) {
   if (!esAdmin(request.cookies.get(COOKIE_ADMIN)?.value)) return soloAdmin();
 
   try {
-    const [lectura, ideas] = await Promise.all([readDoc(CLAVE_X_LECTURA), readDoc(CLAVE_X_IDEAS)]);
-    const leida = normalizaLectura(lectura.data);
+    const [ideas, ...lecturas] = await Promise.all([readDoc(CLAVE_X_IDEAS), ...CUENTAS_X.map((c) => readDoc(claveLecturaX(c.cuenta)))]);
+    /* Los ids vistos no le hacen falta a la pantalla. */
+    const leidas = CUENTAS_X.map((c, n) => {
+      const l = normalizaLectura(lecturas[n].data);
+      return { cuenta: c.cuenta, lectura: l ? { ...l, vistos: undefined } : null };
+    });
 
     return NextResponse.json(
       {
         ok: true,
-        /* Los ids vistos no le hacen falta a la pantalla. */
-        lectura: leida ? { ...leida, vistos: undefined } : null,
+        lectura: leidas[0]?.lectura ?? null,
+        lecturas: leidas,
         ideas: ordenaIdeas(normalizaIdeas(ideas.data).ideas),
       },
       { headers: { "Cache-Control": "no-store" } },

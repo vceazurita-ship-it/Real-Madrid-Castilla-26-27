@@ -3,8 +3,11 @@
 /**
  * ACTUALIZACIONES AUTOMÁTICAS DESDE X (12/11/2026).
  *
- * Cada mañana el ordenador del club lee las publicaciones nuevas de
- * @fernandosb9 en X y saca de ellas ideas concretas para esta app. Aquí se ven
+ * Cada mañana el ordenador del club lee las publicaciones nuevas de las
+ * cuentas de X que se siguen (@fernandosb9 y, desde el 23/11/2026,
+ * @Q84_DANI, que pinta datos: de él se miran también las imágenes) y saca de
+ * ellas ideas concretas para esta app. Una fila de lectura por cuenta y un
+ * filtro por cuenta encima de las ideas. Aquí se ven
  * con su publicación, la pantalla a la que van y el porqué, y se deciden:
  *
  * - «Añadir»: el ordenador del club la programa en una copia aparte, pasa tsc,
@@ -15,7 +18,7 @@
  *   fuerza nada.
  * - «Descartar» / «Recuperar».
  *
- * Datos: `/api/x-ideas` (documentos `x:fernandosb9` y `x:ideas`); reglas en
+ * Datos: `/api/x-ideas` (documentos `x:<cuenta>` y `x:ideas`); reglas en
  * `lib/x-ideas.ts`.
  */
 
@@ -28,7 +31,7 @@ import { usePlegado, type Tono } from "@/components/ajustes/Plegable";
 import { ProgresoEncargo } from "@/components/ajustes/ProgresoEncargo";
 import { confirmar } from "@/lib/avisos";
 import { corriendo, estadoEncargo, vigiaVivo, type Mantenimiento, type Tarea, type Vigia } from "@/lib/mantenimiento";
-import { CUENTA_X, accionesDe, enlaceSeguro, yaEnLaWeb, type AccionIdea, type EstadoIdea, type Idea, type LecturaX } from "@/lib/x-ideas";
+import { CUENTAS_X, accionesDe, cuentaDeIdea, enlaceSeguro, yaEnLaWeb, type AccionIdea, type EstadoIdea, type Idea, type LecturaX } from "@/lib/x-ideas";
 
 const fecha = (iso: string) =>
   Number.isFinite(Date.parse(iso))
@@ -52,7 +55,9 @@ const LECTURA: Record<Exclude<LecturaX["estado"], "ok">, string> = {
   error: "La última lectura de X no ha salido.",
 };
 
-type Respuesta = { ok?: boolean; error?: string; lectura?: LecturaX | null; ideas?: Idea[] };
+type LecturaCuenta = { cuenta: string; lectura: LecturaX | null };
+
+type Respuesta = { ok?: boolean; error?: string; lectura?: LecturaX | null; lecturas?: LecturaCuenta[]; ideas?: Idea[] };
 
 export function IdeasDeX({
   estado,
@@ -65,7 +70,9 @@ export function IdeasDeX({
   ahora: number;
   pide: (tarea: Tarea) => void;
 }) {
-  const [lectura, setLectura] = useState<LecturaX | null>(null);
+  const [lecturas, setLecturas] = useState<LecturaCuenta[]>([]);
+  /* Filtro por cuenta (23/11/2026): null = todas. */
+  const [deCuenta, setDeCuenta] = useState<string | null>(null);
   const [ideas, setIdeas] = useState<Idea[] | null>(null);
   const [error, setError] = useState(false);
   const [testigo, setTestigo] = useState(0);
@@ -86,7 +93,7 @@ export function IdeasDeX({
           return;
         }
 
-        setLectura(d.lectura ?? null);
+        setLecturas(d.lecturas ?? (d.lectura ? [{ cuenta: CUENTAS_X[0].cuenta, lectura: d.lectura }] : []));
         setIdeas(d.ideas ?? []);
         setError(false);
       })
@@ -191,9 +198,11 @@ export function IdeasDeX({
   /* Primero lo que sirve para el próximo partido (revisión de expertos, 12/11/2026). */
   /* Lo ya decidido (añadida o deshecha) va aparte y plegado (15/11/2026: la pestaña se hacía larguísima). */
   const hecha = (i: Idea) => i.estado === "añadida" || i.estado === "deshecha";
-  const vivas = (ideas ?? []).filter((i) => i.estado !== "descartada" && !hecha(i)).sort((a, b) => (a.prioridad ?? 2) - (b.prioridad ?? 2));
-  const hechas = (ideas ?? []).filter(hecha);
-  const descartadas = (ideas ?? []).filter((i) => i.estado === "descartada");
+  const porCuenta = new Map(CUENTAS_X.map((c) => [c.cuenta, (ideas ?? []).filter((i) => cuentaDeIdea(i) === c.cuenta && i.estado !== "descartada" && !hecha(i)).length]));
+  const delFiltro = (ideas ?? []).filter((i) => !deCuenta || cuentaDeIdea(i) === deCuenta);
+  const vivas = delFiltro.filter((i) => i.estado !== "descartada" && !hecha(i)).sort((a, b) => (a.prioridad ?? 2) - (b.prioridad ?? 2));
+  const hechas = delFiltro.filter(hecha);
+  const descartadas = delFiltro.filter((i) => i.estado === "descartada");
 
   return (
     <section className="min-w-0" aria-labelledby="ideas-x">
@@ -201,33 +210,42 @@ export function IdeasDeX({
         Actualizaciones automáticas desde X
       </h2>
       <p className="mt-1 max-w-3xl text-[12px] text-white/45">
-        Cada mañana a las 7:45 se leen las publicaciones nuevas de @{CUENTA_X} y se saca de cada una lo que sirva para mejorar esta app.
+        Cada mañana a las 7:45 se leen las publicaciones nuevas de {CUENTAS_X.map((c) => `@${c.cuenta}`).join(" y ")} y se saca de cada una lo que sirva para mejorar esta app
+        (de @Q84_DANI, que pinta datos, sobre todo cómo lo dibuja: se miran también sus imágenes).
         «Añadir» la programa y la publica el ordenador del club; si algo no compila, no se publica nada.
       </p>
 
       <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[12px]">
-        {lectura ? (
-          lectura.estado === "ok" ? (
-            <span className="inline-flex min-w-0 items-center gap-1.5 text-white/75">
-              <Check size={13} className="shrink-0 text-emerald-300" aria-hidden />
-              Leído {fecha(lectura.leidoEn)}
-              {typeof lectura.nuevos === "number" ? ` · ${lectura.nuevos} publicaciones nuevas` : ""}
-              {typeof lectura.ideasNuevas === "number" ? ` · ${lectura.ideasNuevas} ideas` : ""}
-            </span>
-          ) : (
-            <span className="inline-flex min-w-0 items-start gap-1.5 text-amber-200">
-              <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden />
-              <span className="min-w-0">
-                {LECTURA[lectura.estado]}
-                {lectura.detalle && lectura.estado !== "falta-sesion" ? ` (${lectura.detalle})` : ""}
-                {` Mirado ${fecha(lectura.leidoEn)}.`}
-                {lectura.bienEn ? ` Última lectura buena: ${fecha(lectura.bienEn)}.` : ""}
-              </span>
-            </span>
-          )
-        ) : (
-          <span className="text-white/50">{ideas === null && !error ? "Mirando…" : "Todavía no se ha leído X ninguna vez."}</span>
-        )}
+        <ul className="min-w-0 space-y-1">
+          {lecturas.length === 0 && (
+            <li className="text-white/50">{ideas === null && !error ? "Mirando…" : "Todavía no se ha leído X ninguna vez."}</li>
+          )}
+          {lecturas.map(({ cuenta, lectura }) => (
+            <li key={cuenta} className="min-w-0">
+              <span className="font-semibold text-white/85">@{cuenta}</span>{" "}
+              {!lectura ? (
+                <span className="text-white/50">· todavía sin leer</span>
+              ) : lectura.estado === "ok" ? (
+                <span className="inline-flex min-w-0 items-center gap-1.5 text-white/75">
+                  <Check size={13} className="shrink-0 text-emerald-300" aria-hidden />
+                  Leído {fecha(lectura.leidoEn)}
+                  {typeof lectura.nuevos === "number" ? ` · ${lectura.nuevos} publicaciones nuevas` : ""}
+                  {typeof lectura.ideasNuevas === "number" ? ` · ${lectura.ideasNuevas} ideas` : ""}
+                </span>
+              ) : (
+                <span className="inline-flex min-w-0 items-start gap-1.5 text-amber-200">
+                  <AlertTriangle size={13} className="mt-0.5 shrink-0" aria-hidden />
+                  <span className="min-w-0">
+                    {LECTURA[lectura.estado]}
+                    {lectura.detalle && lectura.estado !== "falta-sesion" ? ` (${lectura.detalle})` : ""}
+                    {` Mirado ${fecha(lectura.leidoEn)}.`}
+                    {lectura.bienEn ? ` Última lectura buena: ${fecha(lectura.bienEn)}.` : ""}
+                  </span>
+                </span>
+              )}
+            </li>
+          ))}
+        </ul>
 
         <span className="ml-auto flex items-center gap-2">
           {leyendo ? (
@@ -261,6 +279,22 @@ export function IdeasDeX({
         <p className="mt-3 rounded-2xl border border-amber-400/30 bg-amber-400/10 px-4 py-3 text-[13px] text-amber-200">
           No se han podido leer las ideas. Vuelve a intentarlo en un momento.
         </p>
+      )}
+
+      {CUENTAS_X.length > 1 && (ideas?.length ?? 0) > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2" role="group" aria-label="Ideas de qué cuenta">
+          {[null, ...CUENTAS_X.map((c) => c.cuenta)].map((c) => (
+            <button
+              key={c ?? "todas"}
+              type="button"
+              aria-pressed={deCuenta === c}
+              onClick={() => setDeCuenta(c)}
+              className={`dedo-44 min-h-[32px] rounded-full border px-3 text-[12px] font-semibold transition ${deCuenta === c ? "border-[#C8A96B]/60 bg-[#C8A96B]/15 text-[#C8A96B]" : "border-white/12 text-white/65 hover:text-white"}`}
+            >
+              {c ? `@${c} · ${porCuenta.get(c) ?? 0}` : "Todas"}
+            </button>
+          ))}
+        </div>
       )}
 
       {ideas && !vivas.length && (
@@ -378,6 +412,7 @@ function TarjetaIdea({
             <span className="mt-0.5 block truncate text-[12px] text-white/50">
               {idea.pantalla}
               {idea.prioridad === 1 ? " · próximo partido" : ""}
+              {CUENTAS_X.length > 1 ? ` · @${cuentaDeIdea(idea)}` : ""}
             </span>
           )}
         </span>
@@ -427,7 +462,7 @@ function TarjetaIdea({
         <dd className="min-w-0 text-white/60">
           <span className="italic">«{idea.extracto}»</span>{" "}
           <a href={idea.url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-0.5 whitespace-nowrap text-[#C8A96B] hover:underline">
-            Ver en X{fecha(idea.fecha) ? ` · ${fecha(idea.fecha)}` : ""} <ArrowUpRight size={12} />
+            Ver en X · @{cuentaDeIdea(idea)}{fecha(idea.fecha) ? ` · ${fecha(idea.fecha)}` : ""} <ArrowUpRight size={12} />
           </a>
         </dd>
       </dl>

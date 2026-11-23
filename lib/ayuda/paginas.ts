@@ -3336,7 +3336,8 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Actualizaciones automáticas desde X",
         filas: [
-          { que: "Leído / Falta iniciar sesión en X", es: "Cuándo se leyó @fernandosb9 por última vez (cada mañana a las 7:45 o con «Leer ahora»), cuántas publicaciones nuevas y cuántas ideas salieron; si falta la sesión o X pide comprobación, lo dice y no se insiste" },
+          { que: "Las cuentas (23/11/2026)", es: "Se siguen @fernandosb9 (ideas de análisis) y @Q84_DANI, que pinta datos de fútbol: de él interesa sobre todo cómo lo dibuja (tipo de gráfico, encuadre del campo, colores, anotaciones) para llevarlo a una pantalla que ya tiene ese dato. Una fila de lectura por cuenta y, encima de las ideas, el filtro «Todas · @cuenta · n» con las pendientes de cada una; cada idea dice de qué cuenta sale", cuenta: "De @Q84_DANI se bajan también las imágenes de cada publicación y Claude las mira (sólo leerlas). La primera pasada repasó sus dos últimos meses (scripts/x-ideas.mjs --cuenta Q84_DANI --dias 60); desde entonces, sólo lo nuevo cada mañana" },
+          { que: "Leído / Falta iniciar sesión en X", es: "Cuándo se leyó cada cuenta por última vez (cada mañana a las 7:45 o con «Leer ahora»), cuántas publicaciones nuevas y cuántas ideas salieron; si falta la sesión o X pide comprobación, lo dice y no se insiste" },
           { que: "Plegadas", es: "Cada idea es una línea (título, pantalla y estado) que se despliega al pulsarla; las que están añadiéndose, deshaciéndose o no salieron, abiertas. Las ya añadidas o deshechas van juntas y plegadas en «Ya añadidas o deshechas», como las descartadas. Lo que se abre a mano se recuerda en el aparato" },
           { que: "Cada idea", es: "Qué cambiar, en qué pantalla y por qué; para qué fase y momento de la semana, qué decisión ayuda a tomar, de qué dato real sale (Opta, Wyscout, nuestras hojas o BeSoccer) con su muestra mínima y un ejemplo de lectura; con un trozo de la publicación y su enlace a X. Primero las que sirven para el próximo partido, luego las de la semana y al final las de fondo", cuenta: "Las saca Claude de las publicaciones nuevas con la lista de pantallas de esta ayuda; pensando como el cuerpo técnico y sin repetir las ya propuestas (añadidas o descartadas); se tiran las que no encajan en ninguna pantalla, las que no dicen de qué dato real salen y las repetidas" },
           { que: "Añadir", es: "El ordenador del club la programa en una copia aparte, pasa tsc, eslint, la ayuda de la pantalla y el build y, sólo si todo sale, la sube a GitHub. Si algo falla: «No salió», con el motivo, y no se publica nada" },
@@ -3354,7 +3355,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Con el ordenador del club apagado no se pierde nada: el encargo queda apuntado y empieza al encenderlo.",
       "La lista de «Actualizaciones» sale de un catálogo: un proceso nuevo que no se añada allí no aparece.",
     ],
-    revisada: "2026-11-22",
+    revisada: "2026-11-23",
   },
 
   /* ==================== TAREAS Y ALERTAS (12/11/2026) ==================== */

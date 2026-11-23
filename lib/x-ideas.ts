@@ -26,6 +26,34 @@ export const CUENTA_X = "fernandosb9";
 
 export const CLAVE_X_LECTURA = `x:${CUENTA_X}`;
 
+/**
+ * 23/11/2026: más de una cuenta. Cada una con su lectura (`x:<cuenta>`, sus
+ * vistos) y su enfoque: @fernandosb9 da ideas de análisis; @Q84_DANI pinta
+ * (visualizaciones de datos de fútbol), y de él interesa sobre todo CÓMO lo
+ * dibuja, así que se le miran también las imágenes. Las ideas van todas a
+ * `x:ideas` con su `cuenta`.
+ */
+export type CuentaX = { cuenta: string; foco: string; imagenes: boolean };
+
+export const CUENTAS_X: readonly CuentaX[] = [
+  {
+    cuenta: CUENTA_X,
+    imagenes: false,
+    foco: "Es una cuenta de análisis de fútbol: interesan sus ideas de análisis, métricas y comparaciones.",
+  },
+  {
+    cuenta: "Q84_DANI",
+    imagenes: true,
+    foco:
+      "Es una cuenta que PINTA datos de fútbol: lo que vale de ella es CÓMO lo dibuja (tipo de gráfico, cómo encuadra el campo, qué codifica con color, tamaño o posición, cómo anota y ordena, cómo compara). Mira las imágenes (te paso los ficheros: ábrelos con Read) y saca la forma de pintar que mejoraría una pantalla que YA tiene ese dato. Describe el gráfico con precisión para que se pueda programar sin ver la imagen.",
+  },
+];
+
+export const claveLecturaX = (cuenta: string) => `x:${cuenta}`;
+
+/** La cuenta de una idea (las de antes del 23/11 no la llevan: eran todas de @fernandosb9). */
+export const cuentaDeIdea = (idea: { cuenta?: string }) => idea.cuenta || CUENTA_X;
+
 export const CLAVE_X_IDEAS = "x:ideas";
 
 /** Una publicación leída de X. */
@@ -35,6 +63,8 @@ export type PostX = {
   /** ISO, del `<time datetime>` de X. */
   fecha: string;
   texto: string;
+  /** Las imágenes de la publicación (pbs.twimg.com/media), si las tiene. */
+  imagenes?: string[];
 };
 
 export type EstadoLecturaX =
@@ -101,6 +131,8 @@ export type Idea = {
   /** 1 = sirve para el próximo partido; 2 = para la semana; 3 = de fondo. */
   prioridad?: number;
   postId: string;
+  /** De qué cuenta de X sale (23/11/2026; sin ella, @fernandosb9). */
+  cuenta?: string;
   url: string;
   /** La fecha de la publicación. */
   fecha: string;
@@ -358,6 +390,7 @@ export type ArticuloX = {
   texto: string;
   /** «Fijado», «X ha reposteado»… */
   contexto: string;
+  imagenes: string[];
 };
 
 /**
@@ -382,14 +415,25 @@ export function leeArticulo(html: string): ArticuloX | null {
 
   const contexto = ctx ? desentidades(ctx[1].replace(/<[^>]+>/g, "")).trim() : "";
 
-  return { id, autor, fecha, texto: textoPost, contexto };
+  /* Las fotos de la publicación (no avatares ni miniaturas de vídeo), en tamaño mediano. */
+  const imagenes = [
+    ...new Set(
+      [...html.matchAll(/src="(https:\/\/pbs\.twimg\.com\/media\/[A-Za-z0-9_-]+)\?([^"]*)"/g)].map((m) => {
+        const formato = /format=(jpg|png|webp)/.exec(desentidades(m[2]))?.[1] ?? "jpg";
+        return `${m[1]}?format=${formato}&name=medium`;
+      }),
+    ),
+  ].slice(0, 4);
+
+  return { id, autor, fecha, texto: textoPost, contexto, imagenes };
 }
 
 /**
  * Las publicaciones de la cuenta, sin reposteos de otros ni la fijada (la
  * fijada se repite cada día), sin repetidas y la más nueva primero.
  */
-export function postsDeArticulos(htmls: string[], cuenta = CUENTA_X): PostX[] {
+/* `conFijada` (23/11/2026): en el repaso hacia atrás (--dias) también la fijada; los ya vistos no se repiten. */
+export function postsDeArticulos(htmls: string[], cuenta = CUENTA_X, conFijada = false): PostX[] {
   const vistos = new Set<string>();
   const posts: PostX[] = [];
 
@@ -400,12 +444,19 @@ export function postsDeArticulos(htmls: string[], cuenta = CUENTA_X): PostX[] {
 
     if (a.autor.toLowerCase() !== cuenta.toLowerCase()) continue;
 
-    if (/repost|retwe|ha reposteado|ha retuiteado|fijad|pinned/i.test(a.contexto)) continue;
+    if (/repost|retwe|ha reposteado|ha retuiteado/i.test(a.contexto)) continue;
+    if (!conFijada && /fijad|pinned/i.test(a.contexto)) continue;
 
-    if (!a.texto) continue;
+    if (!a.texto && !a.imagenes.length) continue;
 
     vistos.add(a.id);
-    posts.push({ id: a.id, url: `https://x.com/${cuenta}/status/${a.id}`, fecha: a.fecha, texto: a.texto.slice(0, 4000) });
+    posts.push({
+      id: a.id,
+      url: `https://x.com/${cuenta}/status/${a.id}`,
+      fecha: a.fecha,
+      texto: a.texto.slice(0, 4000),
+      ...(a.imagenes.length ? { imagenes: a.imagenes } : {}),
+    });
   }
 
   return posts.sort((x, y) => (Date.parse(y.fecha) || 0) - (Date.parse(x.fecha) || 0));
@@ -430,7 +481,7 @@ export function pideComprobacion(url: string, html: string): boolean {
  * que se le pasaron), una pantalla que exista y textos acotados. Lo demás se
  * tira sin avisar.
  */
-export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: string[], en: string, max = 8): Idea[] {
+export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: string[], en: string, max = 8, cuenta = CUENTA_X): Idea[] {
   const desde = respuesta.indexOf("[");
   const hasta = respuesta.lastIndexOf("]");
 
@@ -488,9 +539,10 @@ export function ideasDeRespuesta(respuesta: string, posts: PostX[], rutas: strin
       muestra: texto(o.muestra, 120) || undefined,
       prioridad,
       postId: post.id,
+      ...(cuenta !== CUENTA_X ? { cuenta } : {}),
       url: post.url,
       fecha: post.fecha,
-      extracto: post.texto.replace(/\s+/g, " ").slice(0, 280),
+      extracto: (post.texto || "(sólo imagen)").replace(/\s+/g, " ").slice(0, 280),
       creadaEn: en,
       estado: "nueva",
       log: [{ en, texto: "Sacada de la publicación" }],
