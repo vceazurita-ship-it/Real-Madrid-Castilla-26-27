@@ -104,7 +104,11 @@ export async function conecta() {
     await pausa(6000, 9000);
   };
 
-  return { evalua, ve, cierra: () => ws.close() };
+  /* 23/11/2026: con el Chrome minimizado la pestaña va «hidden» y X no carga más al bajar; así cuenta como visible sin sacar la ventana. */
+  await manda("Emulation.setFocusEmulationEnabled", { enabled: true }).catch(() => undefined);
+  await manda("Page.setWebLifecycleState", { state: "active" }).catch(() => undefined);
+
+  return { evalua, ve, manda, cierra: () => ws.close() };
 }
 
 /** Lo que hace falta para saber si hay sesión o comprobación, sin bajar la página entera. */
