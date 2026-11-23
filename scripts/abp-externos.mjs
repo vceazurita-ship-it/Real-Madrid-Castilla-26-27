@@ -213,6 +213,15 @@ async function encargo(item, fuente) {
 /*  UNA FUENTE                                                         */
 /* ------------------------------------------------------------------ */
 
+async function guarda(lista) {
+  await cambiaDoc(E.CLAVE_EXTERNOS, "abp", (crudo) => {
+    const d = E.normalizaExternos(crudo);
+    const ids = new Set(lista.map((i) => i.id));
+    const limpios = lista.map(({ cambiado, ...i }) => i);
+    return { ...d, items: E.ordenaExternos([...limpios, ...d.items.filter((i) => !ids.has(i.id))]).slice(0, E.MAX_ITEMS) };
+  });
+}
+
 async function unaFuente(fuente, ahora) {
   const doc = E.normalizaExternos(await leeDoc(E.CLAVE_EXTERNOS));
   const previa = doc.lecturas.find((l) => l.cuenta === fuente.cuenta);
@@ -342,7 +351,10 @@ async function unaFuente(fuente, ahora) {
       listos.push({ ...item, fallo: "el análisis no ha salido con forma" });
       continue;
     }
-    listos.push({ ...item, analisis, analizadoEn: new Date().toISOString(), fallo: undefined });
+    const listo = { ...item, analisis, analizadoEn: new Date().toISOString(), fallo: undefined };
+    listos.push(listo);
+    /* Se guarda en el acto: si el proceso se corta (memoria), lo analizado no se pierde. */
+    if (!EN_SECO) await guarda([listo]);
     console.log(`hilo ${item.id}: ${analisis.titulo}`);
   }
 
@@ -355,14 +367,10 @@ async function unaFuente(fuente, ahora) {
 
   if (EN_SECO) {
     console.log(JSON.stringify(listos.map((i) => ({ id: i.id, piezas: i.piezas.length, analisis: i.analisis })), null, 2));
-  } else if (listos.length) {
-    await cambiaDoc(E.CLAVE_EXTERNOS, "abp", (crudo) => {
-      const d = E.normalizaExternos(crudo);
-      const nuevosIds = new Set(listos.map((i) => i.id));
-      const limpios = listos.map(({ cambiado, ...i }) => i);
-      const todos = E.ordenaExternos([...limpios, ...d.items.filter((i) => !nuevosIds.has(i.id))]).slice(0, E.MAX_ITEMS);
-      return { ...d, items: todos };
-    });
+  } else {
+    /* Los que no salieron con forma (los buenos ya están guardados). */
+    const sinForma = listos.filter((i) => !i.analisis);
+    if (sinForma.length) await guarda(sinForma);
   }
 
   const analizados = listos.filter((i) => i.analisis);
