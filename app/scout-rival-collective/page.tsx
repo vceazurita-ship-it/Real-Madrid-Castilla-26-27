@@ -92,6 +92,7 @@ import { ProgresionRival } from "@/components/rivals/ProgresionRival";
 import { BalonEspalda } from "@/components/rivals/BalonEspalda";
 import { LineaDefensa } from "@/components/rivals/LineaDefensa";
 import { RepliegueParte } from "@/components/rivals/RepliegueParte";
+import { SociedadesRival } from "@/components/rivals/SociedadesRival";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2129,6 +2130,9 @@ export default function ScoutRivalCollective() {
 
           {/* Primera parte contra segunda (22/11/2026, idea de X): altura del bloque, territorio y duelos por parte contra la liga (Opta). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <RepliegueParte equipo={rivalActivo.EQUIPO} />}
+
+          {/* Sus sociedades (23/11/2026, idea de X): red de pases del último tercio, el trío que más se asocia, su carril y sus remates en cadena (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <SociedadesRival equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
 
           {/*
             Ronda 20 (17/11/2026, análisis): la pantalla lo enseñaba todo a la vez.
