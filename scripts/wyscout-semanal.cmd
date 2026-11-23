@@ -302,7 +302,39 @@ if not "%AJENOS%"=="0" (
 echo Nada nuevo que guardar, pero hay %PENDIENTES% commit^(s^) de datos sin subir de una pasada anterior: se suben. >> "%LOG%"
 
 :empuja
+rem  Traer antes lo de GitHub (23/11/2026). Otros encargos del vigia (ideas de X,
+rem  ABP de cada jornada, analisis del partido) suben sus commits entre medias, y
+rem  el push sin traerlos lo rechazaba GitHub ("non-fast-forward"): los datos
+rem  quedaban bajados y sin publicar. Si no se puede traer, se deshace el rebase.
+git pull --rebase --autostash >> "%LOG%" 2>&1
+if errorlevel 1 (
+  git rebase --abort >> "%LOG%" 2>&1
+  echo. >> "%LOG%"
+  echo NO SE HA PODIDO TRAER LO DE GITHUB ^(sin red o con conflicto^): queda sin publicar. >> "%LOG%"
+  echo No se ha podido traer lo de GitHub: los datos estan en local, sin publicar.
+  set "CODIGO=4"
+  goto :limpieza
+)
+
+rem  Y no subir trabajo ajeno: si en local hay commits que no son de datos, esta
+rem  tarea no los publica (antes solo se miraba cuando no habia nada que guardar).
+set "AJENOS=0"
+for /f %%n in ('git log "@{u}..HEAD" "--format=%%s" 2^>NUL ^| findstr /v /b /c:"Los datos de Wyscout" ^| findstr /v /c:"lisis del partido: " ^| findstr /v /b /c:"ABP de cada jornada" ^| find /c /v ""') do set "AJENOS=%%n"
+if not "%AJENOS%"=="0" (
+  echo. >> "%LOG%"
+  echo HAY COMMITS SIN SUBIR QUE NO SON DE WYSCOUT: no se sube nada. El push ha fallado a proposito. >> "%LOG%"
+  echo   Un "git push" a mano lo publica todo cuando se haya mirado. >> "%LOG%"
+  echo Hay commits locales que no son de Wyscout: no se publica.
+  set "CODIGO=9"
+  goto :limpieza
+)
+
 git push >> "%LOG%" 2>&1
+
+rem  Otro proceso pudo subir algo justo entre el pull y el push: una vez mas.
+if errorlevel 1 (
+  git pull --rebase --autostash >> "%LOG%" 2>&1 && git push >> "%LOG%" 2>&1
+)
 
 if errorlevel 1 (
   echo. >> "%LOG%"

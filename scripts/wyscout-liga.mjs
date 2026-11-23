@@ -948,15 +948,61 @@ async function vaAlGrupo(nav, intentos = 3) {
   | nada. Recargar y volver a intentarlo cuesta diez segundos; rendirse cuesta
   | la mitad de la liga.
   */
-  for (let i = 1; i < intentos; i++) {
+  /*
+  | 23/11/2026: cuatro intentos y pausas que crecen (5, 15, 30 s). Por las
+  | mañanas Wyscout tarda en servir la portada y los tres intentos seguidos de
+  | 3 s se gastaban en el mismo minuto lento («No sale "Platform"…», 20, 22 y
+  | 23/11). El último fallo deja foto y textos en .cache/wyscout/fallo-*.
+  */
+  const pausas = [5000, 15000, 30000];
+
+  for (let i = 1; i < Math.max(intentos, 4); i++) {
     try {
       return await vaAlGrupoUnaVez(nav);
-    } catch {
-      await espera(3000);
+    } catch (error) {
+      console.log(`  (camino al grupo, intento ${i}: ${error.message} Se reintenta.)`);
+      await espera(pausas[i - 1] ?? 30000);
     }
   }
 
-  return vaAlGrupoUnaVez(nav);
+  try {
+    return await vaAlGrupoUnaVez(nav);
+  } catch (error) {
+    await fotoDelFallo(nav, "camino-al-grupo");
+    throw error;
+  }
+}
+
+/**
+ * Foto y textos de la pantalla cuando el camino se pierde (23/11/2026), para
+ * saber la próxima vez qué había en vez de adivinarlo. En .cache/wyscout
+ * (fuera de git); se guardan las 6 últimas.
+ */
+async function fotoDelFallo(nav, que) {
+  try {
+    const marca = new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).replace(/[-: ]/g, "").slice(0, 12);
+    const base = path.join(CACHE, `fallo-${que}-${marca}`);
+
+    await nav.foto(`${base}.png`);
+
+    const textos = await nav.js(`
+      const vis = [...document.querySelectorAll("a,button,span,div,li,td,p")]
+        .filter((e) => e.childElementCount === 0 && e.getClientRects().length > 0)
+        .map((e) => { const r = e.getBoundingClientRect(); return Math.round(r.left) + "," + Math.round(r.top) + " " + (e.textContent || "").replace(/\s+/g, " ").trim().slice(0, 60); })
+        .filter((t) => !/^\S+ $/.test(t));
+      return [location.href, document.title, ...vis.slice(0, 200)].join("\n");
+    `);
+
+    fs.writeFileSync(`${base}.txt`, textos, "utf8");
+
+    const viejos = fs.readdirSync(CACHE).filter((f) => /^fallo-.*\.(png|txt)$/.test(f)).sort().reverse().slice(12);
+
+    for (const f of viejos) fs.rmSync(path.join(CACHE, f), { force: true });
+
+    console.log(`  (foto del fallo: .cache/wyscout/${path.basename(base)}.png y .txt)`);
+  } catch {
+    /* sin foto no se para nada */
+  }
 }
 
 async function vaAlGrupoUnaVez(nav) {
@@ -967,7 +1013,7 @@ async function vaAlGrupoUnaVez(nav) {
   | que se usó**. Si se quedó en el buscador de jugadores hay que volver a
   | «Platform» por el lanzador, o los tres clics siguientes caen en el vacío.
   */
-  if (!(await nav.esperaA("Albania", 15))) {
+  if (!(await nav.esperaA("Albania", 30))) {
     await abreAplicacion(nav, "Platform");
   }
 
@@ -1409,50 +1455,68 @@ async function bajaEquipo(nav, equipo) {
  * barra de arriba no está hecha de DOM corriente.
  */
 async function abreAplicacion(nav, nombre) {
-  /* La barra de arriba se pinta después que la aplicación: hay que esperarla. */
-  await nav.esperaValor(
-    `return document.querySelector("span.ae-home-1") ? 1 : 0;`,
-    (hay) => hay === 1,
-    40,
-  );
+  /*
+  | 23/11/2026: el menú del lanzador a veces tarda más de 1,5 s en pintarse (o
+  | el primer clic se pierde) y la pasada moría con «No sale "Platform"…».
+  | Ahora se espera a que el menú enseñe la aplicación (hasta 12 s), y si no,
+  | se cierra con Escape y se vuelve a abrir, hasta tres veces.
+  */
+  const patron = nombre === "Platform" ? "Platform|Plataforma" : nombre;
 
-  const sitio = await nav.js(`
-    const casa = document.querySelector("span.ae-home-1");
+  for (let vez = 0; vez < 3; vez++) {
+    /* La barra de arriba se pinta después que la aplicación: hay que esperarla. */
+    await nav.esperaValor(
+      `return document.querySelector("span.ae-home-1") ? 1 : 0;`,
+      (hay) => hay === 1,
+      40,
+    );
 
-    const lanzador = casa?.closest(".gears-button")?.nextElementSibling;
+    const sitio = await nav.js(`
+      const casa = document.querySelector("span.ae-home-1");
 
-    if (!lanzador) return null;
+      const lanzador = casa?.closest(".gears-button")?.nextElementSibling;
 
-    const r = lanzador.getBoundingClientRect();
+      if (!lanzador) return null;
 
-    return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
-  `);
+      const r = lanzador.getBoundingClientRect();
 
-  if (!sitio) throw new Error("No encuentro el lanzador de aplicaciones.");
+      return { x: Math.round(r.left + r.width / 2), y: Math.round(r.top + r.height / 2) };
+    `);
 
-  await nav.manda("Input.dispatchMouseEvent", {
-    type: "mouseMoved", x: sitio.x, y: sitio.y, button: "none",
-  });
+    if (sitio) {
+      await nav.manda("Input.dispatchMouseEvent", {
+        type: "mouseMoved", x: sitio.x, y: sitio.y, button: "none",
+      });
 
-  await espera(220);
+      await espera(220);
 
-  await nav.manda("Input.dispatchMouseEvent", {
-    type: "mousePressed", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 1,
-  });
+      await nav.manda("Input.dispatchMouseEvent", {
+        type: "mousePressed", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 1,
+      });
 
-  await espera(90);
+      await espera(90);
 
-  await nav.manda("Input.dispatchMouseEvent", {
-    type: "mouseReleased", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 0,
-  });
+      await nav.manda("Input.dispatchMouseEvent", {
+        type: "mouseReleased", x: sitio.x, y: sitio.y, button: "left", clickCount: 1, buttons: 0,
+      });
 
-  await espera(1500);
+      if (await nav.esperaA(patron, 12)) {
+        for (const opcion of patron.split("|")) {
+          if (await nav.clic(opcion, { luego: 6000 })) return true;
+        }
+      }
 
-  if (!(await nav.clic(nombre, { luego: 6000 }))) {
-    throw new Error(`No sale «${nombre}» en el menú de aplicaciones.`);
+      /* Menú sin la opción, o cerrado: se cierra del todo y se vuelve a abrir. */
+      await nav.manda("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+      await nav.manda("Input.dispatchKeyEvent", { type: "keyUp", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 }).catch(() => {});
+    }
+
+    await espera(3000 * (vez + 1));
   }
 
-  return true;
+  await fotoDelFallo(nav, `menu-${nombre.toLowerCase()}`);
+
+  throw new Error(`No sale «${nombre}» en el menú de aplicaciones.`);
 }
 
 /* ------------------------------------------------------------------ */

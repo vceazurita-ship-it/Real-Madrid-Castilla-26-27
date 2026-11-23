@@ -88,6 +88,9 @@ if errorlevel 1 (
   exit /b 4
 )
 
+rem  Antes, lo que otros procesos hayan subido (23/11/2026: si no, GitHub rechaza el push).
+git pull --rebase --autostash
+if errorlevel 1 git rebase --abort
 git push
 if errorlevel 1 (
   echo  EL PUSH HA FALLADO: guardado aqui pero NO publicado. Con red, "git push".
