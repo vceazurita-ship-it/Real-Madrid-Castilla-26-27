@@ -4,9 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/data-analisis-indice.cjs && node scripts/abp-ligas.cjs && node scripts/abp-acciones.cjs && next build",
+    "build": "node scripts/data-analisis-indice.cjs && node scripts/abp-ligas.cjs && node scripts/ligas-comparativa.cjs && node scripts/abp-acciones.cjs && next build",
     "build:render": "next build",
-    "datos:publicar": "node scripts/data-analisis-indice.cjs && node scripts/abp-ligas.cjs && node scripts/abp-acciones.cjs",
+    "datos:publicar": "node scripts/data-analisis-indice.cjs && node scripts/abp-ligas.cjs && node scripts/ligas-comparativa.cjs && node scripts/abp-acciones.cjs",
     "start": "next start",
     "lint": "eslint",
     "repaso": "node scripts/repaso-campograma.cjs"

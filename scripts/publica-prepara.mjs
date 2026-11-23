@@ -115,7 +115,7 @@ if (!PUBLICAR) process.exit(0);
 const ahora = new Date();
 const marca = ahora.toISOString().slice(0, 16).replace(/[-:]/g, "").replace("T", "-");
 fs.writeFileSync("public/publicado.txt", `${ahora.toISOString().slice(0, 16)}Z\n`);
-sh("git add public/publicado.txt public/data/analisis.json public/data/abp-ligas.json public/data/abp-acciones.json public/data/abp-acciones-todas.json");
+sh("git add public/publicado.txt public/data/analisis.json public/data/abp-ligas.json public/data/abp-acciones.json public/data/abp-acciones-todas.json public/data/ligas-comparativa.json");
 sh(`git commit -m "Publicar en Render (${marca}): una sola compilación con todo lo pendiente" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"`);
 sh(`git tag render-${marca}`);
 sh("git push -q origin main");

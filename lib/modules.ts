@@ -19,6 +19,7 @@ import {
   Swords,
   UsersRound,
   Flag,
+  Globe2,
   CircleDot,
   Goal,
   Handshake,
@@ -221,6 +222,16 @@ export const MODULES: AppModule[] = [
       "directo",
       "en vivo",
     ],
+  },
+  {
+    /* 23/11/2026: las cinco grandes, Segunda y los dos grupos de 1.ª RFEF con la misma vara (Wyscout). */
+    href: "/comparativa-ligas",
+    area: "COMPETICIÓN",
+    title: "Comparativa de ligas",
+    desc: "Cómo se juega en LaLiga, Premier, Serie A, Bundesliga, Ligue 1, Segunda y los dos grupos de 1.ª RFEF",
+    icon: Globe2,
+    rank: 80,
+    alias: ["ligas", "comparar ligas", "premier", "laliga", "serie a", "bundesliga", "ligue 1", "segunda", "grupo 1", "estilo de liga", "equipos parecidos"],
   },
 
   /* ------------------------------------------------------------- METODOLOGÍA */

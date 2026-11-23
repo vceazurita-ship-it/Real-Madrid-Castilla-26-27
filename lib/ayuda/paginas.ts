@@ -1418,6 +1418,30 @@ export const AYUDAS: AyudaDePagina[] = [
     ],
   },
   {
+    ruta: "/comparativa-ligas",
+    titulo: "Comparativa de ligas",
+    resumen: "Cómo se juega en LaLiga, Premier, Serie A, Bundesliga, Ligue 1, Segunda y los dos grupos de Primera RFEF, con la misma vara: perfil de cada liga, una métrica a fondo con dónde estaría el Castilla en cada liga, y los equipos que juegan más parecido a uno dado.",
+    origen: "Los «Team Stats» de Wyscout de cada equipo (las mismas definiciones en todas las ligas). El ordenador del club los baja (scripts/wyscout-liga.mjs --solo-equipos, a public/data/wys-ligas/<liga>; el Grupo 2 es la carpeta de DATA) y scripts/ligas-comparativa.cjs los compacta en public/data/ligas-comparativa.json: por equipo, la media por partido de la temporada en curso, sólo partidos de liga y sin amistosos. «En contra» es la fila del rival en el mismo partido.",
+    revisada: "2026-11-23",
+    bloques: [
+      {
+        titulo: "Lo que hay",
+        filas: [
+          { que: "Se compara el estilo, no el nivel", es: "Arriba, el aviso y, por liga, cuántos equipos hay y hasta qué día llega lo bajado. Sale sólo una liga con 8 equipos o más" },
+          { que: "Perfil de las ligas", es: "Por grupo de métricas (ataque, con balón, ritmo y presión, defensa, transición y ABP), la media de cada liga y, a la derecha, la del Castilla. El color de la celda va de la liga que menos (claro) a la que más (intenso): dice estilo, no si es bueno. Nuestro grupo va enmarcado en oro. El título dice en qué métrica del grupo se distingue más nuestro grupo. Pulsar una métrica la abre a fondo", cuenta: "Media de la liga = media de sus equipos (cada uno pesa igual)" },
+          { que: "Una métrica a fondo", es: "Cada liga en una fila, de la que más a la que menos: los equipos como puntos, la raya blanca es la media de esa liga y, en oro, el Castilla (su punto en el Grupo 2 y una raya discontinua en las demás). Debajo, el puesto que tendría el Castilla con su cifra en cada liga («3.º de 21»)", cuenta: "En las métricas de estilo (posesión, pases, juego largo…) el puesto es «el que más»; en las que tienen mejor (xG, PPDA, goles en contra…), del mejor al peor" },
+          { que: "Equipos parecidos", es: "Eliges liga y equipo (el Castilla por defecto) y salen los 12 que juegan más parecido, con el % de parecido, en qué se parecen más y qué los separa", cuenta: "18 métricas de estilo (posesión, pases por posesión, intensidad de paso, juego largo, longitud del pase, progresivos, profundidad, centros, PPDA, recuperaciones altas, duelos, aéreos, faltas, contras, toques en el área, distancia de tiro, tiros a favor y en contra), cada una en desviaciones sobre todos los equipos de todas las ligas; distancia media d y parecido = 100·e^(−d/2). Sin goles ni resultados" },
+          { que: "xG por tiro", es: "xG total ÷ tiros totales de la temporada (no la media de cada partido)" },
+          { que: "PPDA", es: "Pases que se le dejan dar al rival por cada acción defensiva: cuanto más bajo, más presión" },
+        ],
+      },
+    ],
+    ojo: [
+      "Una liga a medio bajar sale con los equipos que hay; los rivales sin fichero propio entran si tienen 3 partidos o más en los ficheros de los demás.",
+      "Las ligas europeas llevan menos jornadas que Primera RFEF en noviembre: las medias son más ruidosas al principio.",
+    ],
+  },
+  {
     ruta: "/analisis-goles",
     titulo: "Análisis de goles",
     resumen: "Lo primero, los goles del equipo elegido (el próximo rival por defecto) en el campo y en vídeo; debajo, sus goles y los de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",

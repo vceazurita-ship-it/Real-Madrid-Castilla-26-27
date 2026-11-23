@@ -36,6 +36,7 @@ for /f %%i in ('powershell -NoProfile -Command "Get-Date -Format yyyy-MM-dd"') d
 
 set "LOG=%REGISTRO%\%SELLO%.log"
 set "FICHERO=public/data/abp-ligas.json"
+set "FICHERO2=public/data/ligas-comparativa.json"
 set "CODIGO=1"
 set "INCOMPLETO=0"
 set "CADUCADA=0"
@@ -60,6 +61,21 @@ if "%CADUCADA%"=="0" (
   findstr /c:"HA CADUCADO" "%LOG%" >NUL 2>&1 && set "CADUCADA=1"
 )
 
+rem  23/11/2026: COMPARATIVA DE LIGAS (/comparativa-ligas). Las cinco grandes
+rem  que faltan y Segunda, solo equipos. Unos 35 min cada una: van despues de
+rem  lo de ABP para no retrasarlo.
+for %%L in ("Espa|La Liga|laliga" "Espa|Segunda|segunda" "Italia|Serie A|serie-a" "Alemania|Bundesliga|bundesliga" "Francia|Ligue 1|ligue-1") do (
+  if "!CADUCADA!"=="0" (
+    for /f "tokens=1-3 delims=|" %%a in (%%L) do (
+      echo. >> "%LOG%"
+      echo --- %%b --- >> "%LOG%"
+      call node scripts\wyscout-liga.mjs "--pais=%%a" "--competicion=%%b" --solo-equipos "--carpeta=public/data/wys-ligas/%%c" --desatendido >> "%LOG%" 2>&1
+      if errorlevel 1 set "INCOMPLETO=1"
+      findstr /c:"HA CADUCADO" "%LOG%" >NUL 2>&1 && set "CADUCADA=1"
+    )
+  )
+)
+
 if "%CADUCADA%"=="1" (
   echo   RESUMEN: la sesion de Wyscout ha caducado; no se ha bajado nada. >> "%LOG%"
   set "CODIGO=2"
@@ -69,6 +85,7 @@ if "%CADUCADA%"=="1" (
 echo. >> "%LOG%"
 echo --- Compactando las ligas --- >> "%LOG%"
 call node scripts\abp-ligas.cjs >> "%LOG%" 2>&1
+call node scripts\ligas-comparativa.cjs >> "%LOG%" 2>&1
 
 rem ------------------------------------------------------------------
 rem  Publicar SOLO el JSON (mismas guardas que abp-acciones-diario.cmd)
@@ -87,13 +104,13 @@ if not "%AJENOS%"=="0" (
   goto :limpieza
 )
 
-git add "%FICHERO%" >> "%LOG%" 2>&1
+git add "%FICHERO%" "%FICHERO2%" >> "%LOG%" 2>&1
 
 set "HAYCAMBIOS=0"
-git diff --cached --quiet -- "%FICHERO%" || set "HAYCAMBIOS=1"
+git diff --cached --quiet -- "%FICHERO%" "%FICHERO2%" || set "HAYCAMBIOS=1"
 
 if "%HAYCAMBIOS%"=="1" (
-  git commit -m "El balon parado de las ligas (Wyscout, %HOY%) [skip render]" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" >> "%LOG%" 2>&1
+  git commit -m "El balon parado de las ligas (Wyscout, %HOY%) [skip render]" -m "Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>" -- "%FICHERO%" "%FICHERO2%" >> "%LOG%" 2>&1
   if errorlevel 1 (
     echo   RESUMEN: el commit ha fallado; no se publica. >> "%LOG%"
     set "CODIGO=4"

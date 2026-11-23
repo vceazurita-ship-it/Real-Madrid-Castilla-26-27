@@ -279,6 +279,18 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/ajustes?pestana=actualizaciones",
   },
   {
+    /* 23/11/2026: los Team Stats de LaLiga, Premier, Serie A, Bundesliga, Ligue 1, Segunda y 1.ª RFEF G1 (el G2 es el de DATA). */
+    clave: "ligas-comparativa",
+    nombre: "Comparativa de ligas",
+    alimenta: "/comparativa-ligas: perfil de cada liga, métricas a fondo y equipos parecidos",
+    fuente: "Wyscout, informes de equipo de cada liga (scripts/wyscout-liga.mjs --solo-equipos) compactados por scripts/ligas-comparativa.cjs",
+    cuando: "Cada lunes, después del balón parado de las ligas",
+    grupo: "semanal",
+    cadaHoras: 24 * 7,
+    ficheros: ["public/data/ligas-comparativa.json"],
+    enlace: "/comparativa-ligas",
+  },
+  {
     clave: "abp-ligas",
     nombre: "Goles a balón parado de las ligas",
     alimenta: "«Goles a balón parado» de Análisis de datos: la categoría frente a otras ligas",
