@@ -92,6 +92,7 @@ import { ProgresionRival } from "@/components/rivals/ProgresionRival";
 import { BalonEspalda } from "@/components/rivals/BalonEspalda";
 import { LineaDefensa } from "@/components/rivals/LineaDefensa";
 import { RepliegueParte } from "@/components/rivals/RepliegueParte";
+import { TerciosRival } from "@/components/rivals/TerciosRival";
 import { SociedadesRival } from "@/components/rivals/SociedadesRival";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
@@ -1737,6 +1738,9 @@ export default function ScoutRivalCollective() {
               </p>
             </section>
           )}
+
+          {/* El rival por tercios (23/11/2026, idea de X): protección, control y amenaza frente a su liga, con la altura defensiva (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <TerciosRival equipo={rivalActivo.EQUIPO} />}
 
           {/* Cada frase lleva a su tarjeta de abajo, que sale plegada y con el
               sello «↑ en Dónde hacerles daño» (30/10/2026): antes el texto se
