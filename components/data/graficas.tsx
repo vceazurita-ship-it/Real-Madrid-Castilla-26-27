@@ -26,6 +26,7 @@
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { CASOS_MINIMOS, formatea, type Unidad } from "@/lib/data-analisis/metricas";
+import { curvaSuave } from "@/components/ui/GraficosVivos";
 import { usePathname } from "next/navigation";
 import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGrafico";
 import { MapaDosEjes } from "@/components/data/visual/MapaDosEjes";
@@ -828,9 +829,12 @@ function EvolucionBase({
   const x = (i: number) =>
     M.izquierda + (serie.length === 1 ? dentroW / 2 : (i / (serie.length - 1)) * dentroW);
 
-  const camino = validos
-    .map((p, k) => `${k === 0 ? "M" : "L"} ${x(p.i)} ${y(p.valor)}`)
-    .join(" ");
+  /* Curva suave (22/11/2026) con su área en degradado y un brillo tenue. */
+  const camino = curvaSuave(validos.map((p) => [x(p.i), y(p.valor)] as [number, number]));
+  const suelo = M.arriba + dentroH;
+  const areaEvo = `${camino} L ${x(validos[validos.length - 1].i)} ${suelo} L ${x(validos[0].i)} ${suelo} Z`;
+  const ultimoEvo = validos[validos.length - 1];
+  const gid = `evo${id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
 
   return (
     <div className="min-w-0">
@@ -841,7 +845,20 @@ function EvolucionBase({
           role="img"
           aria-labelledby={`${id}-t`}
         >
-          <title id={`${id}-t`}>Evolución de la métrica</title>
+          <title id={`${id}-t`}>{`Evolución de la métrica: ${validos.map((p) => `${p.etiqueta} ${formatea(p.valor, unidad)}`).join("; ")}`}</title>
+          <defs>
+            <linearGradient id={`${gid}-area`} x1="0" x2="0" y1="0" y2="1">
+              <stop offset="0%" stopColor={ORO} stopOpacity={0.28} />
+              <stop offset="100%" stopColor={ORO} stopOpacity={0} />
+            </linearGradient>
+            <filter id={`${gid}-brillo`} x="-5%" y="-20%" width="110%" height="140%">
+              <feGaussianBlur stdDeviation="2.5" result="b" />
+              <feMerge>
+                <feMergeNode in="b" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
 
           {media !== null && media !== undefined && (
             <>
@@ -889,7 +906,9 @@ function EvolucionBase({
             </text>
           ))}
 
-          <path d={camino} fill="none" stroke={ORO} strokeWidth={2} />
+          {validos.length > 1 && <path d={areaEvo} fill={`url(#${gid}-area)`} />}
+          <path d={camino} fill="none" stroke={ORO} strokeWidth={2.2} strokeLinecap="round" filter={`url(#${gid}-brillo)`} />
+          <circle className="punto-vivo" cx={x(ultimoEvo.i)} cy={y(ultimoEvo.valor)} r={4} fill={ORO} />
 
           {validos.map((p) => (
             <g key={p.i}>

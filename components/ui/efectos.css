@@ -69,6 +69,37 @@
   );
 }
 
+/* En las tarjetas que ya pintan su fondo (las de la portada) el halo va en
+   una capa encima, ::after; necesitan `position: relative` (ya lo tienen). */
+.foco-luz.foco-capa.foco-activo {
+  background-image: none;
+}
+
+/* Debajo del texto (z-index -1 dentro de su propio contexto): tiñe el fondo, no las letras. */
+.foco-capa {
+  isolation: isolate;
+}
+
+.foco-capa::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--rmcf-dur-media) ease;
+  background: radial-gradient(
+    380px circle at var(--foco-x, 50%) var(--foco-y, 50%),
+    rgb(var(--rmcf-foco-halo) / var(--rmcf-foco-alfa)),
+    transparent 60%
+  );
+}
+
+.foco-capa.foco-activo::after {
+  opacity: 1;
+}
+
 /* ---------- Borde vivo ---------- */
 .borde-vivo {
   position: relative;
@@ -182,4 +213,214 @@ html.tema-cambia::view-transition-new(root) {
   .punto-vivo {
     display: none;
   }
+}
+
+/* ---------- Gráficos vivos (GraficosVivos.tsx) ---------- */
+.grafico-traza {
+  stroke-dasharray: 1;
+  animation: grafico-dibuja 1.1s var(--rmcf-ease-sale) both;
+}
+
+@keyframes grafico-dibuja {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+.grafico-funde {
+  animation: grafico-aparece 0.9s 0.25s ease-out both;
+}
+
+@keyframes grafico-aparece {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.anillo-traza {
+  transition: stroke-dashoffset 1.1s var(--rmcf-ease-sale);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .grafico-traza,
+  .grafico-funde {
+    animation: none !important;
+  }
+
+  .anillo-traza {
+    transition: none !important;
+  }
+}
+
+/* ---------- Cristal y muelle: paneles flotantes ---------- */
+.cristal {
+  background: rgb(14 20 30 / 0.72);
+  -webkit-backdrop-filter: blur(18px) saturate(1.4);
+  backdrop-filter: blur(18px) saturate(1.4);
+  box-shadow: var(--rmcf-sombra-1), var(--rmcf-brillo-interior);
+}
+
+:root[data-theme="light"] .cristal {
+  background: rgb(255 255 255 / 0.78);
+}
+
+@keyframes muelle-entra {
+  0% { opacity: 0; transform: translateY(18px) scale(0.97); }
+  60% { opacity: 1; transform: translateY(-3px) scale(1.005); }
+  100% { opacity: 1; transform: none; }
+}
+
+@keyframes hoja-sube {
+  from { transform: translateY(100%); }
+  to { transform: none; }
+}
+
+/* ---------- Modo foco (components/portada/ModoFoco.tsx) ---------- */
+.foco-velo {
+  background: rgb(5 9 16 / 0.55);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+}
+
+.foco-panel {
+  background: rgb(14 20 30 / 0.86);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  backdrop-filter: blur(20px) saturate(1.3);
+  box-shadow: var(--rmcf-sombra-1), var(--rmcf-brillo-interior), 0 0 90px -30px rgb(200 169 107 / 0.35);
+  animation: muelle-entra 0.5s var(--rmcf-ease-sale) both;
+}
+
+:root[data-theme="light"] .foco-panel {
+  background: rgb(255 255 255 / 0.92);
+}
+
+.foco-tarjeta {
+  animation: foco-llega 0.34s var(--rmcf-ease-sale) both;
+}
+
+@keyframes foco-llega {
+  from { opacity: 0; transform: translateX(28px); }
+  to { opacity: 1; transform: none; }
+}
+
+.foco-sale-hecha { animation: foco-sale-arriba 0.32s ease-in both; }
+.foco-sale-saltada { animation: foco-sale-izquierda 0.32s ease-in both; }
+.foco-sale-pospuesta { animation: foco-sale-abajo 0.32s ease-in both; }
+
+@keyframes foco-sale-arriba { to { opacity: 0; transform: translateY(-24px) scale(0.98); } }
+@keyframes foco-sale-izquierda { to { opacity: 0; transform: translateX(-36px); } }
+@keyframes foco-sale-abajo { to { opacity: 0; transform: translateY(24px); } }
+
+.foco-celebra {
+  animation: foco-late 0.7s var(--rmcf-ease-muelle) both;
+  box-shadow: 0 0 0 0 rgb(200 169 107 / 0.6);
+}
+
+@keyframes foco-late {
+  0% { transform: scale(0.4); box-shadow: 0 0 0 0 rgb(200 169 107 / 0.6); }
+  70% { transform: scale(1.08); box-shadow: 0 0 0 22px rgb(200 169 107 / 0); }
+  100% { transform: scale(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .foco-panel,
+  .foco-tarjeta,
+  .foco-sale-hecha,
+  .foco-sale-saltada,
+  .foco-sale-pospuesta,
+  .foco-celebra {
+    animation: none !important;
+  }
+}
+
+/* ---------- Indicador que se desliza entre pestañas (NavSeccion.tsx) ---------- */
+.nav-marca {
+  transition: transform 0.42s var(--rmcf-ease-muelle), width 0.42s var(--rmcf-ease-muelle), height 0.3s ease;
+  box-shadow: 0 6px 18px -8px rgb(200 169 107 / 0.7);
+}
+
+/* ---------- Menú de herramientas: entra con muelle desde su botón ---------- */
+.menu-muelle {
+  transform-origin: bottom right;
+  animation: muelle-entra 0.42s var(--rmcf-ease-sale) both;
+}
+
+/* ---------- Hojas: suben desde abajo en el móvil; en pantalla grande, muelle ---------- */
+.hoja-abajo {
+  animation: hoja-sube 0.38s var(--rmcf-ease-sale) both;
+  padding-bottom: max(1.25rem, env(safe-area-inset-bottom));
+}
+
+@media (min-width: 640px) {
+  .hoja-abajo {
+    animation-name: muelle-entra;
+  }
+}
+
+/* ---------- Tarjeta protagonista: canto en degradado de marca y halo cálido ---------- */
+.protagonista {
+  position: relative;
+  isolation: isolate;
+}
+
+.protagonista::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgb(216 180 90 / 0.85), rgb(216 180 90 / 0.08) 38%, transparent 60%, rgb(79 143 232 / 0.45));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.protagonista::after {
+  content: "";
+  position: absolute;
+  top: -30%;
+  right: -10%;
+  z-index: 0;
+  width: 55%;
+  aspect-ratio: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgb(216 180 90 / 0.22), transparent 65%);
+  filter: blur(18px);
+  pointer-events: none;
+}
+
+/* ---------- Objetivos táctiles: 44 px en pantallas de dedo ---------- */
+@media (pointer: coarse) {
+  [role="tab"],
+  .dedo-44 {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-marca {
+    transition: none !important;
+  }
+
+  .menu-muelle,
+  .hoja-abajo {
+    animation: none !important;
+  }
+}
+
+/* ---------- Al hacer la foto (PNG/PDF: lib/export/captura.ts) ---------- */
+[data-capturando] .lamina-aparece,
+[data-capturando].lamina-aparece {
+  animation: none !important;
+}
+
+[data-capturando] .foco-activo,
+[data-capturando].foco-activo {
+  background-image: none !important;
+}
+
+[data-capturando] .foco-capa::after,
+[data-capturando] .punto-vivo,
+[data-capturando] .barra-destello::after {
+  display: none !important;
 }

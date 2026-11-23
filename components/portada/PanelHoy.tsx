@@ -31,12 +31,15 @@ import {
   Send,
   ShieldAlert,
   SquareKanban,
+  Target,
   User,
   Wrench,
   type LucideIcon,
 } from "lucide-react";
 
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque";
+import { AnilloVivo } from "@/components/ui/GraficosVivos";
+import { ModoFoco, colaDelFoco, useAccionesFoco } from "@/components/portada/ModoFoco";
 import { EVENTO_VER_ATRASADAS } from "@/components/portada/AvisoTareasPendientes";
 import ModulesExplorer from "@/components/ui/ModulesExplorer";
 import { useCalendario } from "@/hooks/useCalendario";
@@ -147,6 +150,22 @@ function TuDia() {
   /* 20/11/2026 (ronda 5): las atrasadas, plegadas bajo lo de hoy; se despliegan las tres primeras con «Hecha». */
   const [verAtrasadas, setVerAtrasadas] = useState(false);
 
+  /* Modo foco (22/11/2026): lo pendiente de hoy, una a una. */
+  const [foco, setFoco] = useState(false);
+  const { onHecha, onPospone } = useAccionesFoco({ cambiaHechas, cambiaDoc, dias: semana?.dias ?? [], hoy });
+
+  /* El saludo, por la hora de Madrid (se mira en un efecto, no en el render). */
+  const [saludo, setSaludo] = useState("");
+
+  useEffect(() => {
+    const id = setTimeout(() => {
+      const h = Number(new Date().toLocaleString("en-GB", { timeZone: "Europe/Madrid", hour: "2-digit", hour12: false }));
+      setSaludo(h < 6 ? "Buenas noches" : h < 14 ? "Buenos días" : h < 21 ? "Buenas tardes" : "Buenas noches");
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, []);
+
   const marca = (t: TareaDelDia, hecha: boolean) => {
     if (t.tipo === "auto") cambiaHechas((h) => alternaHechaAuto(h, t.clave, hecha));
     else cambiaDoc((d) => alternaHechaPropia(d, t.id, hecha));
@@ -182,26 +201,55 @@ function TuDia() {
   const rotulo = deHoy ? `${rotuloDia(hoy).split(" ")[0]} ${Number(hoy.slice(8, 10))} · ${deHoy.md}` : rotuloDia(hoy);
   const pct = tareasHoy.length ? Math.round((hechasHoy / tareasHoy.length) * 100) : 100;
 
+  const colaFoco = colaDelFoco(tareasHoy, atrasadas);
+
+  /* «Buenas tardes · te quedan 2 de hoy y 1 atrasada · envíos pendientes: 1». */
+  const resumen = [
+    pendientesHoy ? `te ${pendientesHoy === 1 ? "queda 1" : `quedan ${pendientesHoy}`} de hoy` : tareasHoy.length ? "lo de hoy está hecho" : "",
+    atrasadas.length ? `${atrasadas.length} ${atrasadas.length === 1 ? "atrasada" : "atrasadas"}` : "",
+    envios.length ? `${envios.length} ${envios.length === 1 ? "envío" : "envíos"} por mandar` : "",
+  ].filter(Boolean);
+
   return (
     <section className={marco} aria-label="Tu día">
+      {foco && <ModoFoco tareas={colaFoco} hoy={hoy} onHecha={onHecha} onPospone={onPospone} onCierra={() => setFoco(false)} />}
 
       <div className="relative flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="portada-rotulo">Tu día</p>
           <h2 className="fuente-club mt-1 text-[28px] font-bold uppercase leading-none text-white">{rotulo}</h2>
+          {saludo && (
+            <p className="mt-1.5 text-[13px] text-white/65">
+              {saludo}
+              {resumen.length ? ` · ${resumen.join(" · ")}` : ""}
+            </p>
+          )}
         </div>
 
-        {tareasHoy.length > 0 && (
-          <div className="flex items-center gap-2.5" title={`${hechasHoy} de ${tareasHoy.length} hechas hoy`}>
-            <Anillo pct={pct} />
-            <span className="text-[12px] leading-tight text-white/65">
-              <span className="fuente-club block text-[20px] font-bold leading-none text-white">
-                {hechasHoy}/{tareasHoy.length}
+
+        <div className="flex flex-wrap items-center gap-4">
+          {colaFoco.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFoco(true)}
+              className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-[#D8B45A] px-4 text-sm font-semibold text-[#0B0F14] shadow-sm transition-transform hover:-translate-y-px"
+              title="Las pendientes, una a una: H hecha · S saltar · P mañana"
+            >
+              <Target className="h-4 w-4" aria-hidden /> Modo foco · {colaFoco.length}
+            </button>
+          )}
+          {tareasHoy.length > 0 && (
+            <div className="flex items-center gap-2.5" title={`${hechasHoy} de ${tareasHoy.length} hechas hoy`}>
+              <AnilloVivo pct={pct} />
+              <span className="text-[12px] leading-tight text-white/65">
+                <span className="fuente-club block text-[20px] font-bold leading-none text-white">
+                  {hechasHoy}/{tareasHoy.length}
+                </span>
+                hechas
               </span>
-              hechas
-            </span>
-          </div>
-        )}
+            </div>
+          )}
+        </div>
       </div>
 
       {tareasHoy.length > 0 ? (
@@ -387,28 +435,6 @@ function TuDia() {
 }
 
 /** Un anillo de avance, dorado, que se llena con lo hecho hoy. */
-function Anillo({ pct }: { pct: number }) {
-  const r = 16;
-  const largo = 2 * Math.PI * r;
-
-  return (
-    <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden className="-rotate-90">
-      <circle cx="20" cy="20" r={r} fill="none" strokeWidth="4" style={{ stroke: "rgb(var(--rmcf-ink-rgb) / .12)" }} />
-      <circle
-        cx="20"
-        cy="20"
-        r={r}
-        fill="none"
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={largo}
-        strokeDashoffset={largo * (1 - pct / 100)}
-        style={{ stroke: "var(--rmcf-gold-ink)", transition: "stroke-dashoffset .8s cubic-bezier(.22,1,.36,1)" }}
-      />
-    </svg>
-  );
-}
-
 /* ------------------------------------------------------------------ */
 /*  MESA DE TRABAJO                                                    */
 /* ------------------------------------------------------------------ */

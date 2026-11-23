@@ -3071,7 +3071,9 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Tu día y atajos",
         filas: [
-          { que: "Tu día", es: "Sólo el administrador: las tareas de hoy del microciclo, que se marcan aquí y en «Mis tareas»", cuenta: "Hechas ÷ tareas de hoy, en el anillo" },
+          { que: "Tu día", es: "Sólo el administrador: las tareas de hoy del microciclo, que se marcan aquí y en «Mis tareas». Bajo la fecha, el saludo por la hora de Madrid y el resumen: cuántas quedan de hoy, cuántas atrasadas y cuántos envíos faltan", cuenta: "Hechas ÷ tareas de hoy, en el anillo" },
+          { que: "Modo foco", es: "Botón «Modo foco · N» (también en «Mis tareas»): lo pendiente, una tarea a pantalla completa cada vez; primero lo atrasado y, dentro, la prioridad alta. H o Intro = hecha, S o → = saltar (sigue en su día), P = a mañana (al siguiente día del micro), Esc = salir. No pregunta: el aviso de cada una trae «Deshacer». Al terminar, el resumen" },
+          { que: "Atajos de teclado", es: "«?» abre la chuleta en cualquier pantalla (salvo coding y pizarras, que tienen la suya)" },
           { que: "Pendientes de días anteriores", es: "Lo que quedó sin hacer; abre «Mis tareas»" },
           { que: "Informe post / Informe previa", es: "Los envíos de la semana que faltan, de hoy en adelante" },
           { que: "Atajos", es: "Una fila de botones compactos (18/11/2026: antes tarjetas altas con su explicación, que queda al pasar por encima): Coding (admin), Jugadores sesión, Informes, Análisis de datos, Individual y, en la misma fila, «Todas las áreas (N)», que despliega aquí mismo el buscador y las áreas por sección" },
@@ -3106,7 +3108,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Seguimiento de la plantilla",
         filas: [
           { que: "Con seguimiento", es: "Jugadores de campo con licencia del Castilla con algún seguimiento en la temporada, como el Dashboard Seguimiento. Al pie: «Menos seguimientos: Hugo de Llanos y Thiago Pitarch (1 cada uno; mediana 20,5)»; al pulsarla abre la ficha del primero ya en su pestaña de seguimiento. Debajo, «Los 3 que menos seguimientos llevan»: cada uno con su número, su ficha (el nombre) y «Seguimiento» (su pestaña de seguimiento en Individual)", cuenta: "% = jugadores con seguimiento ÷ jugadores de campo. Mediana = seguimientos por jugador de campo del Castilla en la temporada, sin porteros y con los que no tienen ninguno como cero. Empate en el mínimo: abre el primero por nombre y dice con quién empata" },
-          { que: "Seguimientos", es: "Registros de la temporada y cuántos en los últimos 30 días (o esta semana, si son todos)" },
+          { que: "Seguimientos", es: "Registros de la temporada y cuántos en los últimos 30 días (o esta semana, si son todos). Debajo, la curva de las 10 últimas semanas y la flecha de cuánto cambió esta frente a la anterior (verde si sube)", cuenta: "Cada punto de la curva = seguimientos con FECHA en esa semana (de 7 en 7 días hacia atrás desde hoy)" },
+          { que: "Anillo de «Con seguimiento»", es: "El porcentaje de la plantilla de campo con al menos un seguimiento", cuenta: "Con seguimiento ÷ jugadores de campo × 100" },
           { que: "Reintentar", es: "Si la hoja de seguimiento no contesta, sólo sale la plantilla y el botón para volver a pedirla" },
         ],
       },

@@ -586,6 +586,20 @@ export default function Home() {
     return plantilla.filter((j) => (cuenta.get(j.id) ?? 0) < medianaSeguimientos).length
   }, [plantilla, seguimientoCastilla, medianaSeguimientos])
 
+  /* Seguimientos por semana, las 10 últimas (22/11/2026): la curva de la casilla. */
+  const porSemana = useMemo(() => {
+    if (ahora === 0) return []
+    const semana = 7 * 24 * 60 * 60 * 1000
+    const cuenta = Array.from({ length: 10 }, () => 0)
+    for (const fila of seguimientoCastilla) {
+      const fecha = new Date(fila.FECHA ?? "").getTime()
+      if (!Number.isFinite(fecha) || fecha > ahora) continue
+      const atras = Math.floor((ahora - fecha) / semana)
+      if (atras < 10) cuenta[9 - atras] += 1
+    }
+    return cuenta
+  }, [seguimientoCastilla, ahora])
+
   /* Y los de los últimos 30 días, de esos mismos registros. El reloj se mira
      en un efecto (ver `ahora`), nunca en el render. */
   const ultimos30Dias = useMemo(() => {
@@ -1089,7 +1103,7 @@ export default function Home() {
               la portada (`.portada-heroe`: un radio, un canto y una sombra, con
               su fondo en los dos temas), con un filo dorado arriba.
             */}
-            <div className="portada-entra portada-heroe relative overflow-hidden">
+            <div className="portada-entra portada-heroe protagonista relative overflow-hidden">
               <div
                 aria-hidden
                 className="pointer-events-none absolute inset-x-8 top-0 h-px"
@@ -1309,6 +1323,7 @@ export default function Home() {
                               : "Abrir las fichas de nuestros jugadores",
                             loading: loadingSeguimiento || cargandoPlantilla,
                             icon: Users,
+                            progreso: totalJugadores ? (jugadoresSeguimiento / totalJugadores) * 100 : undefined,
                           },
                           {
                             href: "/calendar",
@@ -1321,6 +1336,13 @@ export default function Home() {
                             destino: "Abrir los seguimientos",
                             loading: loadingSeguimiento,
                             icon: Activity,
+                            serie: porSemana.some((n) => n > 0)
+                              ? {
+                                  valores: porSemana,
+                                  descripcion: `Seguimientos por semana, de hace 10 semanas a esta: ${porSemana.join(", ")}`,
+                                  textoVariacion: "frente a la semana anterior",
+                                }
+                              : undefined,
                           },
                         ]
                   }

@@ -9,7 +9,7 @@
  * prefers-reduced-motion se ve el final sin más.
  */
 
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 
 const formatoPorDefecto = (n: number, decimales: number) =>
   n.toLocaleString("es-ES", { minimumFractionDigits: decimales, maximumFractionDigits: decimales });
@@ -34,6 +34,17 @@ export function CifraRueda({
   const caja = useRef<HTMLSpanElement>(null);
   const desde = useRef<number | null>(null);
   const visto = useRef(false);
+  const movil = useRef<HTMLSpanElement>(null);
+
+  /* Si va a rodar desde cero nada más montarse, la cifra no se enseña antes
+     entera: se esconde (sólo la parte que se mueve) hasta el primer paso. */
+  useLayoutEffect(() => {
+    const el = caja.current;
+    const m = movil.current;
+    if (!el || !m || visto.current || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const r = el.getBoundingClientRect();
+    if (r.bottom > 0 && r.top < window.innerHeight) m.style.opacity = "0";
+  }, []);
 
   useEffect(() => {
     const el = caja.current;
@@ -47,6 +58,7 @@ export function CifraRueda({
       const paso = (t: number) => {
         const k = Math.min(1, (t - t0) / duracion);
         const suave = 1 - Math.pow(1 - k, 3);
+        if (movil.current) movil.current.style.opacity = "";
         setMostrado(k >= 1 ? valor : inicio + (valor - inicio) * suave);
         if (k < 1) cuadro = requestAnimationFrame(paso);
       };
@@ -63,7 +75,7 @@ export function CifraRueda({
           observador?.disconnect();
           rueda(0);
         },
-        { threshold: 0.3 },
+        { threshold: 0 },
       );
       observador.observe(el);
     } else {
@@ -80,7 +92,7 @@ export function CifraRueda({
   return (
     <span ref={caja} className={className} style={style}>
       <span className="sr-only">{escribe(valor)}</span>
-      <span aria-hidden>{escribe(mostrado)}</span>
+      <span ref={movil} aria-hidden>{escribe(mostrado)}</span>
     </span>
   );
 }

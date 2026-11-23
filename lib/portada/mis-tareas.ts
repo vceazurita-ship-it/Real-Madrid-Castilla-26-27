@@ -480,3 +480,23 @@ export function rotuloDia(fecha: string) {
 export function hoyEnMadrid() {
   return new Date().toLocaleDateString("sv-SE", { timeZone: "Europe/Madrid" });
 }
+
+/**
+ * Posponer una tarea a otro día (modo foco, 22/11/2026), con su paso al revés
+ * para el «Deshacer» del aviso. La propia cambia de fecha; la automática se
+ * quita de su día y nace como propia en el nuevo (igual que `edita`).
+ */
+export function pospone(doc: DocPropias, t: TareaDelDia, fecha: string, id: string): { doc: DocPropias; rastro: Rastro } {
+  const rastro: Rastro = t.tipo === "propia" ? { original: { id: t.id, fecha: t.fecha }, orden: {} } : { nueva: id, restaura: t.clave, orden: {} };
+
+  return { doc: edita(doc, t, { fecha }, id), rastro };
+}
+
+/** El día siguiente a `fecha` («2026-11-23» tras «2026-11-22»). */
+export function diaSiguiente(fecha: string) {
+  const d = new Date(`${fecha}T12:00:00Z`);
+
+  d.setUTCDate(d.getUTCDate() + 1);
+
+  return d.toISOString().slice(0, 10);
+}

@@ -93,7 +93,7 @@ export function MenuFlotante({ children }: { children: ReactNode }) {
       className="fixed bottom-3 right-2 z-[60] sm:bottom-20 sm:right-5 flex flex-col items-end gap-2 print:hidden"
     >
       {abierto && (
-        <div className="w-[268px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">
+        <div className="menu-muelle w-[268px] overflow-hidden rounded-2xl border border-white/10 bg-[#121820]/95 shadow-2xl backdrop-blur">
           <p className="border-b border-white/10 px-4 py-2.5 text-[10px] uppercase tracking-[0.2em] text-white/40">
             Herramientas
           </p>

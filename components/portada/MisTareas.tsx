@@ -40,7 +40,7 @@ import {
 } from "@dnd-kit/core";
 import { SortableContext, arrayMove, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { ArrowDownToLine, CalendarDays, Check, GripVertical, Pencil, Plus, Trash2, X } from "lucide-react";
+import { ArrowDownToLine, CalendarDays, Check, GripVertical, Pencil, Plus, Target, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { useCalendario } from "@/hooks/useCalendario";
@@ -69,6 +69,7 @@ import {
   type TareaDelDia,
 } from "@/lib/portada/mis-tareas";
 import { confirmar } from "@/lib/avisos";
+import { ModoFoco, colaDelFoco, useAccionesFoco } from "@/components/portada/ModoFoco";
 
 const COLOR_TIPO = {
   entreno: "border-emerald-400/40 text-emerald-300",
@@ -182,6 +183,10 @@ export function MisTareas() {
 
     return () => window.removeEventListener("keydown", tecla);
   }, [pila, deshazPaso]);
+
+  /* Modo foco (22/11/2026). */
+  const [foco, setFoco] = useState(false);
+  const { onHecha, onPospone } = useAccionesFoco({ cambiaHechas, cambiaDoc, dias: semana?.dias ?? [], hoy });
 
   if (!semana) return <p className="rounded-2xl border border-white/10 p-5 text-sm text-white/60">Cargando el calendario…</p>;
 
@@ -484,10 +489,13 @@ export function MisTareas() {
     );
   };
 
+  const colaFoco = colaDelFoco(diaDe(hoy)?.tareas ?? [], vencidas);
+
   const clavesSinEditor = (ts: TareaDelDia[]) => ts.filter((t) => form?.clave !== t.clave).map((t) => t.clave);
 
   return (
     <div className="space-y-4">
+      {foco && <ModoFoco tareas={colaFoco} hoy={hoy} onHecha={onHecha} onPospone={onPospone} onCierra={() => setFoco(false)} />}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-white">Mis tareas del microciclo</h2>
@@ -500,6 +508,16 @@ export function MisTareas() {
           <div className="h-2 w-40 overflow-hidden rounded-full bg-white/10">
             <div className="h-full rounded-full bg-[#D8B45A]" style={{ width: `${total ? (hechasN / total) * 100 : 0}%` }} />
           </div>
+          {colaFoco.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setFoco(true)}
+              title="Las pendientes de hoy y lo atrasado, una a una: H hecha · S saltar · P mañana"
+              className="inline-flex items-center gap-1.5 rounded-full border border-[#D8B45A]/60 px-3.5 py-1.5 text-sm font-semibold text-[color:var(--rmcf-gold-ink)] hover:bg-[#D8B45A]/10"
+            >
+              <Target className="h-4 w-4" /> Modo foco · {colaFoco.length}
+            </button>
+          )}
           <button
             type="button"
             onClick={() => abreNueva(dias.some((d) => d.fecha === hoy) ? hoy : primero)}

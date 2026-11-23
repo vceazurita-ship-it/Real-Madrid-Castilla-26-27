@@ -106,6 +106,35 @@ export function NavSeccion() {
   */
   const [bordes, setBordes] = useState({ izq: false, der: false });
 
+  /*
+  | El indicador que se desliza (22/11/2026): una sola pastilla de oro que va
+  | de la pestaña anterior a la nueva al cambiar de pantalla. Hasta medirla,
+  | la activa lleva su fondo propio (no hay parpadeo al cargar).
+  */
+  const [marca, setMarca] = useState<{ x: number; y: number; w: number; h: number } | null>(null);
+
+  useEffect(() => {
+    const caja = tira.current;
+
+    if (!caja) return;
+
+    const mide = () => {
+      const a = caja.querySelector<HTMLElement>('a[aria-current="page"]');
+
+      setMarca(a ? { x: a.offsetLeft, y: a.offsetTop, w: a.offsetWidth, h: a.offsetHeight } : null);
+    };
+
+    const fotograma = requestAnimationFrame(mide);
+    const observador = new ResizeObserver(mide);
+
+    observador.observe(caja);
+
+    return () => {
+      cancelAnimationFrame(fotograma);
+      observador.disconnect();
+    };
+  }, [ruta]);
+
   useEffect(() => {
     const caja = tira.current;
 
@@ -171,6 +200,13 @@ export function NavSeccion() {
         className="relative flex min-w-0 items-center gap-1 overflow-x-auto py-1.5 scrollbar-none lg:flex-wrap lg:overflow-x-visible"
         style={mascara ? { maskImage: mascara, WebkitMaskImage: mascara } : undefined}
       >
+        {marca && (
+          <span
+            aria-hidden
+            className="nav-marca pointer-events-none absolute left-0 top-0 rounded-lg bg-[#C8A96B]"
+            style={{ width: marca.w, height: marca.h, transform: `translate(${marca.x}px, ${marca.y}px)` }}
+          />
+        )}
         <span className="mr-2 hidden shrink-0 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#C8A96B] sm:inline">{seccion!.titulo}</span>
         {entradas.map(({ href, label, icon: Icono }) => {
           const activa = ruta === href || ruta.startsWith(`${href}/`);
@@ -182,8 +218,8 @@ export function NavSeccion() {
               href={conRival && !activa ? conRivalEnUrl(href, rivalEnCurso) : href}
               aria-current={activa ? "page" : undefined}
               /* Más alta en el móvil (14/11/2026): 40 px para el dedo. */
-              className={`inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition lg:min-h-0 ${
-                activa ? "bg-[#C8A96B] text-black" : "text-white/55 hover:bg-white/[0.06] hover:text-white"
+              className={`dedo-44 relative inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition lg:min-h-0 ${
+                activa ? `${marca ? "" : "bg-[#C8A96B] "}text-black` : "text-white/55 hover:bg-white/[0.06] hover:text-white"
               }`}
             >
               <Icono size={13} />

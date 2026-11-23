@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 
+import { CifraRueda } from "@/components/ui/CifraRueda";
+import { AnilloVivo, Sparkline, Variacion } from "@/components/ui/GraficosVivos";
 import { chipInk } from "@/lib/theme";
 import { trackModuleVisit } from "@/lib/module-usage";
 
@@ -30,6 +32,10 @@ export type Cifra = {
   /** Con color, la celda identifica algo (la fase del juego); sin él va en dorado. */
   color?: string;
   suffix?: string;
+  /** Anillo de progreso (0-100) al lado de la cifra (22/11/2026). */
+  progreso?: number;
+  /** Curva de la cifra en el tiempo y su variación (22/11/2026). */
+  serie?: { valores: number[]; descripcion: string; textoVariacion?: string };
 };
 
 function Numero({ value, loading }: { value: number | null; loading: boolean }) {
@@ -52,7 +58,7 @@ function Numero({ value, loading }: { value: number | null; loading: boolean }) 
     );
   }
 
-  return <span className="tabular-nums">{value.toLocaleString("es-ES")}</span>;
+  return <CifraRueda valor={value} className="tabular-nums" />;
 }
 
 export function Cifras({ cifras }: { cifras: Cifra[] }) {
@@ -77,7 +83,7 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
             href={cifra.href}
             onClick={() => trackModuleVisit(cifra.href)}
             style={{ ["--accent" as string]: accent }}
-            className="portada-celda portada-viva group relative flex flex-col justify-between gap-4 p-4 sm:p-5"
+            className="portada-celda portada-viva foco-luz foco-capa group relative flex flex-col justify-between gap-4 p-4 sm:p-5"
           >
 
             <div className="flex items-start justify-between gap-2">
@@ -89,15 +95,34 @@ export function Cifras({ cifras }: { cifras: Cifra[] }) {
             </div>
 
             <div>
-              <p className="fuente-club text-[48px] font-bold leading-[0.9] text-white">
-                <Numero value={cifra.value} loading={cifra.loading} />
+              <div className="flex items-center justify-between gap-3">
+                <p className="fuente-club text-[48px] font-bold leading-[0.9] text-white">
+                  <Numero value={cifra.value} loading={cifra.loading} />
 
-                {cifra.suffix && (
-                  <span className="ml-1 text-[22px] font-bold text-white/55">
-                    {cifra.suffix}
-                  </span>
+                  {cifra.suffix && (
+                    <span className="ml-1 text-[22px] font-bold text-white/55">
+                      {cifra.suffix}
+                    </span>
+                  )}
+                </p>
+
+                {cifra.progreso != null && !cifra.loading && (
+                  <AnilloVivo pct={cifra.progreso} lado={60} grosor={5} descripcion={`${Math.round(cifra.progreso)} %`}>
+                    <span className="text-[11px] font-bold tabular-nums text-white/80">{Math.round(cifra.progreso)} %</span>
+                  </AnilloVivo>
                 )}
-              </p>
+              </div>
+
+              {cifra.serie && cifra.serie.valores.length > 1 && !cifra.loading && (
+                <div className="mt-3">
+                  <Sparkline valores={cifra.serie.valores} descripcion={cifra.serie.descripcion} alto={40} />
+                  <Variacion
+                    actual={cifra.serie.valores[cifra.serie.valores.length - 1]}
+                    anterior={cifra.serie.valores[cifra.serie.valores.length - 2]}
+                    texto={cifra.serie.textoVariacion}
+                  />
+                </div>
+              )}
 
               <p className="mt-2 text-[13px] leading-snug text-white/70">{cifra.caption}</p>
 

@@ -25,6 +25,7 @@ import { TrabajoInformes } from "@/components/informes/TrabajoInformes";
 import { AvisoEncargos } from "@/components/ui/AvisoEncargos";
 import { ResaltaAncla } from "@/components/ui/ResaltaAncla";
 import { FocoLuz } from "@/components/ui/FocoLuz";
+import { ChuletaAtajos } from "@/components/ui/ChuletaAtajos";
 import { DescargasEnSegundoPlano } from "@/components/ui/DescargasEnSegundoPlano";
 import { AvisoTareasPendientes } from "@/components/portada/AvisoTareasPendientes";
 import { AvisoBaseDatos } from "@/components/ui/AvisoBaseDatos";
@@ -161,6 +162,7 @@ export default function RootLayout({
             {/* El enlace de una idea de X baja hasta lo nuevo y lo resalta (22/11/2026). */}
             <ResaltaAncla />
             <FocoLuz />
+            <ChuletaAtajos />
             {/* Al entrar, lo que quedó sin hacer de días anteriores en «Mis tareas» (31/10/2026). */}
             <AvisoTareasPendientes />
             <AvisoBaseDatos />
