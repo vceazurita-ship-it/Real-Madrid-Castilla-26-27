@@ -101,7 +101,7 @@ const ultima = sh("git tag -l render-* --sort=-creatordate").split("\n")[0];
 const ignorado = /^(scripts\/|\.github\/|supabase\/|\.claude\/|docs\/)|\.(md|cmd|ps1|vbs|log)$/;
 const cambiados = sh(`git diff --name-only ${ultima}..HEAD`).split("\n").filter((f) => f && !ignorado.test(f));
 console.log(`desde ${ultima}: ${cambiados.length} ficheros de la web`);
-const sucio = sh("git status --porcelain").split("\n").filter((l) => l && !/video-informe-reintento\.log|zz-a-supabase|zz-compara/.test(l));
+const sucio = sh("git status --porcelain").split("\n").filter((l) => l && !/video-informe-reintento\.log|zz-a-supabase|zz-compara|rivals-altas-bajas/.test(l));
 const soloDatos = sucio.every((l) => /public\/data\//.test(l));
 if (sucio.length && !soloDatos) fallos.push(`hay cambios sin commit: ${sucio.slice(0, 5).join(" | ")}`);
 
