@@ -46,6 +46,7 @@ import { planoDeExtremos, regateDelDuelo, type RegateDelDuelo } from "@/lib/duel
 import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
 import { CarrilExtremo } from "@/components/duelos/carril-extremo";
 import { SegundaJugada } from "@/components/duelos/segunda-jugada";
+import { ConSinSociedad } from "@/components/duelos/con-sin-sociedad";
 import { lecturaDelAjuste, robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, dibujoDeWyscout, huecosDeBloques, onceProbableDelRival, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
@@ -952,6 +953,9 @@ export default function DuelosPage() {
                   cambia={cambia}
                   deshaz={deshaz}
                 />
+
+                {/* Con su trío y sin él (23/11/2026, idea de X): Opta, alineaciones y cambios. */}
+                {equipoVisto && <ConSinSociedad equipo={equipoVisto} suyos={suyos.map(apellidoDe)} />}
 
                 {/* Segunda jugada tras el balón largo (19/11/2026, idea de X): Opta, evento a evento. */}
                 {equipoVisto && <SegundaJugada equipo={equipoVisto} cortos={{ nuestros: nuestros.map(apellidoDe), suyos: suyos.map(apellidoDe), plantilla: players.map((p) => p.apodo || p.nombre).filter(Boolean) }} />}
