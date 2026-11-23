@@ -20,6 +20,7 @@ import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
+import { ProyeccionTabla } from "@/components/data/ProyeccionTabla";
 
 const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 
@@ -1082,6 +1083,15 @@ useEffect(() => {
                   </p>
                 ) : null}
               </div>
+            ) : null}
+
+            {/* 23/11/2026 (idea de X): cómo puede acabar la liga, con lo que queda simulado 50.000 veces. */}
+            {(golesLiga.value.partidos ?? []).length > 0 ? (
+              <section id="x-idea-2123486255568539817-1" aria-label="Proyección de la tabla" className="mb-8 min-w-0">
+                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">Final de temporada</p>
+                <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">Proyección de la tabla</h2>
+                <ProyeccionTabla partidos={golesLiga.value.partidos ?? []} proximoRival={proximo?.rival ?? ""} />
+              </section>
             ) : null}
 
             {/* 17/11/2026 (ronda 20, fútbol): el enlace al Power BI antiguo pasa a la ayuda (botón «?»). */}

@@ -1549,8 +1549,21 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Histórico Competición",
     resumen: "Cómo va el Castilla en la liga: puesto, puntos, balance y goles, la curva de puntos frente a la media de la liga y la tabla jornada a jornada.",
     origen: "Nuestros resultados: el calendario de BeSoccer («castilla:calendario»). Puesto y totales: la tabla más reciente del informe de rivales (BeSoccer). La media de la liga y el puesto de cada jornada: todos los partidos de liga de BeSoccer («goles:analisis»). El informe de Power BI sólo está en esta ayuda (abajo): la pantalla no depende de él.",
-    revisada: "2026-11-21",
+    revisada: "2026-11-23",
     bloques: [
+      {
+        titulo: "Proyección de la tabla (23/11/2026)",
+        filas: [
+          { que: "Qué es", es: "Debajo de las cuatro tarjetas, cómo puede acabar la liga: lo que queda se juega 50.000 veces en el navegador y la tabla dice, por equipo, los puntos de ahora, los previstos de media, la horquilla, la distribución de puntos finales y las opciones de campeón, play-off, llegar al objetivo y descenso. La fila del Castilla va en oro y la del próximo rival en azul. Se calcula al asomar el bloque (tarda unos segundos)" },
+          { que: "De dónde sale", es: "Lo jugado: todos los partidos de liga de BeSoccer («goles:analisis»). Lo que queda: la liga es a doble vuelta, así que los cruces local-visitante que aún no están entre los jugados. La fuerza de cada equipo: su xG a favor y en contra por partido en Opta («opta:partidos», partidos dentro del grupo)" },
+          { que: "Cómo se simula", es: "Cada partido: goles de cada lado por Poisson con media = xG medio del grupo × ataque propio × defensa rival, por √campo en casa y entre √campo fuera", cuenta: "Ataque = (xG a favor + 3 × media) ÷ (partidos + 3) ÷ media; defensa igual con el xG en contra (se encoge hacia la media para que pocos partidos no exageren). Campo = goles en casa ÷ goles fuera de lo jugado (entre 0,8 y 1,5). Un equipo sin xG en Opta juega con la media y se dice al pie" },
+          { que: "Puesto final", es: "Puntos, diferencia de goles, goles a favor y, si siguen iguales, a suertes. Campeón: 1º; play-off: 2º a 5º; descenso: los cinco últimos" },
+          { que: "Horquilla 0-110", es: "La línea va del 5 % al 95 % de las temporadas (90 %), la caja del 25 % al 75 % (la mitad) y el punto es la media. Todas las filas en la misma escala de 0 a 110 puntos" },
+          { que: "Puntos finales", es: "Histograma pequeño de los puntos con que acaba cada equipo (barras de 2 puntos, misma escala de 0 a 110); la raya discontinua es la mediana" },
+          { que: "Objetivo de puntos", es: "Por defecto 50; se cambia en la casilla de encima y la columna «≥ N» y el titular se recalculan sin volver a simular" },
+          { que: "Colores de los %", es: "Más intenso cuanto más probable: azul en campeón, play-off y objetivo; rojo en descenso" },
+        ],
+      },
       {
         titulo: "Arriba",
         filas: [
