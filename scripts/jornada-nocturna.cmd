@@ -385,7 +385,9 @@ if errorlevel 1 (
 
 rem --- 12. el video de cada jugador rival por sus fortalezas, de Opta (24/11/2026) ---
 rem
-rem  Los dos proximos rivales: fortalezas de cada jugador (percentil contra su
+rem  El proximo rival, SOLO la noche del lunes (con el Opta de la semana ya
+rem  bajado; otro dia solo acaba uno que el tope dejo a medias): fortalezas de
+rem  cada jugador (percentil contra su
 rem  linea en la categoria) y sus acciones de los ultimos 5 partidos, en un
 rem  video de 2 minutos como mucho (B2, carpeta privado/; doc
 rem  opta:clips-jugador, solo el administrador). Solo rehace lo que cambia.
@@ -393,7 +395,7 @@ rem  Sin el Chrome de Opta o sin sesion (codigo 8) sigue la noche siguiente;
 rem  nunca cuenta como fallo de la jornada.
 echo. >> "%LOG%"
 echo --- Video de los jugadores rivales desde Opta --- >> "%LOG%"
-call node scripts\opta-clips-jugador.mjs >> "%LOG%" 2>&1
+call node scripts\opta-clips-jugador.mjs --lunes >> "%LOG%" 2>&1
 if errorlevel 1 (
   echo AVISO: el video de los jugadores rivales no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
 )

@@ -5,8 +5,8 @@
  *
  * Petición del analista: los cortes de Opta de cada jugador del rival, según
  * sus fortalezas, como mucho 2 minutos y de sus últimos partidos, «en una
- * sección que sólo vea yo». Lo monta cada noche scripts/opta-clips-jugador.mjs
- * (los dos próximos rivales del calendario); aquí se ve:
+ * sección que sólo vea yo». Lo monta la noche del lunes scripts/opta-clips-jugador.mjs
+ * (el rival de la próxima jornada); aquí se ve:
  * - el rival (pestañas, el próximo primero) y sus últimos partidos;
  * - una tarjeta por jugador: puesto, minutos, sus fortalezas como barra de
  *   percentil contra su línea en la categoría, el vídeo y la lista de cortes
@@ -186,7 +186,7 @@ export default function JugadoresRivalPage() {
             {!doc && !error && <div className="mt-6 h-40 animate-pulse rounded-2xl bg-white/[0.05]" />}
             {doc && !equipos.length && (
               <p className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/70">
-                Todavía no hay vídeos: se montan cada noche para los dos próximos rivales (o a mano con <code>node scripts/opta-clips-jugador.mjs</code>).
+                Todavía no hay vídeos: se montan la noche del lunes para el rival de la próxima jornada (o a mano con <code>node scripts/opta-clips-jugador.mjs</code>).
               </p>
             )}
 

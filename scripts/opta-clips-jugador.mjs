@@ -6,8 +6,10 @@
  * base a sus fortalezas, que el vídeo como tope tenga 2 min y sus cortes sean
  * de sus últimos partidos… en una sección que sólo vea yo».
  *
- *   node scripts/opta-clips-jugador.mjs                 los dos próximos rivales (calendario de BeSoccer)
- *   node scripts/opta-clips-jugador.mjs --rivales 1     sólo el próximo
+ *   node scripts/opta-clips-jugador.mjs                 el próximo rival (calendario de BeSoccer)
+ *   node scripts/opta-clips-jugador.mjs --rivales 2     los dos próximos
+ *   node scripts/opta-clips-jugador.mjs --lunes         la jornada nocturna: sólo la noche del lunes
+ *                                                       (o para acabar uno que el tope dejó a medias)
  *   node scripts/opta-clips-jugador.mjs --equipo "Real Jaén"
  *   node scripts/opta-clips-jugador.mjs --jugadores 3   como mucho 3 vídeos en esta pasada (para probar)
  *   node scripts/opta-clips-jugador.mjs --ver           dice qué haría, sin bajar nada
@@ -72,7 +74,9 @@ const arg = (n) => {
   const i = process.argv.indexOf(`--${n}`);
   return i > 0 ? process.argv[i + 1] : null;
 };
-const RIVALES = Number(arg("rivales") ?? 2);
+/* 24/11/2026, el analista: «los rivales hay que hacerlos los lunes, los del rival de esa próxima jornada». */
+const RIVALES = Number(arg("rivales") ?? 1);
+const LUNES = process.argv.includes("--lunes");
 const EQUIPO = arg("equipo");
 const MAX_JUGADORES = Number(arg("jugadores") ?? 60);
 const VER = process.argv.includes("--ver");
@@ -387,6 +391,19 @@ async function corte(dir, n, hls, c, jugador, contra) {
 /* ------------------------------------------------------------------ */
 
 const doc = docs[CLAVE] ?? {};
+
+/*
+| --lunes (la jornada nocturna): el vídeo se hace la noche del lunes, con el
+| Opta de la semana ya bajado (lunes 7:30), lunes o martes de madrugada. Otro
+| día sólo se sigue con un rival que el tope de tiempo dejó a medias.
+*/
+if (LUNES && !EQUIPO) {
+  const madrid = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
+  const nocheDelLunes = madrid.getDay() === 1 || (madrid.getDay() === 2 && madrid.getHours() < 8);
+  const aMedias = rivales.filter((r) => doc.equipos?.[r.teamId]?.completo === false);
+  if (!nocheDelLunes && !aMedias.length) await fin(0, `hoy no toca: el vídeo de los jugadores rivales se hace la noche del lunes (${rivales.map((r) => r.equipo).join(", ")})`);
+  if (!nocheDelLunes) rivales.splice(0, rivales.length, ...aMedias);
+}
 doc.equipos ??= {};
 doc.jugadores ??= {};
 
@@ -425,14 +442,20 @@ for (const r of rivales) {
     .filter((f) => String(f.teamId) === r.teamId && conAcciones.has(String(f.playerId)) && (Number(temporadaDe.get(String(f.playerId))?.Min) || 0) >= MIN_MINUTOS)
     .sort((a, b) => (Number(temporadaDe.get(String(b.playerId))?.Min) || 0) - (Number(temporadaDe.get(String(a.playerId))?.Min) || 0));
 
-  doc.equipos[r.teamId] = { nombre: r.equipo, partidos: r.partidos, revisado: new Date().toISOString(), jugadores: suyos.map((f) => String(f.playerId)) };
+  /* completo: false hasta pasar por todos; si el tope corta, la noche siguiente sigue con él (--lunes). */
+  doc.equipos[r.teamId] = { nombre: r.equipo, partidos: r.partidos, revisado: new Date().toISOString(), jugadores: suyos.map((f) => String(f.playerId)), completo: false };
+  let cortado = false;
   console.log(`  ${eventos.length} acciones; ${suyos.length} jugadores con ${MIN_MINUTOS}' o más`);
 
   for (const f of suyos) {
-    if (hechos >= MAX_JUGADORES) break;
+    if (hechos >= MAX_JUGADORES) {
+      cortado = true;
+      break;
+    }
     /* Tope de tiempo por noche (--minutos, 100 por defecto): lo que falte, la noche siguiente. */
     if (Date.now() - INICIO > TOPE_MIN * 60_000) {
       console.log(`  (tope de ${TOPE_MIN} min: lo que falta, la próxima pasada)`);
+      cortado = true;
       break;
     }
     const id = String(f.playerId);
@@ -526,6 +549,7 @@ for (const r of rivales) {
     console.log(`      ${(datos.length / 1e6).toFixed(1)} MB, ${doc.jugadores[id].segundos} s`);
     await guarda();
   }
+  doc.equipos[r.teamId].completo = !cortado;
 }
 
 /* Los equipos que ya no son próximo rival, fuera a los 10 días (vídeo incluido). */
