@@ -394,12 +394,14 @@ const doc = docs[CLAVE] ?? {};
 
 /*
 | --lunes (la jornada nocturna): el vídeo se hace la noche del lunes, con el
-| Opta de la semana ya bajado (lunes 7:30), lunes o martes de madrugada. Otro
+| Opta de la semana ya bajado (lunes 7:30): del lunes a las 8:00 al martes. Otro
 | día sólo se sigue con un rival que el tope de tiempo dejó a medias.
 */
 if (LUNES && !EQUIPO) {
   const madrid = new Date(new Date().toLocaleString("en-US", { timeZone: "Europe/Madrid" }));
-  const nocheDelLunes = madrid.getDay() === 1 || (madrid.getDay() === 2 && madrid.getHours() < 8);
+  /* Desde el lunes a las 8:00 (la pasada de las 00:00 del lunes es la noche del DOMINGO, con el Opta viejo) hasta el martes entero (si el ordenador estaba apagado). */
+  const dia = madrid.getDay();
+  const nocheDelLunes = (dia === 1 && madrid.getHours() >= 8) || dia === 2;
   const aMedias = rivales.filter((r) => doc.equipos?.[r.teamId]?.completo === false);
   if (!nocheDelLunes && !aMedias.length) await fin(0, `hoy no toca: el vídeo de los jugadores rivales se hace la noche del lunes (${rivales.map((r) => r.equipo).join(", ")})`);
   if (!nocheDelLunes) rivales.splice(0, rivales.length, ...aMedias);

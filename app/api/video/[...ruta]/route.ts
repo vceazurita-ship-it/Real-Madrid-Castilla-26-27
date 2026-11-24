@@ -125,6 +125,8 @@ async function permisoDeCarpeta(c: Cuenta, ruta: string) {
     );
   }
   const nuevo = await pidiendo.get(prefijo)!;
+  /* La ruta es pública: una carpeta inventada en cada petición no puede hacer crecer el mapa sin fin. */
+  if (permisos.size >= 200) permisos.clear();
   permisos.set(prefijo, nuevo);
 
   return nuevo;

@@ -245,6 +245,7 @@ export function SalaPartido() {
                   onClick={() => {
                     /* La fuente que ya está: nada (antes se quedaba en «Abriendo la sala…»). */
                     if (f === fuente) return;
+                    setError("");
                     setCargando(true);
                     setPartido(null);
                     setElegido("");
