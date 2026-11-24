@@ -287,6 +287,18 @@ export function Directo({ datos, archivo: soloArchivo = false }: { datos: DatosO
   return (
     <div className="mt-6 space-y-6">
       {!soloArchivo && aviso}
+      {/* 24/11/2026: la sala de partido (/directo), el mismo directo a pantalla completa y con repetición. */}
+      <Link
+        href={`/directo${doc?.partido ? `?partido=${encodeURIComponent(doc.partido)}` : ""}`}
+        className="group flex min-w-0 items-center justify-between gap-3 rounded-2xl px-4 py-3"
+        style={{ background: "linear-gradient(90deg, rgba(40,90,200,0.35), rgba(20,140,120,0.25))", border: "1px solid rgba(120,170,255,0.35)" }}
+      >
+        <span className="min-w-0">
+          <span className="fuente-club block text-[16px] uppercase tracking-[0.2em] text-white">Abrir la sala de partido</span>
+          <span className="block text-[12px] text-white/75">Pantalla completa: probabilidad en vivo, pulso, campo, alertas contra la previa y repetición minuto a minuto. También el primer equipo.</span>
+        </span>
+        <Radio size={20} className="shrink-0 text-white transition group-hover:scale-110" aria-hidden />
+      </Link>
       <Panel
         titulo={
           <span className="inline-flex items-center gap-2">

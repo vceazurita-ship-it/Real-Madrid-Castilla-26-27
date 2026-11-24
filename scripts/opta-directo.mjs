@@ -275,9 +275,43 @@ async function temporada() {
   return t[0];
 }
 
+/*
+| LA PREVIA (24/11/2026): cómo llega cada equipo, para el «plan contra
+| realidad» de la sala de control (/directo). La media por partido de cada
+| métrica en su competición esta temporada, SIN ese partido. Una consulta por
+| proceso (la temporada entera, equipo × partido) y se guarda en cada partido.
+*/
+let temporadaEquipos = null;
+async function previaDe(S, partido, teamIds) {
+  try {
+    temporadaEquipos ??= await consulta(
+      `SELECT game.gameId as partido, teamId, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM team 't' BY game ORDER BY game.gameDate DESC LIMIT 4000`,
+      S, "team t");
+  } catch (e) {
+    if (e.sesion) throw e;
+    return null;
+  }
+  const t = temporadaEquipos;
+  const cP = t.cols.indexOf("partido"), cT = t.cols.indexOf("teamId");
+  const salida = {};
+  for (const id of teamIds) {
+    const suyas = t.filas.filter((f) => f[cT] === id && f[cP] !== partido);
+    if (!suyas.length) continue;
+    const medias = {};
+    for (const m of METRICAS) {
+      const c = t.cols.indexOf(m);
+      const xs = suyas.map((f) => f[c]).filter((v) => typeof v === "number" && Number.isFinite(v));
+      if (xs.length) medias[m] = Math.round((xs.reduce((a, b) => a + b, 0) / xs.length) * 1000) / 1000;
+    }
+    salida[id] = { pj: suyas.length, medias };
+  }
+  return Object.keys(salida).length ? salida : null;
+}
+
 /* La lectura anterior de cada partido: la pantalla sólo da una alerta si ya
    lo era en la lectura de antes (que no parpadee con una jugada suelta). */
 const anteriores = new Map();
+const previas = new Map();
 
 async function vuelta(S) {
   /* DIA=AAAA-MM-DD (24/11/2026): los partidos de ese día; el repaso de la mañana (opta-directo-vigia.cjs) recoge así los de ayer. */
@@ -368,7 +402,9 @@ async function vuelta(S) {
       if (anteriores.has(`${partido}:ultimo`)) anteriores.set(partido, anteriores.get(`${partido}:ultimo`));
       anteriores.set(`${partido}:ultimo`, { cols: cifras.cols, filas });
     }
-    if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
+    const cTeam = cifras.cols.indexOf("teamId");
+    if (filas.length && !previas.has(partido)) previas.set(partido, await previaDe(S, partido, filas.map((f) => f[cTeam])));
+    if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, liga: LIGA, previa: previas.get(partido) ?? null, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
   /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
   if (!process.env.SIN_INDICE) await guarda(CLAVE, { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });

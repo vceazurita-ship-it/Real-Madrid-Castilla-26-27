@@ -20,6 +20,7 @@ import {
   UsersRound,
   Flag,
   Globe2,
+  Radio,
   CircleDot,
   Goal,
   Handshake,
@@ -222,6 +223,16 @@ export const MODULES: AppModule[] = [
       "directo",
       "en vivo",
     ],
+  },
+  {
+    /* 24/11/2026: el directo de Opta como sala de control, con repetición; Castilla y primer equipo. */
+    href: "/directo",
+    area: "COMPETICIÓN",
+    title: "Sala de partido",
+    desc: "El directo a pantalla completa: probabilidad en vivo, pulso, campo, alertas y repetición minuto a minuto",
+    icon: Radio,
+    rank: 87,
+    alias: ["directo", "en vivo", "sala", "partido en directo", "repeticion", "repetición", "primer equipo", "real madrid", "probabilidad"],
   },
   {
     /* 23/11/2026: las cinco grandes, Segunda y los dos grupos de 1.ª RFEF con la misma vara (Wyscout). */
