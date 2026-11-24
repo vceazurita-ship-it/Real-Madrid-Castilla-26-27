@@ -8,22 +8,34 @@
  * (las pantallas cargan sus datos después: hasta 20 s), baja hasta él y lo
  * resalta unos segundos con un marco dorado. Si no aparece, no hace nada:
  * la pantalla ya está abierta en su pestaña. Ver lib/x-ideas.ts (`anclaDe`).
+ *
+ * Revisión 24/11/2026:
+ * - También con un enlace dentro de la misma pantalla (otra pestaña u otro
+ *   ancla): Next navega con pushState, que no avisa con `hashchange`, así que
+ *   se mira la dirección cada 600 ms (comparar una cadena, nada más).
+ * - Una sola búsqueda a la vez: la nueva cancela la anterior y quita su marco.
  */
 
-import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
 const PLAZO_MS = 20_000;
 const RESALTE_MS = 4_500;
+const MIRA_MS = 600;
 
 export function ResaltaAncla() {
-  const ruta = usePathname();
-
   useEffect(() => {
-    let parado = false;
     let reloj: number | undefined;
+    let quitaMarco: (() => void) | null = null;
+    let ultima = "";
+
+    const corta = () => {
+      window.clearTimeout(reloj);
+      quitaMarco?.();
+      quitaMarco = null;
+    };
 
     const busca = () => {
+      corta();
       const ancla = decodeURIComponent(window.location.hash.slice(1));
 
       if (!/^x-idea-[A-Za-z0-9_-]+$/.test(ancla)) return;
@@ -31,8 +43,6 @@ export function ResaltaAncla() {
       const empezo = Date.now();
 
       const prueba = () => {
-        if (parado) return;
-
         const el = document.getElementById(ancla);
 
         if (!el) {
@@ -53,25 +63,37 @@ export function ResaltaAncla() {
         el.style.outline = "3px solid #C8A96B";
         el.style.outlineOffset = "4px";
 
-        reloj = window.setTimeout(() => {
+        quitaMarco = () => {
           el.style.outline = antes.outline;
           el.style.outlineOffset = antes.offset;
           el.style.transition = antes.transition;
+        };
+        reloj = window.setTimeout(() => {
+          quitaMarco?.();
+          quitaMarco = null;
         }, RESALTE_MS);
       };
 
       prueba();
     };
 
-    busca();
-    window.addEventListener("hashchange", busca);
+    const mira = () => {
+      const ahora = window.location.pathname + window.location.search + window.location.hash;
+      if (ahora === ultima) return;
+      ultima = ahora;
+      busca();
+    };
+
+    mira();
+    const vigia = window.setInterval(mira, MIRA_MS);
+    window.addEventListener("hashchange", mira);
 
     return () => {
-      parado = true;
-      window.clearTimeout(reloj);
-      window.removeEventListener("hashchange", busca);
+      window.clearInterval(vigia);
+      window.removeEventListener("hashchange", mira);
+      corta();
     };
-  }, [ruta]);
+  }, []);
 
   return null;
 }

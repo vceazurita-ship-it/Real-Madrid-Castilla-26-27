@@ -47,7 +47,7 @@ function seccionDe(ruta: string) {
     if (seccion.titulo === "Inicio" || seccion.titulo === "En obras" || seccion.titulo === "Ajustes") continue;
 
     for (const e of seccion.entradas) {
-      if (e.obras || !e.href.startsWith("/")) continue;
+      if (e.obras || e.soloAdmin || !e.href.startsWith("/")) continue;
 
       const casa = ruta === e.href || ruta.startsWith(`${e.href}/`);
 
@@ -63,7 +63,7 @@ export function NavSeccion() {
   const yo = useRef<HTMLElement>(null);
   const tira = useRef<HTMLDivElement>(null);
   const seccion = seccionDe(ruta);
-  const entradas = (seccion?.entradas ?? []).filter((e) => !e.obras && e.href.startsWith("/"));
+  const entradas = (seccion?.entradas ?? []).filter((e) => !e.obras && !e.soloAdmin && e.href.startsWith("/"));
   const rivalEnCurso = useSyncExternalStore(suscribeRivalEnCurso, rivalEnCursoActual, rivalEnCursoServidor);
   const conRival = !!seccion && SECCIONES_CON_RIVAL.has(seccion.titulo);
 
@@ -241,7 +241,7 @@ export function EnlacesSeccion({ className = "" }: { className?: string }) {
   const ruta = usePathname() ?? "";
   const caja = useRef<HTMLDetailsElement>(null);
   const seccion = seccionDe(ruta);
-  const otras = (seccion?.entradas ?? []).filter((e) => !e.obras && e.href.startsWith("/") && e.href !== ruta);
+  const otras = (seccion?.entradas ?? []).filter((e) => !e.obras && !e.soloAdmin && e.href.startsWith("/") && e.href !== ruta);
 
   /* Se cierra al pinchar fuera o con Escape. */
   useEffect(() => {

@@ -47,7 +47,7 @@ const ROTULO: Record<NotaZona["zona"], { titulo: string; que: string }> = {
 export function TerciosRival({ equipo }: { equipo: string }) {
   const { caja, abierto } = useAsoma<HTMLDivElement>(1500);
   return (
-    <div ref={caja} id="x-idea-2124158021605466121-1" className="min-w-0 scroll-mt-20">
+    <div ref={caja} id="x-idea-2124158021605466121-1" className={`min-w-0 scroll-mt-20 ${abierto ? "" : "min-h-24"}`}>
       {abierto && equipo && <Indice equipo={equipo} />}
     </div>
   );
