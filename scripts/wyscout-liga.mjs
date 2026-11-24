@@ -878,7 +878,7 @@ async function pulsaForzar(nav) {
       const candidatos = [...document.querySelectorAll("button, a, [role=button], input[type=button], input[type=submit], [class*=button], [class*=btn]")];
       const b = candidatos.find((e) => {
         const t = ((e.innerText || e.value || "") + "").trim();
-        if (!t || t.length > 40 || !/forzar|forzar acceso|force/i.test(t)) return false;
+        if (!t || t.length > 40 || !/^\s*(forzar|force)\b/i.test(t)) return false;
         const r = e.getBoundingClientRect();
         return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden";
       });
@@ -1038,7 +1038,10 @@ async function esperaLogin(nav) {
   for (let i = 0; i < 120; i++) {
     await espera(5000);
 
-    if (await pulsaForzar(nav)) continue;
+    if (forzados < 3 && (await pulsaForzar(nav))) {
+      forzados++;
+      continue;
+    }
 
     if (await estaDentro(nav)) {
       console.log("\n  Dentro. La sesión queda guardada para la semana que viene.\n");

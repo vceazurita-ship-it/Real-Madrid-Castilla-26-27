@@ -54,7 +54,7 @@ export async function abreChrome() {
 }
 
 export async function conecta() {
-  let pag = (await pestanas()).find((p) => p.type === "page" && /\/\/(x|twitter)\.com/.test(p.url));
+  let pag = ((await pestanas()) ?? []).find((p) => p.type === "page" && /\/\/(x|twitter)\.com/.test(p.url));
 
   if (!pag) {
     const nueva = await fetch(`http://127.0.0.1:${PUERTO}/json/new?${PERFIL_URL}`, { method: "PUT" });
@@ -66,6 +66,7 @@ export async function conecta() {
   await new Promise((ok, mal) => {
     ws.onopen = ok;
     ws.onerror = mal;
+    setTimeout(() => mal(new Error("el Chrome de X no contesta en 20 s")), 20_000);
   });
 
   let id = 0;

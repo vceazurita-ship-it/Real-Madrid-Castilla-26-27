@@ -79,7 +79,13 @@ const VER = process.argv.includes("--ver");
 const REHACER = process.argv.includes("--rehacer");
 
 
+/* La carpeta de trabajo: se borra también si se sale antes de tiempo (revisión 24/11/2026). */
+let TMP = null;
+const INICIO = Date.now();
+const TOPE_MIN = Number(arg("minutos") ?? 100);
+
 async function fin(codigo, texto) {
+  if (TMP) fs.rmSync(TMP, { recursive: true, force: true });
   console.log(`RESUMEN: ${texto}`);
   process.exitCode = codigo;
   setTimeout(() => process.exit(codigo), 300);
@@ -389,7 +395,7 @@ const guarda = async () => {
   await guardaDoc(CLAVE, "opta", doc);
 };
 
-const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "opta-jugador-"));
+const tmp = (TMP = fs.mkdtempSync(path.join(os.tmpdir(), "opta-jugador-")));
 if (FUENTE) fs.copyFileSync(FUENTE, path.join(tmp, "fuente.ttf"));
 
 let hechos = 0;
@@ -424,6 +430,11 @@ for (const r of rivales) {
 
   for (const f of suyos) {
     if (hechos >= MAX_JUGADORES) break;
+    /* Tope de tiempo por noche (--minutos, 100 por defecto): lo que falte, la noche siguiente. */
+    if (Date.now() - INICIO > TOPE_MIN * 60_000) {
+      console.log(`  (tope de ${TOPE_MIN} min: lo que falta, la próxima pasada)`);
+      break;
+    }
     const id = String(f.playerId);
     const nombre = String(f.jugador);
     const fortalezas = fortalezasDe(id);

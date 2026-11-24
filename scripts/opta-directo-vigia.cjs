@@ -329,11 +329,16 @@ async function miraDirectoOpta({ supabase, apunta, ahora = Date.now() }) {
     | se quedó sin directo, así entra igual. Sólo escribe los partidos, no el
     | índice del día.
     */
-    if (hora >= 8 && estado.repasoDe !== diaDe(ahora)) {
-      estado.repasoDe = diaDe(ahora);
+    /* Revisión 24/11/2026: se da por hecho sólo si arranca; si el Chrome no abre, se reintenta cada 30 min. */
+    if (hora >= 8 && estado.repasoDe !== diaDe(ahora) && ahora - (estado.repasoIntento ?? 0) > 30 * 60_000) {
+      estado.repasoIntento = ahora;
       guardaJson(FICHERO_ESTADO, estado);
       const ayer = diaDe(ahora - 86_400_000);
       const registro = await lanzaAqui({ DIA: ayer, SIN_INDICE: "1", DURACION_MIN: "10", INTERVALO_S: "60" }, `repaso-${ayer}`);
+      if (registro) {
+        estado.repasoDe = diaDe(ahora);
+        guardaJson(FICHERO_ESTADO, estado);
+      }
       apunta(registro ? `Directo de Opta: repaso de los partidos del ${ayer} en marcha (por si alguno se quedó sin guardar).` : "Directo de Opta: el repaso de ayer no arranca (el Chrome de Opta no abre).");
     }
 

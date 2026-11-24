@@ -128,7 +128,7 @@ async function bajaImagenes(posts) {
 
       try {
         if (!fs.existsSync(destino)) {
-          const r = await fetch(url);
+          const r = await fetch(url, { signal: AbortSignal.timeout(30_000) });
           const tipo = r.headers.get("content-type") ?? "";
           const bytes = Buffer.from(await r.arrayBuffer());
 
@@ -226,8 +226,11 @@ async function unaCuenta(cuenta, ahora) {
         break;
       }
 
-      ideas.push(...X.ideasDeRespuesta(r.texto, tanda, lista.map((p) => p.ruta), ahora, 8, cuenta.cuenta));
+      const deTanda = X.ideasDeRespuesta(r.texto, tanda, lista.map((p) => p.ruta), ahora, 8, cuenta.cuenta);
+      ideas.push(...deTanda);
       hechos.push(...tanda.map((p) => p.id));
+      /* Revisión 24/11/2026: se guardan tanda a tanda (si el proceso muere por memoria, lo hecho queda). */
+      if (!EN_SECO && deTanda.length) await guardaIdeas(deTanda);
     }
   }
 
@@ -235,13 +238,15 @@ async function unaCuenta(cuenta, ahora) {
 
   if (EN_SECO) {
     console.log(JSON.stringify(ideas, null, 2));
-  } else if (ideas.length) {
+  }
+
+  async function guardaIdeas(nuevas) {
     await cambiaDoc(X.CLAVE_X_IDEAS, "x", (crudo) => {
       const doc = X.normalizaIdeas(crudo);
       const ya = new Set(doc.ideas.map((i) => i.id));
 
       /* Las más viejas, fuera de 300 (las añadidas se quedan: hacen falta para deshacer). */
-      const todas = [...ideas.filter((i) => !ya.has(i.id)), ...doc.ideas];
+      const todas = [...nuevas.filter((i) => !ya.has(i.id)), ...doc.ideas];
       const guardar = todas.filter((i, n) => n < 300 || i.estado === "añadida" || i.estado === "añadiendo" || i.estado === "deshaciendo");
 
       return { ideas: guardar };
@@ -312,7 +317,11 @@ function abpExternos() {
     };
     hijo.stdout.on("data", recoge);
     hijo.stderr.on("data", recoge);
-    const reloj = setTimeout(() => hijo.kill(), 45 * 60_000);
+    /* Con su árbol: matar sólo a node dejaba vivo el Claude Code que lanza (revisión 24/11/2026). */
+    const reloj = setTimeout(() => {
+      if (process.platform === "win32" && hijo.pid) spawn("taskkill", ["/T", "/F", "/PID", String(hijo.pid)], { windowsHide: true });
+      else hijo.kill();
+    }, 45 * 60_000);
     hijo.on("close", (codigo) => {
       clearTimeout(reloj);
       linea(resto);

@@ -269,7 +269,7 @@ async function temporada() {
   const r = await pide("/dp/descriptor/query?name=queryFindSeasons&isOpponent=false&reportType=summary&site=realmadrid");
   const filas = (await r.json())._data.rows;
   /* Sin tildes ni mayúsculas: desde un .cmd «División» llega mal (24/11/2026). */
-  const llano = (v) => String(v).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const llano = (v) => String(v).normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   const t = filas.filter((x) => llano(x[3]) === llano(LIGA)).sort((a, b) => String(b[5]).localeCompare(String(a[5])))[0];
   if (!t) throw new Error(`No encuentro ${LIGA}.`);
   return t[0];

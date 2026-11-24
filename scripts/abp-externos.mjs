@@ -101,7 +101,7 @@ async function idsDeLaCuenta(cuenta, vistos, corte) {
 const token = (id) => ((Number(id) / 1e15) * Math.PI).toString(36).replace(/(0+|\.)/g, "");
 
 async function ficha(id) {
-  const r = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${id}&lang=es&token=${token(id)}`, { headers: { "User-Agent": "Mozilla/5.0" } });
+  const r = await fetch(`https://cdn.syndication.twimg.com/tweet-result?id=${id}&lang=es&token=${token(id)}`, { headers: { "User-Agent": "Mozilla/5.0" }, signal: AbortSignal.timeout(30_000) });
   if (!r.ok) throw new Error(`ficha ${id}: ${r.status}`);
   return r.json();
 }
@@ -164,7 +164,7 @@ async function fotos(pieza) {
     const destino = path.join(CACHE, nombre);
     try {
       if (!fs.existsSync(destino)) {
-        const r = await fetch(`${url}?name=medium`);
+        const r = await fetch(`${url}?name=medium`, { signal: AbortSignal.timeout(30_000) });
         const bytes = Buffer.from(await r.arrayBuffer());
         if (!r.ok || bytes.length > 3_000_000) continue;
         fs.writeFileSync(destino, bytes);
@@ -252,8 +252,9 @@ async function unaFuente(fuente, ahora) {
   }
 
   /* Lo que ya está en algún hilo de la app. */
+  /* Revisión 24/11/2026: sólo los hilos YA analizados; uno guardado sin análisis vuelve a pasar por Claude. */
   const deItem = new Map();
-  for (const it of doc.items) for (const p of it.piezas) deItem.set(p.id, it.id);
+  for (const it of doc.items) if (it.analisis) for (const p of it.piezas) deItem.set(p.id, it.id);
 
   const nuevos = leido.ids.filter((id) => !vistos.has(id) && !deItem.has(id));
   paso(2, 4, `@${fuente.cuenta}: ${nuevos.length} publicaciones nuevas: juntando los hilos`);
