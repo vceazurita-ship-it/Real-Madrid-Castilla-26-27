@@ -40,7 +40,17 @@ import { createRequire as crearRequireDatos } from "node:module";
 const { createClient } = crearRequireDatos(import.meta.url)("../lib/datos/cliente.cjs"); /* con reserva: lib/datos/cliente.cjs */
 
 const SITIO = "https://realmadrid.opta.trumediasports.com";
-const LIGA = "Primera División RFEF";
+/*
+| 24/11/2026: también el primer equipo (petición del analista: «probarlo con
+| los partidos del primer equipo del Real Madrid»). LIGA = la competición de
+| Opta («UEFA Champions League», «Primera División»); EQUIPO = sólo los
+| partidos de ese equipo; CLAVE = dónde se guardan (por defecto opta:directo;
+| el primer equipo va a opta:rm para no mezclarse con el archivo de Primera
+| RFEF, del que beben los análisis de rivales).
+*/
+const LIGA = (process.env.LIGA || "Primera División RFEF").trim();
+const EQUIPO = (process.env.EQUIPO || "").trim().toLowerCase();
+const CLAVE = /^opta:[a-z0-9-]+$/i.test(process.env.CLAVE ?? "") ? process.env.CLAVE : "opta:directo";
 /* Acotados aquí también: el workflow se puede lanzar a mano con cualquier
    texto, y un NaN dejaba el bucle sin vueltas (duración) o sin espera
    (intervalo: setTimeout(NaN) es 1 ms, una consulta tras otra a Opta). */
@@ -131,7 +141,25 @@ async function enChrome(ruta, init) {
     /* 14/11/2026: una pestaña de Opta dormida (descartada por Chrome) no contesta, la promesa
        se quedaba colgada y Node salía sin decir nada. Ahora se prueba cada pestaña con «1» y
        un tope de 10 s, y cada consulta tiene un tope de 4 min (error, no silencio). */
-    const lista = await (await fetch(`http://127.0.0.1:${PUERTO_CHROME}/json/list`)).json();
+    /* 24/11/2026: si el Chrome de Opta está cerrado, se abre con su perfil (la sesión se queda en él). */
+    const pestanas = async () => {
+      try {
+        return await (await fetch(`http://127.0.0.1:${PUERTO_CHROME}/json/list`)).json();
+      } catch {
+        return null;
+      }
+    };
+    if (!(await pestanas())?.some((t) => t.type === "page" && t.url.includes("trumedia"))) {
+      const fs = await import("node:fs");
+      const { spawn } = await import("node:child_process");
+      const chrome = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"].find((r) => fs.existsSync(r));
+      if (chrome) {
+        spawn(chrome, [`--remote-debugging-port=${PUERTO_CHROME}`, `--user-data-dir=${process.env.LOCALAPPDATA}\\rmcf-opta`, "--no-first-run", "--no-default-browser-check", "--window-size=1500,950", `${SITIO}/soccer/league-tables`], { stdio: "ignore", detached: true }).unref();
+        for (let i = 0; i < 40 && !(await pestanas())?.some((t) => t.type === "page" && t.url.includes("trumedia")); i++) await espera(1000);
+        await espera(8000);
+      }
+    }
+    const lista = (await pestanas()) ?? [];
     const candidatas = lista.filter((t) => t.type === "page" && t.url.includes("trumedia")).reverse();
     if (!candidatas.length) throw new Error("No hay pestaña de Opta en el Chrome del club (puerto 9335).");
     for (const p of candidatas) {
@@ -240,7 +268,9 @@ const hoy = () => new Date().toLocaleString("sv-SE", { timeZone: "Europe/Madrid"
 async function temporada() {
   const r = await pide("/dp/descriptor/query?name=queryFindSeasons&isOpponent=false&reportType=summary&site=realmadrid");
   const filas = (await r.json())._data.rows;
-  const t = filas.filter((x) => x[3] === LIGA).sort((a, b) => String(b[5]).localeCompare(String(a[5])))[0];
+  /* Sin tildes ni mayúsculas: desde un .cmd «División» llega mal (24/11/2026). */
+  const llano = (v) => String(v).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  const t = filas.filter((x) => llano(x[3]) === llano(LIGA)).sort((a, b) => String(b[5]).localeCompare(String(a[5])))[0];
   if (!t) throw new Error(`No encuentro ${LIGA}.`);
   return t[0];
 }
@@ -267,7 +297,7 @@ async function vuelta(S) {
     delDia = juegos.filas.filter((g) => String(g[1]).startsWith(ayer));
   }
 
-  const ids = delDia.map((g) => g[0]);
+  let ids = delDia.map((g) => g[0]);
   let cifras = { cols: [], filas: [] };
   if (ids.length) {
     cifras = await consulta(
@@ -275,6 +305,14 @@ async function vuelta(S) {
       /* El filtro por partido (smid) no lo coge el SSQL: se piden los últimos
          y se criban aquí. */
       S, "team t");
+  }
+
+  /* Sólo los partidos de EQUIPO (si se pide): los demás ni se guardan ni se piden sus eventos. */
+  if (EQUIPO) {
+    const cE = cifras.cols.indexOf("equipo");
+    const suyos = new Set(cifras.filas.filter((f) => String(f[cE]).toLowerCase() === EQUIPO).map((f) => f[0]));
+    ids = ids.filter((i) => suyos.has(i));
+    delDia = delDia.filter((g) => suyos.has(g[0]));
   }
 
   /* Los tramos de 5 minutos (para el «momento» y el minuto): la misma
@@ -330,19 +368,19 @@ async function vuelta(S) {
       if (anteriores.has(`${partido}:ultimo`)) anteriores.set(partido, anteriores.get(`${partido}:ultimo`));
       anteriores.set(`${partido}:ultimo`, { cols: cifras.cols, filas });
     }
-    if (filas.length) await guarda(`opta:directo:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
+    if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
   /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
-  if (!process.env.SIN_INDICE) await guarda("opta:directo", { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
+  if (!process.env.SIN_INDICE) await guarda(CLAVE, { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
 
   /* EL ARCHIVO (14/11/2026): todos los partidos que ya tienen su documento, para el
      desplegable «Ver otro partido» de la pantalla (sólo salen los que tienen datos). */
   const conDocs = indice.filter((p) => p.conDatos);
   if (conDocs.length) {
-    const previo = A_FICHERO ? null : (await sb.from("app_documents").select("data").eq("key", "opta:directo:archivo").maybeSingle()).data?.data;
+    const previo = A_FICHERO ? null : (await sb.from("app_documents").select("data").eq("key", `${CLAVE}:archivo`).maybeSingle()).data?.data;
     const lista = new Map((previo?.partidos ?? []).map((p) => [p.partido, p]));
     for (const p of conDocs) lista.set(p.partido, { partido: p.partido, fecha: String(p.fecha).slice(0, 10), equipos: p.equipos, goles: p.goles, estado: p.estado });
-    await guarda("opta:directo:archivo", { actualizado: ahora, partidos: [...lista.values()].sort((x, y) => String(y.fecha).localeCompare(String(x.fecha))) });
+    await guarda(`${CLAVE}:archivo`, { actualizado: ahora, partidos: [...lista.values()].sort((x, y) => String(y.fecha).localeCompare(String(x.fecha))) });
   }
 
   console.log(`${ahora.slice(11, 19)} · ${delDia.length} partidos hoy, ${indice.filter((p) => p.conDatos).length} con datos, ${indice.filter((p) => /played|full/i.test(String(p.estado))).length} acabados.`);
@@ -361,7 +399,9 @@ async function principal() {
     try {
       const indice = await vuelta(S);
       fallos = 0;
-      if (!indice.length) {
+      /* Con EQUIPO se espera: su partido sale en Opta cuando empieza (o al acabar). */
+      if (!indice.length && EQUIPO) console.log("Su partido aún no sale en Opta: sigo mirando.");
+      else if (!indice.length) {
         console.log("Hoy no hay partidos: fin.");
         break;
       }
