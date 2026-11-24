@@ -89,11 +89,32 @@ ws.onmessage = (m) => {
 };
 await new Promise((ok, mal) => ((ws.onopen = ok), (ws.onerror = mal)));
 
+/* 24/11/2026: con tope. La pestaña de Opta dejó de contestar a mitad (8 goles subidos) y la promesa se quedó
+   colgada: Node salió con «unsettled top-level await» sin guardar lo hecho. Ahora, a los 90 s o si se cae la
+   conexión, la consulta vuelve con error y el script sigue o acaba guardando. */
+ws.onclose = () => {
+  for (const r of pendientesCdp.values()) r({ error: "conexión con la pestaña de Opta cerrada" });
+  pendientesCdp.clear();
+};
+
 const cdp = (method, params = {}) =>
   new Promise((r) => {
     const n = ++idMsg;
+    const reloj = setTimeout(() => {
+      pendientesCdp.delete(n);
+      r({ error: "la pestaña de Opta no contesta en 90 s" });
+    }, 90_000);
 
-    pendientesCdp.set(n, r);
+    pendientesCdp.set(n, (v) => {
+      clearTimeout(reloj);
+      r(v);
+    });
+    if (ws.readyState !== 1) {
+      clearTimeout(reloj);
+      pendientesCdp.delete(n);
+      r({ error: "conexión con la pestaña de Opta cerrada" });
+      return;
+    }
     ws.send(JSON.stringify({ id: n, method, params }));
   });
 

@@ -20,7 +20,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useProximoRival } from "@/components/data/ClasificacionJusta";
-import { COMPARADO, ORO, tinta } from "@/components/data/graficas";
+import { COMPARADO, EscudoPunto, ORO, ladoEscudo, tinta, useEscudos } from "@/components/data/graficas";
 import { CampoOpta } from "@/components/campo/CampoOpta";
 import { equiposDe, nombreDe, useRemates } from "@/app/opta/_piezas/eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
@@ -183,6 +183,8 @@ function Dispersion({ c, marcadoId, alElegir }: { c: Concesiones; marcadoId: str
 
   const marcas = (a: number, b: number, n: number) => Array.from({ length: n + 1 }, (_, i) => a + ((b - a) * i) / n);
   const colorDe = (f: FilaConcede) => (f.teamId === marcadoId ? COMPARADO : f.teamId === CASTILLA_OPTA ? ORO : null);
+  /* 24/11/2026: todos con su escudo; el próximo rival y el Castilla, grandes y con halo. */
+  const escudoDe = useEscudos();
   const orden = [...c.filas].sort((a, b) => Number(Boolean(colorDe(a))) - Number(Boolean(colorDe(b))));
 
   const rotulo = (texto: string, x: number, y: number, ancla: "start" | "end") => (
@@ -226,12 +228,14 @@ function Dispersion({ c, marcadoId, alElegir }: { c: Concesiones; marcadoId: str
           const cx = px(f.rematesPartido);
           const cy = py(f.xgRemate);
           const derecha = cx > AN - 150;
+          const rol = f.teamId === marcadoId ? "comparado" : f.teamId === CASTILLA_OPTA ? "nuestro" : "fondo";
+          const aparte = ladoEscudo(rol) / 2 + 8;
           return (
             <g key={f.teamId} onClick={() => alElegir(f.teamId)} style={{ cursor: f.teamId === CASTILLA_OPTA ? "default" : "pointer" }}>
-              <circle cx={cx} cy={cy} r={14} style={{ fill: "transparent" }} />
-              <circle cx={cx} cy={cy} r={color ? 7 : 5} style={{ fill: color ?? tinta(0.32), stroke: color ? "rgb(var(--rmcf-ink-rgb) / 0.9)" : "none", strokeWidth: 1.5 }} />
+              <circle cx={cx} cy={cy} r={Math.max(14, ladoEscudo(rol) / 2 + 2)} style={{ fill: "transparent" }} />
+              <EscudoPunto cx={cx} cy={cy} escudo={escudoDe(f.equipo)} rol={rol} />
               {color && (
-                <text x={cx + (derecha ? -11 : 11)} y={cy + 4} textAnchor={derecha ? "end" : "start"} style={{ fill: color, fontSize: 12.5, fontWeight: 700 }}>
+                <text x={cx + (derecha ? -aparte : aparte)} y={cy + 4} textAnchor={derecha ? "end" : "start"} style={{ fill: color, fontSize: 12.5, fontWeight: 700 }}>
                   {f.equipo}
                 </text>
               )}

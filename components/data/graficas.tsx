@@ -126,6 +126,37 @@ export function LeyendaPercentil({ poblacion }: { poblacion?: string } = {}) {
  */
 export const COMPARADO = "#4F8FE8";
 
+/*
+| EL ESCUDO DE UN EQUIPO EN UN GRÁFICO (24/11/2026). Petición del analista:
+| «que se vean todos los escudos pero más destacados los protagonistas». Los
+| protagonistas (nosotros en oro, el comparado o el próximo rival en azul) van
+| grandes, con halo y anillo de su color; el resto, pequeños y atenuados, que
+| se reconozcan sin tapar. Sin escudo, el punto de siempre. Quien la usa pinta
+| los protagonistas los últimos (encima).
+*/
+export type RolEscudo = "nuestro" | "comparado" | "fondo";
+
+export const ladoEscudo = (rol: RolEscudo) => (rol === "fondo" ? 18 : 34);
+
+export function EscudoPunto({ cx, cy, escudo, rol, color }: { cx: number; cy: number; escudo: string | null; rol: RolEscudo; color?: string }) {
+  const protagonista = rol !== "fondo";
+  const lado = ladoEscudo(rol);
+  const tono = color ?? (rol === "nuestro" ? ORO : rol === "comparado" ? COMPARADO : tinta(0.18));
+  return (
+    <g style={{ opacity: protagonista ? 1 : 0.55 }}>
+      {protagonista && <circle cx={cx} cy={cy} r={lado / 2 + 8} style={{ fill: tono, fillOpacity: 0.16 }} />}
+      {escudo ? (
+        <>
+          <circle cx={cx} cy={cy} r={lado / 2 + 2} style={{ fill: "var(--rmcf-surface, #11161C)", stroke: tono, strokeWidth: protagonista ? 2.5 : 1 }} />
+          <image href={escudo} x={cx - lado / 2} y={cy - lado / 2} width={lado} height={lado} preserveAspectRatio="xMidYMid meet" />
+        </>
+      ) : (
+        <circle cx={cx} cy={cy} r={protagonista ? 7.5 : 4.5} style={{ fill: protagonista ? tono : tinta(0.32), stroke: "var(--rmcf-surface, #11161C)", strokeWidth: 2 }} />
+      )}
+    </g>
+  );
+}
+
 /* ------------------------------------------------------------------ */
 /*  BARRA DE PERCENTIL                                                 */
 /* ------------------------------------------------------------------ */
@@ -679,51 +710,15 @@ function DispersionBase({
 
             const escudo = escudoDe(punto.equipo);
 
-            const lado = esNuestro || esOtro ? 30 : 22;
+            const lado = ladoEscudo(esNuestro ? "nuestro" : esOtro ? "comparado" : "fondo");
 
             const cx = px(punto.x);
             const cy = py(punto.y);
 
             return (
               <g key={punto.equipo}>
-                {escudo ? (
-                  <>
-                    {/*
-                      El escudo dice quién es sin tener que pasar el ratón. El
-                      disco de debajo es el fondo de la pantalla: separa dos
-                      escudos que se pisan y deja leer los que traen el fondo
-                      transparente.
-                    */}
-                    <circle
-                      cx={cx}
-                      cy={cy}
-                      r={lado / 2 + 2}
-                      fill="var(--rmcf-surface, #11161C)"
-                      stroke={esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.18)}
-                      strokeWidth={esNuestro || esOtro ? 2 : 1}
-                    />
-
-                    <image
-                      href={escudo}
-                      x={cx - lado / 2}
-                      y={cy - lado / 2}
-                      width={lado}
-                      height={lado}
-                      preserveAspectRatio="xMidYMid meet"
-                    />
-                  </>
-                ) : (
-                  <circle
-                    cx={cx}
-                    cy={cy}
-                    r={esNuestro || esOtro ? 7 : 5}
-                    fill={esNuestro ? ORO : esOtro ? COMPARADO : tinta(0.3)}
-                    /* El anillo del color del fondo separa los puntos que se
-                       pisan sin inventar otro color. */
-                    stroke="var(--rmcf-surface, #11161C)"
-                    strokeWidth={2}
-                  />
-                )}
+                {/* Todos con su escudo; los protagonistas, grandes y con halo (24/11/2026, EscudoPunto). */}
+                <EscudoPunto cx={cx} cy={cy} escudo={escudo} rol={esNuestro ? "nuestro" : esOtro ? "comparado" : "fondo"} />
 
                 {/* El blanco del ratón, siempre encima y siempre del mismo
                     tamaño: con el escudo, el <image> se comería el hover. */}
