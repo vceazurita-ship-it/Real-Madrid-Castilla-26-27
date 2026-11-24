@@ -250,7 +250,8 @@ async function temporada() {
 const anteriores = new Map();
 
 async function vuelta(S) {
-  const dia = hoy();
+  /* DIA=AAAA-MM-DD (24/11/2026): los partidos de ese día; el repaso de la mañana (opta-directo-vigia.cjs) recoge así los de ayer. */
+  const dia = /^\d{4}-\d{2}-\d{2}$/.test(process.env.DIA ?? "") ? process.env.DIA : hoy();
   const juegos = await consulta(
     `SELECT game.gameId, game.gameDate, game.status FROM game 'g' ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT 60`, S, "game g");
   /* Con PARTIDO, el que sea (también uno ya jugado); si no, los de hoy. */

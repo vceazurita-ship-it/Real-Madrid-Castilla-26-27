@@ -153,6 +153,63 @@ function token() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  SIN TOKEN: EL DIRECTO EN ESTE ORDENADOR (24/11/2026)               */
+/* ------------------------------------------------------------------ */
+/*
+| El Castilla - Real Murcia del 20/11 se quedó sin directo: no había
+| GITHUB_TOKEN_DIRECTO en .env.local (el vigía sólo lo apuntaba) y la pasada
+| programada de GitHub no corrió. Ahora, sin token, el directo corre aquí
+| mismo con el Chrome de Opta del club (opta-directo.mjs --chrome), como hijo
+| suelto que sigue aunque el vigía se reinicie. Si el Chrome de Opta está
+| cerrado, se abre con su perfil (rmcf-opta, puerto 9335).
+*/
+
+const { spawn } = require("node:child_process");
+
+const PUERTO_OPTA = 9335;
+const SITIO_OPTA = "https://realmadrid.opta.trumediasports.com";
+
+async function chromeDeOpta() {
+  const vivo = async () => {
+    try {
+      const r = await fetch(`http://127.0.0.1:${PUERTO_OPTA}/json/list`);
+      return (await r.json()).some((t) => t.type === "page" && t.url.includes("trumedia"));
+    } catch {
+      return false;
+    }
+  };
+  if (await vivo()) return true;
+  const chrome = ["C:/Program Files/Google/Chrome/Application/chrome.exe", "C:/Program Files (x86)/Google/Chrome/Application/chrome.exe"].find((r) => fs.existsSync(r));
+  if (!chrome) return false;
+  const perfil = path.join(process.env.LOCALAPPDATA ?? "", "rmcf-opta");
+  spawn(chrome, [`--remote-debugging-port=${PUERTO_OPTA}`, `--user-data-dir=${perfil}`, "--no-first-run", "--no-default-browser-check", "--window-size=1500,950", `${SITIO_OPTA}/soccer/league-tables`], { stdio: "ignore", detached: true }).unref();
+  for (let i = 0; i < 40; i++) {
+    await new Promise((ok) => setTimeout(ok, 1000));
+    if (await vivo()) return true;
+  }
+  return false;
+}
+
+/** Lanza opta-directo.mjs --chrome aquí; devuelve el fichero de registro o null. */
+async function lanzaAqui(entorno, nombre) {
+  if (!(await chromeDeOpta())) return null;
+  fs.mkdirSync(CARPETA, { recursive: true });
+  const registro = path.join(CARPETA, `${nombre}.log`);
+  const salida = fs.openSync(registro, "a");
+  const hijo = spawn(process.execPath, ["--env-file=.env.local", path.join(RAIZ, "scripts", "opta-directo.mjs"), "--chrome"], {
+    cwd: RAIZ,
+    env: { ...process.env, ...entorno },
+    stdio: ["ignore", salida, salida],
+    detached: true,
+    windowsHide: true,
+  });
+  hijo.unref();
+  return registro;
+}
+
+const diaDe = (t) => new Date(t).toLocaleString("sv-SE", { timeZone: "Europe/Madrid" }).slice(0, 10);
+
+/* ------------------------------------------------------------------ */
 /*  CALENDARIO                                                         */
 /* ------------------------------------------------------------------ */
 
@@ -266,16 +323,18 @@ async function miraDirectoOpta({ supabase, apunta, ahora = Date.now() }) {
 
     const tok = token();
 
-    if (!tok) {
-      const hoy = diaDeMadrid(ahora);
-
-      if (estado.sinTokenAvisado !== hoy) {
-        estado.sinTokenAvisado = hoy;
-        guardaJson(FICHERO_ESTADO, estado);
-        apunta("Directo de Opta: falta GITHUB_TOKEN_DIRECTO en .env.local; el vigía no puede lanzar el directo antes de los partidos (se avisa una vez al día).");
-      }
-
-      return;
+    /*
+    | EL REPASO DE LA MAÑANA (24/11/2026): una vez al día, a partir de las 8,
+    | los partidos de AYER se vuelven a leer aquí (un par de minutos). Si alguno
+    | se quedó sin directo, así entra igual. Sólo escribe los partidos, no el
+    | índice del día.
+    */
+    if (hora >= 8 && estado.repasoDe !== diaDe(ahora)) {
+      estado.repasoDe = diaDe(ahora);
+      guardaJson(FICHERO_ESTADO, estado);
+      const ayer = diaDe(ahora - 86_400_000);
+      const registro = await lanzaAqui({ DIA: ayer, SIN_INDICE: "1", DURACION_MIN: "10", INTERVALO_S: "60" }, `repaso-${ayer}`);
+      apunta(registro ? `Directo de Opta: repaso de los partidos del ${ayer} en marcha (por si alguno se quedó sin guardar).` : "Directo de Opta: el repaso de ayer no arranca (el Chrome de Opta no abre).");
     }
 
     const delCastilla = await partidosDelCastilla(supabase);
@@ -285,11 +344,12 @@ async function miraDirectoOpta({ supabase, apunta, ahora = Date.now() }) {
 
     if (!toca) return;
 
-    const codigo = await lanza(tok, toca.duracion);
+    /* Sin token: aquí mismo, con el Chrome de Opta (antes sólo se avisaba y el partido se quedaba sin directo). */
+    const codigo = tok ? await lanza(tok, toca.duracion) : (await lanzaAqui({ DURACION_MIN: String(toca.duracion), INTERVALO_S: "60" }, `directo-${diaDe(ahora)}`)) ? 201 : 0;
 
     if (codigo < 200 || codigo >= 300) {
       globalThis[FALLO] = ahora;
-      apunta(`Directo de Opta: GitHub no lo ha lanzado (${codigo}); se reintenta en 5 min. Revisa el token y su permiso de Actions.`);
+      apunta(tok ? `Directo de Opta: GitHub no lo ha lanzado (${codigo}); se reintenta en 5 min. Revisa el token y su permiso de Actions.` : "Directo de Opta: sin token de GitHub y el Chrome de Opta no abre; se reintenta en 5 min.");
 
       return;
     }
@@ -305,7 +365,7 @@ async function miraDirectoOpta({ supabase, apunta, ahora = Date.now() }) {
 
     guardaJson(FICHERO_ESTADO, estado);
 
-    apunta(`Directo de Opta lanzado solo (${toca.duracion} min): ${toca.partidos.map((p) => `${p.local} - ${p.visitante} ${String(p.cuando).slice(11, 16)}`).join(" · ")}.`);
+    apunta(`Directo de Opta lanzado solo${tok ? "" : " en este ordenador"} (${toca.duracion} min): ${toca.partidos.map((p) => `${p.local} - ${p.visitante} ${String(p.cuando).slice(11, 16)}`).join(" · ")}.`);
   } catch (error) {
     globalThis[FALLO] = ahora;
     apunta(`Directo de Opta: no se ha podido mirar (${String(error?.message ?? error).slice(0, 160)}).`);
