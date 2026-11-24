@@ -4050,6 +4050,29 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-12",
   },
 
+  /* ==================== JUGADORES RIVALES EN VÍDEO (24/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/jugadores-rival",
+    titulo: "Jugadores rivales en vídeo",
+    resumen:
+      "Sólo el administrador. Cada jugador de los dos próximos rivales en un vídeo de 2 minutos como mucho con lo que mejor hace, sacado de sus últimos 5 partidos.",
+    origen:
+      "Opta ProVision desde el Chrome de Opta del club (puerto 9335): la temporada de los jugadores de la categoría, el evento a evento de los últimos 5 partidos del rival y el vídeo de cada momento (/vod-url). Lo monta cada noche scripts/opta-clips-jugador.mjs (paso 12 de la jornada nocturna); el vídeo va a B2 en la carpeta privado/ y los datos al documento opta:clips-jugador. Ni el documento (vetado en /api/docs) ni el vídeo (/api/video) se sirven a quien no sea el administrador.",
+    revisada: "2026-11-24",
+    bloques: [
+      {
+        titulo: "Lo que hay",
+        filas: [
+          { que: "Rival", es: "Una pestaña por rival (los dos próximos del calendario de BeSoccer) con sus últimos 5 partidos y cuándo se montó" },
+          { que: "Fortalezas", es: "Barras de percentil contra los de su misma línea (portero, defensa, medio, delantero) de la categoría con 360' o más; en blanco las que salen en el vídeo", cuenta: "Por 90' de la temporada: remate (ExpG, ShtIncBl), regate (TakeOn, xPVTakeOns), último pase (Chance, xA), centro (CrossCmp), pase que rompe líneas (ProgPass, PsIntoA3rd), juego aéreo (AerialWon), recuperación (Recovery, RcvryA3, Int), entrada (SucflTkls), despeje (Clrnce, sólo defensas) y paradas (Saves, sólo porteros). Percentil = media de los de sus métricas. Fortaleza = 70 o más; si no tiene ninguna, las dos mejores de 50 o más («lo mejor que tiene»)" },
+          { que: "Vídeo", es: "Portada de 3 s (nombre, equipo, puesto y sus fortalezas con su percentil) y sus acciones, cada una con su rótulo (fortaleza, rival, fecha y minuto). Nunca pasa de 2 minutos. Sin sonido", cuenta: "Hasta 3 fortalezas con 2 acciones o más; por turnos entre ellas, lo mejor primero: remates (goles, luego xG), regates buenos, pases que dan ocasión, centros buenos, pases que más xPV suman, aéreos ganados, recuperaciones (las más altas), entradas ganadas, despejes en el área, paradas. Dos acciones a menos de 10 s son una. Cada corte, de 6 a 9 s según la acción" },
+          { que: "Cortes", es: "Debajo del vídeo, una pastilla por acción con su color: pinchar salta a ese momento; la que se está viendo, resaltada" },
+          { que: "Sin vídeo", es: "Plegado al final: quién no tiene vídeo y por qué (sin nada en la mitad mejor de su línea o con menos de 3 acciones que enseñar)" },
+          { que: "Al día", es: "Sólo se rehace el vídeo si cambian sus cortes (el rival ha jugado). Los equipos que dejan de ser próximo rival se borran a los 10 días" },
+        ],
+      },
+    ],
+  },
   /* ==================== ESCUDOS DE LA LIGA (12/11/2026) ==================== */
   {
     ruta: "/laboratorio/escudos",

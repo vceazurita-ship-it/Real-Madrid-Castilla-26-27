@@ -133,6 +133,18 @@ export const ACTUALIZACIONES: Actualizacion[] = [
     enlace: "/scout-rival-individual",
   },
   {
+    /* 24/11/2026: scripts/opta-clips-jugador.mjs (paso 12 de la jornada nocturna). Sólo el administrador. */
+    clave: "opta-clips-jugador",
+    nombre: "Jugadores rivales en vídeo (Opta)",
+    alimenta: "Jugadores rivales en vídeo (sólo el administrador): un vídeo de 2 minutos como mucho de cada jugador del rival con sus fortalezas",
+    fuente: "Opta ProVision (temporada de la categoría, evento a evento y vídeo de sus últimos 5 partidos)",
+    cuando: "Cada noche (con la jornada), para los dos próximos rivales; sólo se rehace si el rival ha jugado",
+    grupo: "jornada",
+    cadaHoras: 24,
+    docs: ["opta:clips-jugador"],
+    enlace: "/laboratorio/jugadores-rival",
+  },
+  {
     clave: "abp-cortes",
     nombre: "Vídeo de cada acción a balón parado",
     alimenta: "Los cortes de ABP ofensivo y defensivo de cada jornada",

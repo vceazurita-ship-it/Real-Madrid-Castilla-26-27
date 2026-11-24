@@ -15,7 +15,14 @@
 | Sólo sirve vídeos: no es un redireccionador abierto.
 */
 
+import { cookies } from "next/headers";
+
+import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
+
 export const dynamic = "force-dynamic";
+
+/* 24/11/2026: la carpeta `privado/` (el vídeo de los jugadores rivales, scripts/opta-clips-jugador.mjs) sólo para el administrador. */
+const PRIVADO = /^privado\//;
 
 /* 14/11/2026: también PDF, imágenes y presentaciones, por si los ficheros van a la reserva (lib/datos/cliente.cjs). */
 const VIDEO = /\.(mp4|mov|webm|m4v|pdf|png|jpe?g|webp|gif|svg|pptx?|docx?|xlsx?|csv|json|txt|zip)$/i;
@@ -95,6 +102,10 @@ async function responde(params: Promise<{ ruta: string[] }>) {
   }
 
   if (!VIDEO.test(ruta) || ruta.split("/").some((t) => !t || t === "." || t === "..")) {
+    return new Response("No encontrado", { status: 404 });
+  }
+
+  if (PRIVADO.test(ruta) && !esAdmin((await cookies()).get(COOKIE_ADMIN)?.value)) {
     return new Response("No encontrado", { status: 404 });
   }
 
