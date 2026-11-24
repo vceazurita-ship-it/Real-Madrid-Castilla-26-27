@@ -25,6 +25,7 @@
  * mañana) · 1 fallo.
  */
 import { createRequire } from "node:module";
+import { baseConfigurada, guardaDoc, leeDoc, leeDocs } from "./docs-base.mjs";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
@@ -56,10 +57,10 @@ async function fin(codigo, texto) {
 }
 
 if (!process.env.GEMINI_API_KEY) await fin(1, "falta GEMINI_API_KEY");
-if (!process.env.DATOS_PG_URL) await fin(1, "falta DATOS_PG_URL");
+if (!baseConfigurada()) await fin(1, "falta la base de datos (Supabase o DATOS_PG_URL)");
 
-const postgres = require("postgres");
-const sql = postgres(process.env.DATOS_PG_URL, { max: 1, ssl: /localhost|127\.0\.0\.1/.test(process.env.DATOS_PG_URL) ? false : "require", prepare: false, onnotice: () => {}, idle_timeout: 20, connect_timeout: 30 });
+/* 24/11/2026: ya no se habla con el Postgres directamente: scripts/docs-base.mjs (Supabase o la reserva). */
+const sql = { end: async () => {} };
 
 /* La base de Render corta conexiones (ECONNRESET): cada consulta se reintenta tres veces. */
 async function conReintento(fn) {
@@ -83,20 +84,18 @@ const lista = await fetch(`${SITIO}/api/rivals/resumenes`, { headers: interna ? 
 
 if (!lista?.ok || !Array.isArray(lista.videos)) await fin(1, "no se ha podido leer la lista de resúmenes de la web");
 
-const [fila] = await conReintento(() => sql`select data from app_documents where key = ${CLAVE}`);
-const doc = fila?.data ?? { videos: {} };
+const doc = (await leeDoc(CLAVE)) ?? { videos: {} };
 doc.videos ??= {};
 
 const guarda = async () => {
   doc.actualizado = new Date().toISOString();
-  await conReintento(() => sql`insert into app_documents (key, kind, data, updated_at) values (${CLAVE}, ${"rfef"}, ${sql.json(doc)}, date_trunc('milliseconds', now()))
-            on conflict (key) do update set data = excluded.data, updated_at = excluded.updated_at`);
+  await guardaDoc(CLAVE, "rfef", doc);
 };
 
 /* Primero el Castilla, el Murcia y los próximos rivales; luego el resto del grupo y, dentro, lo más reciente
    (16/11/2026, el analista: «que termine cuanto antes dando prioridad al Castilla, al Murcia y a los próximos rivales»). */
 const { prioridades } = require("./goles-prioridad.cjs");
-const [cal] = await conReintento(() => sql`select data from app_documents where key = 'castilla:calendario'`);
+const cal = { data: await leeDoc("castilla:calendario") };
 const { dePartido } = prioridades(cal?.data?.partidos);
 const pendientes = lista.videos
   .filter((v) => (REHACER ? v.id === REHACER : !doc.videos[v.id] || (!doc.videos[v.id].cuadra && (!doc.videos[v.id].reintentado || doc.videos[v.id].modelo !== MODELOS[0]))))

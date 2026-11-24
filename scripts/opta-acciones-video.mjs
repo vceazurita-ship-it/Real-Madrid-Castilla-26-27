@@ -32,6 +32,7 @@ import os from "node:os";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { baseConfigurada, guardaDoc, leeDoc, leeDocs } from "./docs-base.mjs";
 
 const require = createRequire(import.meta.url);
 require("./cargador-ts.cjs");
@@ -69,13 +70,13 @@ async function fin(codigo, texto) {
   await new Promise(() => {});
 }
 
-if (!process.env.DATOS_PG_URL) await fin(1, "falta DATOS_PG_URL");
+if (!baseConfigurada()) await fin(1, "falta la base de datos (Supabase o DATOS_PG_URL)");
 if (!VER && !b2.configurado()) await fin(1, "falta la llave de B2");
 
 /* ---------- datos ---------- */
 
-const postgres = require("postgres");
-const sql = postgres(process.env.DATOS_PG_URL, { max: 1, ssl: /localhost|127\.0\.0\.1/.test(process.env.DATOS_PG_URL) ? false : "require", prepare: false, onnotice: () => {}, idle_timeout: 20, connect_timeout: 30 });
+/* 24/11/2026: ya no se habla con el Postgres directamente: scripts/docs-base.mjs (Supabase o la reserva). */
+const sql = { end: async () => {} };
 
 async function conReintento(fn) {
   for (let n = 1; ; n++) {
@@ -89,8 +90,6 @@ async function conReintento(fn) {
   }
 }
 
-const leeDocs = async (claves) =>
-  Object.fromEntries((await conReintento(() => sql`select key, data from app_documents where key in ${sql(claves)}`)).map((f) => [f.key, f.data]));
 
 const docs = await leeDocs([CLAVE, "opta:goles-video", "opta:partidos", "opta:abp-eventos", "opta:remates", "opta:jugadores", "opta:castilla"]);
 const partidos = docs["opta:partidos"];
@@ -238,8 +237,7 @@ function baja(hls, salida) {
 
 const guarda = async () => {
   doc.actualizado = new Date().toISOString();
-  await conReintento(() => sql`insert into app_documents (key, kind, data, updated_at) values (${CLAVE}, ${"opta"}, ${sql.json(doc)}, date_trunc('milliseconds', now()))
-            on conflict (key) do update set data = excluded.data, updated_at = excluded.updated_at`);
+  await guardaDoc(CLAVE, "opta", doc);
 };
 
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "opta-acciones-"));

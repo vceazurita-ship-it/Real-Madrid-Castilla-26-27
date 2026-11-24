@@ -23,6 +23,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
+import { baseConfigurada, guardaDoc, leeDoc, leeDocs } from "./docs-base.mjs";
 
 const require = createRequire(import.meta.url);
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -53,20 +54,15 @@ const SITIO = (process.env.SITIO_PUBLICO || "https://rmcf-castilla.onrender.com"
 
 const b2 = require("./b2.cjs");
 
-if (!process.env.DATOS_PG_URL) {
-  console.log("RESUMEN: falta DATOS_PG_URL");
+if (!baseConfigurada()) {
+  console.log("RESUMEN: falta la base de datos (Supabase o DATOS_PG_URL)");
   process.exit(1);
 }
 
 /* ---------- 1. los documentos (SELECT) ---------- */
 
-const postgres = require("postgres");
-const sql = postgres(process.env.DATOS_PG_URL, { max: 1, ssl: /localhost|127\.0\.0\.1/.test(process.env.DATOS_PG_URL) ? false : "require", prepare: false, onnotice: () => {}, idle_timeout: 20, connect_timeout: 30 });
-const filas = await sql`select key, data from app_documents where key in ('opta:goles-video', 'opta:acciones-video', 'opta:remates')`;
-
-await sql.end();
-
-const docs = Object.fromEntries(filas.map((f) => [f.key, f.data]));
+/* 24/11/2026: scripts/docs-base.mjs (Supabase o la reserva). */
+const docs = await leeDocs(["opta:goles-video", "opta:acciones-video", "opta:remates"]);
 
 /** La ruta del bucket de un enlace guardado (`…/api/video/<ruta>`); null si no es de B2. */
 const rutaDe = (url) => {

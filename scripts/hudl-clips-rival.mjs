@@ -39,6 +39,7 @@ import { createRequire } from "node:module";
 
 import { abreHudl, cabecerasPara, espera } from "./hudl-chrome.mjs";
 import { FFMPEG, corteValido } from "./hudl-corte.mjs";
+import { baseConfigurada, guardaDoc, leeDoc, leeDocs } from "./docs-base.mjs";
 
 const require = createRequire(import.meta.url);
 const { entorno } = require("./supabase-local.cjs");
@@ -77,10 +78,8 @@ if (!b2.configurado()) await fin(1, "falta la llave de B2");
 
 /* ---------- datos ---------- */
 
-const postgres = require("postgres");
-const sql = process.env.DATOS_PG_URL
-  ? postgres(process.env.DATOS_PG_URL, { max: 1, ssl: /localhost|127\.0\.0\.1/.test(process.env.DATOS_PG_URL) ? false : "require", prepare: false, onnotice: () => {}, idle_timeout: 20, connect_timeout: 30 })
-  : null;
+/* 24/11/2026: scripts/docs-base.mjs (Supabase o la reserva). Antes, sin DATOS_PG_URL no se guardaba nada. */
+const sql = baseConfigurada() ? { end: async () => {} } : null;
 
 async function conReintento(fn) {
   for (let n = 1; ; n++) {
@@ -95,7 +94,7 @@ async function conReintento(fn) {
 }
 
 const docs = sql
-  ? Object.fromEntries((await conReintento(() => sql`select key, data from app_documents where key in (${CLAVE_HUDL_CLIPS}, 'castilla:calendario')`)).map((f) => [f.key, f.data]))
+  ? await leeDocs([CLAVE_HUDL_CLIPS, "castilla:calendario"])
   : {};
 const doc = normalizaDocHudl(docs[CLAVE_HUDL_CLIPS]);
 const { deEquipo, proximos } = prioridades(docs["castilla:calendario"]?.partidos);
@@ -108,8 +107,7 @@ const guarda = async () => {
   /* Dos pasadas a la vez (la de la noche y un «Pedir a Hudl», 17/11/2026) se
      pisaban el documento: antes de escribir se suman los clips que otra haya
      guardado mientras tanto, por id de clip, en las listas que siguen vivas. */
-  const [fila] = await conReintento(() => sql`select data from app_documents where key = ${CLAVE_HUDL_CLIPS}`);
-  const otro = normalizaDocHudl(fila?.data);
+  const otro = normalizaDocHudl(await leeDoc(CLAVE_HUDL_CLIPS));
 
   for (const [id, suya] of Object.entries(otro.listas)) {
     const mia = doc.listas[id];
@@ -120,8 +118,7 @@ const guarda = async () => {
     for (const c of suya.clips) if (!tengo.has(c.id)) mia.clips.push(c);
   }
 
-  await conReintento(() => sql`insert into app_documents (key, kind, data, updated_at) values (${CLAVE_HUDL_CLIPS}, ${"hudl"}, ${sql.json(doc)}, date_trunc('milliseconds', now()))
-            on conflict (key) do update set data = excluded.data, updated_at = excluded.updated_at`);
+  await guardaDoc(CLAVE_HUDL_CLIPS, "hudl", doc);
 };
 
 /* El id interno de Hudl va dentro del id en base64: «PlaylistClip6ac4…» → «6ac4…». */
