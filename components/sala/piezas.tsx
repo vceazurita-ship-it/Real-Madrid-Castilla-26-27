@@ -226,7 +226,7 @@ export function Pulso({ p, t, hitos }: { p: Partido; t: number; hitos: Hito[] })
           <g key={i}>
             <circle cx={X(g.min)} cy={mitad} r="7" fill={colorDe(p, g.lado)} stroke="#fff" strokeWidth="2" className="sala-pop" />
             <text x={X(g.min)} y={g.lado === "L" ? 18 : H - 16} textAnchor="middle" fontSize="12" fontWeight="700" fill={S.texto}>
-              ⚽ {reloj(g.min)} {g.jugador}
+              ⚽ {reloj(g.min, g.parte)} {g.jugador}
             </text>
           </g>
         ))}
@@ -424,7 +424,14 @@ export function Campo({ p, t, tiros, capa, setCapa }: { p: Partido; t: number; t
                 const v = territorios.V.malla[fila * W + (W - 1 - col)];
                 const total = l + v;
                 if (!total) return null;
-                const maxT = Math.max(...territorios.L.malla.map((q, k) => q + territorios.V.malla[k] || q), 1);
+                /* El máximo con el mismo emparejamiento de celdas que l y v (el visitante va dado la vuelta). */
+                const maxT = Math.max(
+                  ...territorios.L.malla.map((_, k) => {
+                    const c = k % W, f = Math.floor(k / W);
+                    return territorios.L.malla[(H - 1 - f) * W + c] + territorios.V.malla[f * W + (W - 1 - c)];
+                  }),
+                  1,
+                );
                 const domina = l >= v ? "L" : "V";
                 const fuerza = Math.abs(l - v) / total;
                 return (
@@ -442,7 +449,7 @@ export function Campo({ p, t, tiros, capa, setCapa }: { p: Partido; t: number; t
                   <g key={i} filter={s.gol ? "url(#sala-luz)" : undefined}>
                     {esUltimo && <circle cx={cx(s.lado, s.x)} cy={cy(s.lado, s.y)} r={r} fill="none" stroke={colorDe(p, s.lado)} strokeWidth="3" className="sala-onda" />}
                     <circle cx={cx(s.lado, s.x)} cy={cy(s.lado, s.y)} r={r} fill={colorDe(p, s.lado)} fillOpacity={s.gol ? 0.95 : s.aPuerta ? 0.6 : 0.3} stroke={s.gol ? "#fff" : colorDe(p, s.lado)} strokeWidth={s.gol ? 4 : 1.5} className="sala-pop">
-                      <title>{`${reloj(s.min)} · ${p.jugadores.get(s.jugador)?.corto ?? ""} · xG ${fmt(s.xG, 2)}${s.gol ? " · GOL" : s.aPuerta ? " · a puerta" : ""}`}</title>
+                      <title>{`${reloj(s.min, s.parte)} · ${p.jugadores.get(s.jugador)?.corto ?? ""} · xG ${fmt(s.xG, 2)}${s.gol ? " · GOL" : s.aPuerta ? " · a puerta" : ""}`}</title>
                     </circle>
                   </g>
                 );
@@ -486,7 +493,7 @@ export function Campo({ p, t, tiros, capa, setCapa }: { p: Partido; t: number; t
       </div>
       {capa === "remates" && ultimo && (
         <p className="mt-2 text-center text-[12px]" style={{ color: S.suave }}>
-          Último remate: <b style={{ color: colorDe(p, ultimo.lado) }}>{p.jugadores.get(ultimo.jugador)?.corto ?? "—"}</b> · {reloj(ultimo.min)} · xG {fmt(ultimo.xG, 2)}
+          Último remate: <b style={{ color: colorDe(p, ultimo.lado) }}>{p.jugadores.get(ultimo.jugador)?.corto ?? "—"}</b> · {reloj(ultimo.min, ultimo.parte)} · xG {fmt(ultimo.xG, 2)}
           {ultimo.gol ? " · GOL" : ultimo.aPuerta ? " · a puerta" : ""} {enArea(ultimo.x, ultimo.y) ? "· desde el área" : "· desde fuera"}
         </p>
       )}

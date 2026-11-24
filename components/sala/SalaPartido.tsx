@@ -62,6 +62,7 @@ export function SalaPartido() {
   const [vivos, setVivos] = useState<Set<string>>(new Set());
   const [elegido, setElegido] = useState("");
   const [partido, setPartido] = useState<Partido | null>(null);
+  const [error, setError] = useState("");
   const [cargando, setCargando] = useState(true);
   const [t, setT] = useState(0);
   const [siguiendo, setSiguiendo] = useState(true);
@@ -113,14 +114,17 @@ export function SalaPartido() {
       const d = await doc<DocPartido>(`${FUENTES[fuente].prefijo}${elegido}`);
       if (!vivo) return;
       const p = d ? partidoDe(d) : null;
-      setPartido(p);
+      /* Revisión 24/11/2026: una lectura fallida en pleno directo no borra la pantalla ni para el sondeo. */
+      if (p || primera) setPartido(p);
+      if (primera && !p) setError("No se ha podido leer el partido. Se vuelve a intentar en 30 s.");
+      if (p) setError("");
       if (primera && p) {
         /* Acabado: se abre en el final (y se puede repetir). En juego: siguiendo el directo. */
         setT(p.ultimo);
         setSiguiendo(true);
         setReproduce(false);
       }
-      if (p && !p.acabado) reloj = window.setTimeout(() => void lee(false), RELEE_MS);
+      if (!p || !p.acabado) reloj = window.setTimeout(() => void lee(!p && primera), RELEE_MS);
     };
     void lee(true);
     return () => {
@@ -177,7 +181,9 @@ export function SalaPartido() {
   /* Teclado: espacio repite o para, flechas ±1′, F pantalla completa. */
   useEffect(() => {
     const tecla = (e: KeyboardEvent) => {
-      if (!partido || (e.target as HTMLElement)?.closest("input, select, textarea")) return;
+      /* Ctrl/Cmd+F sigue siendo «buscar» del navegador; y en un botón, el espacio es del botón. */
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (!partido || (e.target as HTMLElement)?.closest("input, select, textarea, button, a")) return;
       if (e.code === "Space") {
         e.preventDefault();
         alterna();
@@ -189,7 +195,7 @@ export function SalaPartido() {
     };
     window.addEventListener("keydown", tecla);
     return () => window.removeEventListener("keydown", tecla);
-  });
+  }, [partido, alterna, completa]);
 
   useEffect(() => {
     const cambia = () => setPantalla(Boolean(document.fullscreenElement));
@@ -237,6 +243,8 @@ export function SalaPartido() {
                   key={f}
                   type="button"
                   onClick={() => {
+                    /* La fuente que ya está: nada (antes se quedaba en «Abriendo la sala…»). */
+                    if (f === fuente) return;
                     setCargando(true);
                     setPartido(null);
                     setElegido("");
@@ -284,7 +292,7 @@ export function SalaPartido() {
             Todavía no hay partidos guardados de {FUENTES[fuente].nombre.toLowerCase()}.
           </p>
         )}
-        {!cargando && lista.length > 0 && !partido && <p className="py-24 text-center text-[14px]" style={{ color: S.tenue }}>Cargando el partido…</p>}
+        {!cargando && lista.length > 0 && !partido && <p className="py-24 text-center text-[14px]" style={{ color: S.tenue }}>{error || "Cargando el partido…"}</p>}
 
         {partido && calculo && (
           <div className="mt-4 grid gap-4">

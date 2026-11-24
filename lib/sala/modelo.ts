@@ -229,7 +229,7 @@ export type Cifras = {
   amenaza: number;
 };
 
-export type Tiro = { lado: Lado; min: number; x: number; y: number; xG: number; gol: boolean; aPuerta: boolean; jugador: string; tipo: string };
+export type Tiro = { lado: Lado; parte: number; min: number; x: number; y: number; xG: number; gol: boolean; aPuerta: boolean; jugador: string; tipo: string };
 
 const vacias = (): Cifras => ({ goles: 0, xg: 0, tiros: 0, aPuerta: 0, pases: 0, pasesOk: 0, toquesArea: 0, recAltas: 0, perdidas: 0, centros: 0, corners: 0, defensivas: 0, pasesRivalSuCampo: 0, amenaza: 0 });
 
@@ -247,7 +247,7 @@ export function cifrasHasta(p: Partido, t: number) {
       if (A_PUERTA.has(e.tipo)) yo.aPuerta++;
       if (e.tipo === "Goal") yo.goles++;
       yo.xg += e.xG ?? 0;
-      tiros.push({ lado: e.lado, min: e.min, x: e.x, y: e.y, xG: e.xG ?? 0.03, gol: e.tipo === "Goal", aPuerta: A_PUERTA.has(e.tipo), jugador: e.jugador, tipo: e.tipo });
+      tiros.push({ lado: e.lado, parte: e.parte, min: e.min, x: e.x, y: e.y, xG: e.xG ?? 0.03, gol: e.tipo === "Goal", aPuerta: A_PUERTA.has(e.tipo), jugador: e.jugador, tipo: e.tipo });
     }
     if (e.tipo === "Pass" && !e.saque) {
       yo.pases++;
@@ -338,7 +338,8 @@ const XG_SIN_PREVIA = 1.25;
  */
 export function probabilidad(p: Partido, m: number, golesL: number, golesV: number, xgL: number, xgV: number) {
   const ritmo = (previa: number | undefined, xg: number) => ((previa ?? XG_SIN_PREVIA) * PESO_PREVIA + xg * 90) / (PESO_PREVIA + m);
-  const queda = Math.max(0, DURACION - m) / 90;
+  /* Revisión 24/11/2026: acabado y en su último minuto, ya no queda nada (antes el final no cerraba al 100 %). */
+  const queda = p.acabado && m >= p.ultimo ? 0 : Math.max(0, DURACION - m) / 90;
   const lL = ritmo(p.local.previa?.medias.ExpG, xgL) * queda;
   const lV = ritmo(p.visitante.previa?.medias.ExpG, xgV) * queda;
   let gana = 0, empata = 0, pierde = 0;
@@ -562,16 +563,16 @@ export function territorio(p: Partido, lado: Lado, t: number, desde = 0) {
 /*  LA CRONOLOGÍA                                                      */
 /* ------------------------------------------------------------------ */
 
-export type Hito = { lado: Lado; min: number; tipo: "gol" | "tiro" | "parada" | "corner"; jugador: string; xG: number | null };
+export type Hito = { lado: Lado; parte: number; min: number; tipo: "gol" | "tiro" | "parada" | "corner"; jugador: string; xG: number | null };
 
 export function hitos(p: Partido, t: number): Hito[] {
   const out: Hito[] = [];
   for (const e of p.eventos) {
     if (e.min > t) break;
     const quien = p.jugadores.get(e.jugador)?.corto ?? "";
-    if (e.tipo === "Goal") out.push({ lado: e.lado, min: e.min, tipo: "gol", jugador: quien, xG: e.xG });
-    else if (TIROS.has(e.tipo)) out.push({ lado: e.lado, min: e.min, tipo: A_PUERTA.has(e.tipo) ? "parada" : "tiro", jugador: quien, xG: e.xG });
-    else if (e.tipo === "Corner") out.push({ lado: e.lado, min: e.min, tipo: "corner", jugador: quien, xG: null });
+    if (e.tipo === "Goal") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "gol", jugador: quien, xG: e.xG });
+    else if (TIROS.has(e.tipo)) out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: A_PUERTA.has(e.tipo) ? "parada" : "tiro", jugador: quien, xG: e.xG });
+    else if (e.tipo === "Corner") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "corner", jugador: quien, xG: null });
   }
   return out;
 }
@@ -589,7 +590,8 @@ export function parteEn(p: Partido, t: number) {
   let parte = 1;
   for (const e of p.eventos) {
     if (e.min > t) break;
-    parte = e.parte;
+    /* Un evento del descuento de la 1.ª parte (segundo > 2700) no devuelve a la 1.ª. */
+    parte = Math.max(parte, e.parte);
   }
   return parte;
 }
