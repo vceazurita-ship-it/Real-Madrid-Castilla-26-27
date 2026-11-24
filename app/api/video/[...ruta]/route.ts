@@ -28,15 +28,28 @@ const PRIVADO = /^privado\//;
 const VIDEO = /\.(mp4|mov|webm|m4v|pdf|png|jpe?g|webp|gif|svg|pptx?|docx?|xlsx?|csv|json|txt|zip)$/i;
 const VALE_SEGUNDOS = 24 * 3600;
 const RENUEVA_MS = 20 * 3600 * 1000;
+const VALE_PRIVADO_SEGUNDOS = 600;
 
-type Permiso = { descarga: string; bucket: string; token: string; hasta: number };
+/*
+| Revisión 24/11/2026 (seguridad): el permiso de descarga ya NO vale para todo
+| el bucket. Antes era uno solo con prefijo "" y la redirección de cualquier
+| vídeo lo enseñaba: con él se podía abrir también `privado/`. Ahora:
+| - un vídeo normal lleva un permiso de SU carpeta de arriba («opta/», «abp/»…),
+|   que no abre `privado/`; se guarda en memoria por carpeta y se renueva;
+| - uno de `privado/` (sólo el administrador) lleva un permiso de ESE fichero,
+|   de 10 minutos, y la respuesta no se guarda en el navegador.
+*/
+type Cuenta = { api: string; descarga: string; bucket: string; bucketId: string; token: string; hasta: number };
+type Permiso = { token: string; hasta: number };
 
-let permiso: Permiso | null = null;
-let pidiendo: Promise<Permiso> | null = null;
+let cuenta: Cuenta | null = null;
+let pidiendoCuenta: Promise<Cuenta> | null = null;
+const permisos = new Map<string, Permiso>();
+const pidiendo = new Map<string, Promise<Permiso>>();
 
 const codifica = (ruta: string) => ruta.split("/").map(encodeURIComponent).join("/");
 
-async function pidePermiso(): Promise<Permiso> {
+async function pideCuenta(): Promise<Cuenta> {
   const id = process.env.B2_KEY_ID;
   const clave = process.env.B2_APP_KEY;
   const bucket = process.env.B2_BUCKET;
@@ -50,15 +63,15 @@ async function pidePermiso(): Promise<Permiso> {
 
   if (!auth.ok) throw new Error(`Backblaze no acepta la llave (${auth.status})`);
 
-  const cuenta = await auth.json();
-  const api = cuenta.apiInfo.storageApi;
+  const c = await auth.json();
+  const api = c.apiInfo.storageApi;
   let bucketId: string | null = api.bucketName === bucket ? api.bucketId : null;
 
   if (!bucketId) {
     const r = await fetch(`${api.apiUrl}/b2api/v3/b2_list_buckets`, {
       method: "POST",
-      headers: { Authorization: cuenta.authorizationToken, "Content-Type": "application/json" },
-      body: JSON.stringify({ accountId: cuenta.accountId, bucketName: bucket }),
+      headers: { Authorization: c.authorizationToken, "Content-Type": "application/json" },
+      body: JSON.stringify({ accountId: c.accountId, bucketName: bucket }),
       cache: "no-store",
     });
 
@@ -67,10 +80,26 @@ async function pidePermiso(): Promise<Permiso> {
 
   if (!bucketId) throw new Error(`No existe el bucket ${bucket}`);
 
-  const r = await fetch(`${api.apiUrl}/b2api/v3/b2_get_download_authorization`, {
+  /* El token de la cuenta dura 24 h; se renueva a las 20. */
+  return { api: api.apiUrl, descarga: api.downloadUrl, bucket, bucketId, token: c.authorizationToken, hasta: Date.now() + RENUEVA_MS };
+}
+
+async function cuentaVigente() {
+  if (cuenta && cuenta.hasta > Date.now()) return cuenta;
+
+  pidiendoCuenta ??= pideCuenta().finally(() => {
+    pidiendoCuenta = null;
+  });
+  cuenta = await pidiendoCuenta;
+
+  return cuenta;
+}
+
+async function pidePermiso(c: Cuenta, prefijo: string, segundos: number): Promise<Permiso> {
+  const r = await fetch(`${c.api}/b2api/v3/b2_get_download_authorization`, {
     method: "POST",
-    headers: { Authorization: cuenta.authorizationToken, "Content-Type": "application/json" },
-    body: JSON.stringify({ bucketId, fileNamePrefix: "", validDurationInSeconds: VALE_SEGUNDOS }),
+    headers: { Authorization: c.token, "Content-Type": "application/json" },
+    body: JSON.stringify({ bucketId: c.bucketId, fileNamePrefix: prefijo, validDurationInSeconds: segundos }),
     cache: "no-store",
   });
 
@@ -78,18 +107,27 @@ async function pidePermiso(): Promise<Permiso> {
 
   const { authorizationToken } = await r.json();
 
-  return { descarga: api.downloadUrl, bucket, token: authorizationToken, hasta: Date.now() + RENUEVA_MS };
+  return { token: authorizationToken, hasta: Date.now() + Math.min(RENUEVA_MS, segundos * 1000 * 0.8) };
 }
 
-async function permisoVigente() {
-  if (permiso && permiso.hasta > Date.now()) return permiso;
+/** El permiso de la carpeta de arriba de `ruta` (o del propio fichero si está suelto en la raíz). */
+async function permisoDeCarpeta(c: Cuenta, ruta: string) {
+  const barra = ruta.indexOf("/");
+  const prefijo = barra > 0 ? ruta.slice(0, barra + 1) : ruta;
+  const ya = permisos.get(prefijo);
 
-  pidiendo ??= pidePermiso().finally(() => {
-    pidiendo = null;
-  });
-  permiso = await pidiendo;
+  if (ya && ya.hasta > Date.now()) return ya;
 
-  return permiso;
+  if (!pidiendo.has(prefijo)) {
+    pidiendo.set(
+      prefijo,
+      pidePermiso(c, prefijo, VALE_SEGUNDOS).finally(() => pidiendo.delete(prefijo)),
+    );
+  }
+  const nuevo = await pidiendo.get(prefijo)!;
+  permisos.set(prefijo, nuevo);
+
+  return nuevo;
 }
 
 async function responde(params: Promise<{ ruta: string[] }>) {
@@ -105,17 +143,20 @@ async function responde(params: Promise<{ ruta: string[] }>) {
     return new Response("No encontrado", { status: 404 });
   }
 
-  if (PRIVADO.test(ruta) && !esAdmin((await cookies()).get(COOKIE_ADMIN)?.value)) {
+  const privado = PRIVADO.test(ruta);
+
+  if (privado && !esAdmin((await cookies()).get(COOKIE_ADMIN)?.value)) {
     return new Response("No encontrado", { status: 404 });
   }
 
   try {
-    const p = await permisoVigente();
-    const destino = `${p.descarga}/file/${p.bucket}/${codifica(ruta)}?Authorization=${encodeURIComponent(p.token)}`;
+    const c = await cuentaVigente();
+    const p = privado ? await pidePermiso(c, ruta, VALE_PRIVADO_SEGUNDOS) : await permisoDeCarpeta(c, ruta);
+    const destino = `${c.descarga}/file/${c.bucket}/${codifica(ruta)}?Authorization=${encodeURIComponent(p.token)}`;
 
     return new Response(null, {
       status: 302,
-      headers: { Location: destino, "Cache-Control": "private, max-age=3600" },
+      headers: { Location: destino, "Cache-Control": privado ? "no-store" : "private, max-age=3600" },
     });
   } catch (error) {
     console.error("[video]", error instanceof Error ? error.message : error);
