@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { BarChart3 } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -25,6 +25,19 @@ import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante, type 
 import { usePlayers } from "@/hooks/usePlayers";
 import { useRivalInforme } from "@/hooks/useRivalInforme";
 import Link from "next/link";
+import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { aObjetos, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
+import { casaEquipo } from "@/lib/opta-eventos";
+import { golesAbpOpta, gruposDePartidos } from "@/lib/opta-abp";
+
+/* Un color por origen del gol (24/11/2026); la jugada, neutra. */
+const ORIGEN_GOL = [
+  { clave: "penalti", nombre: "Penalti", color: "#C8A96B" },
+  { clave: "corner", nombre: "Córner", color: "#4F8FE8" },
+  { clave: "faltaDirecta", nombre: "Falta directa", color: "#E8735F" },
+  { clave: "banda", nombre: "Saque de banda", color: "#3FBF9B" },
+  { clave: "resto", nombre: "Falta indirecta", color: "#A98BF0" },
+] as const;
 
 /*
 |--------------------------------------------------------------------------
@@ -644,6 +657,45 @@ export function AbpWyscoutRival({
   */
   const [nuestroAbp, setNuestroAbp] = useState<Aspecto | null>(null);
 
+  /*
+  | GOLES A BALÓN PARADO DE OPTA (24/11/2026, petición del analista: «que salga
+  | de Opta, que sí es fiable»). Opta clasifica cada gol por su jugada: córner,
+  | falta, banda y penalti son dato. Wyscout queda de respaldo si el equipo no
+  | está en Opta.
+  */
+  const { docs: docsOpta } = useDocsOpta<[TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.partidos);
+  const [equiposOptaT, partidosOptaT] = docsOpta;
+  const golesOpta = useMemo(() => {
+    if (!equipo || !equiposOptaT) return null;
+    const filas = aObjetos(equiposOptaT);
+    const id = casaEquipo(equipo, filas.map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") })));
+    const fila = id ? filas.find((f) => String(f.teamId) === id) : null;
+    if (!fila) return null;
+    const filasPartidos = aObjetos(partidosOptaT);
+    const jugadosDe = (t: string) => filasPartidos.filter((f) => String(f.teamId) === t).length;
+    const partidos = jugadosDe(id!);
+    if (partidos <= 0) return null;
+    const propio = golesAbpOpta(fila, partidos);
+    /* Su grupo: puesto y media del grupo, para que el número diga algo. */
+    const grupos = gruposDePartidos(partidosOptaT);
+    const g = grupos.get(id!);
+    const delGrupo = filas
+      .filter((f) => g != null && grupos.get(String(f.teamId)) === g)
+      .map((f) => golesAbpOpta(f, jugadosDe(String(f.teamId))))
+      .filter((x) => x.partidos > 0);
+    const lado = (de: "aFavor" | "enContra") => {
+      const suma = delGrupo.reduce((s, x) => ({ abp: s.abp + x[de].abp, goles: s.goles + x[de].goles, partidos: s.partidos + x.partidos }), { abp: 0, goles: 0, partidos: 0 });
+      const mas = delGrupo.filter((x) => x[de].abp / x.partidos > propio[de].abp / propio.partidos).length;
+      return {
+        puesto: mas + 1,
+        equipos: delGrupo.length,
+        cuotaGrupo: suma.goles ? suma.abp / suma.goles : null,
+        porPartidoGrupo: suma.partidos ? suma.abp / suma.partidos : null,
+      };
+    };
+    return { ...propio, grupo: { aFavor: lado("aFavor"), enContra: lado("enContra") } };
+  }, [equipo, equiposOptaT, partidosOptaT]);
+
   useEffect(() => {
     if (ambito !== "abp") return;
 
@@ -1034,7 +1086,7 @@ export function AbpWyscoutRival({
   */
   const defensaCorner = ambito === "abp" ? estructuraDefensiva(acciones, "corner") : null;
 
-  const hayGoles = !!goles && (goles.aFavor.abp > 0 || goles.enContra.abp > 0);
+  const hayGoles = (!!goles && (goles.aFavor.abp > 0 || goles.enContra.abp > 0)) || (!!golesOpta && (golesOpta.aFavor.goles > 0 || golesOpta.enContra.goles > 0));
 
   if (aspectos.length === 0 && !hayGoles && rematan.length === 0 && sacan.length === 0) {
     /* Mientras llega Wyscout, un esqueleto: un hueco mudo parecía un fallo (11/11/2026). */
@@ -1056,7 +1108,10 @@ export function AbpWyscoutRival({
   const nEquipos = datos?.equipos ?? 20;
   const partidosWy = aspectos[0]?.filas[0]?.partidos ?? null;
   const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos, nuestroAbp) : [];
-  const conTendencia = hayGoles && !!goles && [goles.aFavor, goles.enContra].some((g) => g.abp > 0 && (g.abp < 10 || g.partidos < 10));
+  const conTendencia = golesOpta
+    ? [golesOpta.aFavor, golesOpta.enContra].some((g) => g.abp > 0 && (g.abp < 10 || golesOpta.partidos < 10))
+    : hayGoles && !!goles && [goles.aFavor, goles.enContra].some((g) => g.abp > 0 && (g.abp < 10 || g.partidos < 10));
+
   /* Córners, faltas y penaltis van en la tabla de arriba (16/11/2026); las tarjetas, con los porcentajes. */
   const VOLUMEN = ["Córners", "Faltas lanzadas", "Penaltis"];
   const abpOf = aspectos.find((a) => a.clave === "abpOf");
@@ -1627,7 +1682,110 @@ export function AbpWyscoutRival({
         </Panel>
       )}
 
-      {hayGoles && goles && (
+      {hayGoles && golesOpta && (
+        <Panel
+          title="Goles a balón parado esta temporada"
+          subtitle="De Opta: cada gol, clasificado por la jugada de la que nace. Es dato, no estimación"
+        >
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {([
+              ["Los que marca", golesOpta.aFavor, true, filaBeSoccer?.favor, golesOpta.grupo.aFavor],
+              ["Los que encaja", golesOpta.enContra, false, filaBeSoccer?.contra, golesOpta.grupo.enContra],
+            ] as const).map(([titulo, g, aFavor, deBeSoccer, grupo]) => {
+              const cuota = g.goles ? g.abp / g.goles : 0;
+              const jugada = Math.max(0, g.goles - g.abp);
+              const tramos = ORIGEN_GOL.map((o) => ({ ...o, n: g[o.clave], nombre: !aFavor && o.clave === "resto" ? "Falta indirecta o banda" : o.nombre })).filter((o) => o.n > 0);
+              const acento = aFavor ? "#C8A96B" : "#E8735F";
+              return (
+              <div key={titulo} className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
+                <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl" style={{ background: acento, opacity: 0.14 }} />
+                <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">{titulo}</p>
+
+                <div className="mt-1 flex items-end gap-3">
+                  <p className="text-5xl font-black leading-none tabular-nums text-white">{g.abp}</p>
+                  <div className="pb-0.5 text-[12px] leading-tight text-white/55">
+                    <p>
+                      de <span className="font-semibold text-white/80">{g.goles}</span> goles · <span className="font-semibold" style={{ color: acento }}>{Math.round(cuota * 100)} %</span> a balón parado
+                    </p>
+                    <p>
+                      en {golesOpta.partidos} {golesOpta.partidos === 1 ? "partido" : "partidos"} de Opta
+                      {grupo.cuotaGrupo != null && <> · media del grupo {Math.round(grupo.cuotaGrupo * 100)} %</>}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Todos sus goles en una barra: cada color, un origen; lo gris, en jugada. */}
+                {g.goles > 0 && (
+                  <div className="mt-3">
+                    <div className="flex h-3.5 w-full overflow-hidden rounded-full bg-white/[0.06]" role="img" aria-label={`${g.abp} de ${g.goles} goles a balón parado`}>
+                      {tramos.map((t) => (
+                        <div key={t.clave} title={`${t.nombre}: ${t.n}`} style={{ width: `${(t.n / g.goles) * 100}%`, background: t.color }} className="h-full border-r border-black/30 last:border-r-0" />
+                      ))}
+                      {jugada > 0 && <div title={`En jugada: ${jugada}`} style={{ width: `${(jugada / g.goles) * 100}%` }} className="h-full bg-white/15" />}
+                    </div>
+                    {grupo.cuotaGrupo != null && (
+                      <div className="relative h-3">
+                        <div className="absolute top-0 h-2 w-px bg-white/60" style={{ left: `${Math.min(100, grupo.cuotaGrupo * 100)}%` }} />
+                        <span className="absolute top-1 -translate-x-1/2 text-[9px] uppercase tracking-wider text-white/45" style={{ left: `${Math.min(92, Math.max(8, grupo.cuotaGrupo * 100))}%` }}>media</span>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {grupo.equipos > 1 && g.abp > 0 && (
+                  <p className="mt-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style={{ borderColor: `${acento}66`, color: acento }}>
+                    {grupo.puesto}.º de {grupo.equipos} que más {aFavor ? "marca" : "encaja"} a balón parado por partido
+                  </p>
+                )}
+
+                {filaBeSoccer && deBeSoccer != null && (filaBeSoccer.jugados !== golesOpta.partidos || deBeSoccer !== g.goles) && (
+                  <p className="mt-0.5 text-[12px] text-white/55">
+                    En BeSoccer van {deBeSoccer} en {filaBeSoccer.jugados} {filaBeSoccer.jugados === 1 ? "partido" : "partidos"}, la cuenta de Plantillas rivales.
+                  </p>
+                )}
+
+                {g.abp > 0 ? (
+                  <ul className="mt-2 flex flex-wrap gap-1.5 text-[12px]">
+                    {tramos.map((t) => (
+                      <li key={t.clave} className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-white/80">
+                        <span className="h-2.5 w-2.5 rounded-full" style={{ background: t.color }} />
+                        {t.nombre}
+                        <span className="font-bold tabular-nums text-white">{t.n}</span>
+                      </li>
+                    ))}
+                    {jugada > 0 && (
+                      <li className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-2.5 py-1 text-white/50">
+                        <span className="h-2.5 w-2.5 rounded-full bg-white/25" />
+                        En jugada <span className="font-bold tabular-nums">{jugada}</span>
+                      </li>
+                    )}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-[12px] text-white/60">Ninguno a balón parado: todos en jugada{g.goles ? "" : " (no ha encajado)"}.</p>
+                )}
+              </div>
+              );
+            })}
+          </div>
+          {conTendencia && (
+            <p className="mt-2 text-[12px] italic text-white/55">
+              Con menos de 10 goles a balón parado, es una tendencia: no se lee como fortaleza ni como carencia.
+            </p>
+          )}
+          <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/10 pt-3">
+            <EnlacesDelRival equipo={equipo} incluye={["goles", "encaja"]} />
+            <Link
+              href="/abp-microciclo"
+              className="inline-flex min-h-9 items-center rounded-full border border-white/15 px-3 py-1 text-xs font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white max-sm:min-h-11"
+            >
+              Plan de ABP de la semana →
+            </Link>
+          </div>
+        </Panel>
+      )}
+
+      {/* Respaldo: el equipo no está en Opta (o aún no ha llegado): la cuenta de Wyscout con su estimación. */}
+      {hayGoles && !golesOpta && goles && (
         <Panel
           title="Goles a balón parado esta temporada"
           subtitle="Los goles y los penaltis son dato del marcador; el reparto entre córner y falta es una estimación calibrada con Opta"

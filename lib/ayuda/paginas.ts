@@ -2293,7 +2293,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-23",
+    revisada: "2026-11-24",
     bloques: [
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
@@ -2344,7 +2344,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Córners con remate", es: "El córner que acaba en un tiro de cualquiera, vaya o no a puerta; «x de y» = córners con remate de sus córners", cuenta: "Tendencia, sin flecha, con menos de 15 córners con remate o 25 córners detrás" },
           { que: "Objetivo de «Qué entrenamos»", es: "Sale del dato, no de una cifra redonda: si le rematan muchos córners, el objetivo es subir nuestro % de córners con remate (Wyscout, con su base) a la mediana de la liga en córners a favor, con lo que le rematan sus rivales como techo de referencia (si ya estamos por encima de la mediana, sostenerlo); si concede muchos, sacarle esos córners" },
           { que: "Quién lo lanza y quién remata", es: "Etiquetas de Plantillas (o Wyscout, ≈ lanzamientos por 90 × minutos), cruzadas con su once probable. «Vigilar» dice quién saca los córners y quién las faltas, con sus lanzamientos estimados («Javi Moreno (≈23) y Joel Jorquera (≈18); las faltas, Chema Núñez (≈8)»). «Qué hacemos» empareja a los nuestros con dorsal, inicial y apellido («5 J. Martínez con 6 A. González») para no confundir nombres de pila. La tabla «Rematan» lista a todos los emparejados y a los etiquetados, con altura y % de duelos aéreos ganados (de cuántos)" },
-          { que: "Goles a balón parado", es: "Los que marca y los que encaja: el total y los penaltis son dato; córner y falta, estimado calibrado con Opta" },
+          { que: "Goles a balón parado (de Opta desde el 24/11/2026)", es: "Los que marca y los que encaja, todo dato de Opta: el número grande son sus goles a balón parado (penaltis incluidos) de sus goles totales, con el % y la media de su grupo. La barra pone todos sus goles en fila, un color por origen (dorado penalti, azul córner, coral falta directa, verde saque de banda, violeta falta indirecta; gris, en jugada) y la raya blanca marca la media del grupo. La etiqueta dice su puesto en el grupo entre los que más marcan (o encajan) a balón parado por partido. Si el equipo no está en Opta, sale la cuenta de Wyscout de antes, con córner y falta estimados", cuenta: "opta:equipos: a favor PenGoal, GoalCrnrs, GoalDirFK, GoalThr y el resto de GoalSetPly (falta indirecta); en contra PenGlCnc, GoalCrnrs|OPP, GoalDirFK|OPP y el resto de GoalSetPly|OPP (falta indirecta o banda: Opta no separa el banda encajado). Goles: Goal y GoalCncd. Partidos: sus filas de opta:partidos; grupo deducido de quién juega contra quién. Media del grupo = suma de goles a balón parado ÷ suma de goles. Puesto = por goles a balón parado por partido. Cuentas en golesAbpOpta (lib/opta-abp.ts)" },
         ],
       },
       {

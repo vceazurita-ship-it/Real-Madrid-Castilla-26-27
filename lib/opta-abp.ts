@@ -167,3 +167,50 @@ export function gruposDePartidos(partidos: TablaOpta | null): Map<string, number
     .forEach((ts, i) => ts.forEach((t) => out.set(t, i)));
   return out;
 }
+
+/*
+| GOLES A BALÓN PARADO DE UN EQUIPO, DE OPTA (24/11/2026). Petición del
+| analista: «esto que salga de Opta, que sí es fiable». Antes, en el informe de
+| ABP del rival, el reparto córner/falta era una estimación desde los remates de
+| Wyscout. Opta clasifica cada gol por la jugada de la que nace, así que aquí
+| todo es dato:
+| - A favor: penalti (PenGoal), córner (GoalCrnrs), falta directa (GoalDirFK),
+|   saque de banda (GoalThr) y el resto de GoalSetPly (falta indirecta o
+|   centrada al área). GoalSetPly no lleva los penaltis.
+| - En contra: penalti (PenGlCnc), córner y falta directa (|OPP) y el resto de
+|   GoalSetPly|OPP (falta indirecta o saque de banda: Opta no separa el banda
+|   encajado).
+| - Partidos: sus filas de `opta:partidos`.
+*/
+export type GolesAbpLadoOpta = {
+  goles: number;
+  /** Balón parado con los penaltis. */
+  abp: number;
+  penalti: number;
+  corner: number;
+  faltaDirecta: number;
+  banda: number;
+  /** Lo que queda de GoalSetPly: falta indirecta (a favor) o falta indirecta y banda (en contra). */
+  resto: number;
+};
+
+export type GolesAbpOpta = { teamId: string; partidos: number; aFavor: GolesAbpLadoOpta; enContra: GolesAbpLadoOpta };
+
+export function golesAbpOpta(fila: FilaEquipoOpta, partidos: number): GolesAbpOpta {
+  const n = (k: string) => Math.max(0, Math.round(num(fila[k]) ?? 0));
+  const lado = (goles: number, penalti: number, sp: number, corner: number, faltaDirecta: number, banda: number): GolesAbpLadoOpta => ({
+    goles,
+    abp: sp + penalti,
+    penalti,
+    corner,
+    faltaDirecta,
+    banda,
+    resto: Math.max(0, sp - corner - faltaDirecta - banda),
+  });
+  return {
+    teamId: String(fila.teamId ?? ""),
+    partidos,
+    aFavor: lado(n("Goal"), n("PenGoal"), n("GoalSetPly"), n("GoalCrnrs"), n("GoalDirFK"), n("GoalThr")),
+    enContra: lado(n("GoalCncd") || n("Goal|OPP"), n("PenGlCnc"), n("GoalSetPly|OPP"), n("GoalCrnrs|OPP"), n("GoalDirFK|OPP"), 0),
+  };
+}
