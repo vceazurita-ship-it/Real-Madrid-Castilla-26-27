@@ -864,6 +864,54 @@ async function entraSolo(nav, cuenta) {
   return true;
 }
 
+/*
+| OTRA SESIÓN ABIERTA CON LA MISMA CUENTA (24/11/2026). Petición del analista:
+| «cuando al logarnos hay otro usuario logado hay que pulsar al botón forzar…
+| que lo haga por sí mismo». Wyscout saca un aviso con un botón «Forzar» /
+| «Force»: se busca un botón visible con ese texto (corto, para no pulsar un
+| párrafo que lo nombre) y se pulsa como un clic de ratón de verdad, con el
+| .click() de respaldo. Devuelve true si lo ha pulsado.
+*/
+async function pulsaForzar(nav) {
+  const donde = await nav
+    .js(`
+      const candidatos = [...document.querySelectorAll("button, a, [role=button], input[type=button], input[type=submit], [class*=button], [class*=btn]")];
+      const b = candidatos.find((e) => {
+        const t = ((e.innerText || e.value || "") + "").trim();
+        if (!t || t.length > 40 || !/forzar|forzar acceso|force/i.test(t)) return false;
+        const r = e.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(e).visibility !== "hidden";
+      });
+      if (!b) return null;
+      b.scrollIntoView({ block: "center" });
+      const r = b.getBoundingClientRect();
+      window.__wysForzar = b;
+      return { x: r.left + r.width / 2, y: r.top + r.height / 2, t: (b.innerText || b.value || "").trim() };
+    `)
+    .catch(() => null);
+
+  if (!donde) return false;
+
+  console.log(`  Había otra sesión abierta con la cuenta: se pulsa «${donde.t}».`);
+
+  try {
+    for (const type of ["mousePressed", "mouseReleased"]) {
+      await nav.manda("Input.dispatchMouseEvent", { type, x: donde.x, y: donde.y, button: "left", clickCount: 1 });
+    }
+  } catch {
+    /* abajo, el .click() */
+  }
+
+  await espera(1500);
+
+  /* Si el aviso sigue, el clic de la página. */
+  await nav
+    .js(`const b = window.__wysForzar; if (b && b.isConnected && b.getBoundingClientRect().width > 0) b.click(); return true;`)
+    .catch(() => {});
+
+  return true;
+}
+
 async function esperaLogin(nav) {
   /* La primera comprobación, con la página todavía cargando, dice que no
      estamos dentro aunque lo estemos: se le da un momento a que pinte algo. */
@@ -881,8 +929,30 @@ async function esperaLogin(nav) {
 
   let intentada = false;
 
+  let forzados = 0;
+
   for (let i = 0; i < 30; i++) {
+    /* El aviso de «otra sesión abierta» puede salir en la página de entrar o ya dentro de la aplicación. */
+    if (forzados < 3 && (await pulsaForzar(nav))) {
+      forzados++;
+
+      await espera(5000);
+
+      continue;
+    }
+
     if (await estaDentro(nav)) {
+      /* El aviso a veces sale un par de segundos después de pintarse la aplicación. */
+      await espera(2500);
+
+      if (forzados < 3 && (await pulsaForzar(nav))) {
+        forzados++;
+
+        await espera(5000);
+
+        continue;
+      }
+
       console.log(intentada ? "  Dentro con la cuenta guardada.\n" : "  Sesión ya iniciada en este perfil.\n");
 
       return true;
@@ -967,6 +1037,8 @@ async function esperaLogin(nav) {
 
   for (let i = 0; i < 120; i++) {
     await espera(5000);
+
+    if (await pulsaForzar(nav)) continue;
 
     if (await estaDentro(nav)) {
       console.log("\n  Dentro. La sesión queda guardada para la semana que viene.\n");
