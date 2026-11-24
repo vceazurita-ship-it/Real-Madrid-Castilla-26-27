@@ -846,7 +846,7 @@ function EvolucionBase({
               <stop offset="0%" stopColor={ORO} stopOpacity={0.28} />
               <stop offset="100%" stopColor={ORO} stopOpacity={0} />
             </linearGradient>
-            <filter id={`${gid}-brillo`} x="-5%" y="-20%" width="110%" height="140%">
+            <filter id={`${gid}-brillo`} filterUnits="userSpaceOnUse" x={0} y={0} width={W} height={H}>
               <feGaussianBlur stdDeviation="2.5" result="b" />
               <feMerge>
                 <feMergeNode in="b" />

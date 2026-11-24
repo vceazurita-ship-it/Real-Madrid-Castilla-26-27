@@ -1695,7 +1695,7 @@ export function AbpWyscoutRival({
               const cuota = g.goles ? g.abp / g.goles : 0;
               const jugada = Math.max(0, g.goles - g.abp);
               const tramos = ORIGEN_GOL.map((o) => ({ ...o, n: g[o.clave], nombre: !aFavor && o.clave === "resto" ? "Falta indirecta o banda" : o.nombre })).filter((o) => o.n > 0);
-              const acento = aFavor ? "#C8A96B" : "#E8735F";
+              const acento = aFavor ? "#C8A96B" : "#D2553D"; /* Revisión 24/11/2026: coral más oscuro, que se lea también en modo día. */
               return (
               <div key={titulo} className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-4">
                 <div aria-hidden className="pointer-events-none absolute -right-10 -top-10 h-32 w-32 rounded-full blur-2xl" style={{ background: acento, opacity: 0.14 }} />

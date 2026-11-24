@@ -237,7 +237,8 @@ export function ComparativaLigas() {
       <div className="mt-5 min-w-0">
         {!castilla && <Notice tone="warn" title="El Castilla no está en los datos de su grupo">Sale todo lo demás, pero sin su marca en oro.</Notice>}
         {vista === "castilla" && castilla && <VistaCastilla ligas={ligas} castilla={castilla} onMetrica={abreMetrica} />}
-        {vista === "mapa" && <VistaMapa ligas={ligas} />}
+        {/* Revisión 24/11/2026: sin el Castilla en los datos, la vista de apertura no se queda vacía. */}
+        {(vista === "mapa" || (vista === "castilla" && !castilla)) && <VistaMapa ligas={ligas} />}
         {vista === "perfil" && <Perfil ligas={ligas} castilla={castilla} onMetrica={abreMetrica} />}
         {vista === "metrica" && <AFondo ligas={ligas} id={metrica} onCambia={setMetrica} castilla={castilla} />}
         {vista === "parecidos" && <Parecidos ligas={ligas} />}
@@ -814,6 +815,8 @@ function Reglas({ ligas, filas, castilla, onMetrica }: { ligas: Liga[]; filas: F
   const [caja, ancho] = useAncho<HTMLDivElement>();
   const W = Math.max(200, ancho);
   const alto = 40;
+  /* La medida, de la primera fila que se pinta (la 0 puede no tener dato en ninguna liga). */
+  const primera = filas.findIndex(({ i }) => ligas.some((l) => mediaLiga(l, i) !== null) || typeof castilla?.v[i] === "number");
   return (
     <div className="grid min-w-0 grid-cols-[minmax(110px,auto)_minmax(0,1fr)_auto] items-center gap-x-4 gap-y-1">
       {filas.map(({ met, i }, n) => {
@@ -832,7 +835,7 @@ function Reglas({ ligas, filas, castilla, onMetrica }: { ligas: Liga[]; filas: F
             <button type="button" onClick={() => onMetrica(met.id)} title={met.que} className="dedo-44 truncate text-left text-[12px] text-white/85 hover:text-[color:var(--rmcf-gold-ink)] hover:underline">
               {met.nombre}
             </button>
-            <div ref={n === 0 ? caja : undefined} className="min-w-0">
+            <div ref={n === primera ? caja : undefined} className="min-w-0">
               <svg width="100%" height={alto} viewBox={`0 0 ${W} ${alto}`} role="img" aria-label={`${met.nombre}: media de cada liga y el Castilla`} className="block overflow-visible">
                 <line x1={x(ordenadas[0].v)} x2={x(ordenadas.at(-1)!.v)} y1={16} y2={16} stroke={tinta(0.22)} strokeWidth={4} strokeLinecap="round" />
                 {medias.map((mm) => (

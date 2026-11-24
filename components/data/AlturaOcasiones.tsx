@@ -204,7 +204,7 @@ function Bloque({
       <p className="mt-3 text-[11px] leading-5 text-white/45">
         Opta, evento a evento de los últimos {MAX_PARTIDOS} partidos de cada equipo del grupo. Altura defensiva = x media (0 su portería, 100 la contraria) de sus entradas, intercepciones y recuperaciones. xG por partido = suma del xG de
         los remates (a favor o del contrario, con penaltis) / partidos. Las rayas son la mediana de los equipos; sólo lleva nombre el que se sale de la nube (más de {coma(UMBRAL_NUBE)} desviaciones de las medianas). Amarillo con
-        flecha, el próximo rival; contorno blanco, el Castilla.
+        flecha, el próximo rival; con doble aro, el Castilla.
       </p>
     </section>
   );
@@ -292,7 +292,7 @@ function Dispersion({ m, eje, rivalId, etiquetaY }: { m: NonNullable<ReturnType<
           const titulo = `${p.equipo} · altura ${coma(p.altura)} · ${coma(p.xgFavor, 2)} xG a favor y ${coma(p.xgContra, 2)} en contra por partido · ${p.partidos} partidos`;
           return (
             <g key={p.teamId}>
-              {esNuestro && <circle cx={cx} cy={cy} r={tam / 2 + 4} style={{ fill: "none", stroke: "#FFFFFF", strokeWidth: 3 }} />}
+              {esNuestro && <circle cx={cx} cy={cy} r={tam / 2 + 4} style={{ fill: "none", stroke: tinta(0.9), strokeWidth: 3 }} />}
               {esNuestro && <circle cx={cx} cy={cy} r={tam / 2 + 6} style={{ fill: "none", stroke: tinta(0.5), strokeWidth: 1 }} />}
               {escudo ? (
                 <image href={escudo} x={cx - tam / 2} y={cy - tam / 2} width={tam} height={tam} preserveAspectRatio="xMidYMid meet" />
