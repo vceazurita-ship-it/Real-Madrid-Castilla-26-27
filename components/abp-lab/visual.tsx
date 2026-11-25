@@ -311,8 +311,10 @@ export function Cuadrante({
 
   /* Lo que no depende del ratón, una vez por datos y ancho. */
   const dibujo = useMemo(() => {
-    if (puntos.length < 3 || ancho < 120) return null;
-    const W = ancho;
+    if (puntos.length < 3) return null;
+    /* Sin medida todavía (pestaña escondida, observador que no ha llegado), se
+       dibuja a 720 y el SVG, que va a lo ancho, se escala: nunca sale en blanco. */
+    const W = ancho >= 120 ? ancho : 720;
     const H = Math.round(Math.max(260, Math.min(420, W * 0.6)));
     const M = { arriba: 30, derecha: 14, abajo: 38, izquierda: 44 };
     const dW = W - M.izquierda - M.derecha;
@@ -507,7 +509,7 @@ export function Cuadrante({
           {alPulsar ? "Pasa o toca un escudo: sus cifras; púlsalo para elegirlo" : "Pasa o toca un escudo para ver sus cifras"}
         </span>
       </p>
-      <div ref={caja} className="relative w-full min-w-0" style={dibujo ? undefined : { aspectRatio: "5 / 3" }}>
+      <div ref={caja} className="relative w-full min-w-0">
         {svg}
         {ficha && encima && (
           <div
@@ -674,7 +676,9 @@ export function AnilloPercentil({ p, lado = 48, grosor = 4.5, rotulo }: { p: num
 }
 
 export type KpiVersus = {
+  /** Rótulo corto (cabe en una línea); el nombre entero va en `titulo`. */
   rotulo: string;
+  titulo?: string;
   valor: string;
   p: number | null;
   /** «11º de 20 en su grupo · mediana 3,9» */
@@ -771,9 +775,10 @@ export function HeroVersus({
             className="lab-aparece min-w-0 rounded-xl border border-white/10 bg-white/[0.035] p-3 backdrop-blur-sm"
             style={{ animationDelay: `${60 + i * 60}ms` }}
           >
-            <p className="line-clamp-2 min-h-[2.6em] text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-white/50" title={k.rotulo}>
-              {k.rotulo}
-              {k.nota && <span className="ml-1 normal-case tracking-normal text-white/35">({k.nota})</span>}
+            {/* Rótulo y nota en dos líneas fijas: las cifras de las cuatro tarjetas quedan a la misma altura. */}
+            <p className="min-h-[2.5em] text-[10px] leading-snug" title={k.titulo ?? k.rotulo}>
+              <span className="block font-semibold uppercase tracking-[0.14em] text-white/55">{k.rotulo}</span>
+              {k.nota && <span className="block font-medium text-white/40">{k.nota}</span>}
             </p>
             <div className="mt-2 flex min-w-0 items-center gap-3">
               <AnilloPercentil p={k.p} lado={50} />
@@ -814,8 +819,11 @@ export function MapaCalor({ filas }: { filas: { seccion: string; celdas: CeldaCa
       <div className="space-y-2">
         {filas.map((f, i) => (
           <div key={f.seccion} className="lab-aparece flex min-w-0 flex-col gap-1.5 sm:flex-row sm:gap-3" style={{ animationDelay: `${i * 50}ms` }}>
-            <p className="w-24 shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{f.seccion}</p>
-            <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-1.5">
+            <p className="w-28 shrink-0 pt-1.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">
+              {f.seccion}
+              <span className="ml-1 font-normal tracking-normal text-white/30">{f.celdas.length}</span>
+            </p>
+            <div className="grid min-w-0 flex-1 grid-cols-2 gap-1.5 min-[480px]:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
               {f.celdas.map((c) => {
                 const tono = tonoPercentil(c.p);
                 const fuerza = c.p == null ? 8 : Math.round(12 + Math.abs(c.p - 50) * 0.5);
@@ -825,11 +833,11 @@ export function MapaCalor({ filas }: { filas: { seccion: string; celdas: CeldaCa
                     type="button"
                     onClick={c.alPulsar}
                     title={c.titulo}
-                    className="group flex min-h-[60px] min-w-0 flex-col justify-between rounded-lg px-2 py-1.5 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                    className="group flex h-[68px] min-w-0 flex-col justify-between rounded-lg px-2.5 py-2 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
                     style={{ background: `color-mix(in srgb, ${tono} ${fuerza}%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tono} 32%, transparent)` }}
                   >
-                    <span className="line-clamp-2 text-[10.5px] leading-tight text-white/75">{c.nombre}</span>
-                    <span className="mt-1 flex min-w-0 items-baseline justify-between gap-1">
+                    <span className="line-clamp-2 h-[2.5em] text-[10.5px] leading-[1.25] text-white/75">{c.nombre}</span>
+                    <span className="flex min-w-0 items-baseline justify-between gap-1">
                       <span className="truncate text-[14px] font-semibold leading-none tabular-nums text-white">{c.valor}</span>
                       <span className="shrink-0 text-[10.5px] font-bold tabular-nums" style={{ color: tintaPercentil(c.p) }}>
                         {c.p == null ? "" : `P${Math.round(c.p)}`}
@@ -924,7 +932,7 @@ export function NavSecciones({ items }: { items: ItemNav[] }) {
     if (it.seccion) window.dispatchEvent(new CustomEvent(EVENTO_SECCION, { detail: it.seccion }));
     const el = document.getElementById(it.id);
     if (!el) return;
-    const y = el.getBoundingClientRect().top + window.scrollY - top - (nav.current?.offsetHeight ?? 0) - 10;
+    const y = el.getBoundingClientRect().top + window.scrollY - top - (nav.current?.offsetHeight ?? 0) - 16;
     const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     window.scrollTo({ top: y, behavior: suave ? "smooth" : "auto" });
   };

@@ -21,7 +21,7 @@
 */
 
 import { useEffect, useMemo, useState } from "react";
-import { Database, Trophy } from "lucide-react";
+import { Database, TrendingDown, TrendingUp, Trophy } from "lucide-react";
 
 import { Panel, Segmented } from "@/components/abp/ui";
 import { COMPARADO, MEJOR, PEOR, tinta, useEscudos } from "@/components/data/graficas";
@@ -31,6 +31,7 @@ import {
   EVENTO_SECCION,
   EVENTO_SECCION_ACTUAL,
   Escudo,
+  AnilloPercentil,
   HeroVersus,
   LeyendaPista,
   LeyendaProtagonistas,
@@ -254,7 +255,13 @@ export function OptaBalonParado() {
   /* El héroe: cuatro cifras de cabecera, contra el grupo si el rival es del grupo (si no, contra la categoría). */
   const heroEnGrupo = datos.hayGrupo && (!idRival || rivalEnGrupo);
   const dondeHero = heroEnGrupo ? "grupo" : "categoría";
-  const kpis: KpiVersus[] = ["GoalSetPly", "GoalSetPly|OPP", "ChncSetPl", "ChncSetPl|OPP"]
+  const CORTO: Record<string, string> = {
+    GoalSetPly: "Goles ABP a favor",
+    "GoalSetPly|OPP": "Goles ABP en contra",
+    ChncSetPl: "Ocasiones ABP a favor",
+    "ChncSetPl|OPP": "Ocasiones ABP en contra",
+  };
+  const kpis: KpiVersus[] = Object.keys(CORTO)
     .map((clave) => datos.lineas.find((l) => l.m.clave === clave))
     .filter((l): l is Fila => !!l)
     .map((l) => {
@@ -263,7 +270,8 @@ export function OptaBalonParado() {
       const rP = posRival(l, heroEnGrupo);
       const notas = [l.m.modo === "pp" ? "por partido" : l.m.modo === "total" ? "temporada" : "", l.m.mejorAlto === false ? "menos es mejor" : ""].filter(Boolean).join(", ");
       return {
-        rotulo: l.m.nombre,
+        rotulo: CORTO[l.m.clave] ?? l.m.nombre,
+        titulo: l.m.nombre,
         nota: notas || undefined,
         valor: textoAbp(l.m, l.valor),
         p: mio.p,
@@ -295,11 +303,11 @@ export function OptaBalonParado() {
       >
         {/* ------------------- LO MEJOR Y LO PEOR -------------------- */}
         {seccion === "Resumen" && mejor && peor && mejor !== peor && (
-          <div className="mb-4 grid min-w-0 gap-2 sm:grid-cols-2">
+          <div className="mb-6 grid min-w-0 gap-3 sm:grid-cols-2">
             {[
-              { l: mejor, rotulo: "Lo mejor", color: MEJOR },
-              { l: peor, rotulo: "Lo peor", color: PEOR },
-            ].map(({ l, rotulo, color }) => (
+              { l: mejor, rotulo: "Lo mejor", color: MEJOR, Icono: TrendingUp },
+              { l: peor, rotulo: "Lo peor", color: PEOR, Icono: TrendingDown },
+            ].map(({ l, rotulo, color, Icono }) => (
               <button
                 key={rotulo}
                 type="button"
@@ -307,19 +315,27 @@ export function OptaBalonParado() {
                   setSeccion(l.m.seccion);
                   setAbierta(l.m.clave);
                 }}
-                className="min-w-0 rounded-xl border border-white/10 p-3 text-left transition hover:bg-white/[0.04]"
-                style={{ background: `${color}14` }}
+                className="lab-aparece group relative flex min-w-0 items-center gap-4 overflow-hidden rounded-2xl border border-white/10 p-4 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                style={{ background: `radial-gradient(ellipse at 0% 0%, ${color}29, transparent 60%), ${color}0A` }}
+                title="Ir a esta métrica"
               >
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color }}>
-                  {rotulo}
-                </p>
-                <p className="mt-0.5 text-[13px] font-semibold text-white">{l.m.nombre}</p>
-                <p className="mt-1 flex items-baseline gap-2">
-                  <span className="text-2xl font-semibold tabular-nums text-white">{textoAbp(l.m, l.valor)}</span>
-                  <span className="text-[12px] tabular-nums text-white/60">
-                    {pos(l).puesto}º de {pos(l).de} en su {pobl} · P{pos(l).p}
+                <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: color }} />
+                <AnilloPercentil p={pos(l).p} lado={58} grosor={5} />
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color }}>
+                    <Icono size={13} />
+                    {rotulo} · {l.m.seccion}
                   </span>
-                </p>
+                  <span className="mt-0.5 block truncate text-[13.5px] font-semibold text-white" title={l.m.nombre}>
+                    {l.m.nombre}
+                  </span>
+                  <span className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <span className="text-[26px] font-semibold leading-none tabular-nums text-white">{textoAbp(l.m, l.valor)}</span>
+                    <span className="text-[11.5px] tabular-nums text-white/55">
+                      {pos(l).puesto}º de {pos(l).de} en su {pobl}
+                    </span>
+                  </span>
+                </span>
               </button>
             ))}
           </div>

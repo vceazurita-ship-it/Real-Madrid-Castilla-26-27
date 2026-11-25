@@ -4024,12 +4024,12 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Categoría · Opta", es: "El Castilla en córners, faltas, bandas y penaltis frente a su grupo y a Primera RFEF, y cada saque: dónde cae, quién lo saca y si acaba en remate" },
           {
             que: "cabecera: el Castilla contra el próximo rival (25/11/2026)",
-            es: "Arriba, el escudo del Castilla frente al del próximo rival y cuatro cifras de cabecera: goles a balón parado (a favor y encajados, en la temporada) y ocasiones a balón parado (a favor y concedidas, por partido). Cada una con su anillo de percentil, su puesto y la mediana; debajo, la misma cifra del próximo rival con su anillo y su puesto",
+            es: "Arriba, el escudo del Castilla frente al del próximo rival y cuatro cifras de cabecera: goles a balón parado (a favor y encajados, en la temporada) y ocasiones a balón parado (a favor y concedidas, por partido). Cada una con su anillo de percentil, su puesto y la mediana; debajo, la misma cifra del próximo rival con su anillo y su puesto. Los rótulos van cortos («Goles ABP a favor»…); el nombre entero sale al pasar por encima",
             cuenta: "Percentil y puesto contra su grupo si el rival es del grupo (si no, contra toda la categoría), los mismos de las pistas. El anillo llega hasta el percentil: verde P60 o más, oro en la media, naranja P40 o menos",
           },
           {
             que: "perfil entero, en mapa de calor",
-            es: "En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una fila por sección (córners, faltas, bandas, penaltis) y una celda por métrica que se juzga, con su valor y su percentil. Pulsar una celda abre su métrica",
+            es: "En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas (con su anillo de percentil, su sección y su puesto) que llevan a su métrica, y «El perfil entero, de un vistazo»: una fila por sección (córners, faltas, bandas, penaltis, con cuántas métricas tiene) y una celda por métrica que se juzga, todas del mismo tamaño, con su valor y su percentil. Pulsar una celda abre su métrica",
             cuenta: "La celda se pinta con el color de su percentil, más intenso cuanto más se aleja de P50; la franja media va en el oro de la marca",
           },
           {

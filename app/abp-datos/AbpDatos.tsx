@@ -97,7 +97,7 @@ export function AbpDatos({ inicial }: { inicial: Tab }) {
             {/* Hija directa de la columna: lo pegajoso sólo se pega dentro de su padre. */}
             <NavSecciones key={tab} items={NAV[tab]} />
 
-            <div className="mt-3 min-w-0">
+            <div className="mt-4 min-w-0">
               {tab === "categoria" && (
                 <div className="grid min-w-0 grid-cols-1 gap-8 [&>*]:min-w-0">
                   <OptaBalonParado />

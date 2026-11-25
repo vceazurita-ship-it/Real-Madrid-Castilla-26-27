@@ -260,6 +260,12 @@ export function AbpLigasWyscout() {
   const posC = posicionEn(tabla, equipo, METRICA.abpRemC);
   const balance = posF.valor !== null && posC.valor !== null ? posF.valor - posC.valor : null;
   const iBalance = mosaico.findIndex((x) => x.equipo === equipo);
+  const CORTO_HERO: Record<string, string> = {
+    abpRemF: "ABP con remate a favor",
+    abpRemC: "ABP con remate en contra",
+    abpPctF: "Su ABP acaba en remate",
+    abpPctC: "El ABP rival acaba en remate",
+  };
   /* Las cuatro cifras del héroe, con la misma cuenta que el vistazo (percentil y puesto en su liga). */
   const kpisHero: KpiVersus[] = (["abpRemF", "abpRemC", "abpPctF", "abpPctC"] as const)
     .map((k) => METRICA[k])
@@ -268,7 +274,8 @@ export function AbpLigasWyscout() {
       const mio = posicionEn(tabla, equipo, x);
       const suyo = comparado ? posicionEn(tabla, comparado, x) : null;
       return {
-        rotulo: x.nombre.replace(/ por partido$/, "").replace(/ \(por cada 100\)$/, ""),
+        rotulo: CORTO_HERO[x.key] ?? x.nombre,
+        titulo: x.nombre,
         nota: [x.denominador === "partidos" ? "por partido" : "de cada 100", x.mejorAlto === false ? "menos es mejor" : ""].filter(Boolean).join(", "),
         valor: formatea(mio.valor, x.unidad),
         p: mio.percentil,
