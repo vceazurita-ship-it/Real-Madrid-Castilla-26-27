@@ -95,9 +95,26 @@ export function percentilesDe(jugador: FilaJugador, contra: FilaJugador[], puest
 export const indiceDe = (percentiles: Percentil[]) =>
   percentiles.length ? Math.round(percentiles.reduce((s, p) => s + p.percentil, 0) / percentiles.length) : null;
 
+/*
+| 25/11/2026 (idea de X): «minutos parecidos». La referencia se queda sólo con
+| los del puesto (y la edad elegida) que han jugado entre `desde` y `hasta`
+| veces SUS minutos: al de 200′ se le mide con los de 100-400′, no con los
+| titulares de 1.200′. Por defecto, de 0,5 a 2 veces.
+*/
+export type FranjaMinutos = { desde: number; hasta: number };
+export const FRANJA_MINUTOS_DEFECTO: FranjaMinutos = { desde: 0.5, hasta: 2 };
+
+/** Los minutos (redondeados) que abre la franja alrededor de los de un jugador. */
+export const limitesFranja = (minutos: number, franja: FranjaMinutos) => ({
+  min: Math.round(minutos * franja.desde),
+  max: Math.round(minutos * franja.hasta),
+});
+
 export type FilaComparativa = {
   jugador: FilaJugador;
   puesto: Puesto;
+  /** Con «minutos parecidos» puesto: los minutos que abren su franja. */
+  franjaMinutos?: { min: number; max: number };
   /** Con cuántos de la referencia se compara (él incluido si entra). */
   referencia: FilaJugador[];
   percentiles: Percentil[];
@@ -130,7 +147,7 @@ export type FilaComparativa = {
  * El ranking necesita el índice de TODA la referencia, no sólo de los nuestros,
  * así que se calcula una vez por puesto y se reutiliza.
  */
-export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComparativa[] {
+export function comparativa(jugadores: FilaJugador[], ref: Referencia, franja: FranjaMinutos | null = null): FilaComparativa[] {
   const nuestros = jugadores.filter((j) => esNuestro(j) && j.temporada === "actual" && j.minutos > 0);
   const porPuesto = new Map<Puesto, { referencia: FilaJugador[]; indices: Map<FilaJugador, number> }>();
 
@@ -150,7 +167,19 @@ export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComp
 
   return nuestros.map((jugador) => {
     const puesto = puestoDe(jugador.posicion);
-    const { referencia, indices } = delPuesto(puesto);
+    const delGrupo = delPuesto(puesto);
+    /* Con franja, cada uno tiene su propio grupo (y su propio ranking dentro de él). */
+    const limites = franja ? limitesFranja(jugador.minutos, franja) : null;
+    const referencia = limites
+      ? delGrupo.referencia.filter((r) => r.minutos >= limites.min && r.minutos <= limites.max)
+      : delGrupo.referencia;
+    const indices = limites ? new Map<FilaJugador, number>() : delGrupo.indices;
+    if (limites) {
+      for (const r of referencia) {
+        const i = indiceDe(percentilesDe(r, referencia, puesto));
+        if (i !== null) indices.set(r, i);
+      }
+    }
     const percentiles = jugador.minutos >= MINUTOS_MINIMOS ? percentilesDe(jugador, referencia, puesto) : [];
     const indice = indiceDe(percentiles);
 
@@ -181,7 +210,7 @@ export function comparativa(jugadores: FilaJugador[], ref: Referencia): FilaComp
         }
       : null;
 
-    return { jugador, puesto, referencia, percentiles, indice, ranking, evolucion };
+    return { jugador, puesto, referencia, percentiles, indice, ranking, evolucion, ...(limites ? { franjaMinutos: limites } : {}) };
   });
 }
 

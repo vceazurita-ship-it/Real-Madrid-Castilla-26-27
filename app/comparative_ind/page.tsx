@@ -71,6 +71,7 @@ import {
   FASES,
   PREGUNTAS,
   REFERENCIAS,
+  FRANJA_MINUTOS_DEFECTO,
   comparativa,
   indiceDe,
   mediana,
@@ -81,6 +82,7 @@ import {
   puntosDe,
   referenciaDe,
   type FilaComparativa,
+  type FranjaMinutos,
   type PuntoJugador,
   type Referencia,
 } from "@/lib/comparativa-u21";
@@ -462,6 +464,16 @@ export default function ComparativaCategoria() {
   const [fuente, setFuente] = useState<"wyscout" | "opta">("wyscout");
   /* 13/11/2026: las cifras sin balón llevadas a una posesión del 50 % (lib/comparativa-posesion.ts). */
   const [ajustado, setAjustado] = useState(false);
+  /* 25/11/2026 (idea de X): «minutos parecidos», de 0,5 a 2 veces sus minutos, ajustable. */
+  const [franjaActiva, setFranjaActiva] = useState(false);
+  const [franjaDesde, setFranjaDesde] = useState(FRANJA_MINUTOS_DEFECTO.desde);
+  const [franjaHasta, setFranjaHasta] = useState(FRANJA_MINUTOS_DEFECTO.hasta);
+  const franja: FranjaMinutos | null = useMemo(() => {
+    if (!franjaActiva) return null;
+    const desde = Number.isFinite(franjaDesde) && franjaDesde >= 0 ? franjaDesde : FRANJA_MINUTOS_DEFECTO.desde;
+    const hasta = Number.isFinite(franjaHasta) && franjaHasta >= desde ? franjaHasta : Math.max(desde, FRANJA_MINUTOS_DEFECTO.hasta);
+    return { desde, hasta };
+  }, [franjaActiva, franjaDesde, franjaHasta]);
 
   /* Subirlo relanza la lectura: el botón «Reintentar» del aviso de error. */
   const [intento, setIntento] = useState(0);
@@ -509,11 +521,11 @@ export default function ComparativaCategoria() {
   );
   /* Con el interruptor, TODO (percentiles, índice, ranking, gráficos) se calcula con la cifra ajustada. */
   const jugadores = ajuste?.jugadores ?? jugadoresBase;
-  const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref) : []), [jugadores, ref]);
+  const filas = useMemo(() => (jugadores.length ? comparativa(jugadores, ref, franja) : []), [jugadores, ref, franja]);
   /* Las mismas filas sin ajustar, para que la ficha enseñe las dos cifras. */
   const filasBrutas = useMemo(
-    () => (ajuste && jugadoresBase.length ? comparativa(jugadoresBase, ref) : null),
-    [ajuste, jugadoresBase, ref],
+    () => (ajuste && jugadoresBase.length ? comparativa(jugadoresBase, ref, franja) : null),
+    [ajuste, jugadoresBase, ref, franja],
   );
   const hayPosesion = posesiones.actual.size > 0;
   const posesionCastilla = useMemo(() => {
@@ -851,6 +863,54 @@ export default function ComparativaCategoria() {
                   </Chip>
                 ))}
               </div>
+              <div id="x-idea-2125186000444113008-1" className="mt-2 flex flex-wrap items-center gap-2">
+                <span className="mr-1 w-14 shrink-0 text-[11px] uppercase tracking-wider text-white/35 sm:w-auto">Minutos</span>
+                <Chip activo={!franjaActiva} onClick={() => setFranjaActiva(false)}>
+                  Todos los minutos
+                </Chip>
+                <Chip activo={franjaActiva} onClick={() => setFranjaActiva(true)} fuerte>
+                  Minutos parecidos
+                </Chip>
+                {franjaActiva && (
+                  <span className="flex flex-wrap items-center gap-1.5 text-xs text-white/60">
+                    de
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.1}
+                      value={Number.isFinite(franjaDesde) ? franjaDesde : ""}
+                      onChange={(e) => setFranjaDesde(e.target.valueAsNumber)}
+                      aria-label="Desde cuántas veces sus minutos"
+                      className="w-16 rounded-lg border border-white/15 bg-white/[0.04] px-2 py-1 text-right tabular-nums text-white outline-none focus:border-[#C8A96B]"
+                    />
+                    a
+                    <input
+                      type="number"
+                      inputMode="decimal"
+                      min={0}
+                      step={0.1}
+                      value={Number.isFinite(franjaHasta) ? franjaHasta : ""}
+                      onChange={(e) => setFranjaHasta(e.target.valueAsNumber)}
+                      aria-label="Hasta cuántas veces sus minutos"
+                      className="w-16 rounded-lg border border-white/15 bg-white/[0.04] px-2 py-1 text-right tabular-nums text-white outline-none focus:border-[#C8A96B]"
+                    />
+                    veces sus minutos
+                    {(franja?.desde !== FRANJA_MINUTOS_DEFECTO.desde || franja?.hasta !== FRANJA_MINUTOS_DEFECTO.hasta) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFranjaDesde(FRANJA_MINUTOS_DEFECTO.desde);
+                          setFranjaHasta(FRANJA_MINUTOS_DEFECTO.hasta);
+                        }}
+                        className="ml-1 rounded-full border border-white/10 px-2 py-0.5 text-[11px] text-white/55 hover:border-white/25"
+                      >
+                        Volver a 0,5-2
+                      </button>
+                    )}
+                  </span>
+                )}
+              </div>
               <div className="mt-2 flex flex-wrap items-center gap-2">
                 <span className="mr-1 w-14 shrink-0 text-[11px] uppercase tracking-wider text-white/35 sm:w-auto">Puesto</span>
                 {[{ key: "todos" as const, label: "Todos" }, ...PUESTOS.map((p) => ({ key: p.key, label: p.label }))].map((p) => (
@@ -918,6 +978,7 @@ export default function ComparativaCategoria() {
                     {/* 30/10/2026: la base de todas las tarjetas en una línea, no repetida en cada una. */}
                     <p className="mt-6 text-xs text-white/55">
                       Contra {refLabel.toLowerCase()}
+                      {franja ? ` con minutos parecidos (de ${String(franja.desde).replace(".", ",")} a ${String(franja.hasta).replace(".", ",")} veces los suyos)` : ""}
                       {Number.isFinite(kpis.grupoMin) && kpis.grupoMax > 0
                         ? `, ${kpis.grupoMin === kpis.grupoMax ? kpis.grupoMax : `${kpis.grupoMin} a ${kpis.grupoMax}`} jugadores por puesto`
                         : ""}
@@ -1192,7 +1253,9 @@ export default function ComparativaCategoria() {
 
                     {pocosMinutos.length > 0 && (
                       <p className="mt-3 text-xs text-white/55">
-                        Con menos de {MINUTOS_MINIMOS}′ en la liga no tienen índice y por eso no están en la tabla: {pocosMinutos.join(", ")}.
+                        {franja
+                          ? `Sin índice (menos de ${MINUTOS_MINIMOS}′ en la liga o menos de 3 de su puesto con minutos parecidos), por eso no están en la tabla`
+                          : `Con menos de ${MINUTOS_MINIMOS}′ en la liga no tienen índice y por eso no están en la tabla`}: {pocosMinutos.join(", ")}.
                       </p>
                     )}
 
@@ -1297,6 +1360,7 @@ export default function ComparativaCategoria() {
                       jugadores={jugadores}
                       refe={ref}
                       refLabel={refLabel}
+                      franja={franja}
                       ficha={activo.ficha}
                       nota={activo.nota}
                       seg={activo.seg}
@@ -1877,6 +1941,7 @@ function Detalle({
   jugadores,
   refe,
   refLabel,
+  franja,
   ficha,
   nota,
   seg,
@@ -1890,6 +1955,7 @@ function Detalle({
   jugadores: FilaJugador[];
   refe: Referencia;
   refLabel: string;
+  franja: FranjaMinutos | null;
   ficha: { id: string; nombre: string; foto?: string } | null | undefined;
   nota?: ReturnType<ReturnType<typeof summarizeAll>["get"]>;
   seg?: { n: number; ultima: string };
@@ -1922,11 +1988,30 @@ function Detalle({
     }));
   });
 
+  /* Con cuántos se le compara: los del puesto (y la edad) en su franja de minutos. */
+  const enLaFranja = fila.referencia.filter((r) => r !== j).length;
+  const franjaTexto =
+    franja && fila.franjaMinutos
+      ? `${enLaFranja} ${puestoLabel} ${refe === "todos" ? "de la categoría" : refe === "u21" ? "sub-21" : "sub-23"} entre ${fila.franjaMinutos.min.toLocaleString("es-ES")}′ y ${fila.franjaMinutos.max.toLocaleString("es-ES")}′ (de ${String(franja.desde).replace(".", ",")} a ${String(franja.hasta).replace(".", ",")} veces sus ${j.minutos.toLocaleString("es-ES")}′)`
+      : null;
+
   return (
     <div className="mt-6 grid gap-4 xl:grid-cols-[320px_1fr_1fr]">
+      {franjaTexto && (
+        <p
+          className={`rounded-xl border px-4 py-2.5 text-xs xl:col-span-3 ${enLaFranja < 3 ? "border-amber-400/30 bg-amber-400/10 text-amber-300" : "border-[#C8A96B]/30 bg-[#C8A96B]/[0.08] text-white/75"}`}
+        >
+          <b className="font-semibold text-[#C8A96B]">Minutos parecidos</b> · se le compara con {franjaTexto}.
+          {enLaFranja < 3
+            ? " Con menos de 3 en la franja no hay percentiles: abre la franja o vuelve a «Todos los minutos»."
+            : enLaFranja < COMPARABLES_FIRMES
+              ? ` Con menos de ${COMPARABLES_FIRMES}, léelo como tendencia.`
+              : ""}
+        </p>
+      )}
       {cunas.length >= 6 && (
         <div className="hidden rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-white sm:block xl:col-span-3">
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#C8A96B]">Radiografía de percentiles <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a su referencia ({REFERENCIAS.find((r) => r.key === refe)?.label.toLowerCase()})</span></p>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#C8A96B]">Radiografía de percentiles <span className="text-[11px] font-semibold normal-case tracking-normal text-white/55">· frente a su referencia ({REFERENCIAS.find((r) => r.key === refe)?.label.toLowerCase()}{franja ? `, ${enLaFranja} con minutos parecidos` : ""})</span></p>
           <p className="text-[12px] text-white/55">La cuña llega hasta su percentil; a la derecha con balón, a la izquierda sin balón. Alto siempre es mejor (en las marcadas con ↓ ya está dado la vuelta).</p>
           <div className="mx-auto max-w-[900px]"><RadiografiaPercentiles cunas={cunas} /></div>
         </div>

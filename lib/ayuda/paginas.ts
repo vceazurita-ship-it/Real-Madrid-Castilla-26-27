@@ -1259,7 +1259,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-23",
+    revisada: "2026-11-25",
     bloques: [
       {
         titulo: "Arriba",
@@ -1268,6 +1268,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Qué hacemos", es: "El objetivo va en negrita y la primera tarjeta trae «Por qué» abierto; cada fila del ranking abre también sus vídeos" },
           { que: "Fuente", es: "Wyscout u Opta, cada una con sus pestañas; nunca se mezclan" },
           { que: "Contra", es: "Sub-21 (21 años o menos, edad de Wyscout), sub-23 o toda la categoría" },
+          { que: "Minutos · Minutos parecidos (25/11/2026)", es: "Bajo «Contra», «Todos los minutos» (lo de siempre) o «Minutos parecidos»: cada jugador del Castilla se compara sólo con los de su puesto (y la edad elegida) que han jugado entre 0,5 y 2 veces sus minutos; los dos números se cambian a mano y «Volver a 0,5-2» los repone. Con Wyscout, manda sobre el índice, el ranking («de N»), las tarjetas de lectura y la ficha; en la ficha, encima de la radiografía, se lee con cuántos se le compara y entre qué minutos", cuenta: "Franja = de redondear sus minutos × «de» a sus minutos × «a» (con 200′ y 0,5-2, de 100′ a 400′), siempre con el mínimo de 90′ de la categoría. Los percentiles, el índice y el ranking se calculan sólo dentro de esa franja: los de la franja también con su índice contra ese mismo grupo. Con menos de 3 en la franja no hay percentiles (sale en ámbar y el jugador pasa al pie «Sin índice»); con menos de 25, se lee como tendencia. No toca «Por minutos jugados», los gráficos por fase, «Los mejores del puesto», la proyección ni «Contra otros equipos», que siguen contra toda la franja de edad" },
           { que: "Puesto", es: "Filtra la tabla y los gráficos, y manda también sobre el jugador abierto; «Contra» y «Puesto» van cada uno en su fila" },
           { que: "?jugador=", es: "Desde la ficha, Valoraciones o el Dashboard se llega con el jugador ya elegido: se abre su ficha" },
           { que: "Población", es: "Bajo los filtros, contra quién y cuántos por puesto; los puestos con menos de 25 comparables se avisan como tendencia (p. ej. Porteros, 8)" },
