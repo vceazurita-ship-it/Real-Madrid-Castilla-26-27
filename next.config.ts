@@ -21,6 +21,12 @@ const raizTurbopack = !enRender ? process.env.TURBOPACK_RAIZ : undefined;
 
 const nextConfig: NextConfig = {
   turbopack: raizTurbopack ? { root: raizTurbopack } : {},
+
+  /* 25/11/2026: «El balón parado de cada liga» salió del Laboratorio de ABP (sólo admin) a /abp-datos para todo el staff.
+     Aquí y no en una página: la del laboratorio cuelga de su candado de administrador y no dejaba llegar al staff. */
+  async redirects() {
+    return [{ source: "/laboratorio/abp/datos", destination: "/abp-datos?tab=ligas", permanent: false }];
+  },
   ...(raizTurbopack ? { outputFileTracingRoot: raizTurbopack } : {}),
 
   ...(enRender
