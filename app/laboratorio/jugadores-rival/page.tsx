@@ -177,7 +177,7 @@ export default function JugadoresRivalPage() {
           <Topbar />
           <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
-              area="RMCF Castilla · Sólo administrador"
+              area="Laboratorio Scout · Sólo administrador"
               title="Jugadores rivales en vídeo"
               lead="Cada jugador del rival por sus fortalezas: lo que mejor hace según Opta (percentil contra los de su línea en la categoría) y sus acciones de los últimos 5 partidos, en un vídeo de 2 minutos como mucho."
             />

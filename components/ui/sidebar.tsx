@@ -187,8 +187,9 @@ export const SECCIONES: Seccion[] = [
       { href: "/scout-rival-individual", label: "Scout Individual", icon: UserSearch },
       { href: "/scout-rival-abp", label: "ABP del Rival", icon: Target },
       { href: "/scout-rival-area", label: "Área del Rival", icon: CircleDot },
-      /* 24/11/2026: «en una sección que sólo vea yo» (layout con candado en el servidor). */
-      { href: "/laboratorio/jugadores-rival", label: "Jugadores rivales en vídeo", icon: Film, soloAdmin: true },
+      /* 24/11/2026: «en una sección que sólo vea yo» (layout con candado en el servidor).
+         25/11/2026: «accesible desde el menú pero sólo para mi laboratorio scout»: Laboratorio Scout, sólo el administrador. */
+      { href: "/laboratorio/jugadores-rival", label: "Laboratorio Scout · Jugadores en vídeo", icon: Film, soloAdmin: true },
     ],
   },
   {
