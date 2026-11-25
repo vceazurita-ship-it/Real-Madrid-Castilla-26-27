@@ -73,7 +73,7 @@ export function AbpDatos({ inicial }: { inicial: Tab }) {
 
             <div className="mt-6 min-w-0">
               {tab === "categoria" && (
-                <div className="grid min-w-0 gap-8">
+                <div className="grid min-w-0 grid-cols-1 gap-8 [&>*]:min-w-0">
                   <OptaBalonParado />
                   <OptaAbpEventos />
                 </div>

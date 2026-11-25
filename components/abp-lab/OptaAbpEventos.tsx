@@ -132,12 +132,49 @@ export function OptaAbpEventos() {
     const m = new Map<string, Saque[]>();
     for (const s of deCategoria) {
       const id = lado === "favor" ? s.teamId : s.rivalId;
-      m.set(id, [...(m.get(id) ?? []), s]);
+      const suyos = m.get(id);
+      if (suyos) suyos.push(s);
+      else m.set(id, [s]);
     }
     return equipos
       .map((e) => ({ ...e, r: resumenSaques(m.get(e.teamId) ?? []) }))
       .filter((e) => e.r.n > 0);
   }, [deTipo, banda, rosca, tipo, lado, equipos]);
+
+  /* 25/11/2026 (la pantalla pesaba): lo derivado se calcula una vez por filtro, no en cada pintado. */
+  const r = useMemo(() => resumenSaques(filtrados), [filtrados]);
+  const categoria = useMemo(() => resumenSaques(deTipo), [deTipo]);
+  const tabla = useMemo(
+    () => lanzadores(delEquipo.filter((s) => (banda === "todas" || ladoSaque(s) === banda) && (tipo !== "corner" || rosca === "todas" || s.rosca === rosca))),
+    [delEquipo, banda, rosca, tipo],
+  );
+  const zonas = useMemo(() => {
+    const porZona = new Map<string, Saque[]>();
+    for (const s of filtrados) {
+      const z = zonaCaida(s);
+      const suyos = porZona.get(z);
+      if (suyos) suyos.push(s);
+      else porZona.set(z, [s]);
+    }
+    return ORDEN_ZONAS.filter((z) => porZona.has(z)).map((z) => ({ z, ...resumenSaques(porZona.get(z) ?? []) }));
+  }, [filtrados]);
+  const conMuestra = useMemo(() => porEquipo.filter((e) => e.r.n >= SAQUES_MIN && e.r.pctRemate != null && e.r.partidos > 0), [porEquipo]);
+  const rankingRemate = useMemo(
+    () =>
+      conMuestra.map((e) => ({
+        id: e.teamId,
+        equipo: e.equipo,
+        valor: e.r.pctRemate as number,
+        texto: pct(e.r.pctRemate),
+        escudo: escudoDe(e.equipo),
+        nota: `${e.r.conRemate} de ${e.r.n} · xG ${dec(e.r.xG)}`,
+      })),
+    [conMuestra, escudoDe],
+  );
+  const puntosCategoria = useMemo(
+    () => conMuestra.map((e) => ({ id: e.teamId, equipo: e.equipo, x: e.r.n / e.r.partidos, y: (e.r.pctRemate as number) * 100, escudo: escudoDe(e.equipo) })),
+    [conMuestra, escudoDe],
+  );
 
   const elegir = (id: string) => {
     setTeamId(id);
@@ -155,31 +192,14 @@ export function OptaAbpEventos() {
   }
   if (!saques.length) return null;
 
-  const r = resumenSaques(filtrados);
-  const categoria = resumenSaques(deTipo);
   const nombre = nombreDe(teamId, equipos.find((e) => e.teamId === teamId)?.equipo ?? "");
   const nombreProximo = idProximo ? equipos.find((e) => e.teamId === idProximo)?.equipo ?? "" : "";
-  const tabla = lanzadores(delEquipo.filter((s) => (banda === "todas" || ladoSaque(s) === banda) && (tipo !== "corner" || rosca === "todas" || s.rosca === rosca)));
-  const zonas = ORDEN_ZONAS.map((z) => {
-    const suyos = filtrados.filter((s) => zonaCaida(s) === z);
-    return { z, ...resumenSaques(suyos) };
-  }).filter((z) => z.n > 0);
   const visto = elegido && filtrados.includes(elegido) ? elegido : null;
   const lateral = tipo === "falta" ? filtrados.filter(esFaltaLateral).length : 0;
   const acento = lado === "favor" ? ORO_MARCA : CORAL;
   const tipoTexto = TIPOS.find((t) => t.key === tipo)?.label.toLowerCase() ?? "";
 
   /* La categoría: el % que acaba en remate (con muestra) y el cuadrante volumen frente a acierto. */
-  const conMuestra = porEquipo.filter((e) => e.r.n >= SAQUES_MIN && e.r.pctRemate != null && e.r.partidos > 0);
-  const rankingRemate = conMuestra.map((e) => ({
-    id: e.teamId,
-    equipo: e.equipo,
-    valor: e.r.pctRemate as number,
-    texto: pct(e.r.pctRemate),
-    escudo: escudoDe(e.equipo),
-    nota: `${e.r.conRemate} de ${e.r.n} · xG ${dec(e.r.xG)}`,
-  }));
-  const puntosCategoria = conMuestra.map((e) => ({ id: e.teamId, equipo: e.equipo, x: e.r.n / e.r.partidos, y: (e.r.pctRemate as number) * 100, escudo: escudoDe(e.equipo) }));
   const sinMuestra = porEquipo.length - conMuestra.length;
   /* En contra, que acaben en remate es malo. */
   const remateMejorAlto = lado === "favor";
@@ -198,7 +218,7 @@ export function OptaAbpEventos() {
       .join(" · ");
 
   const maxZona = Math.max(...zonas.map((z) => z.n), 1);
-  const maxLanz = Math.max(...tabla.slice(0, 10).map((l) => l.n), 1);
+  const maxLanz = Math.max(...tabla.slice(0, 12).map((l) => l.n), 1);
   const xG10 = r.n ? (r.xG / r.n) * 10 : null;
   const xG10Cat = (categoria.xG / Math.max(1, categoria.n)) * 10;
 
@@ -213,7 +233,7 @@ export function OptaAbpEventos() {
         {/* ------------------------ EL EQUIPO ------------------------- */}
         <div className="mb-3 flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-white/10 p-3" style={{ background: `linear-gradient(110deg, ${acento}24, transparent 65%)` }}>
           <Escudo src={escudoDe(nombre)} nombre={nombre} lado={44} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-[11rem]">
             <label className="block min-w-0">
               <span className="block text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: lado === "favor" ? "var(--rmcf-gold-ink)" : CORAL }}>
                 {lado === "favor" ? "A favor · sus saques" : "En contra · los que le sacan"}
@@ -337,9 +357,12 @@ export function OptaAbpEventos() {
               La raya de cada barra es la categoría.
             </p>
 
-            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+            {/* 25/11/2026: el campo y «Dónde caen» lado a lado (alturas parecidas) y
+                «Quién los saca» debajo, a lo ancho y en columnas: antes la columna
+                derecha era el doble de alta que el campo y dejaba un hueco. */}
+            <div className="grid min-w-0 items-start gap-6 lg:grid-cols-2">
               <div className="min-w-0">
-                <CampoOpta vertical mitad ariaLabel={`Dónde caen los saques ${lado === "favor" ? "de" : "contra"} ${nombre}`} maxAlto={460}>
+                <CampoOpta vertical mitad ariaLabel={`Dónde caen los saques ${lado === "favor" ? "de" : "contra"} ${nombre}`} maxAlto={420}>
                   {(p) =>
                     filtrados.map((s, i) => {
                       const [x1, y1] = p(s.x, s.y);
@@ -365,96 +388,95 @@ export function OptaAbpEventos() {
                   <Punto color="rgba(255,255,255,0.75)">Llega a un compañero</Punto>
                   <Punto color={SOBRE_CESPED.rival}>No llega</Punto>
                 </p>
-                {visto && (
-                  <div className="mt-1 flex flex-wrap items-center gap-2">
-                    <p className="text-[12px] text-white/75">{textoSaque(visto)}</p>
+                {visto ? (
+                  <div className="mt-2 flex flex-wrap items-center gap-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+                    <p className="min-w-0 flex-1 text-[12px] text-white/75">{textoSaque(visto)}</p>
                     <VideoOpta evento={visto} tipo="passes" descripcion={textoSaque(visto)} />
                   </div>
+                ) : (
+                  <p className="mt-1 text-[11px] text-white/40">Pulsa un punto del campo para ver ese saque y su vídeo.</p>
                 )}
               </div>
 
-              <div className="min-w-0 space-y-5">
-                {/* ----------------------- DÓNDE CAEN ----------------------- */}
-                {zonas.length > 0 && (
-                  <div className="min-w-0">
-                    <h3 className="text-[13px] font-semibold text-white">Dónde caen</h3>
-                    <p className="mb-2 text-[11px] text-white/45">Desde el lado del saque. La barra, cuántos; a la derecha, qué parte acaba en remate y su xG.</p>
-                    <div className="space-y-1.5">
-                      {zonas.map((z) => (
-                        <div key={z.z} className="min-w-0">
-                          <div className="flex min-w-0 items-baseline gap-2 text-[12px]">
-                            <span className="min-w-0 flex-1 truncate text-white/80">{z.z}</span>
-                            <span className="shrink-0 tabular-nums text-white/55">
-                              {z.n} · {pct(z.n / r.n)}
-                            </span>
-                          </div>
-                          <div className="mt-0.5 flex min-w-0 items-center gap-2">
-                            <span className="relative h-2.5 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.07) }}>
-                              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, (z.n / maxZona) * 100)}%`, background: acento, opacity: 0.85 }} />
-                              {z.conRemate > 0 && (
-                                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(2, (z.conRemate / maxZona) * 100)}%`, background: SOBRE_CESPED.verde }} title={`${z.conRemate} acaban en remate`} />
-                              )}
-                            </span>
-                            <span className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/60">
-                              {pct(z.pctRemate)} rem. · xG {dec(z.xG)}
-                            </span>
-                          </div>
+              {/* ----------------------- DÓNDE CAEN ----------------------- */}
+              {zonas.length > 0 && (
+                <div className="min-w-0">
+                  <h3 className="text-[13px] font-semibold text-white">Dónde caen</h3>
+                  <p className="mb-3 text-[11px] text-white/45">Desde el lado del saque. La barra, cuántos (en verde, los que acaban en remate); a la derecha, qué parte acaba en remate y su xG.</p>
+                  <div className="space-y-2.5">
+                    {zonas.map((z) => (
+                      <div key={z.z} className="min-w-0">
+                        <div className="flex min-w-0 items-baseline gap-2 text-[12px]">
+                          <span className="min-w-0 flex-1 truncate text-white/80">{z.z}</span>
+                          <span className="shrink-0 font-semibold tabular-nums text-white">{z.n}</span>
+                          <span className="w-10 shrink-0 text-right tabular-nums text-white/50">{pct(z.n / r.n)}</span>
                         </div>
-                      ))}
-                    </div>
-                    <p className="mt-1.5 flex flex-wrap gap-x-3 text-[10.5px] text-white/45">
-                      <Punto color={acento}>Saques</Punto>
-                      <Punto color={SOBRE_CESPED.verde}>Acaban en remate</Punto>
-                    </p>
+                        <div className="mt-1 flex min-w-0 items-center gap-2">
+                          <span className="relative h-2 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.08) }}>
+                            <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, (z.n / maxZona) * 100)}%`, background: acento, opacity: 0.85 }} />
+                            {z.conRemate > 0 && (
+                              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(2, (z.conRemate / maxZona) * 100)}%`, background: SOBRE_CESPED.verde }} title={`${z.conRemate} acaban en remate`} />
+                            )}
+                          </span>
+                          <span className="w-28 shrink-0 text-right text-[11px] tabular-nums text-white/60">
+                            {pct(z.pctRemate)} rem. · xG {dec(z.xG)}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-
-                {/* --------------------- QUIÉN LOS SACA --------------------- */}
-                {tabla.length > 0 && (
-                  <div className="min-w-0">
-                    <h3 className="text-[13px] font-semibold text-white">Quién los saca</h3>
-                    <p className="mb-2 text-[11px] text-white/45">Pulsa uno para ver sólo los suyos. La barra partida, desde la derecha / desde la izquierda.</p>
-                    <div className="space-y-1">
-                      {tabla.slice(0, 10).map((l) => {
-                        const suyo = lado === "contra" ? delEquipo.find((s) => s.lanzador === l.lanzador) : null;
-                        const suEquipo = suyo ? nombreDe(suyo.teamId, suyo.equipo) : "";
-                        const activo = lanzador === l.lanzador;
-                        return (
-                          <button
-                            key={l.lanzador}
-                            type="button"
-                            onClick={() => setLanzador(activo ? "" : l.lanzador)}
-                            aria-pressed={activo}
-                            className={`block w-full min-w-0 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04] ${activo ? "bg-white/[0.06]" : ""}`}
-                          >
-                            <span className="flex min-w-0 items-center gap-2 text-[12px]">
-                              {suEquipo && <Escudo src={escudoDe(suEquipo)} nombre={suEquipo} lado={16} />}
-                              <span className="min-w-0 flex-1 truncate font-medium text-white/85">
-                                {l.lanzador}
-                                {suEquipo && <span className="ml-1 text-[10px] font-normal text-white/40">{suEquipo}</span>}
-                              </span>
-                              <span className="shrink-0 tabular-nums text-white">{l.n}</span>
-                            </span>
-                            <span className="mt-1 flex h-2 min-w-0 overflow-hidden rounded-full" style={{ background: tinta(0.07) }}>
-                              <span className="flex h-full" style={{ width: `${Math.max(4, (l.n / maxLanz) * 100)}%` }}>
-                                <span className="h-full" style={{ width: `${(l.derecha / Math.max(1, l.n)) * 100}%`, background: acento }} title={`${l.derecha} desde la derecha`} />
-                                <span className="h-full" style={{ width: `${(l.izquierda / Math.max(1, l.n)) * 100}%`, background: acento, opacity: 0.45 }} title={`${l.izquierda} desde la izquierda`} />
-                              </span>
-                            </span>
-                            <span className="mt-0.5 flex flex-wrap gap-x-2.5 text-[10.5px] tabular-nums text-white/55">
-                              <span>Dcha/Izq {l.derecha}/{l.izquierda}</span>
-                              <span>Llegan {pct(l.pctCompleto)}</span>
-                              <span>Remate {pct(l.pctRemate)}</span>
-                              <span>xG {dec(l.xG)}</span>
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-              </div>
+                  <p className="mt-2 flex flex-wrap gap-x-3 text-[10.5px] text-white/45">
+                    <Punto color={acento}>Saques</Punto>
+                    <Punto color={SOBRE_CESPED.verde}>Acaban en remate</Punto>
+                  </p>
+                </div>
+              )}
             </div>
+
+            {/* --------------------- QUIÉN LOS SACA --------------------- */}
+            {tabla.length > 0 && (
+              <div className="mt-6 min-w-0 border-t border-white/10 pt-5">
+                <h3 className="text-[13px] font-semibold text-white">Quién los saca</h3>
+                <p className="mb-3 text-[11px] text-white/45">Pulsa uno para ver sólo los suyos. La barra, cuántos: el tramo fuerte desde la derecha y el claro desde la izquierda.</p>
+                <div className="grid min-w-0 gap-x-5 gap-y-1 md:grid-cols-2 xl:grid-cols-3">
+                  {tabla.slice(0, 12).map((l) => {
+                    const suyo = lado === "contra" ? delEquipo.find((s) => s.lanzador === l.lanzador) : null;
+                    const suEquipo = suyo ? nombreDe(suyo.teamId, suyo.equipo) : "";
+                    const activo = lanzador === l.lanzador;
+                    return (
+                      <button
+                        key={l.lanzador}
+                        type="button"
+                        onClick={() => setLanzador(activo ? "" : l.lanzador)}
+                        aria-pressed={activo}
+                        className={`block w-full min-w-0 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04] ${activo ? "bg-white/[0.06]" : ""}`}
+                      >
+                        <span className="flex min-w-0 items-center gap-2 text-[12px]">
+                          {suEquipo && <Escudo src={escudoDe(suEquipo)} nombre={suEquipo} lado={16} />}
+                          <span className="min-w-0 flex-1 truncate font-medium text-white/85">
+                            {l.lanzador}
+                            {suEquipo && <span className="ml-1 text-[10px] font-normal text-white/40">{suEquipo}</span>}
+                          </span>
+                          <span className="shrink-0 font-semibold tabular-nums text-white">{l.n}</span>
+                        </span>
+                        <span className="mt-1 flex h-1.5 min-w-0 overflow-hidden rounded-full" style={{ background: tinta(0.08) }}>
+                          <span className="flex h-full" style={{ width: `${Math.max(4, (l.n / maxLanz) * 100)}%` }}>
+                            <span className="h-full" style={{ width: `${(l.derecha / Math.max(1, l.n)) * 100}%`, background: acento }} title={`${l.derecha} desde la derecha`} />
+                            <span className="h-full" style={{ width: `${(l.izquierda / Math.max(1, l.n)) * 100}%`, background: acento, opacity: 0.45 }} title={`${l.izquierda} desde la izquierda`} />
+                          </span>
+                        </span>
+                        <span className="mt-1 flex flex-wrap gap-x-2.5 text-[10.5px] tabular-nums text-white/55">
+                          <span>Dcha/Izq {l.derecha}/{l.izquierda}</span>
+                          <span>Llegan {pct(l.pctCompleto)}</span>
+                          <span>Remate {pct(l.pctRemate)}</span>
+                          <span>xG {dec(l.xG)}</span>
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </>
         )}
 

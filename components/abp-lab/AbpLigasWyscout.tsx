@@ -26,8 +26,8 @@ import { useMemo, useState } from "react";
 import { Crosshair, GitCompareArrows, LayoutGrid, LineChart, ListOrdered, ScatterChart } from "lucide-react";
 
 import { Panel, Segmented, Select } from "@/components/abp/ui";
-import { BarraPercentil, BarrasEquipos, COMPARADO, Dispersion, Evolucion, MEJOR, PEOR, tinta, useEscudos, type FilaPercentil } from "@/components/data/graficas";
-import { CORAL, Cifra, Escudo, ORO_MARCA } from "@/components/abp-lab/visual";
+import { BarrasEquipos, COMPARADO, Evolucion, MEJOR, PEOR, tinta, useEscudos, type FilaPercentil } from "@/components/data/graficas";
+import { CORAL, Cifra, Cuadrante, Escudo, LeyendaPista, ORO_MARCA, PistaPercentil } from "@/components/abp-lab/visual";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -71,6 +71,69 @@ const fila = (tabla: FilaLiga[], equipo: string, m: MetricaAbp): FilaPercentil =
     comoLeer: m.comoLeer,
   };
 };
+
+/**
+ * Una métrica del vistazo (25/11/2026): la misma información que la
+ * `BarraPercentil` de DATA —nombre, valor, mediana de la liga, puesto,
+ * percentil y el otro equipo en azul— pero con la pista fina de esta
+ * pantalla (punto en el percentil, raya azul del otro), en vez de la barra
+ * gruesa que salía del centro.
+ */
+function FilaVistazo({ fila: f, otra, nombreOtra, punto }: { fila: FilaPercentil; otra?: FilaPercentil | null; nombreOtra?: string; punto: string }) {
+  const [abierta, setAbierta] = useState(false);
+  const estilo = f.mejorAlto === null;
+  const sentido =
+    f.mejorAlto === false
+      ? "Menos es mejor: la pista ya está dada la vuelta, a la derecha sigue siendo mejor."
+      : estilo
+        ? "Es estilo, no rendimiento: no hay mejor ni peor."
+        : "Más es mejor.";
+  return (
+    <div className="min-w-0 border-b border-white/[0.06] py-2 last:border-0">
+      <div className="flex min-w-0 items-baseline gap-2">
+        <button
+          type="button"
+          onClick={() => setAbierta(!abierta)}
+          aria-expanded={abierta}
+          title="Pulsa para ver qué mide y cómo se lee"
+          className="line-clamp-2 min-w-0 flex-1 text-left text-[12.5px] leading-snug text-white/80 underline decoration-dotted underline-offset-4 transition hover:text-white"
+        >
+          {f.nombre}
+          {f.mejorAlto === false && <span className="ml-1.5 inline-block text-[10px] font-normal text-white/45">(menos es mejor)</span>}
+          {estilo && <span className="ml-1.5 inline-block text-[10px] font-normal text-white/45">(estilo)</span>}
+        </button>
+        <span className="shrink-0 text-[13px] font-semibold tabular-nums text-white">{formatea(f.valor, f.unidad)}</span>
+        <span className="w-[4.5rem] shrink-0 text-right text-[11px] tabular-nums text-white/40" title={`Mediana de los ${f.deCuantos} equipos de la liga`}>
+          liga {formatea(f.mediana, f.unidad)}
+        </span>
+      </div>
+      <div className="mt-1">
+        <PistaPercentil
+          p={f.percentil}
+          puesto={f.puesto}
+          de={f.deCuantos}
+          estilo={estilo}
+          punto={punto}
+          rival={otra?.percentil ?? null}
+          tituloRival={otra && nombreOtra ? `${nombreOtra}: ${otra.puesto ?? ""}º de ${otra.deCuantos}${otra.percentil != null ? ` (P${Math.round(otra.percentil)})` : ""}` : undefined}
+        />
+      </div>
+      {otra && (
+        <p className="mt-0.5 flex min-w-0 items-baseline gap-2 text-[11px] tabular-nums" style={{ color: COMPARADO }}>
+          <span className="min-w-0 flex-1 truncate">{nombreOtra}</span>
+          <span className="shrink-0 font-semibold">{formatea(otra.valor, otra.unidad)}</span>
+          <span className="w-12 shrink-0 text-right">{otra.puesto ? `${otra.puesto}º/${otra.deCuantos}` : ""}</span>
+          <span className="w-8 shrink-0 text-right text-white/45">{otra.percentil === null ? "" : `P${Math.round(otra.percentil)}`}</span>
+        </p>
+      )}
+      {abierta && (
+        <p className="mt-1.5 text-[11px] leading-relaxed text-white/50">
+          {f.comoLeer} <span className="text-white/65">{sentido}</span>
+        </p>
+      )}
+    </div>
+  );
+}
 
 /**
  * El equipo de la Premier con el balón parado más parecido: la menor
@@ -169,9 +232,9 @@ export function AbpLigasWyscout() {
   const puntos = useMemo(
     () =>
       tabla
-        .map((f) => ({ equipo: f.equipo, x: f.valores.abpRemF, y: f.valores.abpRemC }))
-        .filter((p): p is { equipo: string; x: number; y: number } => p.x !== null && p.y !== null),
-    [tabla],
+        .filter((f) => f.valores.abpRemF !== null && f.valores.abpRemC !== null)
+        .map((f) => ({ id: f.equipo, equipo: f.equipo, x: f.valores.abpRemF as number, y: f.valores.abpRemC as number, escudo: escudoDe(f.equipo) })),
+    [tabla, escudoDe],
   );
 
   const serie = useMemo(() => (liga ? serieDe(liga, equipo, m) : []), [liga, equipo, m]);
@@ -197,6 +260,8 @@ export function AbpLigasWyscout() {
   const posC = posicionEn(tabla, equipo, METRICA.abpRemC);
   const balance = posF.valor !== null && posC.valor !== null ? posF.valor - posC.valor : null;
   const iBalance = mosaico.findIndex((x) => x.equipo === equipo);
+  /* El punto del equipo que se mira: oro si es el Castilla; si no, tinta. */
+  const puntoEquipo = castilla && equipo === castilla ? ORO_MARCA : tinta(0.8);
 
   return (
     <div className="min-w-0">
@@ -227,7 +292,7 @@ export function AbpLigasWyscout() {
                 >
                   <div className="flex min-w-0 flex-wrap items-center gap-3">
                     <Escudo src={escudoDe(equipo)} nombre={equipo} lado={56} />
-                    <div className="min-w-0 flex-1">
+                    <div className="min-w-0 flex-1 basis-[11rem]">
                       <p className="truncate text-xl font-semibold text-white">{equipo}</p>
                       <p className="text-[12px] text-white/55">
                         {liga.nombre} · {suyos.length} partidos
@@ -291,7 +356,7 @@ export function AbpLigasWyscout() {
                   )}
                 </div>
 
-                <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2">
+                <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-2">
                   {/* --------------------- DE UN VISTAZO --------------------- */}
                   <Panel
                     title={`${equipo} de un vistazo`}
@@ -299,9 +364,12 @@ export function AbpLigasWyscout() {
                     icon={Crosshair}
                     analisis={<Conclusiones items={conclusiones} />}
                   >
-                    <div className="space-y-1">
+                    <div className="mb-1 border-b border-white/[0.06] pb-2">
+                      <LeyendaPista nuestro={equipo} puntoNuestro={puntoEquipo} rival={comparado ? `Próximo rival: ${comparado}` : undefined} />
+                    </div>
+                    <div>
                       {filas.map((f) => (
-                        <BarraPercentil key={f.key} fila={f} otra={comparado ? fila(tabla, comparado, METRICA[f.key]) : null} nombreOtra={comparado} />
+                        <FilaVistazo key={f.key} fila={f} punto={puntoEquipo} otra={comparado ? fila(tabla, comparado, METRICA[f.key]) : null} nombreOtra={comparado} />
                       ))}
                     </div>
                   </Panel>
@@ -328,14 +396,17 @@ export function AbpLigasWyscout() {
                     icon={ScatterChart}
                     className="xl:col-span-2"
                   >
-                    <Dispersion
+                    <Cuadrante
                       puntos={puntos}
                       etiquetaX="Con remate a favor por partido"
                       etiquetaY="Con remate en contra por partido"
-                      unidadX="decimal"
-                      unidadY="decimal"
-                      destacado={equipo}
-                      comparado={comparado || undefined}
+                      textoX={(v) => formatea(v, "decimal")}
+                      textoY={(v) => formatea(v, "decimal")}
+                      xMejorAlto
+                      yMejorAlto={false}
+                      nuestro={castilla || null}
+                      rival={comparado || null}
+                      elegido={equipo}
                       alPulsar={setElegido}
                     />
                   </Panel>
@@ -399,7 +470,9 @@ export function AbpLigasWyscout() {
                     icon={LineChart}
                     className="xl:col-span-2"
                   >
-                    <Evolucion serie={serie} unidad={m.unidad} media={posicionEn(tabla, equipo, m).valor} />
+                    <div className="mx-auto w-full max-w-[860px]">
+                      <Evolucion serie={serie} unidad={m.unidad} media={posicionEn(tabla, equipo, m).valor} />
+                    </div>
                   </Panel>
                   {/* ------------------ CONTRA LA REFERENCIA ----------------- */}
                   {premier && premier !== liga && ref && (
@@ -446,9 +519,12 @@ export function AbpLigasWyscout() {
                           )}
                         </div>
                       )}
-                      <div className="grid gap-x-10 gap-y-1 md:grid-cols-2">
+                      <div className="mb-1 border-b border-white/[0.06] pb-2">
+                        <LeyendaPista nuestro={`${equipo} (en ${liga.nombre})`} puntoNuestro={puntoEquipo} rival={`${ref} (en la Premier)`} />
+                      </div>
+                      <div className="grid gap-x-10 md:grid-cols-2">
                         {METRICAS_ABP.filter((x) => x.mejorAlto !== null).map((x) => (
-                          <BarraPercentil key={x.key} fila={fila(tabla, equipo, x)} otra={fila(tablaPremier, ref, x)} nombreOtra={ref} />
+                          <FilaVistazo key={x.key} fila={fila(tabla, equipo, x)} punto={puntoEquipo} otra={fila(tablaPremier, ref, x)} nombreOtra={ref} />
                         ))}
                       </div>
                     </Panel>

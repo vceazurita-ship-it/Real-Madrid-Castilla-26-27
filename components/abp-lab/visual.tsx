@@ -19,9 +19,9 @@
 | el próximo rival. Todo texto va con la tinta del tema: vale en día y noche.
 */
 
-import { useId, useMemo, useState, type ReactNode } from "react";
+import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { COMPARADO, EscudoPunto, MEJOR, ORO, PEOR, ladoEscudo, tinta } from "@/components/data/graficas";
+import { COMPARADO, EscudoPunto, MEJOR, ORO, PEOR, colorPercentil, ladoEscudo, tinta } from "@/components/data/graficas";
 
 /** El oro de la marca como relleno (el `ORO` de graficas es el de texto, más oscuro en día). */
 export const ORO_MARCA = "#C8A96B";
@@ -89,7 +89,7 @@ export function Cifra({
   return (
     <div className="relative min-w-0 overflow-hidden rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
       {acento && <span aria-hidden className="absolute inset-y-0 left-0 w-1" style={{ background: acento }} />}
-      <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">{rotulo}</p>
+      <p className="line-clamp-2 text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-white/45">{rotulo}</p>
       <p className="mt-0.5 text-2xl font-semibold leading-tight tabular-nums text-white">{valor}</p>
       {barra != null && (
         <span className="relative mt-1.5 block h-1.5 rounded-full" style={{ background: tinta(0.08) }}>
@@ -212,10 +212,33 @@ export function Ranking({
 
 export type PuntoCuadrante = { id: string; equipo: string; x: number; y: number; escudo: string | null };
 
+/** El ancho de una caja, medido: el SVG se dibuja a su tamaño real y la letra no se estira. */
+function useAncho<T extends HTMLElement>() {
+  const ref = useRef<T>(null);
+  const [ancho, setAncho] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setAncho(Math.round(e.contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  return [ref, ancho] as const;
+}
+
+/** El fondo del tema, para el halo de los rótulos (que se lean encima de un escudo o una raya). */
+const FONDO = "var(--rmcf-surface, #11161C)";
+
 /**
  * Un escudo por equipo en dos métricas. Las medianas de los que salen parten
  * el dibujo en cuatro; si las dos métricas se juzgan, la esquina buena va en
- * verde y la mala en naranja, rotuladas. Responde al ancho (sin ancho mínimo).
+ * verde y la mala en naranja, y se dice cuál es debajo (no dentro, donde
+ * pisaban escudos y nombres).
+ *
+ * 25/11/2026 («revisa el diseño, no está bien»): se dibuja al ancho real de
+ * su caja (antes era un viewBox fijo que, a pantalla ancha, inflaba la letra
+ * al doble), con la letra pequeña de la app; sólo llevan nombre el Castilla,
+ * el próximo rival, el elegido y el que está bajo el ratón.
  */
 export function Cuadrante({
   puntos,
@@ -246,100 +269,137 @@ export function Cuadrante({
   rotulos?: { bueno: string; malo: string };
 }) {
   const id = useId();
+  const [caja, ancho] = useAncho<HTMLDivElement>();
   const [encima, setEncima] = useState<PuntoCuadrante | null>(null);
+
+  /* Lo que no depende del ratón, una vez por datos y ancho. */
+  const dibujo = useMemo(() => {
+    if (puntos.length < 3 || ancho < 120) return null;
+    const W = ancho;
+    const H = Math.round(Math.max(260, Math.min(420, W * 0.6)));
+    const M = { arriba: 30, derecha: 14, abajo: 38, izquierda: 44 };
+    const dW = W - M.izquierda - M.derecha;
+    const dH = H - M.arriba - M.abajo;
+    const rango = (vals: number[]) => {
+      const min = Math.min(...vals);
+      const max = Math.max(...vals);
+      const aire = (max - min) * 0.08 || Math.abs(max) * 0.1 || 1;
+      return { min: min - aire, max: max + aire };
+    };
+    const rx = rango(puntos.map((p) => p.x));
+    const ry = rango(puntos.map((p) => p.y));
+    const px = (v: number) => M.izquierda + ((v - rx.min) / (rx.max - rx.min)) * dW;
+    const py = (v: number) => M.arriba + dH - ((v - ry.min) / (ry.max - ry.min)) * dH;
+    const mx = mediana(puntos.map((p) => p.x)) ?? 0;
+    const my = mediana(puntos.map((p) => p.y)) ?? 0;
+    return { W, H, M, dW, dH, rx, ry, px, py, mx, my };
+  }, [puntos, ancho]);
+
+  const orden = useMemo(() => {
+    const peso = (p: PuntoCuadrante) => (p.id === nuestro ? 3 : p.id === rival ? 2 : p.id === elegido ? 1 : 0);
+    return [...puntos].sort((a, b) => peso(a) - peso(b));
+  }, [puntos, nuestro, rival, elegido]);
 
   if (puntos.length < 3) return null;
 
-  const W = 600;
-  const H = 420;
-  const M = { arriba: 22, derecha: 18, abajo: 40, izquierda: 46 };
-  const dW = W - M.izquierda - M.derecha;
-  const dH = H - M.arriba - M.abajo;
-
-  const rango = (vals: number[]) => {
-    const min = Math.min(...vals);
-    const max = Math.max(...vals);
-    const aire = (max - min) * 0.1 || Math.abs(max) * 0.1 || 1;
-    return { min: min - aire, max: max + aire };
-  };
-  const rx = rango(puntos.map((p) => p.x));
-  const ry = rango(puntos.map((p) => p.y));
-  const px = (v: number) => M.izquierda + ((v - rx.min) / (rx.max - rx.min)) * dW;
-  const py = (v: number) => M.arriba + dH - ((v - ry.min) / (ry.max - ry.min)) * dH;
-  const mx = mediana(puntos.map((p) => p.x)) ?? 0;
-  const my = mediana(puntos.map((p) => p.y)) ?? 0;
-
-  /* La esquina buena: a la derecha si en X más es mejor, arriba si en Y más es mejor. */
   const juzga = xMejorAlto !== null && yMejorAlto !== null;
   const buenoDerecha = xMejorAlto !== false;
   const buenoArriba = yMejorAlto !== false;
-  const caja = (derecha: boolean, arriba: boolean) => ({
-    x: derecha ? px(mx) : M.izquierda,
-    y: arriba ? M.arriba : py(my),
-    w: derecha ? M.izquierda + dW - px(mx) : px(mx) - M.izquierda,
-    h: arriba ? py(my) - M.arriba : M.arriba + dH - py(my),
-  });
-  const bueno = caja(buenoDerecha, buenoArriba);
-  const malo = caja(!buenoDerecha, !buenoArriba);
   const rot = rotulos ?? { bueno: "Mejor en las dos", malo: "Peor en las dos" };
+  const esquina = (arriba: boolean, derecha: boolean) => `${arriba ? "arriba" : "abajo"} a la ${derecha ? "derecha" : "izquierda"}`;
 
-  const orden = [...puntos].sort((a, b) => {
-    const peso = (p: PuntoCuadrante) => (p.id === nuestro ? 3 : p.id === rival ? 2 : p.id === elegido ? 1 : 0);
-    return peso(a) - peso(b);
-  });
+  let svg: ReactNode = null;
+  if (dibujo) {
+    const { W, H, M, dW, dH, rx, ry, px, py, mx, my } = dibujo;
+    const caja4 = (derecha: boolean, arriba: boolean) => ({
+      x: derecha ? px(mx) : M.izquierda,
+      y: arriba ? M.arriba : py(my),
+      w: derecha ? M.izquierda + dW - px(mx) : px(mx) - M.izquierda,
+      h: arriba ? py(my) - M.arriba : M.arriba + dH - py(my),
+    });
+    const bueno = caja4(buenoDerecha, buenoArriba);
+    const malo = caja4(!buenoDerecha, !buenoArriba);
+    const eje = { fill: tinta(0.5), fontSize: 10, fontVariantNumeric: "tabular-nums" } as const;
+    const halo = { stroke: FONDO, strokeWidth: 3, strokeLinejoin: "round", paintOrder: "stroke" } as const;
 
-  const extremos = new Set<string>();
-  for (const f of [(p: PuntoCuadrante) => p.x, (p: PuntoCuadrante) => p.y]) {
-    const o = [...puntos].sort((a, b) => f(a) - f(b));
-    extremos.add(o[0].id);
-    extremos.add(o[o.length - 1].id);
-  }
+    /* Los rótulos: arriba del escudo, o debajo si no cabe o si pisa a otro ya puesto. */
+    const rotulados = orden.filter((p) => p.id === nuestro || p.id === rival || p.id === elegido || p.id === encima?.id);
+    const ocupados: { x: number; y: number; w: number }[] = [];
+    const etiquetas = [...rotulados].reverse().map((p) => {
+      const rol = p.id === nuestro ? "nuestro" : p.id === rival || p.id === elegido ? "comparado" : "fondo";
+      const lado = ladoEscudo(rol);
+      const cx = px(p.x);
+      const cy = py(p.y);
+      const w = p.equipo.length * 6.2;
+      const ancla: "start" | "middle" | "end" = cx - w / 2 < 4 ? "start" : cx + w / 2 > W - 4 ? "end" : "middle";
+      const x0 = ancla === "start" ? cx - lado / 2 : ancla === "end" ? cx + lado / 2 - w : cx - w / 2;
+      const arriba = cy - lado / 2 - 6;
+      const abajo = cy + lado / 2 + 13;
+      const pisa = (y: number) => ocupados.some((o) => Math.abs(o.y - y) < 13 && x0 < o.x + o.w && x0 + w > o.x);
+      const y = arriba < 12 || pisa(arriba) ? (pisa(abajo) ? arriba : abajo) : arriba;
+      ocupados.push({ x: x0, y, w });
+      return { p, x: ancla === "start" ? cx - lado / 2 : ancla === "end" ? cx + lado / 2 : cx, y, ancla, rol };
+    });
 
-  const texto = (x: number, y: number, s: string, anchor: "start" | "end" | "middle", color: string, size = 10, peso = 500) => (
-    <text x={x} y={y} textAnchor={anchor} style={{ fill: color, fontSize: size, fontWeight: peso }}>
-      {s}
-    </text>
-  );
-
-  return (
-    <div className="min-w-0">
-      <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-labelledby={`${id}-t`}>
+    svg = (
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-labelledby={`${id}-t`}>
         <title id={`${id}-t`}>{`${etiquetaY} frente a ${etiquetaX}, un escudo por equipo`}</title>
 
         {juzga && (
           <>
             <rect x={bueno.x} y={bueno.y} width={Math.max(0, bueno.w)} height={Math.max(0, bueno.h)} style={{ fill: MEJOR, fillOpacity: 0.07 }} />
             <rect x={malo.x} y={malo.y} width={Math.max(0, malo.w)} height={Math.max(0, malo.h)} style={{ fill: PEOR, fillOpacity: 0.06 }} />
-            {texto(buenoDerecha ? M.izquierda + dW - 6 : M.izquierda + 6, buenoArriba ? M.arriba + 14 : M.arriba + dH - 8, rot.bueno, buenoDerecha ? "end" : "start", MEJOR, 11, 700)}
-            {texto(buenoDerecha ? M.izquierda + 6 : M.izquierda + dW - 6, buenoArriba ? M.arriba + dH - 8 : M.arriba + 14, rot.malo, buenoDerecha ? "start" : "end", PEOR, 11, 700)}
           </>
         )}
 
-        <line x1={px(mx)} y1={M.arriba} x2={px(mx)} y2={M.arriba + dH} style={{ stroke: tinta(0.22), strokeWidth: 1, strokeDasharray: "4 4" }} />
-        <line x1={M.izquierda} y1={py(my)} x2={M.izquierda + dW} y2={py(my)} style={{ stroke: tinta(0.22), strokeWidth: 1, strokeDasharray: "4 4" }} />
-        <line x1={M.izquierda} y1={M.arriba + dH} x2={M.izquierda + dW} y2={M.arriba + dH} style={{ stroke: tinta(0.25), strokeWidth: 1 }} />
-        <line x1={M.izquierda} y1={M.arriba} x2={M.izquierda} y2={M.arriba + dH} style={{ stroke: tinta(0.25), strokeWidth: 1 }} />
+        {/* Ejes y medianas */}
+        <line x1={M.izquierda} y1={M.arriba + dH} x2={M.izquierda + dW} y2={M.arriba + dH} style={{ stroke: tinta(0.22), strokeWidth: 1 }} />
+        <line x1={M.izquierda} y1={M.arriba} x2={M.izquierda} y2={M.arriba + dH} style={{ stroke: tinta(0.22), strokeWidth: 1 }} />
+        <line x1={px(mx)} y1={M.arriba} x2={px(mx)} y2={M.arriba + dH} style={{ stroke: tinta(0.25), strokeWidth: 1, strokeDasharray: "3 4" }} />
+        <line x1={M.izquierda} y1={py(my)} x2={M.izquierda + dW} y2={py(my)} style={{ stroke: tinta(0.25), strokeWidth: 1, strokeDasharray: "3 4" }} />
 
-        {texto(M.izquierda, H - 24, textoX(rx.min), "start", tinta(0.45))}
-        {texto(px(mx), H - 24, textoX(mx), "middle", tinta(0.55))}
-        {texto(M.izquierda + dW, H - 24, textoX(rx.max), "end", tinta(0.45))}
-        {texto(M.izquierda - 6, M.arriba + dH, textoY(ry.min), "end", tinta(0.45))}
-        {texto(M.izquierda - 6, py(my) + 3, textoY(my), "end", tinta(0.55))}
-        {texto(M.izquierda - 6, M.arriba + 8, textoY(ry.max), "end", tinta(0.45))}
-        {texto(M.izquierda + dW / 2, H - 6, `${etiquetaX} →`, "middle", tinta(0.65), 12, 600)}
-        <text x={14} y={M.arriba + dH / 2} textAnchor="middle" transform={`rotate(-90 14 ${M.arriba + dH / 2})`} style={{ fill: tinta(0.65), fontSize: 12, fontWeight: 600 }}>
-          {`${etiquetaY} →`}
+        {/* Valores de los ejes: los extremos y la mediana */}
+        <text x={M.izquierda} y={M.arriba + dH + 14} textAnchor="start" style={eje}>
+          {textoX(rx.min)}
+        </text>
+        {px(mx) - M.izquierda > 34 && M.izquierda + dW - px(mx) > 34 && (
+          <text x={px(mx)} y={M.arriba + dH + 14} textAnchor="middle" style={{ ...eje, fill: tinta(0.7), fontWeight: 600 }}>
+            {textoX(mx)}
+          </text>
+        )}
+        <text x={M.izquierda + dW} y={M.arriba + dH + 14} textAnchor="end" style={eje}>
+          {textoX(rx.max)}
+        </text>
+        <text x={M.izquierda - 6} y={M.arriba + dH} textAnchor="end" style={eje}>
+          {textoY(ry.min)}
+        </text>
+        {M.arriba + dH - py(my) > 14 && py(my) - M.arriba > 14 && (
+          <text x={M.izquierda - 6} y={py(my) + 3.5} textAnchor="end" style={{ ...eje, fill: tinta(0.7), fontWeight: 600 }}>
+            {textoY(my)}
+          </text>
+        )}
+        <text x={M.izquierda - 6} y={M.arriba + 7} textAnchor="end" style={eje}>
+          {textoY(ry.max)}
         </text>
 
+        {/* Títulos de los ejes, pequeños y fuera del dibujo */}
+        <text x={M.izquierda + dW} y={H - 6} textAnchor="end" style={{ fill: tinta(0.65), fontSize: 11, fontWeight: 600 }}>
+          {`${etiquetaX} →`}
+        </text>
+        <text x={M.izquierda} y={14} textAnchor="start" style={{ fill: tinta(0.65), fontSize: 11, fontWeight: 600 }}>
+          {`↑ ${etiquetaY}`}
+        </text>
+
+        {/* Los escudos (los protagonistas, los últimos: encima) */}
         {orden.map((p) => {
           const rol = p.id === nuestro ? "nuestro" : p.id === rival || p.id === elegido ? "comparado" : "fondo";
           const lado = ladoEscudo(rol);
           const cx = px(p.x);
           const cy = py(p.y);
-          const nombre = rol !== "fondo" || extremos.has(p.id);
           return (
             <g key={p.id}>
               <EscudoPunto cx={cx} cy={cy} escudo={p.escudo} rol={rol} color={p.id === elegido && p.id !== rival ? tinta(0.7) : undefined} />
+              {encima?.id === p.id && rol === "fondo" && <circle cx={cx} cy={cy} r={lado / 2 + 3} style={{ fill: "none", stroke: tinta(0.6), strokeWidth: 1.5 }} />}
               <circle
                 cx={cx}
                 cy={cy}
@@ -354,26 +414,141 @@ export function Cuadrante({
               >
                 <title>{`${p.equipo} · ${etiquetaX} ${textoX(p.x)} · ${etiquetaY} ${textoY(p.y)}`}</title>
               </circle>
-              {nombre &&
-                texto(
-                  cx,
-                  cy - lado / 2 - 6,
-                  p.equipo,
-                  cx < M.izquierda + 60 ? "start" : cx > W - M.derecha - 60 ? "end" : "middle",
-                  rol === "nuestro" ? tinta(0.92) : rol === "comparado" ? (p.id === rival ? COMPARADO : tinta(0.8)) : tinta(0.55),
-                  rol === "fondo" ? 10 : 12,
-                  rol === "fondo" ? 500 : 700,
-                )}
             </g>
           );
         })}
+
+        {/* Los nombres, encima de todo y con halo */}
+        {etiquetas.map(({ p, x, y, ancla, rol }) => (
+          <text
+            key={`n-${p.id}`}
+            x={x}
+            y={y}
+            textAnchor={ancla}
+            pointerEvents="none"
+            style={{
+              ...halo,
+              fill: rol === "nuestro" ? ORO : p.id === rival ? COMPARADO : tinta(0.85),
+              fontSize: 11,
+              fontWeight: rol === "fondo" ? 500 : 700,
+            }}
+          >
+            {p.equipo}
+          </text>
+        ))}
       </svg>
+    );
+  }
+
+  return (
+    <div className="min-w-0">
+      <div ref={caja} className="w-full min-w-0" style={dibujo ? undefined : { aspectRatio: "5 / 3" }}>
+        {svg}
+      </div>
+      <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+        {juzga && (
+          <>
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: MEJOR, opacity: 0.55 }} />
+              {rot.bueno} ({esquina(buenoArriba, buenoDerecha)})
+            </span>
+            <span className="inline-flex items-center gap-1.5">
+              <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-[3px]" style={{ background: PEOR, opacity: 0.55 }} />
+              {rot.malo} ({esquina(!buenoArriba, !buenoDerecha)})
+            </span>
+          </>
+        )}
+        {!juzga && yMejorAlto !== null && <span>{yMejorAlto ? "Más arriba, mejor" : "Más abajo, mejor"}</span>}
+      </div>
       <p className="mt-1 min-h-4 text-[11px] tabular-nums text-white/50">
         {encima
           ? `${encima.equipo} · ${etiquetaX} ${textoX(encima.x)} · ${etiquetaY} ${textoY(encima.y)}`
-          : `Cada escudo es un equipo; las rayas, la mediana de los ${puntos.length}. Toca un escudo para ver sus cifras${alPulsar ? " y elegirlo" : ""}.`}
+          : `Cada escudo es un equipo; las rayas, la mediana de los ${puntos.length}. Pasa por un escudo para ver sus cifras${alPulsar ? "; púlsalo para elegirlo" : ""}.`}
       </p>
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  PISTA DE PERCENTIL                                                 */
+/* ------------------------------------------------------------------ */
+
+/**
+ * Una pista de percentil: carril fino y neutro de P0 a P100, la mediana (P50)
+ * con una raya, el equipo con un punto (oro si es el Castilla) y el próximo
+ * rival con una raya azul; a la derecha, el puesto (con el color de la escala
+ * de percentil) y el percentil.
+ *
+ * 25/11/2026: sustituye a la barra gruesa que salía del centro hasta el punto
+ * y que se leía como una barra de diferencias sin explicar.
+ */
+export function PistaPercentil({
+  rotulo,
+  p,
+  puesto,
+  de,
+  estilo = false,
+  pocos = false,
+  punto = ORO_MARCA,
+  rival,
+  tituloRival,
+}: {
+  rotulo?: string;
+  p: number | null;
+  puesto: number | null;
+  de: number;
+  /** Métrica de estilo: no hay mejor ni peor, sin color. */
+  estilo?: boolean;
+  /** Muestra pequeña: ni punto, ni puesto, ni percentil. */
+  pocos?: boolean;
+  punto?: string;
+  rival?: number | null;
+  tituloRival?: string;
+}) {
+  const color = estilo || pocos || p == null ? tinta(0.5) : colorPercentil(p);
+  return (
+    <div className="flex min-w-0 items-center gap-2 text-[11px]">
+      {rotulo && <span className="w-[4.5rem] shrink-0 text-white/50">{rotulo}</span>}
+      <span className="relative block h-3.5 min-w-0 flex-1">
+        <span aria-hidden className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ background: tinta(0.1) }} />
+        <span aria-hidden className="absolute top-[1px] bottom-[1px] left-1/2 w-px" style={{ background: tinta(0.35) }} />
+        {rival != null && <span className="absolute inset-y-0 w-[3px] -translate-x-1/2 rounded-full" style={{ left: `${rival}%`, background: COMPARADO }} title={tituloRival} />}
+        {p != null && !pocos && (
+          <span
+            aria-hidden
+            className="absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full"
+            style={{ left: `${p}%`, background: punto, boxShadow: `0 0 0 2px ${FONDO}, 0 0 0 3px ${tinta(0.2)}` }}
+          />
+        )}
+      </span>
+      <span className="w-12 shrink-0 text-right font-semibold tabular-nums" style={{ color }} title={estilo ? "Del que más tiene al que menos" : "Del mejor al peor"}>
+        {pocos || puesto == null ? "" : `${puesto}º/${de}`}
+      </span>
+      <span className="w-8 shrink-0 text-right tabular-nums text-white/45">{pocos || p == null ? "" : `P${Math.round(p)}`}</span>
+    </div>
+  );
+}
+
+/** Lo que cuenta cada pista, una vez, encima o debajo de la lista. */
+export function LeyendaPista({ nuestro, rival, puntoNuestro = ORO_MARCA }: { nuestro: string; rival?: string; puntoNuestro?: string }) {
+  return (
+    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/50">
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: puntoNuestro }} />
+        {nuestro}
+      </span>
+      {rival && (
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-3 w-[3px] rounded-full" style={{ background: COMPARADO }} />
+          {rival}
+        </span>
+      )}
+      <span className="inline-flex items-center gap-1.5">
+        <span aria-hidden className="inline-block h-3 w-px" style={{ background: tinta(0.45) }} />
+        Mediana (P50)
+      </span>
+      <span>Carril de P0 a P100: a la derecha, mejor (también en lo que se concede; en las de estilo, más). Puesto en verde, P60 o más; oro, en la media; naranja, P40 o menos.</span>
+    </p>
   );
 }
 

@@ -24,8 +24,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Database, Trophy } from "lucide-react";
 
 import { Panel, Segmented } from "@/components/abp/ui";
-import { COMPARADO, MEJOR, PEOR, colorPercentil, tinta, useEscudos } from "@/components/data/graficas";
-import { Cuadrante, Escudo, LeyendaProtagonistas, ORO_MARCA, Ranking } from "@/components/abp-lab/visual";
+import { COMPARADO, MEJOR, ORO, PEOR, colorPercentil, tinta, useEscudos } from "@/components/data/graficas";
+import { Cuadrante, Escudo, LeyendaPista, LeyendaProtagonistas, ORO_MARCA, PistaPercentil, Ranking } from "@/components/abp-lab/visual";
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, percentil, traeOpta, type TablaOpta } from "@/lib/opta";
 import { METRICAS_ABP_OPTA, SECCIONES_ABP, gruposDePartidos, textoAbp, valorAbp, type FilaEquipoOpta, type MetricaAbpOpta, type SeccionAbp } from "@/lib/opta-abp";
@@ -78,31 +78,19 @@ const PAREJAS: Record<SeccionAbp, [string, string]> = {
   Penaltis: ["PensWon", "PensConc"],
 };
 
+/* 25/11/2026: la pista es la `PistaPercentil` común (carril fino, mediana, punto de oro y raya azul del rival). */
 function Pista({ pos, pocos, estilo, rotulo, rival, nombreRival }: { pos: Posicion; pocos: boolean; estilo: boolean; rotulo: string; rival?: Posicion | null; nombreRival?: string }) {
-  const p = pos.p;
-  const color = estilo || pocos || p == null ? tinta(0.4) : colorPercentil(p);
   return (
-    <div className="flex min-w-0 items-center gap-2 text-[11px]">
-      <span className="w-[4.5rem] shrink-0 text-white/45">{rotulo}</span>
-      <span className="relative block h-2.5 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.08) }}>
-        <span className="absolute inset-y-[-3px] left-1/2 w-px" style={{ background: tinta(0.3) }} aria-hidden />
-        {p != null && !pocos && <span className="absolute inset-y-0 rounded-full" style={{ left: `${Math.min(50, p)}%`, width: `${Math.abs(p - 50)}%`, background: color }} />}
-        {p != null && !pocos && (
-          <span aria-hidden className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${p}%`, background: ORO_MARCA, boxShadow: `0 0 0 2px var(--rmcf-surface, #11161C)` }} />
-        )}
-        {rival?.p != null && (
-          <span
-            className="absolute inset-y-[-4px] w-[3px] -translate-x-1/2 rounded-full"
-            style={{ left: `${rival.p}%`, background: COMPARADO }}
-            title={`${nombreRival ?? "Próximo rival"}: ${rival.puesto}º de ${rival.de} (P${rival.p})`}
-          />
-        )}
-      </span>
-      <span className="w-12 shrink-0 text-right font-semibold tabular-nums" style={{ color }} title={estilo ? "Del que más tiene al que menos" : "Del mejor al peor"}>
-        {pocos ? "" : `${pos.puesto}º/${pos.de}`}
-      </span>
-      <span className="w-9 shrink-0 text-right tabular-nums text-white/45">{pocos || p == null ? "" : `P${p}`}</span>
-    </div>
+    <PistaPercentil
+      rotulo={rotulo}
+      p={pos.p}
+      puesto={pos.puesto}
+      de={pos.de}
+      estilo={estilo}
+      pocos={pocos}
+      rival={rival?.p ?? null}
+      tituloRival={rival ? `${nombreRival ?? "Próximo rival"}: ${rival.puesto}º de ${rival.de} (P${rival.p})` : undefined}
+    />
   );
 }
 
@@ -249,7 +237,7 @@ export function OptaBalonParado() {
         {/* ------------------------- CABECERA ------------------------- */}
         <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-white/10 p-3" style={{ background: `linear-gradient(110deg, ${ORO_MARCA}24, transparent 65%)` }}>
           <Escudo src={escudoNuestro} nombre={NOMBRE_CASTILLA} lado={48} />
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0 flex-1 basis-[11rem]">
             <p className="truncate text-base font-semibold text-white">{NOMBRE_CASTILLA}</p>
             <p className="text-[12px] text-white/55">
               {datos.partidos} partidos · {datos.hayGrupo ? `${datos.nGrupo} equipos en su grupo · ` : ""}
@@ -308,14 +296,16 @@ export function OptaBalonParado() {
             <p className="mb-2 text-[11px] text-white/50">
               Cada casilla es una métrica que se juzga: su percentil contra su {pobl} (verde, P60 o más; oro, en la media; naranja, P40 o menos). Púlsala para ir a ella.
             </p>
-            <div className="space-y-2">
+            {/* 25/11/2026: casillas más holgadas (nombre en dos líneas, cifra grande,
+                percentil en una pastilla de color y su carril debajo). */}
+            <div className="space-y-4">
               {SECCIONES_ABP.filter((s) => s !== "Resumen").map((s) => {
                 const suyas = juzgables.filter((l) => l.m.seccion === s);
                 if (!suyas.length) return null;
                 return (
-                  <div key={s} className="flex min-w-0 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
-                    <span className="w-28 shrink-0 text-[11px] font-semibold uppercase tracking-[0.12em] text-white/45">{s}</span>
-                    <div className="grid min-w-0 flex-1 grid-cols-2 gap-1 sm:grid-cols-4 lg:grid-cols-6">
+                  <div key={s} className="min-w-0">
+                    <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/45">{s}</p>
+                    <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
                       {suyas.map((l) => {
                         const p = pos(l).p ?? 0;
                         const c = colorPercentil(p);
@@ -328,15 +318,20 @@ export function OptaBalonParado() {
                               setAbierta(l.m.clave);
                             }}
                             title={`${l.m.nombre}: ${textoAbp(l.m, l.valor)} · ${pos(l).puesto}º de ${pos(l).de} · P${p}`}
-                            className="min-w-0 rounded-lg px-2 py-1.5 text-left transition hover:brightness-110"
-                            style={{ background: `color-mix(in srgb, ${c} 16%, transparent)`, boxShadow: `inset 3px 0 0 ${c}` }}
+                            className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
                           >
-                            <span className="block truncate text-[10.5px] text-white/70">{l.m.nombre}</span>
-                            <span className="flex items-baseline justify-between gap-1">
-                              <span className="text-[13px] font-semibold tabular-nums text-white">{textoAbp(l.m, l.valor)}</span>
-                              <span className="text-[10.5px] font-semibold tabular-nums" style={{ color: c }}>
+                            <span className="line-clamp-2 min-h-[2.5em] text-[11.5px] leading-tight text-white/70">{l.m.nombre}</span>
+                            <span className="flex min-w-0 items-center justify-between gap-2">
+                              <span className="truncate text-lg font-semibold leading-none tabular-nums text-white">{textoAbp(l.m, l.valor)}</span>
+                              <span
+                                className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold leading-none tabular-nums"
+                                style={{ background: c, color: c === ORO ? "var(--rmcf-on-gold)" : "#FFFFFF" }}
+                              >
                                 P{p}
                               </span>
+                            </span>
+                            <span aria-hidden className="relative block h-1 w-full rounded-full" style={{ background: tinta(0.1) }}>
+                              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, p)}%`, background: c }} />
                             </span>
                           </button>
                         );
@@ -389,6 +384,9 @@ export function OptaBalonParado() {
         )}
 
         {/* ---------------------- LAS MÉTRICAS ----------------------- */}
+        <div className="mb-1 border-b border-white/[0.06] pb-2">
+          <LeyendaPista nuestro={NOMBRE_CASTILLA} rival={nombreRival ? `Próximo rival: ${nombreRival}` : undefined} />
+        </div>
         <ul className="divide-y divide-white/[0.06]">
           {lineas.map((l) => {
             const estilo = l.m.mejorAlto === null;
@@ -396,10 +394,13 @@ export function OptaBalonParado() {
             const rG = datos.hayGrupo ? posRival(l, true) : null;
             const rC = posRival(l, false);
             const suyo = idRival ? l.todos.find((t) => t.id === idRival) : null;
-            const ranking = poblacion(l)
-              .filter((t) => !l.m.casos || (t.casos ?? 0) >= CASOS_MIN)
-              .map((t) => ({ id: t.id, equipo: t.equipo, valor: t.v, texto: textoAbp(l.m, t.v), escudo: escudoDe(t.equipo), nota: t.casos != null ? `${Math.round(t.casos)} intentos` : undefined }));
-            const fuera = poblacion(l).length - ranking.length;
+            /* La clasificación entera sólo se arma para la métrica abierta. */
+            const ranking = abiertaEsta
+              ? poblacion(l)
+                  .filter((t) => !l.m.casos || (t.casos ?? 0) >= CASOS_MIN)
+                  .map((t) => ({ id: t.id, equipo: t.equipo, valor: t.v, texto: textoAbp(l.m, t.v), escudo: escudoDe(t.equipo), nota: t.casos != null ? `${Math.round(t.casos)} intentos` : undefined }))
+              : [];
+            const fuera = abiertaEsta ? poblacion(l).length - ranking.length : 0;
             return (
               <li key={l.m.clave} className="min-w-0 py-3">
                 <div className="flex min-w-0 items-baseline gap-2">
