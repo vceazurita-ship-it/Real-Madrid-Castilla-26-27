@@ -107,16 +107,40 @@ if (!env) {
 
 const supabase = createClient(env.NEXT_PUBLIC_SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
+/*
+| 25/11/2026 — Supabase cortó por bajada de datos (5,58 de 5,5 GB): leer el
+| documento entero (~10 KB) dos veces cada 10 s eran ~170 MB al día, casi
+| todo el gasto diario. Ahora se pregunta sólo su `updated_at` (unos bytes) y
+| el documento se baja únicamente si ha cambiado. Copia por llamada: quien la
+| reciba puede tocarla sin estropear la guardada.
+*/
+let encargosVistos = null;
+
 async function leeEncargos() {
+  const { data: sello, error: errorSello } = await supabase
+    .from("app_documents")
+    .select("updated_at")
+    .eq("key", CLAVE_MANTENIMIENTO)
+    .maybeSingle();
+
+  if (errorSello) throw new Error(claro(errorSello.message));
+
+  if (encargosVistos && sello?.updated_at && sello.updated_at === encargosVistos.updated_at) {
+    return structuredClone(encargosVistos.valor);
+  }
+
   const { data, error } = await supabase
     .from("app_documents")
-    .select("data")
+    .select("data, updated_at")
     .eq("key", CLAVE_MANTENIMIENTO)
     .maybeSingle();
 
   if (error) throw new Error(claro(error.message));
 
-  return normalizaMantenimiento(data?.data);
+  const valor = normalizaMantenimiento(data?.data);
+  encargosVistos = data?.updated_at ? { updated_at: data.updated_at, valor } : null;
+
+  return structuredClone(valor);
 }
 
 /**
@@ -1123,6 +1147,7 @@ async function haceX() {
 */
 /** Cuándo se miró por última vez si hay ideas en cola sin encargo. */
 let colaXMirada = 0;
+let colaXSinCola = null;
 
 async function sueltaIdeaX(motivo) {
   const X = require(path.join(RAIZ, "lib/x-ideas.ts"));
@@ -1615,9 +1640,14 @@ async function ronda() {
 
     try {
       const X = require(path.join(RAIZ, "lib/x-ideas.ts"));
-      const { data } = await supabase.from("app_documents").select("data").eq("key", X.CLAVE_X_IDEAS).maybeSingle();
+      /* 25/11/2026: primero el sello (unos bytes); las ideas (~115 KB) sólo si han cambiado desde la última vez sin cola. */
+      const { data: sello } = await supabase.from("app_documents").select("updated_at").eq("key", X.CLAVE_X_IDEAS).maybeSingle();
+      const cambiado = !sello?.updated_at || sello.updated_at !== colaXSinCola;
+      const { data } = cambiado ? await supabase.from("app_documents").select("data, updated_at").eq("key", X.CLAVE_X_IDEAS).maybeSingle() : { data: null };
+      const hayCola = cambiado && X.enCola(X.normalizaIdeas(data?.data)) > 0;
+      if (cambiado && !hayCola) colaXSinCola = data?.updated_at ?? null;
 
-      if (X.enCola(X.normalizaIdeas(data?.data)) > 0) {
+      if (hayCola) {
         await marca("x-idea", { pedidoEn: new Date().toISOString(), pedidoPor: "el ordenador del club: ideas en cola sin atender" });
         estados["x-idea"] = "pedido";
         apunta("Idea de X: había ideas en cola sin encargo; se piden.");

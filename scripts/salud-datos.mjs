@@ -104,10 +104,76 @@ async function copia() {
     }
   };
 
+  /*
+  | 25/11/2026 — Supabase cortó por bajada de datos: bajar la base entera cada
+  | día eran ~85 MB diarios. Ahora app_documents se lee POR PARTES: primero
+  | sólo `key, updated_at` (unos 35 KB), y se bajan nada más que los documentos
+  | nuevos o cambiados desde la copia anterior; el resto sale de esa copia.
+  | Los días 1 y 15 (o sin copia anterior, o si algo falla) se baja entera,
+  | por si alguna escritura no hubiera movido `updated_at`.
+  */
+  const leeSellos = async () => {
+    if (sql) return [...(await sql`select key, updated_at from app_documents`)];
+    const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const K = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const filas = [];
+    for (let desde = 0; ; desde += 1000) {
+      const r = await fetch(`${U}/rest/v1/app_documents?select=key,updated_at&order=key.asc`, { headers: { apikey: K, Authorization: `Bearer ${K}`, Range: `${desde}-${desde + 999}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      filas.push(...j);
+      if (j.length < 1000) return filas;
+    }
+  };
+  const leeClaves = async (claves) => {
+    if (sql) return [...(await sql`select * from app_documents where key = any(${claves})`)];
+    const U = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const K = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const filas = [];
+    for (let i = 0; i < claves.length; i += 20) {
+      const lista = claves.slice(i, i + 20).map((k) => `"${k.replace(/"/g, '\\"')}"`).join(",");
+      const r = await fetch(`${U}/rest/v1/app_documents?select=*&key=in.(${encodeURIComponent(lista)})`, { headers: { apikey: K, Authorization: `Bearer ${K}` } });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      filas.push(...(await r.json()));
+    }
+    return filas;
+  };
+  const anterior = () => {
+    const ultima = fs.existsSync(CARPETA)
+      ? fs.readdirSync(CARPETA).filter((n) => /^datos-\d{4}-\d{2}-\d{2}\.json\.gz$/.test(n) && n < `datos-${HOY}`).sort().pop()
+      : null;
+    if (!ultima) return null;
+    const j = JSON.parse(zlib.gunzipSync(fs.readFileSync(path.join(CARPETA, ultima))).toString("utf8"));
+    return Array.isArray(j.app_documents) && j.app_documents.length ? j.app_documents : null;
+  };
+  const documentosPorPartes = async () => {
+    if (/-(01|15)$/.test(HOY)) return null;
+    const viejos = anterior();
+    if (!viejos) return null;
+    const sellos = await leeSellos();
+    const deAntes = new Map(viejos.map((f) => [f.key, f]));
+    const iguales = (a, b) => a && b && new Date(a).getTime() === new Date(b).getTime();
+    const cambiados = sellos.filter((s) => !iguales(deAntes.get(s.key)?.updated_at, s.updated_at)).map((s) => s.key);
+    const nuevos = new Map((cambiados.length ? await leeClaves(cambiados) : []).map((f) => [f.key, f]));
+    if (nuevos.size !== cambiados.length) throw new Error(`pedidos ${cambiados.length}, llegados ${nuevos.size}`);
+    notas.push(`Copia por partes: ${cambiados.length} documentos bajados de ${sellos.length}.`);
+    return sellos.map((s) => nuevos.get(s.key) ?? deAntes.get(s.key));
+  };
+
   try {
     const salida = { hechaEn: new Date().toISOString(), origen: sql ? "reserva" : "supabase" };
     for (const t of TABLAS) {
       try {
+        if (t === "app_documents") {
+          const porPartes = await documentosPorPartes().catch((e) => {
+            notas.push(`Copia por partes no ha salido (${e.message}); se baja entera.`);
+            return null;
+          });
+          if (porPartes) {
+            salida[t] = porPartes;
+            continue;
+          }
+        }
         salida[t] = sql ? [...(await sql.unsafe(`select * from ${t}`))] : await leeRest(t);
       } catch (e) {
         salida[t] = [];
