@@ -23,7 +23,14 @@ export const CLAVE_CLIPS_JUGADOR = "opta:clips-jugador";
 export type FortalezaJugador = { clave: string; nombre: string; percentil: number; por90: number; relativa?: boolean; enVideo: boolean };
 
 /** Un rasgo de su puesto: el título corto (el del capítulo en el vídeo) y el texto con las cifras. */
-export type RasgoJugador = { clave: string; titulo: string; texto: string; enVideo: boolean };
+export type RasgoJugador = {
+  clave: string;
+  titulo: string;
+  texto: string;
+  enVideo: boolean;
+  /** Desmiente una fortaleza de la temporada: es forma de sus últimos 5 partidos, sin capítulo en el vídeo. */
+  reciente?: boolean;
+};
 
 export type CorteJugador = { partido: string; fecha: string; rival: string; parte: number; segundo: number; fortaleza: string; que: string; dura: number };
 

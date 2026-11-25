@@ -132,7 +132,9 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
       </header>
 
       {/* Sus fortalezas: barra de percentil contra los de su línea en la categoría. */}
-      <ul className="relative mt-3 space-y-1.5 px-4">
+      {/* De cuándo es cada cosa: las fortalezas, de la temporada; los rasgos, de sus últimos 5 partidos (como en la portada del vídeo). */}
+      {j.fortalezas.length > 0 && <h4 className="relative mt-3 px-4 text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Fortalezas · temporada</h4>}
+      <ul className="relative mt-1.5 space-y-1.5 px-4">
         {j.fortalezas.slice(0, 4).map((f) => (
           <li key={f.clave} className="grid grid-cols-[minmax(0,9.5rem)_1fr_2.6rem] items-center gap-2 text-[12px]">
             <span className={`truncate ${f.enVideo ? "font-semibold text-white" : "text-white/55"}`}>{f.nombre}</span>
@@ -150,7 +152,7 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
       {/* Los rasgos de su puesto: el título (el capítulo del vídeo) y sus cifras. */}
       {rasgos.length > 0 && (
         <section className="relative mx-4 mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
-          <h4 className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Rasgos de su puesto{j.rol ? ` · ${j.rol.toLowerCase()}` : ""}</h4>
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Rasgos de su puesto{j.rol ? ` · ${j.rol.toLowerCase()}` : ""} · últimos 5 partidos</h4>
           <ul className="mt-2 space-y-2">
             {rasgos.map((r) => (
               <li key={r.clave} className="text-[12px] leading-snug">
@@ -158,6 +160,11 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
                   <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color(r.clave), opacity: r.enVideo ? 1 : 0.35 }} />
                   {r.titulo}
                   {r.enVideo ? <span className="text-[10px] font-normal text-white/40">· en el vídeo</span> : null}
+                  {r.reciente ? (
+                    <span className="rounded-full border border-amber-300/40 bg-amber-400/10 px-1.5 text-[10px] font-semibold text-amber-200" title="Va en contra de una de sus fortalezas de la temporada: es lo de sus últimos 5 partidos, y por eso no tiene capítulo en el vídeo">
+                      forma reciente
+                    </span>
+                  ) : null}
                 </span>
                 <span className="mt-0.5 block pl-3.5 text-white/60">{r.texto}</span>
               </li>

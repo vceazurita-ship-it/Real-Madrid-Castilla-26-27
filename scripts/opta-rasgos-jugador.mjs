@@ -126,7 +126,16 @@ function medianaDelPuesto(ctx, grupo, cuenta, minimo) {
 |   { clave, tema?, titulo (corto, para el vídeo), texto (con las cifras),
 |     peso (0-100: lo claro y lo útil que es), cortes: [{ e, que, antes, despues }] }
 | `tema` = la fortaleza con la que se solapa (el capítulo se queda con el rasgo).
+| `contra` = la fortaleza de la temporada que este rasgo de los últimos 5
+| partidos desmiente (p. ej. «Juego aéreo» y «por arriba gana el 29 %»): el
+| script de los vídeos lo deja en la ficha como forma reciente, sin capítulo.
+| Los cortes van primero los que ENSEÑAN el título (25/11/2026: «Remate ·
+| con la izquierda» no puede abrir con un cabezazo), y la ventana de cada uno
+| (antes/después) se ajustó mirando fotogramas de 25 cortes.
 */
+
+/** Primero los cortes que enseñan lo que dice el título; dentro, el orden que ya traían. */
+const primeroLosQueEncajan = (lista, encaja) => [...lista.filter((c) => encaja(c.e)), ...lista.filter((c) => !encaja(c.e))];
 
 function finalizacion(j) {
   const r = j.suyos.filter((e) => ES_REMATE.has(e.tipo) && e.estilo !== "Penalty");
@@ -145,12 +154,14 @@ function finalizacion(j) {
     cab / r.length >= 0.4 ? "de cabeza" : pies && Math.min(der, izq) / pies >= 0.3 ? "con las dos piernas" : der >= izq ? "con la derecha" : "con la izquierda";
   const zona = fuera / r.length >= 0.5 ? "desde fuera" : peq / r.length >= 0.3 ? "en el área pequeña" : primer / r.length >= 0.5 ? "al primer toque" : "dentro del área";
   const parte = (e) => (e.cabeza ? "de cabeza" : e.izq ? "con la izquierda" : e.der ? "con la derecha" : "");
+  const encajaCuerpo = (e) => (cuerpo === "de cabeza" ? e.cabeza : cuerpo === "con las dos piernas" ? e.der || e.izq : cuerpo === "con la derecha" ? e.der : e.izq);
+  const encajaZona = (e) => (zona === "desde fuera" ? !enArea(e.x, e.y) : zona === "en el área pequeña" ? enAreaPequena(e.x, e.y) : zona === "al primer toque" ? e.primerToque : enArea(e.x, e.y));
   return {
     clave: "finalizacion", tema: "remate", titulo: `Remate · ${cuerpo}, ${zona}`, peso: 60 + Math.min(30, r.length * 2),
     texto: `${plural(r.length, "remate", "remates")}${goles ? ` (${plural(goles, "gol", "goles")})` : ""}: ${der} con la derecha · ${izq} con la izquierda · ${cab} de cabeza; ${dentro} dentro del área (${peq} en el área pequeña) y ${fuera} fuera; ${primer} al primer toque${contra ? ` · ${contra} al contragolpe` : ""}`,
     cortes: r
-      .sort((a, b) => (b.tipo === "Goal") - (a.tipo === "Goal") || (b.xG ?? 0) - (a.xG ?? 0))
-      .map((e) => corte(e, `${e.tipo === "Goal" ? "Gol" : e.tipo === "AttemptSaved" ? "A puerta" : e.tipo === "Post" ? "Al palo" : "Remate"} ${parte(e)}${e.primerToque ? " al primer toque" : ""}`, 6, 3)),
+      .sort((a, b) => encajaCuerpo(b) + encajaZona(b) - encajaCuerpo(a) - encajaZona(a) || (b.tipo === "Goal") - (a.tipo === "Goal") || (b.xG ?? 0) - (a.xG ?? 0))
+      .map((e) => corte(e, `${e.tipo === "Goal" ? "Gol" : e.tipo === "AttemptSaved" ? "A puerta" : e.tipo === "Post" ? "Al palo" : "Remate"} ${parte(e)}${enArea(e.x, e.y) ? "" : " desde fuera"}${e.primerToque ? " al primer toque" : ""}`, 6, 3)),
   };
 }
 
@@ -191,7 +202,7 @@ function regateDireccion(j, ctx) {
   return {
     clave: "regateDireccion", tema: "regate", titulo, texto, peso: 55 + Math.round(cuota * 35),
     cortes: vistos
-      .sort((a, b) => b.e.ok - a.e.ok || (orden[a.hacia] ?? 1) - (orden[b.hacia] ?? 1) || b.e.x - a.e.x)
+      .sort((a, b) => (cuota >= 0.6 ? (orden[a.hacia] ?? 1) - (orden[b.hacia] ?? 1) : 0) || b.e.ok - a.e.ok || (orden[a.hacia] ?? 1) - (orden[b.hacia] ?? 1) || b.e.x - a.e.x)
       .map((v) => corte(v.e, `${v.hacia === "linea" ? "En línea" : `Hacia ${v.hacia}`}${v.e.ok ? "" : " · se la quitan"}`, 3, 4)),
   };
 }
@@ -207,7 +218,7 @@ function piernaCambiada(j) {
   const cambiada = (lado === "derecha" && j.pie === "izquierdo") || (lado === "izquierda" && j.pie === "derecho");
   return {
     clave: "piernaCambiada", titulo: cambiada ? `A pierna cambiada · ${j.pie === "izquierdo" ? "zurdo" : "diestro"} en la ${lado}` : `A pierna natural · por la ${lado}`,
-    texto: `Juega por la ${lado} (${pct(ys.filter((v) => (lado === "derecha" ? v < 50 : v >= 50)).length, ys.length)} % de sus acciones con balón en campo rival) y su pie bueno es el ${j.pie}${cambiada ? ": a pierna cambiada, tiende a perfilarse hacia dentro" : ""}`,
+    texto: `Juega por la ${lado} (${pct(ys.filter((v) => (lado === "derecha" ? v < 50 : v >= 50)).length, ys.length)} % de sus acciones con balón en campo rival) y su pie bueno es el ${j.pie}${cambiada ? ": a pierna cambiada" : ""}`,
     peso: cambiada ? 50 : 30, cortes: [],
   };
 }
@@ -227,7 +238,10 @@ function centros(j) {
   return {
     clave: "centros", tema: "centro", titulo: `Centro · ${zonas[0][0]}`, peso: 50 + Math.min(35, c.length * 2),
     texto: `${plural(c.length, "centro", "centros")} (${plural(buenos, "bueno", "buenos")}) ${lados}: ${fondo} desde línea de fondo · ${pico} desde el pico del área · ${tres} desde tres cuartos; ${der} por la derecha y ${izq} por la izquierda${j.pie ? `. Pie bueno: ${j.pie} (Opta no dice con qué pierna centra)` : ""}`,
-    cortes: c.sort((a, b) => b.ok - a.ok || b.ocasion - a.ocasion || b.xPV - a.xPV).map((e) => corte(e, `Desde ${zonaDe(e)} · banda ${banda(e.y)}${e.ocasion ? " · ocasión" : ""}`, 4, 3)),
+    cortes: primeroLosQueEncajan(
+      c.sort((a, b) => b.ok - a.ok || b.ocasion - a.ocasion || b.xPV - a.xPV).map((e) => corte(e, `Desde ${zonaDe(e)} · banda ${banda(e.y)}${e.ocasion ? " · ocasión" : ""}`, 3, 4)),
+      (e) => `desde ${zonaDe(e) === "pico del área" ? "el pico del área" : zonaDe(e)}` === zonas[0][0],
+    ),
   };
 }
 
@@ -284,7 +298,7 @@ function transicion(j, ctx) {
   const titulo = cuota >= 0.45 ? `Tras robo · acelera con ${articulo[vias[0][0]]}` : "Tras robo · pausa y asegura";
   return {
     clave: "transicion", titulo, peso: cuota >= 0.45 ? 55 + Math.round(cuota * 35) : 35,
-    texto: `Tras recuperar su equipo, su primera acción en 10 s (${vistos.length} veces): ${plural(n("pase"), "pase", "pases")} hacia delante · ${plural(n("conducción"), "conducción", "conducciones")} · ${plural(n("regate"), "regate", "regates")} · ${n("asegura")} en que asegura (corto, de lado o atrás)${cuota >= 0.45 ? `: acelerador (${pct(acelera, vistos.length)} %)` : ""}`,
+    texto: `Tras recuperar su equipo, su primera acción en 10 s (${vistos.length} veces): ${plural(n("pase"), "pase", "pases")} hacia delante · ${plural(n("conducción"), "conducción", "conducciones")} · ${plural(n("regate"), "regate", "regates")} · asegura ${n("asegura")} (corto, de lado o atrás)${cuota >= 0.45 ? `: acelerador (${pct(acelera, vistos.length)} %)` : ""}`,
     cortes: vistos
       .filter((v) => (cuota >= 0.45 ? v.como !== "asegura" : true))
       .sort((a, b) => (b.s.xPV ?? 0) - (a.s.xPV ?? 0))
@@ -326,7 +340,7 @@ function riesgo(j, ctx) {
     peso = 30;
   }
   const que = (e) => (e.tipo === "Pass" ? (e.largo ? "Balón largo perdido" : "Pase perdido") : e.tipo === "TakeOn" ? "Regate perdido" : e.tipo === "Dispossessed" ? "Le roban" : "Control perdido");
-  return { clave: "riesgo", titulo, texto, peso, cortes: perdidas.sort((p, q) => p.x - q.x).map((e) => corte(e, `${que(e)} en su campo`, 4, 4)) };
+  return { clave: "riesgo", titulo, texto, peso, cortes: perdidas.sort((p, q) => p.x - q.x).map((e) => corte(e, `${que(e)} en su campo`, 3, 5)) };
 }
 
 /** Salida de balón (centrales y porteros): corto o largo, contra los de su puesto. */
@@ -364,7 +378,7 @@ function aereo(j) {
   const arriba = a.filter((e) => e.x >= 50).length;
   const p = pct(ganados.length, a.length);
   return {
-    clave: "aereo", tema: p > 40 ? "aereo" : undefined, titulo: p >= 60 ? `Por arriba · gana el ${p} %` : p <= 40 ? `Por arriba · pierde (${p} % ganados)` : `Por arriba · ${p} % ganados`,
+    clave: "aereo", tema: p >= 55 ? "aereo" : undefined, contra: p < 50 ? "aereo" : undefined, titulo: p >= 60 ? `Por arriba · gana el ${p} %` : p <= 40 ? `Por arriba · pierde (${p} % ganados)` : `Por arriba · ${p} % ganados`,
     peso: p >= 65 ? 70 : p <= 35 ? 60 : 40,
     texto: `Gana ${ganados.length} de ${a.length} duelos aéreos (${p} %); ${enSuArea} en su área y ${arriba} en campo rival`,
     cortes: (p <= 40 ? a.filter((e) => !e.ok) : ganados).sort((x, y) => (j.grupo === "DC" ? y.x - x.x : x.x - y.x)).map((e) => corte(e, e.ok ? "Duelo aéreo ganado" : "Duelo aéreo perdido", 3, 3)),
@@ -394,7 +408,10 @@ function despejes(j) {
   return {
     clave: "despejes", tema: "despeje", titulo: cab / d.length >= 0.5 ? "Despeje · de cabeza" : "Despeje · con el pie", peso: 40,
     texto: `${d.length} despejes: ${cab} de cabeza y ${d.length - cab} con el pie; ${area} dentro de su área`,
-    cortes: d.sort((a, b) => a.x - b.x).map((e) => corte(e, e.cabeza ? "Despeje de cabeza" : "Despeje", 3, 3)),
+    cortes: primeroLosQueEncajan(
+      d.sort((a, b) => a.x - b.x).map((e) => corte(e, e.cabeza ? "Despeje de cabeza" : "Despeje con el pie", 3, 3)),
+      (e) => (cab / d.length >= 0.5 ? e.cabeza : !e.cabeza),
+    ),
   };
 }
 
@@ -406,7 +423,7 @@ function unoContraUno(j) {
   const pierde = l.length - gana;
   const p = pct(gana, l.length);
   return {
-    clave: "unoContraUno", titulo: p >= 60 ? `1 contra 1 en banda · gana ${gana} de ${l.length}` : `1 contra 1 en banda · le superan ${pierde} de ${l.length}`,
+    clave: "unoContraUno", contra: p < 60 ? "entrada" : undefined, titulo: p >= 60 ? `Defendiendo en banda · gana ${gana} de ${l.length}` : `Defendiendo en banda · le superan ${pierde} de ${l.length}`,
     peso: p <= 50 ? 80 : p >= 75 ? 60 : 40,
     texto: `En banda gana ${gana} de ${l.length} duelos al regateador (${p} %); le superan ${pierde}`,
     cortes: l.sort((a, b) => (p < 60 ? (a.tipo === "Challenge" ? -1 : 1) - (b.tipo === "Challenge" ? -1 : 1) : (a.tipo === "Tackle" ? -1 : 1) - (b.tipo === "Tackle" ? -1 : 1))).map((e) => corte(e, e.tipo === "Tackle" ? "Gana el duelo" : "Le regatean", 4, 3)),
@@ -446,7 +463,7 @@ function desmarque(j, ctx) {
   return {
     clave: "desmarque", titulo: "Desmarque · al espacio", peso: 45 + Math.min(35, l.length * 4),
     texto: `Le llegan al espacio ${l.length} balones (${hueco} pases al hueco y ${l.length - hueco} balones largos al último tercio)`,
-    cortes: l.sort((a, b) => b.ok - a.ok || (b.finX ?? 0) - (a.finX ?? 0)).map((e) => corte(e, e.hueco ? "Pase al hueco para él" : "Balón largo para él", 3, 4)),
+    cortes: l.sort((a, b) => b.ok - a.ok || (b.finX ?? 0) - (a.finX ?? 0)).map((e) => corte(e, e.hueco ? "Pase al hueco para él" : "Balón largo para él", 2, 6)),
   };
 }
 
@@ -463,7 +480,7 @@ function paradas(j, ctx) {
   return {
     clave: "paradasTipo", tema: "paradas", titulo: dentro >= fuera ? "Paradas · tiros de cerca" : "Paradas · tiros lejanos", peso: 60,
     texto: `${s.length} paradas: ${dentro} de tiros dentro del área y ${fuera} de fuera; ${cab} de cabeza; ${est} en estirada`,
-    cortes: con.sort((a, b) => (b.t?.xG ?? 0) - (a.t?.xG ?? 0)).map((c) => corte(c.e, `Parada${c.t ? (enArea(c.t.x, c.t.y) ? " · tiro de dentro" : " · tiro de fuera") : ""}${c.e.estirada ? " · estirada" : ""}`, 5, 3)),
+    cortes: con.sort((a, b) => Number(Boolean(b.t) && enArea(b.t.x, b.t.y) === dentro >= fuera) - Number(Boolean(a.t) && enArea(a.t.x, a.t.y) === dentro >= fuera) || (b.t?.xG ?? 0) - (a.t?.xG ?? 0)).map((c) => corte(c.e, `Parada${c.t ? (enArea(c.t.x, c.t.y) ? " · tiro de dentro" : " · tiro de fuera") : ""}${c.e.estirada ? " · estirada" : ""}`, 5, 3)),
   };
 }
 
@@ -476,7 +493,7 @@ function salidas(j) {
   return {
     clave: "salidas", titulo: claim.length + punch.length >= sweep.length ? "Salidas · por alto" : "Salidas · fuera del área", peso: 45 + Math.min(30, n * 3),
     texto: `${plural(claim.length, "balón por alto atrapado", "balones por alto atrapados")} · ${plural(punch.length, "despeje de puños", "despejes de puños")} · ${plural(sweep.length, "salida", "salidas")} lejos de la portería`,
-    cortes: [...claim, ...punch, ...sweep].map((e) => corte(e, e.tipo === "Claim" ? "Blocaje por alto" : e.tipo === "Punch" ? "Despeje de puños" : "Salida", 4, 3)),
+    cortes: (claim.length + punch.length >= sweep.length ? [...claim, ...punch, ...sweep] : [...sweep, ...claim, ...punch]).map((e) => corte(e, e.tipo === "Claim" ? "Blocaje por alto" : e.tipo === "Punch" ? "Despeje de puños" : "Salida", 4, 3)),
   };
 }
 
