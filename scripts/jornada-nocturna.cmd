@@ -394,11 +394,12 @@ rem  opta:clips-jugador, solo el administrador). Solo rehace lo que cambia.
 rem  Sin el Chrome de Opta o sin sesion (codigo 8) sigue la noche siguiente;
 rem  nunca cuenta como fallo de la jornada.
 echo. >> "%LOG%"
-echo --- Video de los jugadores rivales desde Opta --- >> "%LOG%"
-call node scripts\opta-clips-jugador.mjs --lunes >> "%LOG%" 2>&1
-if errorlevel 1 (
-  echo AVISO: el video de los jugadores rivales no ha terminado ^(codigo !errorlevel!^); sigue la noche siguiente >> "%LOG%"
-)
+rem  26/11/2026: ahora TODAS las noches (y a las 6:00, tarea aparte) con
+rem  scripts\clips-al-dia.cmd: los clips de los nuestros del ultimo partido y
+rem  el video del proximo rival, la noche tras el partido de cualquiera de los
+rem  dos (sus partidos se preguntan a Opta, no esperan a la descarga del lunes).
+echo --- Clips de los nuestros y del proximo rival: registro en .cache\clips-al-dia --- >> "%LOG%"
+call scripts\clips-al-dia.cmd
 
 echo. >> "%LOG%"
 if defined HUBO_FALLO (

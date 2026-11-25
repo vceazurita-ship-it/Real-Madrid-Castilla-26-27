@@ -28,7 +28,7 @@ const PREFIJO_VETADO = /^secreto:/i;
  */
 /* El laboratorio de ABP es del administrador: se lee y se escribe sólo por /api/abp-lab (20/10/2026). */
 /* 24/11/2026: el vídeo de los jugadores rivales, sólo por /api/opta/clips-jugador (administrador). */
-const CLAVES_VETADAS = new Set(["quiniela", "abp-laboratorio", "abp-externos", "opta:clips-jugador"]);
+const CLAVES_VETADAS = new Set(["quiniela", "abp-laboratorio", "abp-externos", "opta:clips-jugador", "opta:clips-castilla"]);
 
 /**
  * Y la caché del servidor tampoco se toca desde fuera.

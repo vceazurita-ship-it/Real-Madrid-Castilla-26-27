@@ -252,6 +252,27 @@ let S;
 let temporada;
 try {
   S = { sseas: [await opta.temporada()] };
+  /*
+  | 26/11/2026, el analista: los vídeos «la noche tras el partido jugado nuestro
+  | o del rival, y si no por la mañana a las 6:00». opta:partidos se baja los
+  | lunes: los últimos partidos del rival se preguntan a Opta directamente
+  | (si falla, se queda lo de opta:partidos). Con un partido nuevo cambian los
+  | cortes elegidos y la firma, y el vídeo se rehace solo.
+  */
+  for (const r of rivales) {
+    try {
+      const suyos = tabla(await opta.consulta(`SELECT game.gameId as partido, format("date","yyyy-MM-dd",game.gameDate) as fecha, teamId, opponent.game.fullName as rival FROM team 't' BY game LIMIT 200`, { ...S, spot: [r.teamId] }, "team t"))
+        .filter((f) => String(f.teamId) === r.teamId)
+        .sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)))
+        .slice(0, PARTIDOS)
+        .map((f) => ({ partido: String(f.partido), fecha: String(f.fecha).slice(0, 10), rival: String(f.rival ?? "") }));
+      if (suyos.length && suyos[0].partido !== r.partidos[0]?.partido) console.log(`${r.equipo}: Opta ya tiene su último partido (${suyos[0].fecha} vs ${suyos[0].rival})`);
+      if (suyos.length) r.partidos = suyos;
+    } catch (e) {
+      if (e.sesion) throw e;
+      console.log(`(${r.equipo}: Opta no da sus partidos, ${e.message}; tiro de opta:partidos)`);
+    }
+  }
   console.log("Temporada de los jugadores de la categoría…");
   temporada = tabla(await opta.consulta(`SELECT playerId, [PrefFoot], ${METRICAS.map((m) => `[${m}]`).join(",")} FROM player 'p' LIMIT 6000`, S, "player p"));
 } catch (e) {

@@ -4109,8 +4109,8 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen:
       "Sólo el administrador. Cada jugador del próximo rival en un vídeo de 2 minutos como mucho con lo que mejor hace y con los rasgos de su puesto (hacia dónde regatea, desde dónde centra, cómo remata, qué hace tras robo, si arriesga en su campo…), sacado de sus últimos 5 partidos.",
     origen:
-      "Opta ProVision desde el Chrome de Opta del club (puerto 9335): la temporada de los jugadores de la categoría, el evento a evento de los últimos 5 partidos del rival y el vídeo de cada momento (/vod-url). Lo monta la noche del lunes, con el Opta de la semana ya bajado, scripts/opta-clips-jugador.mjs (paso 12 de la jornada nocturna; si el tope de 100 minutos lo deja a medias, sigue las noches siguientes); los rasgos, del evento a evento de esos 5 partidos (scripts/opta-rasgos-jugador.mjs); el vídeo va a B2 en la carpeta privado/ y los datos al documento opta:clips-jugador. Ni el documento (vetado en /api/docs) ni el vídeo (/api/video) se sirven a quien no sea el administrador.",
-    revisada: "2026-11-25",
+      "Opta ProVision desde el Chrome de Opta del club (puerto 9335): la temporada de los jugadores de la categoría, el evento a evento de los últimos 5 partidos del rival y el vídeo de cada momento (/vod-url). Lo monta scripts/opta-clips-jugador.mjs cada noche y a las 6:00 (scripts/clips-al-dia.cmd: paso 12 de la jornada nocturna y la tarea de las 6:00), para el rival de la próxima jornada: sus últimos partidos se preguntan a Opta, así que el vídeo se rehace la noche en que el rival juega (o a las 6:00 si Opta aún no lo tenía), sin esperar al lunes; si el tope de 100 minutos lo deja a medias, sigue en la pasada siguiente. En el menú: Rival › Laboratorio de clips rivales; los rasgos, del evento a evento de esos 5 partidos (scripts/opta-rasgos-jugador.mjs); el vídeo va a B2 en la carpeta privado/ y los datos al documento opta:clips-jugador. Ni el documento (vetado en /api/docs) ni el vídeo (/api/video) se sirven a quien no sea el administrador.",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo que hay",
@@ -4129,6 +4129,31 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Sin vídeo", es: "Plegado al final: quién no tiene vídeo y por qué (sin nada en la mitad mejor de su línea o con menos de 3 acciones que enseñar)" },
           { que: "Al día", es: "Sólo se rehace el vídeo si cambian sus cortes (el rival ha jugado) o la forma del montaje. Los equipos que dejan de ser próximo rival se borran a los 10 días, y los jugadores que salen de la lista de su equipo, al rehacerlo" },
           { que: "Almacén", es: "Cada vídeo, topado a ~400 kb/s (unos 5-6 MB los 2 minutos). Al rehacerlo se borran en B2 sus versiones viejas, y al dejar de usarse, todas; el documento guarda sólo lo que pinta la página (los cortes sin fecha ni rival, que salen de los partidos del equipo)" },
+        ],
+      },
+    ],
+  },
+  /* ==================== LABORATORIO DE CLIPS INDIVIDUALES PROPIOS (26/11/2026) ==================== */
+  {
+    ruta: "/laboratorio/clips-propios",
+    titulo: "Clips de los nuestros, partido a partido",
+    resumen:
+      "Sólo el administrador. Todas las acciones de Cestero, Sergio Martínez, Roberto Martín y el que juegue de 10 en cada partido del Castilla, clip a clip, con la carátula del club y sus números del partido; se pasan con las flechas y se descargan sueltos, todos o en un vídeo completo.",
+    origen:
+      "Opta ProVision desde el Chrome de Opta del club (puerto 9335): el evento a evento del partido y el vídeo de cada momento (/vod-url). Lo monta scripts/opta-clips-castilla.mjs tras cada partido; los números de la carátula, de opta:castilla-partidos (la descarga de Opta). Los vídeos van a B2 en la carpeta privado/ y los datos al documento opta:clips-castilla; ni el documento (vetado en /api/docs) ni los vídeos (/api/video) se sirven a quien no sea el administrador. Lo nuevo se ve sin publicar la web: la página lee el documento en cada visita.",
+    revisada: "2026-11-26",
+    bloques: [
+      {
+        titulo: "Lo que hay",
+        filas: [
+          { que: "Partido", es: "Una pestaña por partido, el último primero, con el rival, la fecha y el marcador (goles del Castilla primero). Se guardan los 4 últimos: los de antes se borran de B2" },
+          { que: "Jugador", es: "Cestero, Sergio Martínez y Roberto Martín si jugaron, y el que hizo de 10 (con «Mediapunta (10)»); con su puesto en ese partido, minutos y número de clips", cuenta: "El 10: el del Castilla con más acciones como mediapunta del centro (Position de Opta «Attacking Midfielder»). Si Opta no da ninguno (con dos puntas lo llama «Centre Forward»), en cada parte la punta más retrasada (menor X media de sus acciones) de las que coinciden: el 20/11 fue Pol la primera parte y Ciria la segunda, y salen los dos" },
+          { que: "Clips", es: "Todas sus acciones: pases, regates, remates, duelos, entradas, recuperaciones, intercepciones, despejes y pérdidas. Las seguidas van juntas en un clip", cuenta: "Acciones a 6 s o menos de la anterior van en el mismo clip (como mucho 16 s): 4 s antes de la primera y 3 s después de la última. El rótulo dice lo más importante que pasa (gol, remate, pase de ocasión, pérdida, regate, acción defensiva, pase), hasta tres cosas" },
+          { que: "Con balón · Sin balón · Pérdidas", es: "Filtro de la lista con su número; el punto de color de cada clip dice cuál es (verde con balón, azul sin balón, dorado las dos cosas, rojo pérdida)", cuenta: "Pérdida: pase fallado (sin córners ni faltas), regate perdido, mal control o le roban. Sin balón: duelo aéreo, entrada, le superan, recuperación, intercepción, despeje" },
+          { que: "Reproductor", es: "Un clip cada vez: Anterior / Siguiente o las flechas ← → del teclado; con «Seguidos», al acabar uno empieza el siguiente. Pinchar un clip de la lista lo pone" },
+          { que: "Carátula", es: "La del club (la misma diapositiva que abre los vídeos del coding): foto, puesto y la franja con sus números de ese partido. Pinchar la descarga", cuenta: "Minutos, pases buenos/intentados, ocasiones (o goles · asistencias si tiene), recuperaciones, duelos ganados (%) y pérdidas; al portero, paradas, goles recibidos, pases, balones largos y pérdidas" },
+          { que: "Descargar", es: "Los elegidos con la casilla, todos los del filtro o el vídeo completo (la carátula 4 s y todos sus clips seguidos). El navegador pide una vez permiso para varias descargas" },
+          { que: "Almacén", es: "Cada clip a 720p topado a ~450 kb/s; al rehacerlo se borran sus versiones viejas en B2. Sólo los 4 últimos partidos" },
         ],
       },
     ],

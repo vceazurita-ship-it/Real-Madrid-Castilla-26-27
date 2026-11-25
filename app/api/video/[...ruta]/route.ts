@@ -132,7 +132,14 @@ async function permisoDeCarpeta(c: Cuenta, ruta: string) {
   return nuevo;
 }
 
-async function responde(params: Promise<{ ruta: string[] }>) {
+/*
+| ?descarga=nombre.mp4 (26/11/2026, clips de los nuestros: «que se puedan descargar
+| todos o algunos»): B2 manda el fichero como descarga con ese nombre
+| (b2ContentDisposition), porque un <a download> no vale con la redirección a otro dominio.
+*/
+const NOMBRE_DESCARGA = /^[\w\-. ()áéíóúñüÁÉÍÓÚÑÜ]{1,120}$/;
+
+async function responde(params: Promise<{ ruta: string[] }>, descarga: string | null = null) {
   let ruta: string;
 
   try {
@@ -154,7 +161,10 @@ async function responde(params: Promise<{ ruta: string[] }>) {
   try {
     const c = await cuentaVigente();
     const p = privado ? await pidePermiso(c, ruta, VALE_PRIVADO_SEGUNDOS) : await permisoDeCarpeta(c, ruta);
-    const destino = `${c.descarga}/file/${c.bucket}/${codifica(ruta)}?Authorization=${encodeURIComponent(p.token)}`;
+    const nombre = descarga && NOMBRE_DESCARGA.test(descarga) ? descarga : null;
+    const destino = `${c.descarga}/file/${c.bucket}/${codifica(ruta)}?Authorization=${encodeURIComponent(p.token)}${
+      nombre ? `&b2ContentDisposition=${encodeURIComponent(`attachment; filename="${nombre}"`)}` : ""
+    }`;
 
     return new Response(null, {
       status: 302,
@@ -167,8 +177,8 @@ async function responde(params: Promise<{ ruta: string[] }>) {
   }
 }
 
-export async function GET(_request: Request, { params }: { params: Promise<{ ruta: string[] }> }) {
-  return responde(params);
+export async function GET(request: Request, { params }: { params: Promise<{ ruta: string[] }> }) {
+  return responde(params, new URL(request.url).searchParams.get("descarga"));
 }
 
 export async function HEAD(_request: Request, { params }: { params: Promise<{ ruta: string[] }> }) {
