@@ -193,4 +193,30 @@ async function lista(prefijo = "") {
   return salida;
 }
 
-module.exports = { configurado, esVideo, sube, urlPublica, urlPublicaYa, comprueba, lista, oculta, autoriza };
+/*
+| Las versiones viejas de una ruta (25/11/2026). Subir otra vez el mismo nombre
+| crea una versión NUEVA y la vieja sigue ocupando hasta que la regla del
+| bucket la quita. Esto las borra ya: todas menos la última (o todas, con
+| `todas`, para lo que se deja de usar). Devuelve { borradas, bytes }.
+*/
+async function borraVersiones(ruta, { todas = false } = {}) {
+  const s = await autoriza();
+  const j = await llama(s, "b2_list_file_versions", { bucketId: s.bucketId, startFileName: ruta, prefix: ruta, maxFileCount: 100 });
+  const suyas = (j.files ?? []).filter((f) => f.fileName === ruta).sort((a, b) => b.uploadTimestamp - a.uploadTimestamp);
+  let borradas = 0;
+  let bytes = 0;
+
+  for (const f of todas ? suyas : suyas.slice(1)) {
+    try {
+      await llama(s, "b2_delete_file_version", { fileName: f.fileName, fileId: f.fileId });
+      borradas += 1;
+      bytes += f.contentLength ?? 0;
+    } catch (error) {
+      if (!/not.?found|no such file/i.test(error.message)) throw error;
+    }
+  }
+
+  return { borradas, bytes };
+}
+
+module.exports = { configurado, esVideo, sube, urlPublica, urlPublicaYa, comprueba, lista, oculta, autoriza, borraVersiones };

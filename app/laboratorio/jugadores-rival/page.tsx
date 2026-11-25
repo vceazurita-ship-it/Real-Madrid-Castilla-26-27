@@ -11,6 +11,10 @@
  * - una tarjeta por jugador: puesto, minutos, sus fortalezas como barra de
  *   percentil contra su línea en la categoría, el vídeo y la lista de cortes
  *   (pinchar uno salta a ese momento del vídeo);
+ * - los RASGOS DE SU PUESTO (25/11/2026, «no solo de sus mayores fortalezas
+ *   sino también de cosas específicas de posición»): hacia dónde regatea,
+ *   desde dónde centra, cómo remata, qué hace tras robo, si arriesga en su
+ *   campo… con sus cifras; y el vídeo por capítulos (pastillas que saltan);
  * - debajo, los que no tienen vídeo y por qué.
  *
  * El candado está en layout.tsx (servidor), en la API (/api/opta/clips-jugador)
@@ -24,7 +28,7 @@ import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader } from "@/components/abp/ui";
 import { useEscudos } from "@/components/data/graficas";
-import { minutoDe, type ClipsJugador, type DocClipsJugador } from "@/lib/opta-clips-jugador";
+import { minutoDe, type ClipsJugador, type CorteJugador, type DocClipsJugador } from "@/lib/opta-clips-jugador";
 
 /* Un color por fortaleza, el mismo en la barra, la etiqueta y el corte. */
 const COLOR: Record<string, string> = {
@@ -38,8 +42,41 @@ const COLOR: Record<string, string> = {
   entrada: "#D7DEE6",
   despeje: "#8A96A3",
   paradas: "#4FD18B",
+  /* Los rasgos de su puesto (25/11/2026). */
+  finalizacion: "#E8735F",
+  regateDireccion: "#A98BF0",
+  centros: "#4F8FE8",
+  transicion: "#F0C75E",
+  riesgo: "#E85F8A",
+  salida: "#5FD0C8",
+  anticipacion: "#E8B44F",
+  despejes: "#8A96A3",
+  unoContraUno: "#C58BF0",
+  llegadas: "#7FB0F5",
+  apoyos: "#B8C76F",
+  desmarque: "#F59A5F",
+  paradasTipo: "#4FD18B",
+  salidas: "#6FE0A8",
+  piernaCambiada: "#C8A96B",
 };
-const PORTADA = 3;
+const color = (clave: string) => COLOR[clave] ?? "#C8A96B";
+
+/** Los cortes de antes venían en mayúsculas («REMATE A PUERTA»); los nuevos, ya en frase. */
+const frase = (t: string) => (t && t === t.toUpperCase() ? t.charAt(0) + t.slice(1).toLowerCase() : t);
+
+type Capitulo = { clave: string; titulo: string; desde: number; cortes: number };
+
+/** Los capítulos del vídeo: los cortes seguidos de la misma fortaleza o rasgo. */
+function capitulosDe(j: ClipsJugador, cortes: CorteJugador[]): Capitulo[] {
+  const titulos = new Map<string, string>([...j.fortalezas.map((f) => [f.clave, f.nombre] as const), ...(j.rasgos ?? []).map((r) => [r.clave, r.titulo] as const)]);
+  const lista: Capitulo[] = [];
+  cortes.forEach((c, i) => {
+    const ultimo = lista[lista.length - 1];
+    if (ultimo && ultimo.clave === c.fortaleza) ultimo.cortes++;
+    else lista.push({ clave: c.fortaleza, titulo: titulos.get(c.fortaleza) ?? frase(c.que), desde: i, cortes: 1 });
+  });
+  return lista;
+}
 
 const fechaCorta = (iso: string) => (iso ? iso.slice(5, 10).split("-").reverse().join("/") : "");
 
@@ -47,11 +84,12 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
   const video = useRef<HTMLVideoElement>(null);
   const [activo, setActivo] = useState(-1);
 
-  /* Dónde empieza cada corte en el vídeo: la portada y los anteriores. */
-  const inicios = useMemo(
-    () => (j.cortes ?? []).reduce<number[]>((acc, c, n, todos) => [...acc, n === 0 ? PORTADA : acc[n - 1] + todos[n - 1].dura], []),
-    [j.cortes],
-  );
+  /* Dónde empieza cada corte en el vídeo: la portada (3 o 5 s según cuándo se montó) y los anteriores. */
+  const portada = j.portada ?? 3;
+  const cortes = useMemo(() => j.cortes ?? [], [j.cortes]);
+  const inicios = useMemo(() => cortes.reduce<number[]>((acc, c, n, todos) => [...acc, n === 0 ? portada : acc[n - 1] + todos[n - 1].dura], []), [cortes, portada]);
+  const capitulos = useMemo(() => capitulosDe(j, cortes), [j, cortes]);
+  const capituloActivo = capitulos.findIndex((c) => activo >= c.desde && activo < c.desde + c.cortes);
 
   const salta = (i: number) => {
     const v = video.current;
@@ -70,10 +108,11 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
   };
 
   const enVideo = j.fortalezas.filter((f) => f.enVideo);
+  const rasgos = j.rasgos ?? [];
 
   return (
     <article className="group relative min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-b from-white/[0.05] to-white/[0.015] shadow-[0_20px_60px_-30px_rgba(0,0,0,0.8)]">
-      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl" style={{ background: COLOR[enVideo[0]?.clave ?? ""] ?? "#C8A96B", opacity: 0.12 }} />
+      <div className="pointer-events-none absolute -right-16 -top-16 h-40 w-40 rounded-full blur-3xl" style={{ background: color(enVideo[0]?.clave ?? ""), opacity: 0.12 }} />
 
       <header className="relative flex items-center gap-3 px-4 pt-4">
         {escudo ? <img src={escudo} alt="" className="h-9 w-9 shrink-0 object-contain" /> : null}
@@ -81,6 +120,7 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
           <h3 className="truncate text-lg font-black tracking-tight text-white">{j.nombre}</h3>
           <p className="text-[12px] text-white/55">
             {j.puesto}
+            {j.rol && j.rol.toLowerCase() !== j.puesto.toLowerCase() ? ` · últimamente ${j.rol.toLowerCase()}` : ""}
             {j.minutos ? ` · ${j.minutos}' en la temporada` : ""}
           </p>
         </div>
@@ -97,7 +137,7 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
           <li key={f.clave} className="grid grid-cols-[minmax(0,9.5rem)_1fr_2.6rem] items-center gap-2 text-[12px]">
             <span className={`truncate ${f.enVideo ? "font-semibold text-white" : "text-white/55"}`}>{f.nombre}</span>
             <span className="relative h-2 overflow-hidden rounded-full bg-white/[0.07]">
-              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${f.percentil}%`, background: COLOR[f.clave] ?? "#C8A96B", opacity: f.enVideo ? 1 : 0.45 }} />
+              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${f.percentil}%`, background: color(f.clave), opacity: f.enVideo ? 1 : 0.45 }} />
             </span>
             <span className="text-right tabular-nums text-white/70">p{f.percentil}</span>
           </li>
@@ -107,24 +147,63 @@ function Tarjeta({ j, escudo }: { j: ClipsJugador; escudo: string | null }) {
         <p className="relative mt-1 px-4 text-[11px] italic text-white/45">Nada en el 30 % mejor de su línea: es lo mejor que tiene.</p>
       )}
 
+      {/* Los rasgos de su puesto: el título (el capítulo del vídeo) y sus cifras. */}
+      {rasgos.length > 0 && (
+        <section className="relative mx-4 mt-3 rounded-xl border border-white/10 bg-white/[0.025] p-3">
+          <h4 className="text-[10px] font-bold uppercase tracking-[0.14em] text-white/45">Rasgos de su puesto{j.rol ? ` · ${j.rol.toLowerCase()}` : ""}</h4>
+          <ul className="mt-2 space-y-2">
+            {rasgos.map((r) => (
+              <li key={r.clave} className="text-[12px] leading-snug">
+                <span className="flex items-center gap-1.5 font-semibold text-white">
+                  <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: color(r.clave), opacity: r.enVideo ? 1 : 0.35 }} />
+                  {r.titulo}
+                  {r.enVideo ? <span className="text-[10px] font-normal text-white/40">· en el vídeo</span> : null}
+                </span>
+                <span className="mt-0.5 block pl-3.5 text-white/60">{r.texto}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
       {j.url ? (
         <>
           <div className="relative mx-4 mt-3 overflow-hidden rounded-xl border border-white/10 bg-black">
             <video ref={video} src={j.url.replace(/^https?:\/\/[^/]+/, "")} controls preload="metadata" playsInline className="aspect-video w-full" onTimeUpdate={alAvanzar} />
           </div>
+          {/* Los capítulos: pinchar salta al primero de sus cortes. */}
+          {capitulos.length > 1 && (
+            <ol className="relative mt-2 flex flex-wrap gap-1.5 px-4">
+              {capitulos.map((c, i) => (
+                <li key={`${c.clave}-${c.desde}`}>
+                  <button
+                    type="button"
+                    onClick={() => salta(c.desde)}
+                    className={`inline-flex min-h-8 items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition max-sm:min-h-10 ${
+                      capituloActivo === i ? "border-[#C8A96B]/70 bg-[#C8A96B]/15 text-white" : "border-white/10 bg-white/[0.04] text-white/75 hover:border-white/30 hover:text-white"
+                    }`}
+                  >
+                    <span className="h-2 w-2 rounded-full" style={{ background: color(c.clave) }} />
+                    {c.titulo}
+                    <span className="font-normal tabular-nums text-white/40">{c.cortes}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+          )}
           <ol className="relative mt-2 flex flex-wrap gap-1.5 px-4 pb-4">
-            {(j.cortes ?? []).map((c, i) => (
+            {cortes.map((c, i) => (
               <li key={`${c.partido}-${c.parte}-${c.segundo}`}>
                 <button
                   type="button"
                   onClick={() => salta(i)}
-                  title={`${c.que} · vs ${c.rival} · ${fechaCorta(c.fecha)} · ${minutoDe(c.segundo)}`}
+                  title={`${frase(c.que)} · vs ${c.rival} · ${fechaCorta(c.fecha)} · ${minutoDe(c.segundo)}`}
                   className={`inline-flex min-h-8 items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] transition max-sm:min-h-10 ${
                     activo === i ? "border-white/60 bg-white/15 text-white" : "border-white/10 bg-white/[0.03] text-white/70 hover:border-white/30 hover:text-white"
                   }`}
                 >
-                  <span className="h-2 w-2 rounded-full" style={{ background: COLOR[c.fortaleza] ?? "#C8A96B" }} />
-                  {c.que.charAt(0) + c.que.slice(1).toLowerCase()} · {minutoDe(c.segundo)}
+                  <span className="h-2 w-2 rounded-full" style={{ background: color(c.fortaleza) }} />
+                  {frase(c.que) || capitulos.find((k) => i >= k.desde && i < k.desde + k.cortes)?.titulo} · {minutoDe(c.segundo)}
                   <span className="text-white/40">{c.rival ? c.rival.split(" ")[0] : ""}</span>
                 </button>
               </li>
@@ -179,7 +258,7 @@ export default function JugadoresRivalPage() {
             <AbpHeader
               area="Laboratorio Scout · Sólo administrador"
               title="Jugadores rivales en vídeo"
-              lead="Cada jugador del rival por sus fortalezas: lo que mejor hace según Opta (percentil contra los de su línea en la categoría) y sus acciones de los últimos 5 partidos, en un vídeo de 2 minutos como mucho."
+              lead="Cada jugador del rival por sus fortalezas (percentil de Opta contra los de su línea en la categoría) y por los rasgos de su puesto (cómo regatea, centra, remata, progresa, qué hace tras robo, si arriesga en su campo…), con sus acciones de los últimos 5 partidos en un vídeo de 2 minutos como mucho."
             />
 
             {error && <p className="mt-4 rounded-xl border border-red-400/30 bg-red-500/10 p-3 text-sm text-red-200">{error}</p>}

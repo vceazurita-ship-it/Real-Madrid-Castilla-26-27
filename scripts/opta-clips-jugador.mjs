@@ -35,13 +35,31 @@
  *    `opta:clips-jugador` (vetado en /api/docs; se lee por
  *    /api/opta/clips-jugador, sólo el administrador).
  *
+ * 5. RASGOS DE SU PUESTO (25/11/2026, el analista: «no solo de sus mayores
+ *    fortalezas sino también de cosas específicas de posición»). Del evento a
+ *    evento de esos 5 partidos, según su puesto en ellos (portero, central,
+ *    lateral, mediocentro, mediapunta, extremo, delantero centro): hacia dónde
+ *    regatea, desde dónde centra, cómo remata, cómo progresa, qué hace tras
+ *    robo, si arriesga en su campo, cómo sale el central o el portero… cada uno
+ *    con sus cifras (scripts/opta-rasgos-jugador.mjs, que dice también lo que
+ *    Opta NO da). El vídeo va por capítulos (fortalezas y rasgos, por peso),
+ *    con el capítulo en el rótulo dorado y la portada de 5 s con las dos cosas.
+ *
  * Si los cortes elegidos no cambian (el rival no ha jugado), no se rehace. Los
  * equipos que ya no son próximo rival se borran pasados 10 días.
+ *
+ * ALMACÉN (25/11/2026, «que luego no tengamos problemas de almacenamiento»):
+ * al resubir un vídeo se borran sus versiones viejas de B2 (borraVersiones), y
+ * lo que se deja de usar se borra entero; el vídeo va topado a ~400 kb/s
+ * (≤ 6 MB los 2 minutos). El documento sólo lleva lo que pinta la página: los
+ * cortes sin fecha ni rival (salen de los partidos del equipo) y la firma en
+ * hash; se guarda cada 4 vídeos y al final, no tras cada uno.
  *
  * Termina con «RESUMEN: …». Códigos: 0 bien · 8 falta el Chrome de Opta o su
  * sesión (se sigue en la próxima pasada) · 1 fallo.
  */
 import { spawn } from "node:child_process";
+import crypto from "node:crypto";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -49,6 +67,7 @@ import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { baseConfigurada, guardaDoc, leeDocs } from "./docs-base.mjs";
 import { abreChromeOpta, conectaOpta } from "./opta-ssql.mjs";
+import { contexto, NOMBRE_GRUPO, rasgosDe } from "./opta-rasgos-jugador.mjs";
 
 const require = createRequire(import.meta.url);
 require("./cargador-ts.cjs");
@@ -65,8 +84,12 @@ const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", process.platform
 const CLAVE = "opta:clips-jugador";
 const CASTILLA = "3kibouup3gxwnnxp3vhz83af7";
 const TOPE_SEGUNDOS = 120;
-const PORTADA = 3;
+const PORTADA = 5;
 const PARTIDOS = 5;
+/* Sube cuando cambia la forma del vídeo: todos se rehacen la próxima pasada. */
+const VERSION = "v2-rasgos";
+const MAX_CAPITULOS = 6;
+const MAX_POR_CAPITULO = 4;
 const MIN_MINUTOS = 360;
 const PERCENTIL_FORTALEZA = 70;
 
@@ -113,7 +136,7 @@ const FORTALEZAS = [
   {
     clave: "remate", nombre: "Remate", metricas: ["ExpG", "ShtIncBl"], lineas: ["DEF", "MED", "DEL"], antes: 6, despues: 3,
     elige: (e) => ES_REMATE.has(e.tipo), valor: (e) => (e.tipo === "Goal" ? 10 : 0) + (e.xG ?? 0),
-    rotulo: (e) => (e.tipo === "Goal" ? "GOL" : e.tipo === "Post" ? "AL PALO" : e.tipo === "AttemptSaved" ? "REMATE A PUERTA" : "REMATE"),
+    rotulo: (e) => (e.tipo === "Goal" ? "Gol" : e.tipo === "Post" ? "Al palo" : e.tipo === "AttemptSaved" ? "Remate a puerta" : "Remate"),
   },
   {
     clave: "regate", nombre: "Regate y 1 contra 1", metricas: ["TakeOn", "xPVTakeOns"], lineas: ["DEF", "MED", "DEL"], antes: 3, despues: 4,
@@ -230,7 +253,7 @@ let temporada;
 try {
   S = { sseas: [await opta.temporada()] };
   console.log("Temporada de los jugadores de la categoría…");
-  temporada = tabla(await opta.consulta(`SELECT playerId, ${METRICAS.map((m) => `[${m}]`).join(",")} FROM player 'p' LIMIT 6000`, S, "player p"));
+  temporada = tabla(await opta.consulta(`SELECT playerId, [PrefFoot], ${METRICAS.map((m) => `[${m}]`).join(",")} FROM player 'p' LIMIT 6000`, S, "player p"));
 } catch (e) {
   opta.cierra();
   await fin(e.sesion ? 8 : 1, e.sesion ? "la sesión de Opta ha caducado: entra en ProVision en el Chrome de Opta del club" : `Opta: ${e.message}`);
@@ -269,24 +292,37 @@ function fortalezasDe(playerId) {
   return fuertes.length ? fuertes : todas.filter((x) => x.percentil >= 50).slice(0, 2).map((x) => ({ ...x, relativa: true }));
 }
 
-/** Las acciones de los partidos de un equipo, de una en una (Opta da cada evento dos veces). */
+/*
+| Las acciones de los partidos de un equipo (de los DOS equipos: los rasgos
+| comparan con los de su puesto en esos partidos), de una en una: Opta da cada
+| evento dos veces (una por equipo, con las mismas coordenadas). Los campos,
+| mirados el 25/11/2026 (ver scripts/opta-rasgos-jugador.mjs).
+*/
+const TIPOS = ["PASS", "TAKEON", "AERIAL", "TACKLE", "CHALLENGE", "BALLRECOVERY", "INTERCEPTION", "CLEARANCE", "SAVE", "CLAIM", "PUNCH", "SWEEPER", "GOAL", "ATTEMPTSAVED", "MISS", "POST", "DISPOSSESSED", "BALLTOUCH"];
 async function eventosDe(partidos) {
   const lista = partidos.map((p) => `'${p.partido.replace(/[^a-z0-9]/gi, "")}'`).join(",");
   const t = await opta.consulta(
-    `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.playType as tipo, event.primaryPlayerId AS jugadorId, [EventX|EVENT],[PassEndX|EVENT],[PsCompleted|EVENT],[Chance|EVENT],[xG|EVENT],[xPVAdded|EVENT], event.q2 AS centro FROM team BY event WHERE game.gameId IN (${lista}) AND event.playType IN ('PASS','TAKEON','AERIAL','TACKLE','BALLRECOVERY','INTERCEPTION','CLEARANCE','SAVE','GOAL','ATTEMPTSAVED','MISS','POST') ORDER BY event.gameEventIndex DEFAULT LIMIT ${partidos.length * 9000}`,
+    `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.gameEventIndex AS idx, event.playType as tipo, event.primaryPlayerId AS jugadorId, event.receiverPlayerId AS receptorId, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[CarryX|EVENT],[CarryY|EVENT],[PsCompleted|EVENT],[Chance|EVENT],[xG|EVENT],[xPVAdded|EVENT],[Position|EVENT],[ShotPlayStyle|EVENT], event.q1 AS largo, event.q2 AS centro, event.q4 AS hueco, event.q5 AS falta, event.q6 AS corner, event.q15 AS cabeza, event.q20 AS der, event.q72 AS izq, event.q23 AS contra, event.q328 AS primerToque, event.q196 AS cambio, event.q124 AS saquePuerta, event.q179 AS estirada FROM team BY event WHERE game.gameId IN (${lista}) AND event.playType IN (${TIPOS.map((x) => `'${x}'`).join(",")}) ORDER BY event.gameEventIndex DEFAULT LIMIT ${partidos.length * 9000}`,
     S,
     "team t",
   );
+  const num = (v) => (v == null || v === "" ? null : Number(v));
   const vistos = new Map();
   for (const f of tabla(t)) {
     if (!f.jugadorId || f.parte > 2) continue;
     const e = {
-      partido: String(f.partido), parte: Number(f.parte), segundo: Number(f.segundo), tipo: String(f.tipo), jugadorId: String(f.jugadorId),
-      x: Number(f["EventX|EVENT"]) || 0, finX: f["PassEndX|EVENT"] == null ? null : Number(f["PassEndX|EVENT"]),
+      partido: String(f.partido), parte: Number(f.parte), segundo: Number(f.segundo), idx: Number(f.idx) || 0, tipo: String(f.tipo), jugadorId: String(f.jugadorId),
+      receptorId: f.receptorId ? String(f.receptorId) : null,
+      x: Number(f["EventX|EVENT"]) || 0, y: num(f["EventY|EVENT"]) ?? 50, finX: num(f["PassEndX|EVENT"]), finY: num(f["PassEndY|EVENT"]),
+      cx: num(f["CarryX|EVENT"]), cy: num(f["CarryY|EVENT"]),
       ok: f["PsCompleted|EVENT"] === "Yes", ocasion: f["Chance|EVENT"] === "Yes", xG: typeof f["xG|EVENT"] === "number" ? f["xG|EVENT"] : null,
-      xPV: typeof f["xPVAdded|EVENT"] === "number" ? f["xPVAdded|EVENT"] : 0, centro: f.centro === true,
+      xPV: typeof f["xPVAdded|EVENT"] === "number" ? f["xPVAdded|EVENT"] : 0,
+      posicion: f["Position|EVENT"] ? String(f["Position|EVENT"]) : "", estilo: f["ShotPlayStyle|EVENT"] ? String(f["ShotPlayStyle|EVENT"]) : "",
+      largo: f.largo === true, centro: f.centro === true, hueco: f.hueco === true, falta: f.falta === true, corner: f.corner === true,
+      cabeza: f.cabeza === true, der: f.der === true, izq: f.izq === true, contra: f.contra === true || f["ShotPlayStyle|EVENT"] === "Fastbreak/Counter",
+      primerToque: f.primerToque === true, cambio: f.cambio === true, saquePuerta: f.saquePuerta === true, estirada: f.estirada === true,
     };
-    const k = [e.partido, e.parte, e.segundo, e.tipo, e.jugadorId, e.x].join("|");
+    const k = [e.partido, e.idx, e.tipo, e.jugadorId].join("|");
     const ya = vistos.get(k);
     if (ya) {
       if (Math.abs(e.xPV) > Math.abs(ya.xPV)) ya.xPV = e.xPV;
@@ -301,39 +337,64 @@ async function eventosDe(partidos) {
 /*  LA SELECCIÓN DE CORTES                                             */
 /* ------------------------------------------------------------------ */
 
-/** Hasta 120 s (con la portada): por turnos entre sus fortalezas, lo mejor y más reciente primero. */
-function cortesDe(fortalezas, eventos, partidos) {
+/*
+| Los capítulos del vídeo: sus fortalezas (hasta 3, con 2 acciones o más) y
+| los rasgos de su puesto con cortes, por peso (el percentil de la fortaleza o
+| lo claro que es el rasgo). Si un rasgo cuenta lo mismo que una fortaleza
+| (regate → hacia dónde regatea), se queda el rasgo con el peso de la
+| fortaleza. Como mucho 6 capítulos, al menos 2 de rasgos si los hay.
+| Los cortes, por turnos entre capítulos (lo mejor primero) hasta 120 s con la
+| portada: antes menos cortes por capítulo que pasarse.
+*/
+function cortesDe(fortalezas, rasgos, eventos, partidos) {
   const reciente = new Map(partidos.map((p, i) => [p.partido, i]));
-  const colas = fortalezas
-    .map(({ F }) => {
-      const suyos = eventos
+  const conCortes = rasgos.filter((r) => r.cortes.length);
+  const temas = new Set(conCortes.map((r) => r.tema).filter(Boolean));
+  const pesoTema = new Map(fortalezas.map((x) => [x.F.clave, x.percentil]));
+  const deFortaleza = fortalezas
+    .filter((x) => !temas.has(x.F.clave))
+    .map(({ F, percentil }) => ({
+      clave: F.clave, titulo: F.nombre, peso: percentil * 0.9, fortaleza: true,
+      cola: eventos
         .filter((e) => F.elige(e))
-        .sort((a, b) => F.valor(b) - F.valor(a) || (reciente.get(a.partido) ?? 9) - (reciente.get(b.partido) ?? 9));
-      return { F, suyos };
-    })
-    .filter((c) => c.suyos.length >= 2)
+        .sort((a, b) => F.valor(b) - F.valor(a) || (reciente.get(a.partido) ?? 9) - (reciente.get(b.partido) ?? 9))
+        .map((e) => ({ e, que: F.rotulo?.(e) ?? "", antes: F.antes, despues: F.despues })),
+    }))
+    .filter((c) => c.cola.length >= 2)
     .slice(0, 3);
+  const deRasgo = conCortes.map((r) => ({ clave: r.clave, titulo: r.titulo, peso: Math.max(r.peso, pesoTema.get(r.tema) ?? 0), cola: r.cortes, tema: r.tema }));
+  const minRasgos = Math.min(2, deRasgo.length);
+  const capitulos = [];
+  for (const c of [...deFortaleza, ...deRasgo].sort((a, b) => b.peso - a.peso)) {
+    if (capitulos.length >= MAX_CAPITULOS) break;
+    const rasgosYa = capitulos.filter((x) => !x.fortaleza).length;
+    if (c.fortaleza && MAX_CAPITULOS - capitulos.length <= minRasgos - rasgosYa) continue;
+    capitulos.push(c);
+  }
+
   const elegidos = [];
+  const usados = new Set();
   let total = PORTADA;
   const pisa = (e) => elegidos.some((c) => c.partido === e.partido && c.parte === e.parte && Math.abs(c.segundo - e.segundo) < 10);
-  for (let ronda = 0; ronda < 8; ronda++) {
+  for (let ronda = 0; ronda < MAX_POR_CAPITULO; ronda++) {
     let alguno = false;
-    for (const { F, suyos } of colas) {
-      const e = suyos.find((x) => !x.usado && !pisa(x));
-      if (!e) continue;
-      const dura = F.antes + F.despues;
+    for (const cap of capitulos) {
+      const x = cap.cola.find((y) => !usados.has(y) && !pisa(y.e));
+      if (!x) continue;
+      const dura = x.antes + x.despues;
       if (total + dura > TOPE_SEGUNDOS) continue;
-      e.usado = true;
-      elegidos.push({ ...e, fortaleza: F.clave, antes: F.antes, despues: F.despues, rotulo: F.rotulo?.(e) ?? F.nombre.toUpperCase() });
+      usados.add(x);
+      elegidos.push({ partido: x.e.partido, parte: x.e.parte, segundo: x.e.segundo, tipo: x.e.tipo, fortaleza: cap.clave, titulo: cap.titulo, que: x.que, antes: x.antes, despues: x.despues });
       total += dura;
       alguno = true;
     }
     if (!alguno) break;
   }
-  /* En el vídeo, por fortaleza (en su orden) y dentro del más reciente al más antiguo. */
-  const orden = new Map(colas.map((c, i) => [c.F.clave, i]));
+  /* En el vídeo, por capítulo (en su orden) y dentro del más reciente al más antiguo. */
+  const enUso = capitulos.filter((c) => elegidos.some((e) => e.fortaleza === c.clave));
+  const orden = new Map(enUso.map((c, i) => [c.clave, i]));
   elegidos.sort((a, b) => orden.get(a.fortaleza) - orden.get(b.fortaleza) || (reciente.get(a.partido) ?? 9) - (reciente.get(b.partido) ?? 9) || a.parte - b.parte || a.segundo - b.segundo);
-  return { cortes: elegidos, fortalezas: colas.map((c) => c.F.clave) };
+  return { cortes: elegidos, capitulos: enUso.map((c) => ({ clave: c.clave, titulo: c.titulo, tema: c.tema, fortaleza: Boolean(c.fortaleza) })) };
 }
 
 /* ------------------------------------------------------------------ */
@@ -357,30 +418,44 @@ function ffmpeg(args, cwd, tope = 180_000) {
 
 /* Los rótulos van en ficheros de texto (textfile): así no hay que escapar tildes, comillas ni dos puntos. */
 const ESCALA = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=25,setsar=1";
-const SALIDA = ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+/* Topado a ~400 kb/s (25/11/2026): 2 minutos ≈ 6 MB como mucho, para no llenar los 10 GB de B2. */
+const SALIDA = ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "29", "-maxrate", "400k", "-bufsize", "800k", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+const corta = (t, n) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 const texto = (fichero, x, y, tam, color, borde = 12) =>
   `drawtext=expansion=none:fontfile=fuente.ttf:textfile=${fichero}:x=${x}:y=${y}:fontsize=${tam}:fontcolor=${color}:box=1:boxcolor=0x0B0F14@0.72:boxborderw=${borde}`;
 
-async function portada(dir, jugador, equipo, lineas, relativa = false) {
-  fs.writeFileSync(path.join(dir, "p1.txt"), jugador.toUpperCase());
-  fs.writeFileSync(path.join(dir, "p2.txt"), equipo);
-  fs.writeFileSync(path.join(dir, "p0.txt"), relativa ? "LO MEJOR QUE TIENE (NADA EN EL 30 % MEJOR DE SU LÍNEA)" : "SUS FORTALEZAS");
-  lineas.forEach((l, i) => fs.writeFileSync(path.join(dir, `p${3 + i}.txt`), `${i + 1}.  ${l}`));
-  const vf = [
-    "drawbox=x=0:y=0:w=14:h=ih:color=0xC8A96B:t=fill",
-    "drawtext=expansion=none:fontfile=fuente.ttf:textfile=p1.txt:x=80:y=200:fontsize=64:fontcolor=white",
-    "drawtext=expansion=none:fontfile=fuente.ttf:textfile=p2.txt:x=80:y=288:fontsize=30:fontcolor=0xC8A96B",
-    "drawbox=x=80:y=352:w=120:h=3:color=0xC8A96B:t=fill",
-    "drawtext=expansion=none:fontfile=fuente.ttf:textfile=p0.txt:x=80:y=378:fontsize=20:fontcolor=0x8A96A3",
-    ...lineas.map((_, i) => `drawtext=expansion=none:fontfile=fuente.ttf:textfile=p${3 + i}.txt:x=80:y=${418 + i * 46}:fontsize=30:fontcolor=0xE6EBF0`),
-  ].join(",");
-  return ffmpeg(["-f", "lavfi", "-i", `color=c=0x0B0F14:s=1280x720:d=${PORTADA}:r=25`, "-vf", vf, ...SALIDA, "-t", String(PORTADA), "p.mp4"], dir);
+/*
+| Portada de 5 s: nombre, equipo y puesto; a la izquierda sus fortalezas (con
+| su percentil), a la derecha los rasgos de su puesto (lo que cuenta el vídeo).
+*/
+async function portada(dir, jugador, equipo, fuertes, rasgos, relativa = false) {
+  const t = (n, s) => fs.writeFileSync(path.join(dir, `${n}.txt`), s);
+  const dt = (n, x, y, tam, color) => `drawtext=expansion=none:fontfile=fuente.ttf:textfile=${n}.txt:x=${x}:y=${y}:fontsize=${tam}:fontcolor=${color}`;
+  t("p1", corta(jugador.toUpperCase(), 30));
+  t("p2", corta(equipo, 70));
+  t("p0", relativa ? "LO MEJOR QUE TIENE" : "SUS FORTALEZAS");
+  t("q0", "RASGOS DE SU PUESTO");
+  const vf = ["drawbox=x=0:y=0:w=14:h=ih:color=0xC8A96B:t=fill", dt("p1", 80, 96, 60, "white"), dt("p2", 80, 176, 28, "0xC8A96B"), "drawbox=x=80:y=238:w=1120:h=2:color=0xC8A96B@0.6:t=fill"];
+  if (fuertes.length) vf.push(dt("p0", 80, 270, 20, "0x8A96A3"));
+  fuertes.slice(0, 3).forEach((f, i) => {
+    t(`f${i}`, corta(f.nombre, 30));
+    t(`g${i}`, relativa ? `la mitad mejor de su línea (${f.percentil} %)` : `mejor que el ${f.percentil} % de su línea`);
+    vf.push(dt(`f${i}`, 80, 312 + i * 84, 30, "0xE6EBF0"), dt(`g${i}`, 80, 350 + i * 84, 19, "0x8A96A3"));
+  });
+  const x2 = fuertes.length ? 660 : 80;
+  if (rasgos.length) vf.push(dt("q0", x2, 270, 20, "0x8A96A3"));
+  rasgos.slice(0, 5).forEach((r, i) => {
+    t(`r${i}`, corta(r, fuertes.length ? 38 : 70));
+    vf.push(`drawbox=x=${x2}:y=${318 + i * 56}:w=8:h=8:color=0xC8A96B:t=fill`, dt(`r${i}`, x2 + 22, 310 + i * 56, 25, "0xE6EBF0"));
+  });
+  return ffmpeg(["-f", "lavfi", "-i", `color=c=0x0B0F14:s=1280x720:d=${PORTADA}:r=25`, "-vf", vf.join(","), ...SALIDA, "-t", String(PORTADA), "p.mp4"], dir);
 }
 
+/* Cada corte: el nombre, el capítulo en dorado y debajo qué es, el rival, la fecha y el minuto. */
 async function corte(dir, n, hls, c, jugador, contra) {
   const min = `${Math.floor(c.segundo / 60) + 1}'`;
-  fs.writeFileSync(path.join(dir, `a${n}.txt`), c.rotulo);
-  fs.writeFileSync(path.join(dir, `b${n}.txt`), `${contra ? `vs ${contra} · ` : ""}${c.fecha.split("-").reverse().slice(0, 2).join("/")} · ${min}`);
+  fs.writeFileSync(path.join(dir, `a${n}.txt`), corta(c.titulo.toUpperCase(), 44));
+  fs.writeFileSync(path.join(dir, `b${n}.txt`), corta(`${c.que ? `${c.que} · ` : ""}${contra ? `vs ${contra} · ` : ""}${c.fecha.split("-").reverse().slice(0, 2).join("/")} · ${min}`, 80));
   fs.writeFileSync(path.join(dir, `c${n}.txt`), jugador);
   const vf = [ESCALA, texto(`c${n}.txt`, 36, "h-200", 26, "white", 10), texto(`a${n}.txt`, 36, "h-142", 40, "0xC8A96B", 14), texto(`b${n}.txt`, 36, "h-76", 26, "0xD7DEE6", 10)].join(",");
   return ffmpeg(["-i", hls, "-t", String(c.antes + c.despues), "-vf", vf, ...SALIDA, `k${n}.mp4`], dir);
@@ -421,6 +496,8 @@ let hechos = 0;
 let iguales = 0;
 let fallos = 0;
 let sinFortaleza = 0;
+let borrados = 0;
+let liberados = 0;
 
 for (const r of rivales) {
   let eventos;
@@ -440,9 +517,11 @@ for (const r of rivales) {
 
   /* Sus jugadores: de su equipo en Opta, con 360' o más y alguna acción en esos partidos. Por minutos. */
   const conAcciones = new Set(eventos.map((e) => e.jugadorId));
+  const delEquipo = new Set(jugadoresOpta.filter((f) => String(f.teamId) === r.teamId).map((f) => String(f.playerId)));
   const suyos = jugadoresOpta
     .filter((f) => String(f.teamId) === r.teamId && conAcciones.has(String(f.playerId)) && (Number(temporadaDe.get(String(f.playerId))?.Min) || 0) >= MIN_MINUTOS)
     .sort((a, b) => (Number(temporadaDe.get(String(b.playerId))?.Min) || 0) - (Number(temporadaDe.get(String(a.playerId))?.Min) || 0));
+  const ctx = contexto(eventos, delEquipo);
 
   /* completo: false hasta pasar por todos; si el tope corta, la noche siguiente sigue con él (--lunes). */
   doc.equipos[r.teamId] = { nombre: r.equipo, partidos: r.partidos, revisado: new Date().toISOString(), jugadores: suyos.map((f) => String(f.playerId)), completo: false };
@@ -463,20 +542,32 @@ for (const r of rivales) {
     const id = String(f.playerId);
     const nombre = String(f.jugador);
     const fortalezas = fortalezasDe(id);
-    const { cortes, fortalezas: usadas } = cortesDe(fortalezas, eventos.filter((e) => e.jugadorId === id).map((e) => ({ ...e, usado: false })), r.partidos);
+    const pie = { right: "derecho", left: "izquierdo", both: "los dos" }[String(temporadaDe.get(id)?.PrefFoot ?? "").toLowerCase()] ?? null;
+    const { grupo, posicion, rasgos } = rasgosDe(id, ctx, pie === "los dos" ? null : pie);
+    const { cortes, capitulos } = cortesDe(fortalezas, rasgos, eventos.filter((e) => e.jugadorId === id), r.partidos);
+    const enVideo = new Set(capitulos.flatMap((c) => [c.clave, c.tema].filter(Boolean)));
     const ficha = {
       nombre, teamId: r.teamId, equipo: r.equipo, puesto: PUESTO_OPTA[String(f.puesto ?? "")] ?? String(f.puesto ?? ""), minutos: Number(temporadaDe.get(id)?.Min) || 0,
-      fortalezas: fortalezas.slice(0, 5).map((x) => ({ clave: x.F.clave, nombre: x.F.nombre, percentil: x.percentil, por90: x.por90, relativa: x.relativa, enVideo: usadas.includes(x.F.clave) })),
+      /* El puesto en sus últimos partidos (el que manda en los rasgos), si no es el de la temporada. */
+      rol: PUESTO_OPTA[posicion] ?? NOMBRE_GRUPO[grupo],
+      fortalezas: fortalezas.slice(0, 5).map((x) => ({ clave: x.F.clave, nombre: x.F.nombre, percentil: x.percentil, por90: x.por90, relativa: x.relativa, enVideo: enVideo.has(x.F.clave) })),
+      rasgos: rasgos.slice(0, 6).map((x) => ({ clave: x.clave, titulo: x.titulo, texto: x.texto, enVideo: enVideo.has(x.clave) })),
     };
 
     if (cortes.length < 3) {
       sinFortaleza++;
-      doc.jugadores[id] = { ...doc.jugadores[id], ...ficha, sinVideo: fortalezas.length ? "pocas acciones de sus fortalezas en sus últimos partidos" : "ninguna métrica en la mitad mejor de su línea" };
+      const { cortes: _c, url: _u, ...resto } = doc.jugadores[id] ?? {};
+      void _c;
+      void _u;
+      doc.jugadores[id] = { ...resto, ...ficha, sinVideo: fortalezas.length || rasgos.length ? "pocas acciones que enseñar en sus últimos partidos" : "ninguna métrica en la mitad mejor de su línea ni rasgo con muestra" };
+      if (resto.ruta && !VER) await b2.borraVersiones(resto.ruta, { todas: true }).catch(() => {});
+      delete doc.jugadores[id].ruta;
       console.log(`  · ${nombre}: sin vídeo (${doc.jugadores[id].sinVideo})`);
       continue;
     }
 
-    const firma = cortes.map((c) => `${c.partido}|${c.parte}|${c.segundo}|${c.fortaleza}`).join(";");
+    /* La firma, en hash corto: la versión del montaje y los cortes elegidos. */
+    const firma = crypto.createHash("sha1").update(`${VERSION};${cortes.map((c) => `${c.partido}|${c.parte}|${c.segundo}|${c.fortaleza}|${c.que}`).join(";")}`).digest("hex").slice(0, 16);
     const previo = doc.jugadores[id];
     if (!REHACER && previo?.firma === firma && previo?.url) {
       doc.jugadores[id] = { ...previo, ...ficha };
@@ -485,8 +576,11 @@ for (const r of rivales) {
     }
 
     const segundos = PORTADA + cortes.reduce((s, c) => s + c.antes + c.despues, 0);
-    console.log(`  · ${nombre}: ${usadas.map((k) => FORTALEZAS.find((F) => F.clave === k).nombre).join(", ")} · ${cortes.length} cortes, ${segundos} s`);
-    if (VER) continue;
+    console.log(`  · ${nombre} (${ficha.rol}): ${capitulos.map((c) => c.titulo).join(" | ")} · ${cortes.length} cortes, ${segundos} s`);
+    if (VER) {
+      for (const x of rasgos) console.log(`      - ${x.titulo}: ${x.texto}`);
+      continue;
+    }
 
     /* Corte a corte. */
     for (const viejo of fs.readdirSync(tmp)) if (viejo !== "fuente.ttf") fs.rmSync(path.join(tmp, viejo), { force: true });
@@ -503,11 +597,12 @@ for (const r of rivales) {
       if (!v.url) continue;
       const error = await corte(tmp, n, v.url, { ...c, fecha: partido?.fecha ?? "" }, nombre, partido?.rival ?? "");
       if (error) {
-        console.log(`      ${c.rotulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split("\n")[0]}`);
+        console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split("\n")[0]}`);
         continue;
       }
       piezas.push(`k${n}.mp4`);
-      buenos.push({ partido: c.partido, fecha: partido?.fecha ?? "", rival: partido?.rival ?? "", parte: c.parte, segundo: c.segundo, fortaleza: c.fortaleza, que: c.rotulo, dura: c.antes + c.despues });
+      /* Sin fecha ni rival: salen de los partidos del equipo (normalizaClipsJugador los repone). */
+      buenos.push({ partido: c.partido, parte: c.parte, segundo: c.segundo, fortaleza: c.fortaleza, que: c.que, dura: c.antes + c.despues });
     }
 
     if (buenos.length < 3) {
@@ -516,12 +611,10 @@ for (const r of rivales) {
       continue;
     }
 
-    /* En la portada, cada fortaleza con su percentil en su línea («Juego aéreo · mejor que el 85 %»). */
-    const nombresF = usadas.map((k) => {
-      const x = fortalezas.find((y) => y.F.clave === k);
-      return `${x.F.nombre} (mejor que el ${x.percentil} %)`;
-    });
-    const errPortada = await portada(tmp, nombre, `${r.equipo} · ${ficha.puesto ? ficha.puesto + " · " : ""}sus últimos ${r.partidos.length} partidos`, nombresF, fortalezas.every((x) => x.relativa));
+    /* La portada: sus fortalezas con su percentil y los rasgos (primero los que salen en el vídeo). */
+    const fuertes = fortalezas.slice(0, 3).map((x) => ({ nombre: x.F.nombre, percentil: x.percentil }));
+    const lineas = [...rasgos.filter((x) => enVideo.has(x.clave)), ...rasgos.filter((x) => !enVideo.has(x.clave))].map((x) => x.titulo);
+    const errPortada = await portada(tmp, nombre, `${r.equipo} · ${ficha.rol || ficha.puesto} · sus últimos ${r.partidos.length} partidos`, fuertes, lineas, fortalezas.length > 0 && fortalezas.every((x) => x.relativa));
     const lista = [...(errPortada ? [] : ["p.mp4"]), ...piezas].map((p) => `file '${p}'`).join("\n");
     fs.writeFileSync(path.join(tmp, "lista.txt"), lista);
     const errJunta = await ffmpeg(["-f", "concat", "-safe", "0", "-i", "lista.txt", "-c", "copy", "-movflags", "+faststart", "final.mp4"], tmp);
@@ -541,29 +634,42 @@ for (const r of rivales) {
       console.log(`      no se pudo subir a B2 (${e?.message || e})`);
       continue;
     }
+    /* La versión anterior de este vídeo, fuera ya (no esperar a la regla del bucket). */
+    const viejas = await b2.borraVersiones(ruta).catch((e) => (console.log(`      (no se han podido borrar las versiones viejas: ${e.message})`), { borradas: 0, bytes: 0 }));
+    liberados += viejas.bytes;
 
     doc.jugadores[id] = {
-      ...ficha, url, ruta, bytes: datos.length, firma, en: new Date().toISOString(),
+      ...ficha, url, ruta, bytes: datos.length, firma, en: new Date().toISOString(), portada: errPortada ? 0 : PORTADA,
       segundos: (errPortada ? 0 : PORTADA) + buenos.reduce((s, c) => s + c.dura, 0), cortes: buenos,
     };
-    delete doc.jugadores[id].sinVideo;
     hechos++;
-    console.log(`      ${(datos.length / 1e6).toFixed(1)} MB, ${doc.jugadores[id].segundos} s`);
-    await guarda();
+    console.log(`      ${(datos.length / 1e6).toFixed(1)} MB, ${doc.jugadores[id].segundos} s${viejas.borradas ? ` (${viejas.borradas > 1 ? `borradas ${viejas.borradas} versiones viejas` : "borrada 1 versión vieja"}, ${(viejas.bytes / 1e6).toFixed(1)} MB)` : ""}`);
+    /* Al documento cada 4 vídeos (y al final): no reescribirlo entero tras cada uno. */
+    if (hechos % 4 === 0) await guarda();
   }
   doc.equipos[r.teamId].completo = !cortado;
+
+  /* Los que ya no están en su lista (bajas, menos de 360'), fuera con su vídeo. */
+  if (!cortado && !VER) {
+    const siguen = new Set(doc.equipos[r.teamId].jugadores);
+    for (const [id, j] of Object.entries(doc.jugadores)) {
+      if (j.teamId !== r.teamId || siguen.has(id)) continue;
+      if (j.ruta) liberados += (await b2.borraVersiones(j.ruta, { todas: true }).catch(() => ({ bytes: 0 }))).bytes;
+      delete doc.jugadores[id];
+      borrados++;
+    }
+  }
 }
 
-/* Los equipos que ya no son próximo rival, fuera a los 10 días (vídeo incluido). */
+/* Los equipos que ya no son próximo rival, fuera a los 10 días (vídeo incluido, todas sus versiones). */
 const vigentes = new Set(rivales.map((r) => r.teamId));
 const hace10 = Date.now() - 10 * 864e5;
-let borrados = 0;
 if (!VER && !EQUIPO) {
   for (const [teamId, e] of Object.entries(doc.equipos)) {
     if (vigentes.has(teamId) || Date.parse(e.revisado ?? 0) > hace10) continue;
     for (const [id, j] of Object.entries(doc.jugadores)) {
       if (j.teamId !== teamId) continue;
-      if (j.ruta) await b2.oculta(j.ruta).catch(() => {});
+      if (j.ruta) liberados += (await b2.borraVersiones(j.ruta, { todas: true }).catch(() => ({ bytes: 0 }))).bytes;
       delete doc.jugadores[id];
       borrados++;
     }
@@ -577,5 +683,5 @@ fs.rmSync(tmp, { recursive: true, force: true });
 
 await fin(
   fallos && !hechos && !iguales ? 1 : 0,
-  `${VER ? "(--ver, sin bajar nada) " : ""}${rivales.map((r) => r.equipo).join(" y ")}: ${hechos} vídeos nuevos, ${iguales} sin cambios, ${sinFortaleza} sin vídeo${fallos ? `, ${fallos} fallos` : ""}${borrados ? `; ${borrados} de rivales pasados borrados` : ""}`,
+  `${VER ? "(--ver, sin bajar nada) " : ""}${rivales.map((r) => r.equipo).join(" y ")}: ${hechos} vídeos nuevos, ${iguales} sin cambios, ${sinFortaleza} sin vídeo${fallos ? `, ${fallos} fallos` : ""}${borrados ? `; ${borrados} jugadores que ya no tocan borrados` : ""}${liberados ? `; ${(liberados / 1e6).toFixed(1)} MB liberados en B2` : ""}; documento de ${(JSON.stringify(doc).length / 1024).toFixed(0)} KB`,
 );
