@@ -129,6 +129,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "public/data — wys/ son los informes de Wyscout (un .xlsx por equipo) y opta/ sus descargas («Clasificación justa» y «Nuestra salida contra la presión», de opta:partidos; el próximo rival, del calendario de BeSoccer). El balón parado sale de nuestras cuatro hojas y los entrenamientos, de la hoja de microciclos.",
     bloques: [
       {
+        titulo: "Lo nuevo (25/11/2026): ABP · Opta (categoría)",
+        filas: [
+          { que: "ABP · Opta (categoría)", es: "En Balón parado, entre «ABP de la categoría» y «Nuestro balón parado»: el Castilla frente a su grupo y a toda la Primera RFEF en córners, faltas, bandas y penaltis (mosaico por percentil, cuadrantes con escudos, ranking de cada métrica) y cada saque acción a acción. Es lo mismo que Balón Parado → ABP en datos → Categoría · Opta (los mismos componentes)", cuenta: "Opta: opta:equipos, opta:partidos y el evento a evento de opta:directo. No se compara con las áreas de Wyscout: cada proveedor cuenta distinto un córner, una falta o una acción que acaba en tiro" },
+          { que: "Enlaces", es: "Debajo de «ABP de la categoría», a ABP en datos → Ligas · Wyscout (Primera RFEF y Premier) y a «ABP · Opta (categoría)»" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (23/11/2026): mapa de la liga con escudos",
         filas: [
           { que: "Escudos en los gráficos de equipos (24/11/2026)", es: "En las nubes de equipos (Ocasiones que concede, las de cada área y los mapas de dos ejes) salen todos los escudos: los protagonistas (el Castilla en oro, el próximo rival o el elegido en azul) grandes, con halo y encima; los demás, pequeños y atenuados. Sin escudo, el punto de siempre" },
@@ -404,7 +411,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una pantalla enseña la jornada pasada, lo que falta es publicar: bajar los datos no los sube.",
       "Si los datos se quedan atrás varias semanas, mira .cache/wyscout: casi siempre es que hay que volver a entrar en Wyscout una vez.",
     ],
-    revisada: "2026-11-24",
+    revisada: "2026-11-25",
   },
 
   /* ==================== MICROCICLOS ==================== */
@@ -2936,32 +2943,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "En la pizarra", es: "Las jugadas de la pizarra de ABP traídas con «Abrir en el laboratorio», con su estado (igual, cambiada allí, ya no está); vuelven con «Enviar a la pizarra»" },
           { que: "Taller", es: "La biblioteca de rutinas (recientes, nombre o xG; duplicar, variantes, comparar dos) y, arriba, las que mejor encajan contra la defensa del próximo rival" },
           { que: "Retos", es: "De precisión (la marca de cada uno) y de preguntas (se proyectan en el vestuario y se marca quién acierta)" },
-          { que: "Opta · balón parado de la categoría", es: "El Castilla en córners, faltas, bandas y penaltis frente a su grupo y a Primera RFEF, y cada saque: dónde cae, quién lo saca y si acaba en remate" },
-          {
-            que: "Opta · cabecera y perfil (25/11/2026)",
-            es: "Arriba, el escudo del Castilla con sus partidos y el próximo rival con el suyo (en azul en toda la pestaña). En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una casilla por métrica que se juzga, coloreada por su percentil y agrupada por córners, faltas, bandas y penaltis",
-            cuenta: "Percentil y puesto contra su grupo (o contra la categoría si el grupo no se puede deducir), los mismos de las pistas",
-          },
-          {
-            que: "Opta · el cuadrante de cada sección",
-            es: "Un escudo por equipo en dos métricas de la sección: ocasiones a balón parado a favor y concedidas (Resumen), remates de córner a favor y en contra, remates de falta directa a favor y en contra, saques de banda y remates de banda, penaltis a favor y en contra. «Su grupo» o «Toda la categoría»",
-            cuenta: "Las rayas son la mediana de los equipos que salen; la esquina buena va en verde y la mala en naranja cuando las dos métricas se juzgan. Tocar un escudo enseña sus cifras",
-          },
-          {
-            que: "Opta · cada métrica",
-            es: "Su valor, la pista del grupo y de la categoría (el punto de oro es el Castilla y la raya azul, el próximo rival), la línea del próximo rival con su valor y su puesto, y los cinco mejores de la categoría con escudo. Al pulsar el nombre: qué mide, las medianas y la clasificación entera con escudos (del grupo, o los 12 primeros de la categoría con «Ver los N»)",
-            cuenta: "En los porcentajes, los equipos de menos de 10 intentos no entran en la clasificación ni en el podio (se dice cuántos se quedan fuera)",
-          },
-          {
-            que: "Opta · cada saque, con escudos",
-            es: "El equipo se elige en la cabecera (con su escudo) o con los atajos «Castilla» y «Próximo rival». Las cifras llevan una barra con la raya de la categoría. «Dónde caen» y «Quién los saca» son barras: cuántos, qué parte acaba en remate, llegan, xG y el reparto derecha/izquierda de cada lanzador",
-          },
-          {
-            que: "Opta · la categoría en ese saque",
-            es: "Debajo, los equipos con al menos 10 saques del tipo elegido (con los mismos filtros de lado y rosca, a favor o en contra): la clasificación del % que acaba en remate y el cuadrante saques por partido frente a % que acaba en remate, un escudo cada uno. Pulsar un escudo lo elige arriba",
-            cuenta: "Las mismas cuentas de arriba (resumenSaques de lib/opta-eventos.ts) equipo a equipo; «por partido» es entre los partidos en los que sacó alguno. En contra, menos remate es mejor",
-          },
-          { que: "Datos", es: "Enlace a su propia pantalla: el balón parado de Primera RFEF y la Premier en Wyscout" },
+          { que: "Opta y Datos (25/11/2026)", es: "Salieron a la app para todo el staff: Balón Parado → «ABP en datos» (pestañas Categoría · Opta y Ligas · Wyscout); la de Opta también en Análisis de datos → Balón parado → «ABP · Opta (categoría)». Aquí queda un enlace" },
         ],
       },
       {
@@ -4029,13 +4011,43 @@ export const AYUDAS: AyudaDePagina[] = [
 
   /* ==================== LABORATORIO ABP · EL BALÓN PARADO DE CADA LIGA (12/11/2026) ==================== */
   {
-    ruta: "/laboratorio/abp/datos",
-    titulo: "El balón parado de cada liga",
+    ruta: "/abp-datos",
+    titulo: "ABP en datos",
     resumen:
-      "Todos los equipos de los dos grupos de Primera RFEF y de la Premier con lo que Wyscout trae de balón parado, cada uno leído contra su liga. Sólo administrador.",
+      "El balón parado con datos, para todo el staff (antes, en el Laboratorio de ABP sólo para el administrador). Dos pestañas: Categoría · Opta (el Castilla frente a su grupo y a toda la Primera RFEF, y cada saque) y Ligas · Wyscout (todos los equipos de los dos grupos y de la Premier, cada uno leído contra su liga). Con el escudo de cada equipo.",
     origen:
-      "Wyscout, en public/data/abp-ligas.json (lo arma scripts/abp-ligas.cjs; las ligas que no son la nuestra las baja scripts/actualizar-abp-ligas.cmd). El próximo rival, del calendario de BeSoccer.",
+      "Categoría · Opta: opta:equipos y opta:partidos (descarga de Opta de los lunes) y el evento a evento de opta:directo. Ligas · Wyscout: public/data/abp-ligas.json (lo arma scripts/abp-ligas.cjs; las ligas que no son la nuestra las baja scripts/actualizar-abp-ligas.cmd). El próximo rival, del calendario de BeSoccer. Opta y Wyscout cuentan distinto un córner, una falta o una acción que acaba en tiro: cada pestaña dice su fuente y no se mezclan. La dirección vieja /laboratorio/abp/datos lleva a la pestaña Ligas.",
     bloques: [
+      {
+        titulo: "Categoría · Opta",
+        filas: [
+          { que: "Categoría · Opta", es: "El Castilla en córners, faltas, bandas y penaltis frente a su grupo y a Primera RFEF, y cada saque: dónde cae, quién lo saca y si acaba en remate" },
+          {
+            que: "cabecera y perfil (25/11/2026)",
+            es: "Arriba, el escudo del Castilla con sus partidos y el próximo rival con el suyo (en azul en toda la pestaña). En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una casilla por métrica que se juzga, coloreada por su percentil y agrupada por córners, faltas, bandas y penaltis",
+            cuenta: "Percentil y puesto contra su grupo (o contra la categoría si el grupo no se puede deducir), los mismos de las pistas",
+          },
+          {
+            que: "el cuadrante de cada sección",
+            es: "Un escudo por equipo en dos métricas de la sección: ocasiones a balón parado a favor y concedidas (Resumen), remates de córner a favor y en contra, remates de falta directa a favor y en contra, saques de banda y remates de banda, penaltis a favor y en contra. «Su grupo» o «Toda la categoría»",
+            cuenta: "Las rayas son la mediana de los equipos que salen; la esquina buena va en verde y la mala en naranja cuando las dos métricas se juzgan. Tocar un escudo enseña sus cifras",
+          },
+          {
+            que: "cada métrica",
+            es: "Su valor, la pista del grupo y de la categoría (el punto de oro es el Castilla y la raya azul, el próximo rival), la línea del próximo rival con su valor y su puesto, y los cinco mejores de la categoría con escudo. Al pulsar el nombre: qué mide, las medianas y la clasificación entera con escudos (del grupo, o los 12 primeros de la categoría con «Ver los N»)",
+            cuenta: "En los porcentajes, los equipos de menos de 10 intentos no entran en la clasificación ni en el podio (se dice cuántos se quedan fuera)",
+          },
+          {
+            que: "cada saque, con escudos",
+            es: "El equipo se elige en la cabecera (con su escudo) o con los atajos «Castilla» y «Próximo rival». Las cifras llevan una barra con la raya de la categoría. «Dónde caen» y «Quién los saca» son barras: cuántos, qué parte acaba en remate, llegan, xG y el reparto derecha/izquierda de cada lanzador",
+          },
+          {
+            que: "la categoría en ese saque",
+            es: "Debajo, los equipos con al menos 10 saques del tipo elegido (con los mismos filtros de lado y rosca, a favor o en contra): la clasificación del % que acaba en remate y el cuadrante saques por partido frente a % que acaba en remate, un escudo cada uno. Pulsar un escudo lo elige arriba",
+            cuenta: "Las mismas cuentas de arriba (resumenSaques de lib/opta-eventos.ts) equipo a equipo; «por partido» es entre los partidos en los que sacó alguno. En contra, menos remate es mejor",
+          },
+        ],
+      },
       {
         titulo: "Mandos",
         filas: [
