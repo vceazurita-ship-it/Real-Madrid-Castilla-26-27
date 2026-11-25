@@ -14,15 +14,22 @@
  * liga): comparar el número de la Premier con el de Primera RFEF a pelo sería
  * comparar dos fútboles distintos, así que la «referencia Premier» se compara
  * por percentiles.
+ *
+ * 25/11/2026 («mucho más visual, con todos los escudos»): cabecera con el
+ * escudo del equipo y sus cifras de peligro (a favor, en contra, balance y
+ * puesto), «La liga, escudo a escudo» (una tarjeta por equipo con sus dos
+ * barras, ordenada por el balance) y la comparación con la Premier escudo
+ * contra escudo. Los números son los mismos de antes.
  */
 
 import { useMemo, useState } from "react";
-import { Crosshair, FlaskConical, GitCompareArrows, LineChart, ListOrdered, ScatterChart } from "lucide-react";
+import { Crosshair, FlaskConical, GitCompareArrows, LayoutGrid, LineChart, ListOrdered, ScatterChart } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { AbpHeader, Panel, Segmented, Select } from "@/components/abp/ui";
-import { BarraPercentil, BarrasEquipos, Dispersion, Evolucion, type FilaPercentil } from "@/components/data/graficas";
+import { BarraPercentil, BarrasEquipos, COMPARADO, Dispersion, Evolucion, MEJOR, PEOR, tinta, useEscudos, type FilaPercentil } from "@/components/data/graficas";
+import { CORAL, Cifra, Escudo, ORO_MARCA } from "@/components/abp-lab/visual";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -100,6 +107,7 @@ function gemeloEn(tabla: FilaLiga[], equipo: string, tablaPremier: FilaLiga[]) {
 export default function DatosAbpPage() {
   const { datos, fallo } = useAbpLigas();
   const proximo = useProximoRival();
+  const escudoDe = useEscudos();
   const [slug, setSlug] = useState("");
   const [elegido, setElegido] = useState("");
   const [metrica, setMetrica] = useState("abpRemF");
@@ -171,6 +179,26 @@ export default function DatosAbpPage() {
 
   const gemelo = useMemo(() => (premier && premier !== liga && equipo ? gemeloEn(tabla, equipo, tablaPremier) : null), [premier, liga, equipo, tabla, tablaPremier]);
 
+  /* La liga, escudo a escudo: ABP con remate a favor y en contra por partido, ordenada por el balance. */
+  const mosaico = useMemo(
+    () =>
+      tabla
+        .map((f) => ({ equipo: f.equipo, favor: f.valores.abpRemF, contra: f.valores.abpRemC }))
+        .filter((x): x is { equipo: string; favor: number; contra: number } => x.favor !== null && x.contra !== null)
+        .sort((a, b) => b.favor - b.contra - (a.favor - a.contra)),
+    [tabla],
+  );
+
+  const topeMosaico = Math.max(...mosaico.flatMap((x) => [x.favor, x.contra]), 0.01);
+
+  /* Nosotros, sólo en nuestra liga. */
+  const castilla = liga ? equipoQueCasa(liga, "Castilla") : "";
+
+  const posF = posicionEn(tabla, equipo, METRICA.abpRemF);
+  const posC = posicionEn(tabla, equipo, METRICA.abpRemC);
+  const balance = posF.valor !== null && posC.valor !== null ? posF.valor - posC.valor : null;
+  const iBalance = mosaico.findIndex((x) => x.equipo === equipo);
+
   return (
     <main className="min-h-screen bg-[#0B0F14] text-white">
       <div className="flex">
@@ -211,6 +239,77 @@ export default function DatosAbpPage() {
                   {nombreDeLiga(liga.competicion)} · temporada {liga.temporada} · {liga.equipos.length} equipos
                   {comparado ? ` · en azul, el próximo rival (${comparado})` : ""}
                 </p>
+
+                {/* ----------------------- CABECERA ------------------------ */}
+                <div
+                  className="mt-4 min-w-0 rounded-2xl border border-white/10 p-4"
+                  style={{ background: `linear-gradient(110deg, ${castilla && equipo === castilla ? ORO_MARCA : COMPARADO}26, transparent 60%)` }}
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-3">
+                    <Escudo src={escudoDe(equipo)} nombre={equipo} lado={56} />
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-xl font-semibold text-white">{equipo}</p>
+                      <p className="text-[12px] text-white/55">
+                        {liga.nombre} · {suyos.length} partidos
+                      </p>
+                    </div>
+                    {comparado && (
+                      <button
+                        type="button"
+                        onClick={() => setElegido(comparado)}
+                        className="inline-flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[12px] transition hover:brightness-110"
+                        style={{ background: `${COMPARADO}1F` }}
+                      >
+                        <Escudo src={escudoDe(comparado)} nombre={comparado} lado={28} />
+                        <span className="min-w-0">
+                          <span className="block text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: COMPARADO }}>
+                            Próximo rival · en azul
+                          </span>
+                          <span className="block truncate font-semibold text-white">{comparado}</span>
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  {(posF.valor !== null || posC.valor !== null) && (
+                    <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-3">
+                      {posF.valor !== null && (
+                        <Cifra
+                          rotulo="ABP con remate a favor"
+                          valor={formatea(posF.valor, "decimal")}
+                          acento={ORO_MARCA}
+                          barra={posF.valor / topeMosaico}
+                          referencia={posF.mediana !== null ? posF.mediana / topeMosaico : null}
+                          detalle={`por partido${posF.puesto ? ` · ${posF.puesto}.º de ${posF.de}` : ""}${posF.mediana !== null ? ` · mediana ${formatea(posF.mediana, "decimal")}` : ""}`}
+                        />
+                      )}
+                      {posC.valor !== null && (
+                        <Cifra
+                          rotulo="ABP con remate en contra"
+                          valor={formatea(posC.valor, "decimal")}
+                          acento={CORAL}
+                          color={CORAL}
+                          barra={posC.valor / topeMosaico}
+                          referencia={posC.mediana !== null ? posC.mediana / topeMosaico : null}
+                          detalle={`por partido${posC.puesto ? ` · ${posC.puesto}.º de ${posC.de}` : ""}${posC.mediana !== null ? ` · mediana ${formatea(posC.mediana, "decimal")}` : ""}`}
+                        />
+                      )}
+                      {balance !== null && (
+                        <Cifra
+                          rotulo="Balance por partido"
+                          valor={`${balance >= 0 ? "+" : ""}${formatea(balance, "decimal")}`}
+                          acento={balance >= 0 ? MEJOR : PEOR}
+                          detalle={iBalance >= 0 ? `${iBalance + 1}.º de ${mosaico.length} de la liga en el balance` : undefined}
+                        />
+                      )}
+                    </div>
+                  )}
+                  {(posF.mediana !== null || posC.mediana !== null) && (
+                    <p className="mt-2 flex items-center gap-1.5 text-[10.5px] text-white/45">
+                      <span aria-hidden className="inline-block h-3 w-[2px] rounded-full" style={{ background: tinta(0.6) }} />
+                      La raya de cada barra es la mediana de la liga.
+                    </p>
+                  )}
+                </div>
 
                 <div className="mt-5 grid min-w-0 gap-5 xl:grid-cols-2">
                   {/* --------------------- DE UN VISTAZO --------------------- */}
@@ -261,6 +360,58 @@ export default function DatosAbpPage() {
                     />
                   </Panel>
 
+                  {/* ------------------ LA LIGA, ESCUDO A ESCUDO ------------- */}
+                  {mosaico.length > 0 && (
+                    <Panel
+                      title="La liga, escudo a escudo"
+                      subtitle="Cada tarjeta, un equipo: ABP con remate a favor y en contra por partido. Ordenadas por el balance (a favor menos en contra); pulsa una para mirarla"
+                      icon={LayoutGrid}
+                      className="xl:col-span-2"
+                    >
+                      <div className="grid min-w-0 grid-cols-1 gap-2 min-[420px]:grid-cols-2 md:grid-cols-3 2xl:grid-cols-4">
+                        {mosaico.map((x, i) => {
+                          const esNuestro = !!castilla && x.equipo === castilla;
+                          const esRival = !!comparado && x.equipo === comparado;
+                          const esEste = x.equipo === equipo;
+                          const b = x.favor - x.contra;
+                          const marco = esNuestro ? ORO_MARCA : esRival ? COMPARADO : esEste ? tinta(0.55) : null;
+                          return (
+                            <button
+                              key={x.equipo}
+                              type="button"
+                              onClick={() => setElegido(x.equipo)}
+                              aria-pressed={esEste}
+                              className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:bg-white/[0.05]"
+                              style={marco ? { boxShadow: `inset 0 0 0 2px ${marco}`, background: esNuestro ? `${ORO_MARCA}14` : esRival ? `${COMPARADO}12` : undefined } : undefined}
+                            >
+                              <span className="flex min-w-0 items-center gap-2">
+                                <span className="w-5 shrink-0 text-right text-[10px] tabular-nums text-white/35">{i + 1}</span>
+                                <Escudo src={escudoDe(x.equipo)} nombre={x.equipo} lado={26} />
+                                <span className={`min-w-0 flex-1 truncate text-[12.5px] ${marco ? "font-semibold text-white" : "text-white/75"}`}>{x.equipo}</span>
+                                <span className="shrink-0 text-[13px] font-semibold tabular-nums" style={{ color: b >= 0 ? MEJOR : PEOR }}>
+                                  {b >= 0 ? "+" : ""}
+                                  {formatea(b, "decimal")}
+                                </span>
+                              </span>
+                              {[
+                                { v: x.favor, c: ORO_MARCA, t: "A favor" },
+                                { v: x.contra, c: CORAL, t: "En contra" },
+                              ].map((y) => (
+                                <span key={y.t} className="mt-1.5 flex min-w-0 items-center gap-2 text-[10.5px]">
+                                  <span className="w-14 shrink-0 text-white/45">{y.t}</span>
+                                  <span className="relative h-2 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.07) }}>
+                                    <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, (y.v / topeMosaico) * 100)}%`, background: y.c }} />
+                                  </span>
+                                  <span className="w-9 shrink-0 text-right tabular-nums text-white/65">{formatea(y.v, "decimal")}</span>
+                                </span>
+                              ))}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </Panel>
+                  )}
+
                   {/* ------------------------ TENDENCIA ---------------------- */}
                   <Panel
                     title={`${m.nombre}, partido a partido`}
@@ -283,9 +434,25 @@ export default function DatosAbpPage() {
                         </div>
                       }
                     >
+                      <div className="mb-4 grid min-w-0 grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-center gap-3">
+                        <span className="flex min-w-0 flex-col items-center gap-1 text-center">
+                          <Escudo src={escudoDe(equipo)} nombre={equipo} lado={48} />
+                          <span className="w-full truncate text-[13px] font-semibold text-white">{equipo}</span>
+                          <span className="text-[10.5px] text-white/45">{liga.nombre}</span>
+                        </span>
+                        <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/35">frente a</span>
+                        <span className="flex min-w-0 flex-col items-center gap-1 text-center">
+                          <Escudo src={escudoDe(ref)} nombre={ref} lado={48} anillo={COMPARADO} />
+                          <span className="w-full truncate text-[13px] font-semibold" style={{ color: COMPARADO }}>
+                            {ref}
+                          </span>
+                          <span className="text-[10.5px] text-white/45">Premier League</span>
+                        </span>
+                      </div>
                       {gemelo && (
                         <div className="mb-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.07] px-3.5 py-2.5">
-                          <p className="min-w-0 text-[13px] leading-snug text-white/80">
+                          <Escudo src={escudoDe(gemelo.equipo)} nombre={gemelo.equipo} lado={30} />
+                          <p className="min-w-0 flex-1 text-[13px] leading-snug text-white/80">
                             <span className="font-semibold text-[#C8A96B]">Su gemelo en la Premier: {gemelo.equipo}.</span> Es el perfil de balón parado más parecido, cada uno contra su liga (de media, a {Math.round(gemelo.d)} puntos de percentil).
                           </p>
                           {gemelo.equipo !== ref && (

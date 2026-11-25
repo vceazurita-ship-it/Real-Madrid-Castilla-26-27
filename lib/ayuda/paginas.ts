@@ -2916,7 +2916,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Lo que hacen los mejores en balón parado, los análisis de fuera que llegan cada mañana (@HybridMarking, con sus vídeos), las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-23",
+    revisada: "2026-11-25",
     bloques: [
       {
         titulo: "Las pestañas",
@@ -2937,6 +2937,30 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Taller", es: "La biblioteca de rutinas (recientes, nombre o xG; duplicar, variantes, comparar dos) y, arriba, las que mejor encajan contra la defensa del próximo rival" },
           { que: "Retos", es: "De precisión (la marca de cada uno) y de preguntas (se proyectan en el vestuario y se marca quién acierta)" },
           { que: "Opta · balón parado de la categoría", es: "El Castilla en córners, faltas, bandas y penaltis frente a su grupo y a Primera RFEF, y cada saque: dónde cae, quién lo saca y si acaba en remate" },
+          {
+            que: "Opta · cabecera y perfil (25/11/2026)",
+            es: "Arriba, el escudo del Castilla con sus partidos y el próximo rival con el suyo (en azul en toda la pestaña). En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una casilla por métrica que se juzga, coloreada por su percentil y agrupada por córners, faltas, bandas y penaltis",
+            cuenta: "Percentil y puesto contra su grupo (o contra la categoría si el grupo no se puede deducir), los mismos de las pistas",
+          },
+          {
+            que: "Opta · el cuadrante de cada sección",
+            es: "Un escudo por equipo en dos métricas de la sección: ocasiones a balón parado a favor y concedidas (Resumen), remates de córner a favor y en contra, remates de falta directa a favor y en contra, saques de banda y remates de banda, penaltis a favor y en contra. «Su grupo» o «Toda la categoría»",
+            cuenta: "Las rayas son la mediana de los equipos que salen; la esquina buena va en verde y la mala en naranja cuando las dos métricas se juzgan. Tocar un escudo enseña sus cifras",
+          },
+          {
+            que: "Opta · cada métrica",
+            es: "Su valor, la pista del grupo y de la categoría (el punto de oro es el Castilla y la raya azul, el próximo rival), la línea del próximo rival con su valor y su puesto, y los cinco mejores de la categoría con escudo. Al pulsar el nombre: qué mide, las medianas y la clasificación entera con escudos (del grupo, o los 12 primeros de la categoría con «Ver los N»)",
+            cuenta: "En los porcentajes, los equipos de menos de 10 intentos no entran en la clasificación ni en el podio (se dice cuántos se quedan fuera)",
+          },
+          {
+            que: "Opta · cada saque, con escudos",
+            es: "El equipo se elige en la cabecera (con su escudo) o con los atajos «Castilla» y «Próximo rival». Las cifras llevan una barra con la raya de la categoría. «Dónde caen» y «Quién los saca» son barras: cuántos, qué parte acaba en remate, llegan, xG y el reparto derecha/izquierda de cada lanzador",
+          },
+          {
+            que: "Opta · la categoría en ese saque",
+            es: "Debajo, los equipos con al menos 10 saques del tipo elegido (con los mismos filtros de lado y rosca, a favor o en contra): la clasificación del % que acaba en remate y el cuadrante saques por partido frente a % que acaba en remate, un escudo cada uno. Pulsar un escudo lo elige arriba",
+            cuenta: "Las mismas cuentas de arriba (resumenSaques de lib/opta-eventos.ts) equipo a equipo; «por partido» es entre los partidos en los que sacó alguno. En contra, menos remate es mejor",
+          },
           { que: "Datos", es: "Enlace a su propia pantalla: el balón parado de Primera RFEF y la Premier en Wyscout" },
         ],
       },
@@ -2960,7 +2984,8 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           PERCENTIL,
           { que: "Puesto en el grupo · en la categoría", es: "Cuántos equipos lo hacen mejor, más uno; en las de estilo, del que más al que menos" },
-          { que: "Color", es: "Verde desde el p60, oro entre p40 y p60, rojo por debajo" },
+          { que: "Color", es: "Verde desde el p60, oro entre p40 y p60, naranja por debajo (la misma escala que DATA)" },
+          { que: "Escudos", es: "Los de BeSoccer de los dos grupos, cruzados por nombre; si un equipo no tiene, sale su inicial" },
           { que: "Tendencia", es: "Un porcentaje con menos de 10 intentos: sin color ni percentil" },
           { que: "Remate de un saque", es: "El saque se ata con el remate de su misma jugada en Opta; la segunda jugada va aparte" },
         ],
@@ -4023,12 +4048,21 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Los paneles",
         filas: [
+          {
+            que: "Cabecera (25/11/2026)",
+            es: "El escudo y el nombre del equipo, su liga y sus partidos, el próximo rival con su escudo (pulsándolo se mira) y tres cifras: ABP con remate a favor y en contra por partido (con su puesto, la mediana de la liga y una barra con la raya de la mediana) y el balance",
+            cuenta: "Balance = a favor − en contra por partido; su puesto es el de la liga ordenada por ese balance",
+          },
           { que: "De un vistazo", es: "Una barra por métrica: su valor, la mediana de la liga y su puesto, con el próximo rival al lado" },
           PERCENTIL,
           { que: "Clasificación", es: "Los equipos de la liga de mejor a peor en la métrica elegida" },
           { que: "Peligro a favor y en contra", es: "Cada equipo es un punto: ABP con remate a favor (derecha, más) frente a en contra (abajo, menos)" },
+          {
+            que: "La liga, escudo a escudo",
+            es: "Una tarjeta por equipo con su escudo, sus barras de ABP con remate a favor (oro) y en contra (coral) por partido y el balance; ordenadas por el balance. El Castilla con filo de oro, el próximo rival en azul y el que se mira con filo gris. Pulsar una tarjeta elige el equipo",
+          },
           { que: "Partido a partido", es: "La métrica elegida en cada partido del equipo; la raya, su valor en la temporada", cuenta: "Debajo, la base: partidos o acciones sobre las que se calcula" },
-          { que: "Frente a la referencia", es: "El equipo contra un equipo de la Premier, cada uno con su percentil en su liga" },
+          { que: "Frente a la referencia", es: "El equipo contra un equipo de la Premier, escudo contra escudo, cada uno con su percentil en su liga" },
           { que: "Su gemelo en la Premier", es: "El equipo de la Premier con el perfil de balón parado más parecido", cuenta: "Menor distancia media entre percentiles en las métricas que se juzgan (al menos 4 en común)" },
         ],
       },
@@ -4046,8 +4080,9 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La Premier y Primera RFEF se comparan por percentiles, nunca cifra contra cifra.",
       "Un gemelo es parecido de perfil, no de nivel.",
+      "Los escudos son los de BeSoccer de Primera RFEF (rivals:informe y escudos:categoria), cruzados por nombre; los equipos sin escudo guardado, como los de la Premier, salen con su inicial.",
     ],
-    revisada: "2026-11-12",
+    revisada: "2026-11-25",
   },
 
   /* ==================== JUGADORES RIVALES EN VÍDEO (24/11/2026) ==================== */

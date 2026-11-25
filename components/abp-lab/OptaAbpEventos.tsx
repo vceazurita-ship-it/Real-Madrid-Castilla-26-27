@@ -14,6 +14,13 @@
 | Para cualquier equipo: a favor (sus saques) y en contra (los de sus rivales
 | en sus partidos). Abre con el Castilla; el próximo rival, a un clic.
 | Las cuentas, en `lib/opta-eventos.ts`.
+|
+| 25/11/2026 («mucho más visual, con todos los escudos»): el equipo se elige
+| también por su escudo; las cifras llevan su barra contra la categoría;
+| «Dónde caen» y «Quién los saca» son barras en vez de tablas; y debajo, la
+| categoría entera en ese mismo saque (con los mismos filtros de lado y
+| rosca): la clasificación del % que acaba en remate y el cuadrante volumen
+| frente a acierto, un escudo por equipo. Pinchar un escudo lo elige.
 */
 
 import { useMemo, useState } from "react";
@@ -22,6 +29,8 @@ import { Crosshair } from "lucide-react";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { Panel, Segmented } from "@/components/abp/ui";
+import { COMPARADO, tinta, useEscudos } from "@/components/data/graficas";
+import { CORAL, Cifra, Cuadrante, Escudo, LeyendaProtagonistas, ORO_MARCA, Ranking } from "@/components/abp-lab/visual";
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
@@ -52,6 +61,9 @@ const TIPOS: { key: Tipo; label: string }[] = [
   { key: "banda", label: "Banda largo" },
 ];
 
+/** Con menos saques, el % de un equipo no entra en la clasificación de la categoría. */
+const SAQUES_MIN = 10;
+
 const NOMBRE_CASTILLA = "Real Madrid Castilla";
 const nombreDe = (id: string, n: string) => (id === CASTILLA_OPTA ? NOMBRE_CASTILLA : n);
 const pct = (v: number | null | undefined) => (v == null ? "" : `${Math.round(v * 100)} %`);
@@ -69,16 +81,6 @@ export function zonaCaida(s: Saque): string {
 }
 export const ORDEN_ZONAS = ["Primer palo (área chica)", "Primer palo", "Al centro (área chica)", "Al centro", "Segundo palo (área chica)", "Segundo palo", "Fuera del área", "En corto"];
 
-function Cifra({ rotulo, valor, detalle }: { rotulo: string; valor: string; detalle?: string }) {
-  return (
-    <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-white/45">{rotulo}</p>
-      <p className="mt-0.5 text-xl font-semibold tabular-nums text-white">{valor}</p>
-      {detalle && <p className="mt-0.5 text-[11px] text-white/50">{detalle}</p>}
-    </div>
-  );
-}
-
 export function OptaAbpEventos() {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta, TablaOpta, TablaOpta]>(
     DOCS_OPTA.abpEventos,
@@ -88,6 +90,7 @@ export function OptaAbpEventos() {
     DOCS_OPTA.equipos,
   );
   const [abpT, rematesT, jugadoresT, castillaT, equiposT] = docs;
+  const escudoDe = useEscudos();
 
   const saques = useMemo(() => {
     const pista = pistaDe(aObjetos(jugadoresT), aObjetos(castillaT));
@@ -123,6 +126,25 @@ export function OptaAbpEventos() {
     [delEquipo, banda, rosca, tipo, lanzador],
   );
 
+  /* La categoría entera en este saque, con los mismos filtros de lado y rosca (no el del lanzador). */
+  const porEquipo = useMemo(() => {
+    const deCategoria = deTipo.filter((s) => (banda === "todas" || ladoSaque(s) === banda) && (tipo !== "corner" || rosca === "todas" || s.rosca === rosca));
+    const m = new Map<string, Saque[]>();
+    for (const s of deCategoria) {
+      const id = lado === "favor" ? s.teamId : s.rivalId;
+      m.set(id, [...(m.get(id) ?? []), s]);
+    }
+    return equipos
+      .map((e) => ({ ...e, r: resumenSaques(m.get(e.teamId) ?? []) }))
+      .filter((e) => e.r.n > 0);
+  }, [deTipo, banda, rosca, tipo, lado, equipos]);
+
+  const elegir = (id: string) => {
+    setTeamId(id);
+    setLanzador("");
+    setElegido(null);
+  };
+
   if (cargando) {
     return (
       <div className="mt-4 space-y-3" role="status" aria-live="polite">
@@ -136,6 +158,7 @@ export function OptaAbpEventos() {
   const r = resumenSaques(filtrados);
   const categoria = resumenSaques(deTipo);
   const nombre = nombreDe(teamId, equipos.find((e) => e.teamId === teamId)?.equipo ?? "");
+  const nombreProximo = idProximo ? equipos.find((e) => e.teamId === idProximo)?.equipo ?? "" : "";
   const tabla = lanzadores(delEquipo.filter((s) => (banda === "todas" || ladoSaque(s) === banda) && (tipo !== "corner" || rosca === "todas" || s.rosca === rosca)));
   const zonas = ORDEN_ZONAS.map((z) => {
     const suyos = filtrados.filter((s) => zonaCaida(s) === z);
@@ -143,6 +166,23 @@ export function OptaAbpEventos() {
   }).filter((z) => z.n > 0);
   const visto = elegido && filtrados.includes(elegido) ? elegido : null;
   const lateral = tipo === "falta" ? filtrados.filter(esFaltaLateral).length : 0;
+  const acento = lado === "favor" ? ORO_MARCA : CORAL;
+  const tipoTexto = TIPOS.find((t) => t.key === tipo)?.label.toLowerCase() ?? "";
+
+  /* La categoría: el % que acaba en remate (con muestra) y el cuadrante volumen frente a acierto. */
+  const conMuestra = porEquipo.filter((e) => e.r.n >= SAQUES_MIN && e.r.pctRemate != null && e.r.partidos > 0);
+  const rankingRemate = conMuestra.map((e) => ({
+    id: e.teamId,
+    equipo: e.equipo,
+    valor: e.r.pctRemate as number,
+    texto: pct(e.r.pctRemate),
+    escudo: escudoDe(e.equipo),
+    nota: `${e.r.conRemate} de ${e.r.n} · xG ${dec(e.r.xG)}`,
+  }));
+  const puntosCategoria = conMuestra.map((e) => ({ id: e.teamId, equipo: e.equipo, x: e.r.n / e.r.partidos, y: (e.r.pctRemate as number) * 100, escudo: escudoDe(e.equipo) }));
+  const sinMuestra = porEquipo.length - conMuestra.length;
+  /* En contra, que acaben en remate es malo. */
+  const remateMejorAlto = lado === "favor";
 
   const textoSaque = (s: Saque) =>
     [
@@ -157,6 +197,11 @@ export function OptaAbpEventos() {
       .filter(Boolean)
       .join(" · ");
 
+  const maxZona = Math.max(...zonas.map((z) => z.n), 1);
+  const maxLanz = Math.max(...tabla.slice(0, 10).map((l) => l.n), 1);
+  const xG10 = r.n ? (r.xG / r.n) * 10 : null;
+  const xG10Cat = (categoria.xG / Math.max(1, categoria.n)) * 10;
+
   return (
     <div className="mt-4">
       <Panel
@@ -165,36 +210,50 @@ export function OptaAbpEventos() {
         icon={Crosshair}
         action={<Segmented ariaLabel="Qué saque" options={TIPOS} value={tipo} onChange={(t) => { setTipo(t); setLanzador(""); }} />}
       >
+        {/* ------------------------ EL EQUIPO ------------------------- */}
+        <div className="mb-3 flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-white/10 p-3" style={{ background: `linear-gradient(110deg, ${acento}24, transparent 65%)` }}>
+          <Escudo src={escudoDe(nombre)} nombre={nombre} lado={44} />
+          <div className="min-w-0 flex-1">
+            <label className="block min-w-0">
+              <span className="block text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: lado === "favor" ? "var(--rmcf-gold-ink)" : CORAL }}>
+                {lado === "favor" ? "A favor · sus saques" : "En contra · los que le sacan"}
+              </span>
+              <select
+                value={teamId}
+                onChange={(e) => elegir(e.target.value)}
+                aria-label="Equipo"
+                className="mt-0.5 w-full min-w-0 max-w-xs truncate rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[15px] font-semibold text-white"
+              >
+                {equipos.map((e) => (
+                  <option key={e.teamId} value={e.teamId} className="bg-[#11161C]">
+                    {e.equipo}
+                  </option>
+                ))}
+              </select>
+            </label>
+          </div>
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
+            {teamId !== CASTILLA_OPTA && (
+              <button type="button" onClick={() => elegir(CASTILLA_OPTA)} className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2 py-1 text-xs text-white/75 hover:text-white">
+                <Escudo src={escudoDe(NOMBRE_CASTILLA)} nombre={NOMBRE_CASTILLA} lado={18} />
+                Castilla
+              </button>
+            )}
+            {idProximo && idProximo !== teamId && (
+              <button
+                type="button"
+                onClick={() => elegir(idProximo)}
+                className="inline-flex min-w-0 items-center gap-1.5 rounded-lg px-2 py-1 text-xs text-white/80 hover:text-white"
+                style={{ background: `${COMPARADO}1F` }}
+              >
+                <Escudo src={escudoDe(nombreProximo)} nombre={nombreProximo} lado={18} />
+                <span className="truncate">Próximo rival: {nombreProximo}</span>
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <label className="inline-flex min-w-0 items-center gap-2 text-xs text-white/55">
-            <span className="shrink-0">Equipo</span>
-            <select
-              value={teamId}
-              onChange={(e) => {
-                setTeamId(e.target.value);
-                setLanzador("");
-              }}
-              className="min-w-0 max-w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-1.5 text-sm text-white"
-            >
-              {equipos.map((e) => (
-                <option key={e.teamId} value={e.teamId} className="bg-[#11161C]">
-                  {e.equipo}
-                </option>
-              ))}
-            </select>
-          </label>
-          {idProximo && idProximo !== teamId && (
-            <button
-              type="button"
-              onClick={() => {
-                setTeamId(idProximo);
-                setLanzador("");
-              }}
-              className="rounded-lg border border-white/15 px-2.5 py-1.5 text-xs text-white/75 hover:text-white"
-            >
-              Próximo rival: {equipos.find((e) => e.teamId === idProximo)?.equipo}
-            </button>
-          )}
           <Segmented
             ariaLabel="A favor o en contra"
             options={[
@@ -241,15 +300,44 @@ export function OptaAbpEventos() {
           <p className="text-sm text-white/60">Con estos filtros no queda ningún saque.</p>
         ) : (
           <>
-            <div className="mb-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-              <Cifra rotulo="Saques" valor={String(r.n)} detalle={r.partidos ? `${dec(r.n / r.partidos, 1)} por partido${lateral ? ` · ${lateral} desde la banda` : ""}` : undefined} />
-              <Cifra rotulo="Acaban en remate" valor={pct(r.pctRemate)} detalle={`${r.conRemate} de ${r.n} · categoría ${pct(categoria.pctRemate)}`} />
-              <Cifra rotulo="xG de la jugada" valor={dec(r.xG)} detalle={r.n ? `${dec((r.xG / r.n) * 10)} cada 10 saques · categoría ${dec((categoria.xG / Math.max(1, categoria.n)) * 10)}` : undefined} />
-              <Cifra rotulo="Con la segunda jugada" valor={`${r.rematesAccion} rem.`} detalle={`xG ${dec(r.xGAccion)} · ${r.golesAccion} ${r.golesAccion === 1 ? "gol" : "goles"}`} />
-              <Cifra rotulo="Llegan a un compañero" valor={pct(r.pctCompleto)} detalle={`categoría ${pct(categoria.pctCompleto)}`} />
+            {/* ------------------------ LAS CIFRAS ------------------------ */}
+            <div className="mb-4 grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-5">
+              <Cifra rotulo="Saques" valor={String(r.n)} acento={acento} detalle={r.partidos ? `${dec(r.n / r.partidos, 1)} por partido${lateral ? ` · ${lateral} desde la banda` : ""}` : undefined} />
+              <Cifra
+                rotulo="Acaban en remate"
+                valor={pct(r.pctRemate)}
+                acento={acento}
+                barra={r.pctRemate}
+                referencia={categoria.pctRemate}
+                color={acento}
+                detalle={`${r.conRemate} de ${r.n} · categoría ${pct(categoria.pctRemate)}`}
+              />
+              <Cifra
+                rotulo="xG de la jugada"
+                valor={dec(r.xG)}
+                acento={acento}
+                barra={xG10 != null ? Math.min(1, xG10 / Math.max(xG10, xG10Cat * 2, 0.01)) : null}
+                referencia={xG10 != null ? xG10Cat / Math.max(xG10, xG10Cat * 2, 0.01) : null}
+                color={acento}
+                detalle={r.n ? `${dec((r.xG / r.n) * 10)} cada 10 saques · categoría ${dec(xG10Cat)}` : undefined}
+              />
+              <Cifra rotulo="Con la segunda jugada" valor={`${r.rematesAccion} rem.`} acento={acento} detalle={`xG ${dec(r.xGAccion)} · ${r.golesAccion} ${r.golesAccion === 1 ? "gol" : "goles"}`} />
+              <Cifra
+                rotulo="Llegan a un compañero"
+                valor={pct(r.pctCompleto)}
+                acento={acento}
+                barra={r.pctCompleto}
+                referencia={categoria.pctCompleto}
+                color={acento}
+                detalle={`categoría ${pct(categoria.pctCompleto)}`}
+              />
             </div>
+            <p className="-mt-2 mb-4 flex items-center gap-1.5 text-[10.5px] text-white/45">
+              <span aria-hidden className="inline-block h-3 w-[2px] rounded-full" style={{ background: tinta(0.6) }} />
+              La raya de cada barra es la categoría.
+            </p>
 
-            <div className="grid gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
+            <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
               <div className="min-w-0">
                 <CampoOpta vertical mitad ariaLabel={`Dónde caen los saques ${lado === "favor" ? "de" : "contra"} ${nombre}`} maxAlto={460}>
                   {(p) =>
@@ -285,74 +373,135 @@ export function OptaAbpEventos() {
                 )}
               </div>
 
-              <div className="min-w-0 space-y-4">
+              <div className="min-w-0 space-y-5">
+                {/* ----------------------- DÓNDE CAEN ----------------------- */}
                 {zonas.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <h3 className="mb-1 text-[13px] font-semibold text-white">Dónde caen</h3>
-                    <table className="w-full min-w-[340px] text-left text-[12px] tabular-nums">
-                      <thead>
-                        <tr className="border-b border-white/10 text-[11px] text-white/50">
-                          <th className="py-1.5 pr-2 font-semibold">Zona (desde el lado del saque)</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">Saques</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">%</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">Remate</th>
-                          <th className="py-1.5 text-right font-semibold">xG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {zonas.map((z) => (
-                          <tr key={z.z} className="border-b border-white/[0.06]">
-                            <td className="py-1.5 pr-2 text-white/80">{z.z}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{z.n}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{pct(z.n / r.n)}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{pct(z.pctRemate)}</td>
-                            <td className="py-1.5 text-right text-white/75">{dec(z.xG)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                  <div className="min-w-0">
+                    <h3 className="text-[13px] font-semibold text-white">Dónde caen</h3>
+                    <p className="mb-2 text-[11px] text-white/45">Desde el lado del saque. La barra, cuántos; a la derecha, qué parte acaba en remate y su xG.</p>
+                    <div className="space-y-1.5">
+                      {zonas.map((z) => (
+                        <div key={z.z} className="min-w-0">
+                          <div className="flex min-w-0 items-baseline gap-2 text-[12px]">
+                            <span className="min-w-0 flex-1 truncate text-white/80">{z.z}</span>
+                            <span className="shrink-0 tabular-nums text-white/55">
+                              {z.n} · {pct(z.n / r.n)}
+                            </span>
+                          </div>
+                          <div className="mt-0.5 flex min-w-0 items-center gap-2">
+                            <span className="relative h-2.5 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.07) }}>
+                              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, (z.n / maxZona) * 100)}%`, background: acento, opacity: 0.85 }} />
+                              {z.conRemate > 0 && (
+                                <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(2, (z.conRemate / maxZona) * 100)}%`, background: SOBRE_CESPED.verde }} title={`${z.conRemate} acaban en remate`} />
+                              )}
+                            </span>
+                            <span className="w-24 shrink-0 text-right text-[11px] tabular-nums text-white/60">
+                              {pct(z.pctRemate)} rem. · xG {dec(z.xG)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-1.5 flex flex-wrap gap-x-3 text-[10.5px] text-white/45">
+                      <Punto color={acento}>Saques</Punto>
+                      <Punto color={SOBRE_CESPED.verde}>Acaban en remate</Punto>
+                    </p>
                   </div>
                 )}
 
+                {/* --------------------- QUIÉN LOS SACA --------------------- */}
                 {tabla.length > 0 && (
-                  <div className="overflow-x-auto">
-                    <h3 className="mb-1 text-[13px] font-semibold text-white">Quién los saca</h3>
-                    <table className="w-full min-w-[380px] text-left text-[12px] tabular-nums">
-                      <thead>
-                        <tr className="border-b border-white/10 text-[11px] text-white/50">
-                          <th className="py-1.5 pr-2 font-semibold">Lanzador</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">Saques</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold" title="Desde la derecha / desde la izquierda">Dcha/Izq</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">Llegan</th>
-                          <th className="py-1.5 pr-2 text-right font-semibold">Remate</th>
-                          <th className="py-1.5 text-right font-semibold">xG</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {tabla.slice(0, 10).map((l) => (
-                          <tr
+                  <div className="min-w-0">
+                    <h3 className="text-[13px] font-semibold text-white">Quién los saca</h3>
+                    <p className="mb-2 text-[11px] text-white/45">Pulsa uno para ver sólo los suyos. La barra partida, desde la derecha / desde la izquierda.</p>
+                    <div className="space-y-1">
+                      {tabla.slice(0, 10).map((l) => {
+                        const suyo = lado === "contra" ? delEquipo.find((s) => s.lanzador === l.lanzador) : null;
+                        const suEquipo = suyo ? nombreDe(suyo.teamId, suyo.equipo) : "";
+                        const activo = lanzador === l.lanzador;
+                        return (
+                          <button
                             key={l.lanzador}
-                            onClick={() => setLanzador(lanzador === l.lanzador ? "" : l.lanzador)}
-                            className={`cursor-pointer border-b border-white/[0.06] hover:bg-white/[0.04] ${lanzador === l.lanzador ? "bg-white/[0.06]" : ""}`}
+                            type="button"
+                            onClick={() => setLanzador(activo ? "" : l.lanzador)}
+                            aria-pressed={activo}
+                            className={`block w-full min-w-0 rounded-lg px-2 py-1.5 text-left transition hover:bg-white/[0.04] ${activo ? "bg-white/[0.06]" : ""}`}
                           >
-                            <td className="max-w-[160px] truncate py-1.5 pr-2 text-white/85">
-                              {l.lanzador}
-                              {lado === "contra" && <span className="ml-1 text-[10px] text-white/40">{nombreDe(delEquipo.find((s) => s.lanzador === l.lanzador)?.teamId ?? "", delEquipo.find((s) => s.lanzador === l.lanzador)?.equipo ?? "")}</span>}
-                            </td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{l.n}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{`${l.derecha}/${l.izquierda}`}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{pct(l.pctCompleto)}</td>
-                            <td className="py-1.5 pr-2 text-right text-white/75">{pct(l.pctRemate)}</td>
-                            <td className="py-1.5 text-right text-white/75">{dec(l.xG)}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
+                            <span className="flex min-w-0 items-center gap-2 text-[12px]">
+                              {suEquipo && <Escudo src={escudoDe(suEquipo)} nombre={suEquipo} lado={16} />}
+                              <span className="min-w-0 flex-1 truncate font-medium text-white/85">
+                                {l.lanzador}
+                                {suEquipo && <span className="ml-1 text-[10px] font-normal text-white/40">{suEquipo}</span>}
+                              </span>
+                              <span className="shrink-0 tabular-nums text-white">{l.n}</span>
+                            </span>
+                            <span className="mt-1 flex h-2 min-w-0 overflow-hidden rounded-full" style={{ background: tinta(0.07) }}>
+                              <span className="flex h-full" style={{ width: `${Math.max(4, (l.n / maxLanz) * 100)}%` }}>
+                                <span className="h-full" style={{ width: `${(l.derecha / Math.max(1, l.n)) * 100}%`, background: acento }} title={`${l.derecha} desde la derecha`} />
+                                <span className="h-full" style={{ width: `${(l.izquierda / Math.max(1, l.n)) * 100}%`, background: acento, opacity: 0.45 }} title={`${l.izquierda} desde la izquierda`} />
+                              </span>
+                            </span>
+                            <span className="mt-0.5 flex flex-wrap gap-x-2.5 text-[10.5px] tabular-nums text-white/55">
+                              <span>Dcha/Izq {l.derecha}/{l.izquierda}</span>
+                              <span>Llegan {pct(l.pctCompleto)}</span>
+                              <span>Remate {pct(l.pctRemate)}</span>
+                              <span>xG {dec(l.xG)}</span>
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
               </div>
             </div>
           </>
+        )}
+
+        {/* -------------------- LA CATEGORÍA ENTERA -------------------- */}
+        {conMuestra.length >= 3 && (
+          <div className="mt-6 min-w-0 border-t border-white/10 pt-5">
+            <h3 className="text-[14px] font-semibold text-white">
+              La categoría en {tipoTexto}, {lado === "favor" ? "a favor" : "en contra"}
+            </h3>
+            <p className="mb-3 text-[11px] text-white/50">
+              Los {conMuestra.length} equipos con al menos {SAQUES_MIN} saques{banda !== "todas" ? `, desde la ${banda}` : ""}
+              {tipo === "corner" && rosca !== "todas" ? `, ${rosca === "Short" ? "en corto" : ROSCA[rosca]?.toLowerCase() ?? ""}` : ""}
+              {lado === "contra" ? " (los que les sacan sus rivales)" : ""}. Pulsa un escudo para mirarlo arriba.
+            </p>
+            <div className="grid min-w-0 gap-5 xl:grid-cols-2">
+              <div className="min-w-0">
+                <p className="mb-2 text-[12px] font-semibold text-white/80">Qué parte acaba en remate</p>
+                <Ranking
+                  filas={rankingRemate}
+                  mejorAlto={remateMejorAlto}
+                  nuestro={CASTILLA_OPTA}
+                  rival={idProximo}
+                  elegido={teamId}
+                  alPulsar={elegir}
+                  tope={14}
+                  pie={sinMuestra > 0 ? <span>Sin los {sinMuestra} de menos de {SAQUES_MIN} saques</span> : undefined}
+                />
+              </div>
+              <div className="min-w-0">
+                <p className="mb-2 text-[12px] font-semibold text-white/80">Cuántos saca y cuántos acaban en remate</p>
+                <Cuadrante
+                  puntos={puntosCategoria}
+                  etiquetaX="Saques por partido"
+                  etiquetaY="% que acaba en remate"
+                  textoX={(v) => dec(v, 1)}
+                  textoY={(v) => `${Math.round(v)} %`}
+                  xMejorAlto={null}
+                  yMejorAlto={remateMejorAlto}
+                  nuestro={CASTILLA_OPTA}
+                  rival={idProximo}
+                  elegido={teamId}
+                  alPulsar={elegir}
+                />
+                <LeyendaProtagonistas nuestro={NOMBRE_CASTILLA} rival={nombreProximo || undefined} elegido={teamId !== CASTILLA_OPTA && teamId !== idProximo ? nombre : undefined} />
+              </div>
+            </div>
+          </div>
         )}
       </Panel>
     </div>
