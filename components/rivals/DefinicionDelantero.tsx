@@ -13,7 +13,7 @@
  */
 
 import { useMemo } from "react";
-import { Crosshair } from "lucide-react";
+import { Crosshair, Flame } from "lucide-react";
 
 import { COMPARADO, tinta } from "@/components/data/graficas";
 import { useAsoma } from "@/hooks/useAsoma";
@@ -30,6 +30,14 @@ import {
   type DefinicionDelantero as Lectura,
   type Etiqueta,
 } from "@/lib/rivals/definicion-delantero";
+import {
+  ETIQUETAS_RACHA,
+  MINUTOS_RACHA,
+  PARTIDOS_RACHA,
+  rachaDelantero,
+  type RachaDelantero,
+  type Tramo,
+} from "@/lib/rivals/racha-delantero";
 
 type FichaHoja = { JUGADOR?: unknown; "NOMBRE DEPORTIVO"?: unknown };
 
@@ -76,18 +84,25 @@ function Bloque<T extends FichaHoja>({
   plantilla: T[];
   claveDe: (ficha: T) => string;
 }) {
-  const { docs } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.jugadores, DOCS_OPTA.remates);
-  const [tEquipos, tJugadores, tRemates] = docs;
+  const { docs } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta, TablaOpta]>(
+    DOCS_OPTA.equipos,
+    DOCS_OPTA.jugadores,
+    DOCS_OPTA.remates,
+    DOCS_OPTA.jugadoresPartidos,
+  );
+  const [tEquipos, tJugadores, tRemates, tJugPartidos] = docs;
 
   const jugadores = useMemo(() => aObjetos(tJugadores), [tJugadores]);
   const equipos = useMemo(
     () => aObjetos(tEquipos).map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") })),
     [tEquipos],
   );
-  const tiros = useMemo(
-    () => (tRemates && jugadores.length ? rematesPorTirador(rematesDe(tRemates, pistaDe(jugadores))) : null),
+  const lista = useMemo(
+    () => (tRemates && jugadores.length ? rematesDe(tRemates, pistaDe(jugadores)) : null),
     [tRemates, jugadores],
   );
+  const tiros = useMemo(() => (lista ? rematesPorTirador(lista) : null), [lista]);
+  const jugPartidos = useMemo(() => aObjetos(tJugPartidos), [tJugPartidos]);
 
   /* Su fila de Opta: entre los de su equipo, cruzando la plantilla entera. */
   const suya = useMemo(() => {
@@ -105,9 +120,20 @@ function Bloque<T extends FichaHoja>({
     [suya, tiros, jugadores],
   );
 
+  /* Sus últimos 5 frente a su temporada: sólo si es delantero o mediapunta (hay lectura). */
+  const racha = useMemo(
+    () => (lectura && lista && jugPartidos.length ? rachaDelantero(lectura.yo.playerId, jugPartidos, lista) : null),
+    [lectura, lista, jugPartidos],
+  );
+
   if (!lectura) return null;
 
-  return <Tarjeta l={lectura} />;
+  return (
+    <div className="grid min-w-0 gap-4">
+      <Tarjeta l={lectura} />
+      {racha && <Momento r={racha} />}
+    </div>
+  );
 }
 
 function Tarjeta({ l }: { l: Lectura }) {
@@ -236,6 +262,86 @@ function Nube({ l, color }: { l: Lectura; color: string }) {
         </text>
       </svg>
     </figure>
+  );
+}
+
+/** «24/11» de una fecha AAAA-MM-DD. */
+const diaMes = (f: string) => (/^\d{4}-\d{2}-\d{2}/.test(f) ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : "");
+
+/*
+| MOMENTO DE CARA A PUERTA (25/11/2026, idea de X): sus últimos 5 partidos
+| frente a su temporada, en cuatro cifras, y una etiqueta que dice si la
+| racha viene de rematar mejor o de llegar más. Cuentas en
+| lib/rivals/racha-delantero.ts.
+*/
+function Momento({ r }: { r: RachaDelantero }) {
+  const { ultimos: u, temporada: t } = r;
+  const e = r.etiqueta ? ETIQUETAS_RACHA[r.etiqueta] : null;
+  const tramoFechas = r.desde && r.hasta ? ` · del ${diaMes(r.desde)} al ${diaMes(r.hasta)}` : "";
+  const signo = (v: number, d = 2) => `${v > 0 ? "+" : ""}${coma(v, d)}`;
+  const filas: { nombre: string; u: string; t: string; nota: (x: Tramo) => string; dif: number | null }[] = [
+    { nombre: "Goles/90", u: coma(u.goles90), t: coma(t.goles90), nota: (x) => `${x.goles} ${x.goles === 1 ? "gol" : "goles"}`, dif: u.goles90 - t.goles90 },
+    { nombre: "xG/90", u: coma(u.xg90), t: coma(t.xg90), nota: (x) => `${coma(x.xg, 1)} de xG`, dif: u.xg90 - t.xg90 },
+    { nombre: "Goles − xG /90", u: signo(u.dif90), t: signo(t.dif90), nota: (x) => `${signo(x.goles - x.xg, 1)} en total`, dif: u.dif90 - t.dif90 },
+    {
+      nombre: "xG por remate",
+      u: u.xgPorRemate != null ? coma(u.xgPorRemate) : "—",
+      t: t.xgPorRemate != null ? coma(t.xgPorRemate) : "—",
+      nota: (x) => `${x.remates} ${x.remates === 1 ? "remate" : "remates"}`,
+      dif: u.xgPorRemate != null && t.xgPorRemate != null ? u.xgPorRemate - t.xgPorRemate : null,
+    },
+  ];
+
+  return (
+    <section id="x-idea-2125201088911757724-1" className="min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
+      <header className="mb-3 flex flex-wrap items-center justify-between gap-2">
+        <h3 className="flex items-center gap-2 text-[10px] uppercase tracking-[0.2em] text-white/40">
+          <Flame size={12} className="text-[#C8A96B]" />
+          Momento de cara a puerta · últimos {PARTIDOS_RACHA} frente a su temporada
+        </h3>
+        <span className="text-[10px] text-white/40">
+          Opta · {u.partidos} {u.partidos === 1 ? "partido" : "partidos"}, {u.minutos}′{tramoFechas} · sin penaltis
+        </span>
+      </header>
+
+      {e && (
+        <div className="mb-3 min-w-0">
+          <span
+            className="inline-flex items-center rounded-full border px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.12em]"
+            style={{ color: chipInk(e.color), borderColor: `${e.color}66`, background: `${e.color}1A` }}
+          >
+            {e.texto}
+          </span>
+          <p className="mt-1.5 text-[12px] text-white/75">{e.orden}</p>
+        </div>
+      )}
+      <p className="mb-3 text-[11px] text-white/50">{r.porque}</p>
+
+      <div className="grid min-w-0 grid-cols-2 gap-2 md:grid-cols-4">
+        {filas.map((f) => (
+          <div key={f.nombre} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-2.5">
+            <p className="text-[10px] uppercase tracking-[0.14em] text-white/40">{f.nombre}</p>
+            <div className="mt-1 flex min-w-0 flex-wrap items-baseline gap-x-2">
+              <span className="text-lg font-semibold tabular-nums text-white">{f.u}</span>
+              {f.dif != null && Math.abs(f.dif) >= 0.005 && (
+                <span className={`text-[11px] font-semibold tabular-nums ${f.dif > 0 ? "text-emerald-300" : "text-rose-300"}`}>
+                  {f.dif > 0 ? "▲" : "▼"} {coma(Math.abs(f.dif))}
+                </span>
+              )}
+            </div>
+            <p className="text-[10px] text-white/45">últimos {u.partidos} · {f.nota(u)}</p>
+            <p className="mt-1 text-[11px] tabular-nums text-white/60">
+              Temporada <span className="font-semibold text-white/80">{f.t}</span>
+            </p>
+            <p className="text-[10px] text-white/40">{t.partidos} partidos · {f.nota(t)}</p>
+          </div>
+        ))}
+      </div>
+
+      <p className="mt-3 text-[10px] text-white/35">
+        Últimos = los {PARTIDOS_RACHA} últimos partidos en los que ha jugado; temporada = todos (los últimos incluidos). ▲▼ = últimos menos temporada. «Genera más» si su xG/90 sube un 25 % o más; «afinado» si con el mismo xG/90 marca al menos 2 y 1 más de lo que dan sus ocasiones; «seco» si con el mismo xG/90 marca 0,8 o más por debajo de su xG. Con menos de {MINUTOS_RACHA}′ en los últimos no se etiqueta.
+      </p>
+    </section>
   );
 }
 

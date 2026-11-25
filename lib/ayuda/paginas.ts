@@ -1913,11 +1913,16 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
     origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-21",
+    revisada: "2026-11-25",
     bloques: [
       {
         titulo: "Lo nuevo (19/11/2026): cómo define el delantero rival",
         filas: [
+          {
+            que: "«Momento de cara a puerta», en la ficha (25/11/2026)",
+            es: "Para delanteros y mediapuntas, justo debajo de «Cómo define»: cuatro cifras de sus últimos 5 partidos al lado de las de toda su temporada (goles/90, xG/90, goles menos xG por 90 y xG por remate), con ▲▼ la diferencia. Una etiqueta dice de dónde viene la racha: «Genera más» (llega más: su xG/90 sube), «Afinado» (llega lo mismo pero mete más de lo que valen sus tiros), «Seco» (llega lo mismo y no marca), «Llega menos» o «En su línea». Encabezado con los partidos, los minutos y las fechas del tramo",
+            cuenta: "Opta: opta:jugadores-partidos (minutos de cada partido; últimos = los 5 últimos con minutos, ordenados por la fecha de opta:remates) y opta:remates del jugador SIN PENALTIS (goles, xG, remates). Temporada = todos sus partidos, los últimos incluidos. Por 90 = valor ÷ minutos × 90. Etiqueta (por este orden): genera más si su xG/90 de los últimos es un 25 % mayor y al menos 0,10 más; afinado si su xG/90 no cae un 25 % y en los últimos marca 2 o más y al menos 1 más que su xG; seco si su xG/90 no cae, suma 0,8 de xG o más y marca 0,8 o más por debajo; llega menos si el xG/90 cae un 25 % y 0,10; si no, en su línea. Sin etiqueta con menos de 270′ en la temporada, 5 partidos o menos jugados o menos de 180′ en los últimos. lib/rivals/racha-delantero.ts y components/rivals/DefinicionDelantero.tsx",
+          },
           { que: "Fecha de cada rival (J y título)", es: "La de BeSoccer para esa jornada, también si ya se jugó. Antes los partidos jugados se quedaban con la fecha de la hoja." },
           { que: "«Plan de partido Jnn» en la tira de accesos", es: "La jornada que toca contra ese equipo la marca la última que se ha jugado según BeSoccer, no la fecha de la hoja." },
           { que: "Once probable sin nadie marcado", es: "Si nadie ha marcado el once a mano, se enseña el que propone el motor con sus últimos onces de liga de BeSoccer (lib/rivals/once-sugerido.ts, sugiereOnce). No se guarda: el contador dice «11 titulares probables», cada línea plegada da sus nombres y el campograma los pinta como titulares. Al tocar a un jugador, el once sugerido se queda puesto y ese jugador cambia, como con «Sugerir el once»." },
