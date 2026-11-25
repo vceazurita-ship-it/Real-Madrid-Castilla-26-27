@@ -890,6 +890,7 @@ export const EVENTO_SECCION_ACTUAL = "abp-datos:seccion-actual";
 /** `extra`: px de más bajo la cabecera (en el Laboratorio de ABP, su propia barra de pestañas va pegada encima). */
 export function NavSecciones({ items, extra = 0 }: { items: ItemNav[]; extra?: number }) {
   const top = useAltoCabecera() + extra;
+  const nav = useRef<HTMLElement>(null);
   const [activo, setActivo] = useState(items[0]?.id ?? "");
   const [seccion, setSeccion] = useState("");
 
