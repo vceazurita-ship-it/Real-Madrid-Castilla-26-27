@@ -40,9 +40,66 @@ export interface DocResult<T = unknown> {
   missingTable?: boolean;
 }
 
+/*
+| MEMORIA DE LO LEÍDO (25/11/2026). Supabase cortó el 24/11 por pasar de los
+| 5,5 GB de bajada del mes. Cada pantalla abierta que relee un documento cada
+| pocos segundos lo bajaba entero de la base. Ahora el servidor recuerda lo
+| que ya leyó: primero pide sólo `updated_at` (unos bytes) y, si no ha
+| cambiado, sirve su copia. Sólo para documentos de más de 4 KB (los
+| pequeños se leen directos, que es una consulta y no dos), con un tope de
+| 40 MB en memoria (se va el que lleva más tiempo sin usarse). Copia por
+| lectura: quien lo reciba puede tocarlo sin estropear la guardada.
+*/
+const MEMORIA_TOPE = 40e6;
+const PEQUENO = 4_000;
+const memoria = new Map<string, { updatedAt: string; data: unknown; bytes: number }>();
+let memoriaBytes = 0;
+
+function recuerda(key: string, updatedAt: string | null, data: unknown) {
+  const vieja = memoria.get(key);
+  if (vieja) {
+    memoria.delete(key);
+    memoriaBytes -= vieja.bytes;
+  }
+  if (!updatedAt) return;
+  let bytes = 0;
+  try {
+    bytes = JSON.stringify(data)?.length ?? 0;
+  } catch {
+    return;
+  }
+  if (bytes < PEQUENO || bytes > MEMORIA_TOPE / 4) return;
+  memoria.set(key, { updatedAt, data, bytes });
+  memoriaBytes += bytes;
+  for (const [k, v] of memoria) {
+    if (memoriaBytes <= MEMORIA_TOPE) break;
+    memoria.delete(k);
+    memoriaBytes -= v.bytes;
+  }
+}
+
 export async function readDoc<T = unknown>(
   key: string
 ): Promise<DocResult<T>> {
+  const guardada = memoria.get(key);
+
+  if (guardada) {
+    const { data: sello, error: errorSello } = await supabase.from(TABLE).select("updated_at").eq("key", key).maybeSingle();
+
+    if (!errorSello && sello?.updated_at && sello.updated_at === guardada.updatedAt) {
+      /* Al final del mapa: es el más reciente en usarse. */
+      memoria.delete(key);
+      memoria.set(key, guardada);
+      return { data: structuredClone(guardada.data) as T, updatedAt: guardada.updatedAt };
+    }
+  }
+
+  const leido = await leeEntero<T>(key);
+  recuerda(key, leido.updatedAt, leido.data);
+  return leido.data == null ? leido : { ...leido, data: structuredClone(leido.data) };
+}
+
+async function leeEntero<T>(key: string): Promise<DocResult<T>> {
   const { data, error } = await supabase
     .from(TABLE)
     .select("data, updated_at")

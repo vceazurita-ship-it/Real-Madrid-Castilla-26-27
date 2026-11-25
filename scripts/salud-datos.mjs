@@ -278,10 +278,66 @@ async function miraSupabase() {
     const r = await fetch(`${u}/rest/v1/app_documents?select=key&limit=1`, { headers: { apikey: k, Authorization: `Bearer ${k}` } });
     estado.supabase = r.status === 402 ? "cortado" : r.ok ? "vuelto" : String(r.status);
     if (r.status === 402) notas.push("Supabase sigue cortado (402).");
-    else if (r.ok) notas.push(process.env.DATOS_PG_URL ? "Supabase ha vuelto: se puede pensar en volver (ver la nota del plan B), pero la reserva sigue mandando mientras DATOS_PG_URL esté puesta." : "Supabase: la app vive en él (desde el 21/11/2026).");
+    else if (r.ok && process.env.DATOS_PG_URL) {
+      /* 25/11/2026: aviso (con correo), no nota: la vuelta tiene que hacerse antes de que caduque la reserva. */
+      avisos.push(
+        `Supabase ha vuelto y la app sigue en la reserva, que caduca el ${process.env.DATOS_PG_CADUCA || "2026-12-14"}. Toca volver a Supabase: dile a Claude «volvemos a Supabase» (pasos en la nota del plan B de datos).`,
+      );
+    } else if (r.ok) notas.push("Supabase: la app vive en él.");
     else notas.push(`Supabase responde ${r.status}.`);
   } catch (e) {
     notas.push(`Supabase: sin respuesta (${e.message}).`);
+  }
+}
+
+/* --------------------- bajada de datos de la base --------------------- */
+
+/*
+| 25/11/2026: lo que contó ayer el medidor de lib/datos/cliente.cjs (los
+| scripts de este ordenador en .cache/bajada-datos y la web en los documentos
+| medidor:bajada-web:<día>:*). Supabase gratis da 5,5 GB al mes (~180 MB al
+| día): por encima de BAJADA_AVISO_MB al día (50) sale aviso con quién ha sido.
+*/
+async function miraBajada() {
+  try {
+    const d = new Date(`${HOY}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 1);
+    const ayer = d.toISOString().slice(0, 10);
+    const carpeta = path.join(RAIZ, ".cache", "bajada-datos");
+    const porQuien = {};
+    const fichero = path.join(carpeta, `${ayer}.jsonl`);
+    if (fs.existsSync(fichero)) {
+      for (const l of fs.readFileSync(fichero, "utf8").split(/\r?\n/)) {
+        if (!l.trim()) continue;
+        try {
+          const j = JSON.parse(l);
+          porQuien[j.script] = (porQuien[j.script] ?? 0) + (Number(j.bytes) || 0);
+        } catch {
+          /* línea a medias */
+        }
+      }
+    }
+    const { createClient } = require("../lib/datos/cliente.cjs");
+    const cliente = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+    const { data: web } = await cliente.from("app_documents").select("data").like("key", `medidor:bajada-web:${ayer}:%`);
+    const deWeb = (web ?? []).reduce((t, f) => t + (Number(f.data?.bytes) || 0), 0);
+    if (deWeb) porQuien["la web"] = deWeb;
+    const total = Object.values(porQuien).reduce((a, b) => a + b, 0);
+    const tope = Number(process.env.BAJADA_AVISO_MB || 50) * 1e6;
+    const top = Object.entries(porQuien).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, v]) => `${k} ${mb(v)}`).join(", ");
+    estado.bajada = { dia: ayer, bytes: total, porQuien };
+    notas.push(`Bajada de la base ayer (${ayer}): ${mb(total)}${top ? ` (${top})` : ""}.`);
+    if (total > tope) {
+      avisos.push(`Ayer se bajaron ${mb(total)} de la base, más de los ${mb(tope)} al día que caben en lo gratis de Supabase (5,5 GB al mes). Quién: ${top}. Hay que mirar ese script antes de que corte.`);
+    }
+    /* Los ficheros del medidor, 30 días. */
+    if (fs.existsSync(carpeta)) {
+      const limite = new Date(`${HOY}T00:00:00Z`);
+      limite.setUTCDate(limite.getUTCDate() - 30);
+      for (const n of fs.readdirSync(carpeta)) if (/^\d{4}-\d{2}-\d{2}\.jsonl$/.test(n) && n < limite.toISOString().slice(0, 10)) fs.rmSync(path.join(carpeta, n), { force: true });
+    }
+  } catch (e) {
+    notas.push(`Bajada de la base: no se ha podido medir (${e.message}).`);
   }
 }
 
@@ -406,6 +462,7 @@ try {
 }
 await miraB2();
 await miraSupabase();
+await miraBajada();
 await rescataSupabase();
 miraRender();
 await avisa();
