@@ -9,6 +9,29 @@ import { AbpHeader, Segmented } from "@/components/abp/ui";
 import { OptaBalonParado } from "@/components/abp-lab/OptaBalonParado";
 import { OptaAbpEventos } from "@/components/abp-lab/OptaAbpEventos";
 import { AbpLigasWyscout } from "@/components/abp-lab/AbpLigasWyscout";
+import { NavSecciones, type ItemNav } from "@/components/abp-lab/visual";
+
+/* 25/11/2026: la página es larga; una barra pegajosa lleva a cada bloque (y, en Opta, a cada sección). */
+const NAV: Record<Tab, ItemNav[]> = {
+  categoria: [
+    { id: "abp-resumen", label: "Cabecera" },
+    { id: "abp-opta", label: "Resumen", seccion: "Resumen" },
+    { id: "abp-opta", label: "Córners", seccion: "Córners" },
+    { id: "abp-opta", label: "Faltas", seccion: "Faltas" },
+    { id: "abp-opta", label: "Banda", seccion: "Saques de banda" },
+    { id: "abp-opta", label: "Penaltis", seccion: "Penaltis" },
+    { id: "abp-saques", label: "Cada saque" },
+    { id: "abp-saques-categoria", label: "La categoría en ese saque" },
+  ],
+  ligas: [
+    { id: "lig-resumen", label: "Cabecera" },
+    { id: "lig-vistazo", label: "De un vistazo" },
+    { id: "lig-peligro", label: "Peligro" },
+    { id: "lig-escudos", label: "Escudo a escudo" },
+    { id: "lig-tendencia", label: "Partido a partido" },
+    { id: "lig-premier", label: "Frente a la Premier" },
+  ],
+};
 
 type Tab = "categoria" | "ligas";
 
@@ -71,7 +94,10 @@ export function AbpDatos({ inicial }: { inicial: Tab }) {
               </p>
             </div>
 
-            <div className="mt-6 min-w-0">
+            {/* Hija directa de la columna: lo pegajoso sólo se pega dentro de su padre. */}
+            <NavSecciones key={tab} items={NAV[tab]} />
+
+            <div className="mt-3 min-w-0">
               {tab === "categoria" && (
                 <div className="grid min-w-0 grid-cols-1 gap-8 [&>*]:min-w-0">
                   <OptaBalonParado />

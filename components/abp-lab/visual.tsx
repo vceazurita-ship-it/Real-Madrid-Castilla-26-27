@@ -21,7 +21,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { COMPARADO, EscudoPunto, MEJOR, ORO, PEOR, colorPercentil, ladoEscudo, tinta } from "@/components/data/graficas";
+import { COMPARADO, MEJOR, ORO, PEOR, PERCENTIL_ALTO, PERCENTIL_BAJO, colorPercentil, tinta } from "@/components/data/graficas";
 
 /** El oro de la marca como relleno (el `ORO` de graficas es el de texto, más oscuro en día). */
 export const ORO_MARCA = "#C8A96B";
@@ -229,6 +229,42 @@ function useAncho<T extends HTMLElement>() {
 /** El fondo del tema, para el halo de los rótulos (que se lean encima de un escudo o una raya). */
 const FONDO = "var(--rmcf-surface, #11161C)";
 
+type RolPlano = "nuestro" | "comparado" | "fondo";
+/** El lado del escudo en el cuadrante (un poco mayor que el de DATA). */
+const ladoPlano = (rol: RolPlano) => (rol === "fondo" ? 22 : 40);
+
+/** Un escudo en el cuadrante: los protagonistas con halo de su color; al pasar, crece. */
+function EscudoPlano({ cx, cy, escudo, rol, color, encima }: { cx: number; cy: number; escudo: string | null; rol: RolPlano; color: string; encima: boolean }) {
+  const lado = ladoPlano(rol);
+  const prota = rol !== "fondo";
+  return (
+    <g
+      style={{
+        opacity: prota || encima ? 1 : 0.72,
+        transform: encima ? "scale(1.25)" : "none",
+        transformBox: "fill-box",
+        transformOrigin: "center",
+        transition: "transform 160ms ease, opacity 160ms ease",
+      }}
+    >
+      {prota && (
+        <>
+          <circle cx={cx} cy={cy} r={lado / 2 + 14} style={{ fill: color, fillOpacity: 0.08 }} />
+          <circle cx={cx} cy={cy} r={lado / 2 + 7} style={{ fill: color, fillOpacity: 0.16 }} />
+        </>
+      )}
+      {escudo ? (
+        <>
+          <circle cx={cx} cy={cy} r={lado / 2 + 2} style={{ fill: FONDO, stroke: prota || encima ? color : tinta(0.18), strokeWidth: prota ? 2.5 : 1 }} />
+          <image href={escudo} x={cx - lado / 2} y={cy - lado / 2} width={lado} height={lado} preserveAspectRatio="xMidYMid meet" />
+        </>
+      ) : (
+        <circle cx={cx} cy={cy} r={prota ? 8 : 5} style={{ fill: prota ? color : tinta(0.35), stroke: FONDO, strokeWidth: 2 }} />
+      )}
+    </g>
+  );
+}
+
 /**
  * Un escudo por equipo en dos métricas. Las medianas de los que salen parten
  * el dibujo en cuatro; si las dos métricas se juzgan, la esquina buena va en
@@ -269,6 +305,7 @@ export function Cuadrante({
   rotulos?: { bueno: string; malo: string };
 }) {
   const id = useId();
+  const gid = `cu${id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const [caja, ancho] = useAncho<HTMLDivElement>();
   const [encima, setEncima] = useState<PuntoCuadrante | null>(null);
 
@@ -327,7 +364,7 @@ export function Cuadrante({
     const ocupados: { x: number; y: number; w: number }[] = [];
     const etiquetas = [...rotulados].reverse().map((p) => {
       const rol = p.id === nuestro ? "nuestro" : p.id === rival || p.id === elegido ? "comparado" : "fondo";
-      const lado = ladoEscudo(rol);
+      const lado = ladoPlano(rol) + (rol === "fondo" ? 6 : 0);
       const cx = px(p.x);
       const cy = py(p.y);
       const w = p.equipo.length * 6.2;
@@ -347,8 +384,18 @@ export function Cuadrante({
 
         {juzga && (
           <>
-            <rect x={bueno.x} y={bueno.y} width={Math.max(0, bueno.w)} height={Math.max(0, bueno.h)} style={{ fill: MEJOR, fillOpacity: 0.07 }} />
-            <rect x={malo.x} y={malo.y} width={Math.max(0, malo.w)} height={Math.max(0, malo.h)} style={{ fill: PEOR, fillOpacity: 0.06 }} />
+            <defs>
+              <radialGradient id={`${gid}-bueno`} cx={buenoDerecha ? "100%" : "0%"} cy={buenoArriba ? "0%" : "100%"} r="120%">
+                <stop offset="0%" stopColor={MEJOR} stopOpacity={0.16} />
+                <stop offset="100%" stopColor={MEJOR} stopOpacity={0.02} />
+              </radialGradient>
+              <radialGradient id={`${gid}-malo`} cx={buenoDerecha ? "0%" : "100%"} cy={buenoArriba ? "100%" : "0%"} r="120%">
+                <stop offset="0%" stopColor={PEOR} stopOpacity={0.14} />
+                <stop offset="100%" stopColor={PEOR} stopOpacity={0.02} />
+              </radialGradient>
+            </defs>
+            <rect x={bueno.x} y={bueno.y} width={Math.max(0, bueno.w)} height={Math.max(0, bueno.h)} style={{ fill: `url(#${gid}-bueno)` }} />
+            <rect x={malo.x} y={malo.y} width={Math.max(0, malo.w)} height={Math.max(0, malo.h)} style={{ fill: `url(#${gid}-malo)` }} />
           </>
         )}
 
@@ -393,13 +440,13 @@ export function Cuadrante({
         {/* Los escudos (los protagonistas, los últimos: encima) */}
         {orden.map((p) => {
           const rol = p.id === nuestro ? "nuestro" : p.id === rival || p.id === elegido ? "comparado" : "fondo";
-          const lado = ladoEscudo(rol);
+          const lado = ladoPlano(rol);
           const cx = px(p.x);
           const cy = py(p.y);
+          const color = rol === "nuestro" ? ORO_MARCA : p.id === rival ? COMPARADO : rol === "comparado" ? tinta(0.7) : tinta(0.6);
           return (
             <g key={p.id}>
-              <EscudoPunto cx={cx} cy={cy} escudo={p.escudo} rol={rol} color={p.id === elegido && p.id !== rival ? tinta(0.7) : undefined} />
-              {encima?.id === p.id && rol === "fondo" && <circle cx={cx} cy={cy} r={lado / 2 + 3} style={{ fill: "none", stroke: tinta(0.6), strokeWidth: 1.5 }} />}
+              <EscudoPlano cx={cx} cy={cy} escudo={p.escudo} rol={rol} color={color} encima={encima?.id === p.id} />
               <circle
                 cx={cx}
                 cy={cy}
@@ -440,10 +487,45 @@ export function Cuadrante({
     );
   }
 
+  const ficha =
+    encima && dibujo
+      ? {
+          izq: Math.min(Math.max(dibujo.px(encima.x) / dibujo.W, 0.12), 0.88) * 100,
+          arriba: dibujo.py(encima.y),
+          abajo: dibujo.py(encima.y) < 90,
+        }
+      : null;
+
   return (
     <div className="min-w-0">
-      <div ref={caja} className="w-full min-w-0" style={dibujo ? undefined : { aspectRatio: "5 / 3" }}>
+      <p className="mb-1 flex justify-end">
+        <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10.5px] font-medium text-white/60">
+          <span aria-hidden className="relative inline-flex h-2 w-2">
+            <span className="absolute inset-0 animate-ping rounded-full opacity-60 motion-reduce:animate-none" style={{ background: ORO_MARCA }} />
+            <span className="relative inline-block h-2 w-2 rounded-full" style={{ background: ORO_MARCA }} />
+          </span>
+          {alPulsar ? "Pasa o toca un escudo: sus cifras; púlsalo para elegirlo" : "Pasa o toca un escudo para ver sus cifras"}
+        </span>
+      </p>
+      <div ref={caja} className="relative w-full min-w-0" style={dibujo ? undefined : { aspectRatio: "5 / 3" }}>
         {svg}
+        {ficha && encima && (
+          <div
+            className="pointer-events-none absolute z-10 w-max max-w-[15rem] -translate-x-1/2 rounded-lg border border-white/15 bg-[#0B0F14]/90 px-2.5 py-1.5 text-[11px] shadow-xl backdrop-blur-md"
+            style={{ left: `${ficha.izq}%`, top: ficha.abajo ? ficha.arriba + 30 : ficha.arriba - 30, transform: `translate(-50%, ${ficha.abajo ? "0" : "-100%"})` }}
+          >
+            <p className="flex items-center gap-1.5 font-semibold text-white">
+              <Escudo src={encima.escudo} nombre={encima.equipo} lado={16} />
+              <span className="truncate">{encima.equipo}</span>
+            </p>
+            <p className="mt-0.5 tabular-nums text-white/65">
+              {etiquetaX}: <span className="font-semibold text-white">{textoX(encima.x)}</span>
+            </p>
+            <p className="tabular-nums text-white/65">
+              {etiquetaY}: <span className="font-semibold text-white">{textoY(encima.y)}</span>
+            </p>
+          </div>
+        )}
       </div>
       <div className="mt-1.5 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
         {juzga && (
@@ -461,9 +543,7 @@ export function Cuadrante({
         {!juzga && yMejorAlto !== null && <span>{yMejorAlto ? "Más arriba, mejor" : "Más abajo, mejor"}</span>}
       </div>
       <p className="mt-1 min-h-4 text-[11px] tabular-nums text-white/50">
-        {encima
-          ? `${encima.equipo} · ${etiquetaX} ${textoX(encima.x)} · ${etiquetaY} ${textoY(encima.y)}`
-          : `Cada escudo es un equipo; las rayas, la mediana de los ${puntos.length}. Pasa por un escudo para ver sus cifras${alPulsar ? "; púlsalo para elegirlo" : ""}.`}
+        {`Cada escudo es un equipo; las rayas, la mediana de los ${puntos.length}.`}
       </p>
     </div>
   );
@@ -549,6 +629,346 @@ export function LeyendaPista({ nuestro, rival, puntoNuestro = ORO_MARCA }: { nue
       </span>
       <span>Carril de P0 a P100: a la derecha, mejor (también en lo que se concede; en las de estilo, más). Puesto en verde, P60 o más; oro, en la media; naranja, P40 o menos.</span>
     </p>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  SEGUNDA PASADA (25/11/2026): «muy visual, moderno, tecnológico,    */
+/*  usable e impactante»                                               */
+/* ------------------------------------------------------------------ */
+
+/**
+ * El color de relleno de un percentil: verde, naranja o el oro de la marca
+ * en la franja media (el `ORO` de texto es marrón en modo día y ensuciaba
+ * los rellenos).
+ */
+export const tonoPercentil = (p: number | null) => (p == null ? tinta(0.3) : p >= PERCENTIL_ALTO ? MEJOR : p <= PERCENTIL_BAJO ? PEOR : ORO_MARCA);
+/** El mismo, como texto (el oro de texto del tema, legible en los dos). */
+export const tintaPercentil = (p: number | null) => (p == null ? tinta(0.5) : p >= PERCENTIL_ALTO ? MEJOR : p <= PERCENTIL_BAJO ? PEOR : ORO);
+
+/** Un anillo de percentil: el arco llega hasta el percentil y en medio va «P47». */
+export function AnilloPercentil({ p, lado = 48, grosor = 4.5, rotulo }: { p: number | null; lado?: number; grosor?: number; rotulo?: string }) {
+  const r = (lado - grosor) / 2 - 1;
+  const c = 2 * Math.PI * r;
+  const v = p == null ? 0 : Math.max(0, Math.min(100, p));
+  const tono = tonoPercentil(p);
+  return (
+    <span className="relative inline-flex shrink-0 items-center justify-center" style={{ width: lado, height: lado }} title={rotulo}>
+      <svg width={lado} height={lado} viewBox={`0 0 ${lado} ${lado}`} className="absolute inset-0 -rotate-90" aria-hidden>
+        <circle cx={lado / 2} cy={lado / 2} r={r} style={{ fill: "none", stroke: tinta(0.1), strokeWidth: grosor }} />
+        {p != null && (
+          <circle
+            cx={lado / 2}
+            cy={lado / 2}
+            r={r}
+            className="abp-anillo"
+            style={{ fill: "none", stroke: tono, strokeWidth: grosor, strokeLinecap: "round", strokeDasharray: `${(v / 100) * c} ${c}`, filter: `drop-shadow(0 0 3px ${tono})` }}
+          />
+        )}
+      </svg>
+      <span className="relative text-[10.5px] font-bold tabular-nums leading-none" style={{ color: tintaPercentil(p), fontSize: lado < 40 ? 9 : 10.5 }}>
+        {p == null ? "" : `P${Math.round(p)}`}
+      </span>
+    </span>
+  );
+}
+
+export type KpiVersus = {
+  rotulo: string;
+  valor: string;
+  p: number | null;
+  /** «11º de 20 en su grupo · mediana 3,9» */
+  detalle?: string;
+  /** «menos es mejor» y similares, en pequeño junto al rótulo. */
+  nota?: string;
+  rival?: { valor: string; p: number | null; detalle?: string } | null;
+};
+
+/**
+ * Lo primero que ve el cuerpo técnico: el escudo grande, tres o cuatro cifras
+ * con su anillo de percentil y, al lado, el próximo rival con las mismas.
+ */
+export function HeroVersus({
+  etiqueta,
+  nombre,
+  escudo,
+  sub,
+  rival,
+  kpis,
+  acento = ORO_MARCA,
+  alPulsarRival,
+}: {
+  etiqueta: string;
+  nombre: string;
+  escudo: string | null;
+  sub?: ReactNode;
+  rival?: { nombre: string; escudo: string | null; sub?: ReactNode } | null;
+  kpis: KpiVersus[];
+  acento?: string;
+  alPulsarRival?: () => void;
+}) {
+  const fondo = rival
+    ? `radial-gradient(ellipse at 0% 0%, ${acento}2E, transparent 55%), radial-gradient(ellipse at 100% 0%, ${COMPARADO}26, transparent 55%)`
+    : `radial-gradient(ellipse at 0% 0%, ${acento}2E, transparent 60%)`;
+  const ladoRival = (
+    <>
+      <span className="min-w-0 text-right">
+        <span className="block text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: COMPARADO }}>
+          Próximo rival
+        </span>
+        <span className="block truncate text-[15px] font-semibold text-white sm:text-lg">{rival?.nombre}</span>
+        {rival?.sub && <span className="block truncate text-[11px] text-white/50">{rival.sub}</span>}
+      </span>
+      <span className="relative shrink-0">
+        <span aria-hidden className="absolute -inset-3 rounded-full blur-xl" style={{ background: `${COMPARADO}40` }} />
+        <span className="relative">
+          <Escudo src={rival?.escudo} nombre={rival?.nombre ?? ""} lado={52} />
+        </span>
+      </span>
+    </>
+  );
+  return (
+    <section className="lab-aparece relative min-w-0 overflow-hidden rounded-2xl border border-white/10 p-4 sm:p-5" style={{ background: fondo }}>
+      <span aria-hidden className="pointer-events-none absolute inset-0 opacity-[0.35]" style={{ backgroundImage: `linear-gradient(${tinta(0.05)} 1px, transparent 1px), linear-gradient(90deg, ${tinta(0.05)} 1px, transparent 1px)`, backgroundSize: "28px 28px", maskImage: "linear-gradient(to bottom, black, transparent 70%)" }} />
+      <div className="relative grid min-w-0 grid-cols-1 items-center gap-2 sm:grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] sm:gap-4">
+        <div className="flex min-w-0 items-center gap-3">
+          <span className="relative shrink-0">
+            <span aria-hidden className="absolute -inset-3 rounded-full blur-xl" style={{ background: `${acento}55` }} />
+            <span className="relative">
+              <Escudo src={escudo} nombre={nombre} lado={60} />
+            </span>
+          </span>
+          <span className="min-w-0">
+            <span className="block truncate text-[10px] font-semibold uppercase tracking-[0.18em]" style={{ color: ORO }}>
+              {etiqueta}
+            </span>
+            <span className="block truncate text-[15px] font-semibold text-white sm:text-xl">{nombre}</span>
+            {sub && <span className="block truncate text-[11px] text-white/50">{sub}</span>}
+          </span>
+        </div>
+        {rival ? (
+          <span className="justify-self-center rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-[10px] font-bold tracking-[0.2em] text-white/60">VS</span>
+        ) : (
+          <span />
+        )}
+        {rival ? (
+          alPulsarRival ? (
+            <button type="button" onClick={alPulsarRival} title={`Mirar a ${rival.nombre}`} className="flex min-w-0 items-center justify-end gap-3 rounded-xl text-left transition hover:brightness-110">
+              {ladoRival}
+            </button>
+          ) : (
+            <div className="flex min-w-0 items-center justify-end gap-3">{ladoRival}</div>
+          )
+        ) : (
+          <span />
+        )}
+      </div>
+
+      <div className={`relative mt-4 grid min-w-0 gap-2 sm:grid-cols-2 ${kpis.length >= 4 ? "xl:grid-cols-4" : "xl:grid-cols-3"}`}>
+        {kpis.map((k, i) => (
+          <div
+            key={k.rotulo}
+            className="lab-aparece min-w-0 rounded-xl border border-white/10 bg-white/[0.035] p-3 backdrop-blur-sm"
+            style={{ animationDelay: `${60 + i * 60}ms` }}
+          >
+            <p className="line-clamp-2 min-h-[2.6em] text-[10px] font-semibold uppercase leading-snug tracking-[0.14em] text-white/50" title={k.rotulo}>
+              {k.rotulo}
+              {k.nota && <span className="ml-1 normal-case tracking-normal text-white/35">({k.nota})</span>}
+            </p>
+            <div className="mt-2 flex min-w-0 items-center gap-3">
+              <AnilloPercentil p={k.p} lado={50} />
+              <span className="min-w-0">
+                <span className="block text-[28px] font-semibold leading-none tabular-nums text-white" style={{ textShadow: `0 0 18px ${acento}59` }}>
+                  {k.valor}
+                </span>
+                {k.detalle && <span className="mt-1 block truncate text-[10.5px] tabular-nums text-white/50">{k.detalle}</span>}
+              </span>
+            </div>
+            {k.rival && (
+              <div className="mt-2.5 flex min-w-0 items-center gap-2 border-t border-white/[0.07] pt-2">
+                <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: COMPARADO, boxShadow: `0 0 6px ${COMPARADO}` }} />
+                <span className="min-w-0 flex-1 truncate text-[10.5px] tabular-nums text-white/55">{k.rival.detalle}</span>
+                <span className="shrink-0 text-[15px] font-semibold tabular-nums" style={{ color: COMPARADO }}>
+                  {k.rival.valor}
+                </span>
+                <AnilloPercentil p={k.rival.p} lado={30} grosor={3} />
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+export type CeldaCalor = { clave: string; nombre: string; valor: string; p: number | null; titulo?: string; alPulsar?: () => void };
+
+/**
+ * El perfil entero en un mapa de calor: una fila por sección, una celda por
+ * métrica, rellena con el color de su percentil (más intenso cuanto más se
+ * aleja de la media) y con su valor dentro.
+ */
+export function MapaCalor({ filas }: { filas: { seccion: string; celdas: CeldaCalor[] }[] }) {
+  return (
+    <div className="min-w-0">
+      <div className="space-y-2">
+        {filas.map((f, i) => (
+          <div key={f.seccion} className="lab-aparece flex min-w-0 flex-col gap-1.5 sm:flex-row sm:gap-3" style={{ animationDelay: `${i * 50}ms` }}>
+            <p className="w-24 shrink-0 pt-1 text-[10px] font-semibold uppercase tracking-[0.16em] text-white/45">{f.seccion}</p>
+            <div className="grid min-w-0 flex-1 grid-cols-[repeat(auto-fill,minmax(112px,1fr))] gap-1.5">
+              {f.celdas.map((c) => {
+                const tono = tonoPercentil(c.p);
+                const fuerza = c.p == null ? 8 : Math.round(12 + Math.abs(c.p - 50) * 0.5);
+                return (
+                  <button
+                    key={c.clave}
+                    type="button"
+                    onClick={c.alPulsar}
+                    title={c.titulo}
+                    className="group flex min-h-[60px] min-w-0 flex-col justify-between rounded-lg px-2 py-1.5 text-left transition duration-150 hover:-translate-y-0.5 hover:shadow-md motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                    style={{ background: `color-mix(in srgb, ${tono} ${fuerza}%, transparent)`, boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${tono} 32%, transparent)` }}
+                  >
+                    <span className="line-clamp-2 text-[10.5px] leading-tight text-white/75">{c.nombre}</span>
+                    <span className="mt-1 flex min-w-0 items-baseline justify-between gap-1">
+                      <span className="truncate text-[14px] font-semibold leading-none tabular-nums text-white">{c.valor}</span>
+                      <span className="shrink-0 text-[10.5px] font-bold tabular-nums" style={{ color: tintaPercentil(c.p) }}>
+                        {c.p == null ? "" : `P${Math.round(c.p)}`}
+                      </span>
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ))}
+      </div>
+      <div className="mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[10.5px] text-white/50">
+        <span className="inline-flex items-center gap-2">
+          <span>P0</span>
+          <span aria-hidden className="inline-block h-2 w-40 rounded-full" style={{ background: `linear-gradient(90deg, ${PEOR}, ${PEOR}55 38%, ${ORO_MARCA}66 50%, ${MEJOR}55 62%, ${MEJOR})` }} />
+          <span>P100</span>
+        </span>
+        <span>Naranja, P40 o menos · oro, en la media · verde, P60 o más. Cuanto más intenso, más lejos de la media. Pulsa una celda para ir a su métrica.</span>
+      </div>
+    </div>
+  );
+}
+
+/** Lo alto de la cabecera fija de la app, para que lo pegajoso quede justo debajo. */
+function useAltoCabecera() {
+  const [alto, setAlto] = useState(0);
+  useEffect(() => {
+    const cab = document.querySelector("header.sticky");
+    if (!(cab instanceof HTMLElement)) return;
+    const ro = new ResizeObserver(() => setAlto(Math.round(cab.getBoundingClientRect().height)));
+    ro.observe(cab);
+    return () => ro.disconnect();
+  }, []);
+  return alto;
+}
+
+export type ItemNav = { id: string; label: string; seccion?: string };
+
+/** Pide a quien escucha (OptaBalonParado) que cambie de sección. */
+export const EVENTO_SECCION = "abp-datos:seccion";
+/** Lo avisa quien cambia de sección, para que la navegación la marque. */
+export const EVENTO_SECCION_ACTUAL = "abp-datos:seccion-actual";
+
+/**
+ * La navegación pegajosa de una página larga: salta a cada bloque (o, si el
+ * elemento lleva `seccion`, cambia además la sección del panel de Opta) y
+ * marca dónde se está.
+ */
+export function NavSecciones({ items }: { items: ItemNav[] }) {
+  const top = useAltoCabecera();
+  const nav = useRef<HTMLElement>(null);
+  const [activo, setActivo] = useState(items[0]?.id ?? "");
+  const [seccion, setSeccion] = useState("");
+
+  useEffect(() => {
+    const oye = (e: Event) => setSeccion(String((e as CustomEvent).detail ?? ""));
+    window.addEventListener(EVENTO_SECCION_ACTUAL, oye);
+    return () => window.removeEventListener(EVENTO_SECCION_ACTUAL, oye);
+  }, []);
+
+  /* Sin requestAnimationFrame: en una pestaña escondida no llega y la marca se quedaba quieta. */
+  useEffect(() => {
+    let ultimo = 0;
+    const mira = () => {
+      const linea = top + (nav.current?.offsetHeight ?? 0) + 24;
+      let actual = items[0]?.id ?? "";
+      for (const it of items) {
+        const el = document.getElementById(it.id);
+        if (el && el.getBoundingClientRect().top <= linea) actual = it.id;
+      }
+      setActivo(actual);
+    };
+    const alMover = () => {
+      const ahora = performance.now();
+      if (ahora - ultimo < 80) return;
+      ultimo = ahora;
+      mira();
+    };
+    const alFinal = () => mira();
+    window.addEventListener("scroll", alMover, { passive: true });
+    window.addEventListener("scrollend", alFinal);
+    const primera = window.setTimeout(mira, 0);
+    return () => {
+      window.removeEventListener("scroll", alMover);
+      window.removeEventListener("scrollend", alFinal);
+      window.clearTimeout(primera);
+    };
+  }, [items, top]);
+
+  const ir = (it: ItemNav) => {
+    if (it.seccion) window.dispatchEvent(new CustomEvent(EVENTO_SECCION, { detail: it.seccion }));
+    const el = document.getElementById(it.id);
+    if (!el) return;
+    const y = el.getBoundingClientRect().top + window.scrollY - top - (nav.current?.offsetHeight ?? 0) - 10;
+    const suave = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    window.scrollTo({ top: y, behavior: suave ? "smooth" : "auto" });
+  };
+
+  return (
+    <nav ref={nav} aria-label="Ir a" className="sticky z-20 -mx-1 min-w-0 bg-[#0B0F14] px-1 py-2" style={{ top }}>
+      <div className="flex min-w-0 items-center gap-1 overflow-x-auto rounded-xl border border-white/10 bg-[#0B0F14]/85 p-1 shadow-lg backdrop-blur-xl [scrollbar-width:none]">
+        {items.map((it) => {
+          const on = it.seccion ? activo === it.id && (seccion || items.find((x) => x.seccion)?.seccion) === it.seccion : activo === it.id;
+          return (
+            <button
+              key={`${it.id}-${it.seccion ?? ""}`}
+              type="button"
+              onClick={() => ir(it)}
+              aria-current={on ? "true" : undefined}
+              className={`shrink-0 rounded-lg px-2.5 py-1.5 text-[11.5px] font-semibold transition ${on ? "shadow-sm" : "text-white/60 hover:bg-white/[0.06] hover:text-white"}`}
+              style={on ? { background: ORO_MARCA, color: "#0B0F14" } : undefined}
+            >
+              {it.label}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+/** La cabecera de un bloque: título, una línea de «qué mirar aquí» y, a la derecha, sus mandos. */
+export function CabeceraBloque({ titulo, queMirar, accion, id }: { titulo: string; queMirar?: ReactNode; accion?: ReactNode; id?: string }) {
+  return (
+    <div id={id} className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
+      <div className="min-w-0">
+        <h3 className="text-[13.5px] font-semibold text-white">{titulo}</h3>
+        {queMirar && (
+          <p className="mt-0.5 text-[11.5px] text-white/50">
+            <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: ORO }}>
+              Qué mirar
+            </span>
+            {queMirar}
+          </p>
+        )}
+      </div>
+      {accion}
+    </div>
   );
 }
 

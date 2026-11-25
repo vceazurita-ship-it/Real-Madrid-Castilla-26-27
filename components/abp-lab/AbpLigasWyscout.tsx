@@ -27,7 +27,7 @@ import { Crosshair, GitCompareArrows, LayoutGrid, LineChart, ListOrdered, Scatte
 
 import { Panel, Segmented, Select } from "@/components/abp/ui";
 import { BarrasEquipos, COMPARADO, Evolucion, MEJOR, PEOR, tinta, useEscudos, type FilaPercentil } from "@/components/data/graficas";
-import { CORAL, Cifra, Cuadrante, Escudo, LeyendaPista, ORO_MARCA, PistaPercentil } from "@/components/abp-lab/visual";
+import { CORAL, Cuadrante, Escudo, HeroVersus, LeyendaPista, ORO_MARCA, PistaPercentil, type KpiVersus } from "@/components/abp-lab/visual";
 import { Conclusiones, Explicativo } from "@/components/ui/textos-analisis";
 import { useAbpLigas, useProximoRival } from "@/hooks/useAbpLigas";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -260,6 +260,23 @@ export function AbpLigasWyscout() {
   const posC = posicionEn(tabla, equipo, METRICA.abpRemC);
   const balance = posF.valor !== null && posC.valor !== null ? posF.valor - posC.valor : null;
   const iBalance = mosaico.findIndex((x) => x.equipo === equipo);
+  /* Las cuatro cifras del héroe, con la misma cuenta que el vistazo (percentil y puesto en su liga). */
+  const kpisHero: KpiVersus[] = (["abpRemF", "abpRemC", "abpPctF", "abpPctC"] as const)
+    .map((k) => METRICA[k])
+    .filter((x): x is MetricaAbp => !!x)
+    .map((x) => {
+      const mio = posicionEn(tabla, equipo, x);
+      const suyo = comparado ? posicionEn(tabla, comparado, x) : null;
+      return {
+        rotulo: x.nombre.replace(/ por partido$/, "").replace(/ \(por cada 100\)$/, ""),
+        nota: [x.denominador === "partidos" ? "por partido" : "de cada 100", x.mejorAlto === false ? "menos es mejor" : ""].filter(Boolean).join(", "),
+        valor: formatea(mio.valor, x.unidad),
+        p: mio.percentil,
+        detalle: `${mio.puesto ? `${mio.puesto}.º de ${mio.de}` : ""}${mio.mediana !== null ? ` · mediana ${formatea(mio.mediana, x.unidad)}` : ""}`,
+        rival: suyo && suyo.valor !== null ? { valor: formatea(suyo.valor, x.unidad), p: suyo.percentil, detalle: `${comparado}${suyo.puesto ? `: ${suyo.puesto}.º` : ""}` } : null,
+      };
+    });
+
   /* El punto del equipo que se mira: oro si es el Castilla; si no, tinta. */
   const puntoEquipo = castilla && equipo === castilla ? ORO_MARCA : tinta(0.8);
 
@@ -285,82 +302,37 @@ export function AbpLigasWyscout() {
                   {comparado ? ` · en azul, el próximo rival (${comparado})` : ""}
                 </p>
 
-                {/* ----------------------- CABECERA ------------------------ */}
-                <div
-                  className="mt-4 min-w-0 rounded-2xl border border-white/10 p-4"
-                  style={{ background: `linear-gradient(110deg, ${castilla && equipo === castilla ? ORO_MARCA : COMPARADO}26, transparent 60%)` }}
-                >
-                  <div className="flex min-w-0 flex-wrap items-center gap-3">
-                    <Escudo src={escudoDe(equipo)} nombre={equipo} lado={56} />
-                    <div className="min-w-0 flex-1 basis-[11rem]">
-                      <p className="truncate text-xl font-semibold text-white">{equipo}</p>
-                      <p className="text-[12px] text-white/55">
-                        {liga.nombre} · {suyos.length} partidos
-                      </p>
-                    </div>
-                    {comparado && (
-                      <button
-                        type="button"
-                        onClick={() => setElegido(comparado)}
-                        className="inline-flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-left text-[12px] transition hover:brightness-110"
-                        style={{ background: `${COMPARADO}1F` }}
-                      >
-                        <Escudo src={escudoDe(comparado)} nombre={comparado} lado={28} />
-                        <span className="min-w-0">
-                          <span className="block text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: COMPARADO }}>
-                            Próximo rival · en azul
-                          </span>
-                          <span className="block truncate font-semibold text-white">{comparado}</span>
-                        </span>
-                      </button>
-                    )}
-                  </div>
-                  {(posF.valor !== null || posC.valor !== null) && (
-                    <div className="mt-3 grid min-w-0 grid-cols-2 gap-2 lg:grid-cols-3">
-                      {posF.valor !== null && (
-                        <Cifra
-                          rotulo="ABP con remate a favor"
-                          valor={formatea(posF.valor, "decimal")}
-                          acento={ORO_MARCA}
-                          barra={posF.valor / topeMosaico}
-                          referencia={posF.mediana !== null ? posF.mediana / topeMosaico : null}
-                          detalle={`por partido${posF.puesto ? ` · ${posF.puesto}.º de ${posF.de}` : ""}${posF.mediana !== null ? ` · mediana ${formatea(posF.mediana, "decimal")}` : ""}`}
-                        />
-                      )}
-                      {posC.valor !== null && (
-                        <Cifra
-                          rotulo="ABP con remate en contra"
-                          valor={formatea(posC.valor, "decimal")}
-                          acento={CORAL}
-                          color={CORAL}
-                          barra={posC.valor / topeMosaico}
-                          referencia={posC.mediana !== null ? posC.mediana / topeMosaico : null}
-                          detalle={`por partido${posC.puesto ? ` · ${posC.puesto}.º de ${posC.de}` : ""}${posC.mediana !== null ? ` · mediana ${formatea(posC.mediana, "decimal")}` : ""}`}
-                        />
-                      )}
-                      {balance !== null && (
-                        <Cifra
-                          rotulo="Balance por partido"
-                          valor={`${balance >= 0 ? "+" : ""}${formatea(balance, "decimal")}`}
-                          acento={balance >= 0 ? MEJOR : PEOR}
-                          detalle={iBalance >= 0 ? `${iBalance + 1}.º de ${mosaico.length} de la liga en el balance` : undefined}
-                        />
-                      )}
-                    </div>
-                  )}
-                  {(posF.mediana !== null || posC.mediana !== null) && (
-                    <p className="mt-2 flex items-center gap-1.5 text-[10.5px] text-white/45">
-                      <span aria-hidden className="inline-block h-3 w-[2px] rounded-full" style={{ background: tinta(0.6) }} />
-                      La raya de cada barra es la mediana de la liga.
-                    </p>
-                  )}
+                {/* ------------------ EL HÉROE · VERSUS (25/11) ------------------ */}
+                <div id="lig-resumen" className="mt-4">
+                  <HeroVersus
+                    etiqueta={`${liga.nombre} · Wyscout · ${suyos.length} partidos`}
+                    nombre={equipo}
+                    escudo={escudoDe(equipo)}
+                    acento={castilla && equipo === castilla ? ORO_MARCA : COMPARADO}
+                    sub={
+                      balance !== null ? (
+                        <>
+                          Balance de ABP con remate{" "}
+                          <span className="font-semibold tabular-nums" style={{ color: balance >= 0 ? MEJOR : PEOR }}>
+                            {balance >= 0 ? "+" : ""}
+                            {formatea(balance, "decimal")}
+                          </span>{" "}
+                          por partido{iBalance >= 0 ? ` · ${iBalance + 1}.º de ${mosaico.length}` : ""}
+                        </>
+                      ) : undefined
+                    }
+                    rival={comparado ? { nombre: comparado, escudo: escudoDe(comparado), sub: "pulsa para mirarlo" } : null}
+                    alPulsarRival={comparado ? () => setElegido(comparado) : undefined}
+                    kpis={kpisHero}
+                  />
                 </div>
 
                 <div className="mt-5 grid min-w-0 items-start gap-5 xl:grid-cols-2">
                   {/* --------------------- DE UN VISTAZO --------------------- */}
                   <Panel
+                    id="lig-vistazo"
                     title={`${equipo} de un vistazo`}
-                    subtitle="Percentil contra su liga: a la derecha, mejor (en lo que se concede, menos es mejor)"
+                    subtitle="Qué mirar: dónde cae el punto frente a la raya central (la mediana de su liga) y frente a la raya azul del rival"
                     icon={Crosshair}
                     analisis={<Conclusiones items={conclusiones} />}
                   >
@@ -391,8 +363,9 @@ export function AbpLigasWyscout() {
 
                   {/* ----------------------- DISPERSIÓN ---------------------- */}
                   <Panel
+                    id="lig-peligro"
                     title="Peligro a favor y en contra"
-                    subtitle="Jugadas a balón parado con remate por partido: a la derecha, más a favor; abajo, menos en contra"
+                    subtitle="Qué mirar: la esquina verde (abajo a la derecha) genera más de lo que concede. Jugadas a balón parado con remate por partido"
                     icon={ScatterChart}
                     className="xl:col-span-2"
                   >
@@ -414,6 +387,7 @@ export function AbpLigasWyscout() {
                   {/* ------------------ LA LIGA, ESCUDO A ESCUDO ------------- */}
                   {mosaico.length > 0 && (
                     <Panel
+                      id="lig-escudos"
                       title="La liga, escudo a escudo"
                       subtitle="Cada tarjeta, un equipo: ABP con remate a favor y en contra por partido. Ordenadas por el balance (a favor menos en contra); pulsa una para mirarla"
                       icon={LayoutGrid}
@@ -432,14 +406,21 @@ export function AbpLigasWyscout() {
                               type="button"
                               onClick={() => setElegido(x.equipo)}
                               aria-pressed={esEste}
-                              className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-2.5 text-left transition hover:bg-white/[0.05]"
-                              style={marco ? { boxShadow: `inset 0 0 0 2px ${marco}`, background: esNuestro ? `${ORO_MARCA}14` : esRival ? `${COMPARADO}12` : undefined } : undefined}
+                              className="lab-aparece min-w-0 rounded-xl border border-white/10 bg-white/[0.025] p-3 text-left transition duration-150 hover:-translate-y-0.5 hover:bg-white/[0.05] hover:shadow-lg motion-reduce:transition-none motion-reduce:hover:translate-y-0"
+                              style={{
+                                animationDelay: `${Math.min(i, 20) * 25}ms`,
+                                ...(marco ? { boxShadow: `inset 0 0 0 2px ${marco}, 0 0 18px ${esNuestro ? ORO_MARCA : esRival ? COMPARADO : "transparent"}33`, background: esNuestro ? `${ORO_MARCA}14` : esRival ? `${COMPARADO}12` : undefined } : {}),
+                              }}
                             >
                               <span className="flex min-w-0 items-center gap-2">
                                 <span className="w-5 shrink-0 text-right text-[10px] tabular-nums text-white/35">{i + 1}</span>
-                                <Escudo src={escudoDe(x.equipo)} nombre={x.equipo} lado={26} />
+                                <Escudo src={escudoDe(x.equipo)} nombre={x.equipo} lado={30} />
                                 <span className={`min-w-0 flex-1 truncate text-[12.5px] ${marco ? "font-semibold text-white" : "text-white/75"}`}>{x.equipo}</span>
-                                <span className="shrink-0 text-[13px] font-semibold tabular-nums" style={{ color: b >= 0 ? MEJOR : PEOR }}>
+                                <span
+                                  className="shrink-0 rounded-full px-2 py-0.5 text-[12px] font-bold tabular-nums"
+                                  title="Balance: a favor menos en contra, por partido"
+                                  style={{ color: b >= 0 ? MEJOR : PEOR, background: `color-mix(in srgb, ${b >= 0 ? MEJOR : PEOR} 14%, transparent)` }}
+                                >
                                   {b >= 0 ? "+" : ""}
                                   {formatea(b, "decimal")}
                                 </span>
@@ -450,7 +431,7 @@ export function AbpLigasWyscout() {
                               ].map((y) => (
                                 <span key={y.t} className="mt-1.5 flex min-w-0 items-center gap-2 text-[10.5px]">
                                   <span className="w-14 shrink-0 text-white/45">{y.t}</span>
-                                  <span className="relative h-2 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.07) }}>
+                                  <span className="relative h-1.5 min-w-0 flex-1 rounded-full" style={{ background: tinta(0.08) }}>
                                     <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, (y.v / topeMosaico) * 100)}%`, background: y.c }} />
                                   </span>
                                   <span className="w-9 shrink-0 text-right tabular-nums text-white/65">{formatea(y.v, "decimal")}</span>
@@ -465,6 +446,7 @@ export function AbpLigasWyscout() {
 
                   {/* ------------------------ TENDENCIA ---------------------- */}
                   <Panel
+                    id="lig-tendencia"
                     title={`${m.nombre}, partido a partido`}
                     subtitle={`${equipo}: cada punto es un partido; la raya, su valor en la temporada (base: ${formatea(baseDe(suyos, m), "entero")} ${m.denominador === "partidos" ? "partidos" : "acciones"})`}
                     icon={LineChart}
@@ -477,6 +459,7 @@ export function AbpLigasWyscout() {
                   {/* ------------------ CONTRA LA REFERENCIA ----------------- */}
                   {premier && premier !== liga && ref && (
                     <Panel
+                      id="lig-premier"
                       title={`${equipo} frente a ${ref}`}
                       subtitle={`Cada uno contra su liga: ${equipo} en ${liga.nombre}, ${ref} en la Premier League. Se comparan percentiles, no cifras`}
                       icon={GitCompareArrows}

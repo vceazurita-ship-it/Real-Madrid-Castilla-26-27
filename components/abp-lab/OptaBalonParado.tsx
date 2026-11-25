@@ -24,8 +24,22 @@ import { useEffect, useMemo, useState } from "react";
 import { Database, Trophy } from "lucide-react";
 
 import { Panel, Segmented } from "@/components/abp/ui";
-import { COMPARADO, MEJOR, ORO, PEOR, colorPercentil, tinta, useEscudos } from "@/components/data/graficas";
-import { Cuadrante, Escudo, LeyendaPista, LeyendaProtagonistas, ORO_MARCA, PistaPercentil, Ranking } from "@/components/abp-lab/visual";
+import { COMPARADO, MEJOR, PEOR, tinta, useEscudos } from "@/components/data/graficas";
+import {
+  CabeceraBloque,
+  Cuadrante,
+  EVENTO_SECCION,
+  EVENTO_SECCION_ACTUAL,
+  Escudo,
+  HeroVersus,
+  LeyendaPista,
+  LeyendaProtagonistas,
+  MapaCalor,
+  ORO_MARCA,
+  PistaPercentil,
+  Ranking,
+  type KpiVersus,
+} from "@/components/abp-lab/visual";
 import { useProximoRival } from "@/hooks/useAbpLigas";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, percentil, traeOpta, type TablaOpta } from "@/lib/opta";
 import { METRICAS_ABP_OPTA, SECCIONES_ABP, gruposDePartidos, textoAbp, valorAbp, type FilaEquipoOpta, type MetricaAbpOpta, type SeccionAbp } from "@/lib/opta-abp";
@@ -166,6 +180,19 @@ export function OptaBalonParado() {
     return id && id !== CASTILLA_OPTA ? id : null;
   }, [datos, proximo]);
 
+  /* La navegación de /abp-datos pide sección con un evento; y se le avisa de la que está puesta. */
+  useEffect(() => {
+    const oye = (e: Event) => {
+      const s = String((e as CustomEvent).detail ?? "");
+      if ((SECCIONES_ABP as readonly string[]).includes(s)) setSeccion(s as SeccionAbp);
+    };
+    window.addEventListener(EVENTO_SECCION, oye);
+    return () => window.removeEventListener(EVENTO_SECCION, oye);
+  }, []);
+  useEffect(() => {
+    window.dispatchEvent(new CustomEvent(EVENTO_SECCION_ACTUAL, { detail: seccion }));
+  }, [seccion]);
+
   if (estado === "cargando") {
     return (
       <div className="space-y-3" role="status" aria-live="polite">
@@ -224,8 +251,40 @@ export function OptaBalonParado() {
 
   const escudoNuestro = escudoDe(NOMBRE_CASTILLA);
 
+  /* El héroe: cuatro cifras de cabecera, contra el grupo si el rival es del grupo (si no, contra la categoría). */
+  const heroEnGrupo = datos.hayGrupo && (!idRival || rivalEnGrupo);
+  const dondeHero = heroEnGrupo ? "grupo" : "categoría";
+  const kpis: KpiVersus[] = ["GoalSetPly", "GoalSetPly|OPP", "ChncSetPl", "ChncSetPl|OPP"]
+    .map((clave) => datos.lineas.find((l) => l.m.clave === clave))
+    .filter((l): l is Fila => !!l)
+    .map((l) => {
+      const mio = heroEnGrupo ? l.grupo : l.categoria;
+      const suyo = idRival ? l.todos.find((t) => t.id === idRival) : null;
+      const rP = posRival(l, heroEnGrupo);
+      const notas = [l.m.modo === "pp" ? "por partido" : l.m.modo === "total" ? "temporada" : "", l.m.mejorAlto === false ? "menos es mejor" : ""].filter(Boolean).join(", ");
+      return {
+        rotulo: l.m.nombre,
+        nota: notas || undefined,
+        valor: textoAbp(l.m, l.valor),
+        p: mio.p,
+        detalle: `${mio.puesto}º de ${mio.de} en su ${dondeHero}${mio.mediana != null ? ` · mediana ${textoAbp(l.m, mio.mediana)}` : ""}`,
+        rival: suyo && rP ? { valor: textoAbp(l.m, suyo.v), p: rP.p, detalle: `${nombreRival}: ${rP.puesto}º de ${rP.de}` } : null,
+      };
+    });
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-5">
+      <div id="abp-resumen" className="scroll-mt-40">
+        <HeroVersus
+          etiqueta={`Balón parado · Opta · ${datos.partidos} partidos`}
+          nombre={NOMBRE_CASTILLA}
+          escudo={escudoNuestro}
+          sub={`${datos.hayGrupo ? `${datos.nGrupo} equipos en su grupo · ` : ""}${datos.nTotal} en Primera RFEF · percentil contra su ${dondeHero}`}
+          rival={idRival ? { nombre: nombreRival, escudo: escudoDe(nombreRival), sub: "en azul en toda la pestaña" } : null}
+          kpis={kpis}
+        />
+      </div>
+      <div id="abp-opta">
       <Panel
         title="Opta · balón parado de la categoría"
         subtitle={`Fuente: Opta. El Castilla en ${datos.partidos} partidos frente a ${datos.hayGrupo ? `los ${datos.nGrupo} equipos de su grupo y ` : ""}los ${datos.nTotal} de Primera RFEF. Por partido salvo goles, asistencias y penaltis (en la temporada) y los porcentajes.`}
@@ -234,29 +293,6 @@ export function OptaBalonParado() {
           <Segmented ariaLabel="Qué parte del balón parado" options={SECCIONES_ABP.map((s) => ({ key: s, label: s }))} value={seccion} onChange={setSeccion} />
         }
       >
-        {/* ------------------------- CABECERA ------------------------- */}
-        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-3 rounded-2xl border border-white/10 p-3" style={{ background: `linear-gradient(110deg, ${ORO_MARCA}24, transparent 65%)` }}>
-          <Escudo src={escudoNuestro} nombre={NOMBRE_CASTILLA} lado={48} />
-          <div className="min-w-0 flex-1 basis-[11rem]">
-            <p className="truncate text-base font-semibold text-white">{NOMBRE_CASTILLA}</p>
-            <p className="text-[12px] text-white/55">
-              {datos.partidos} partidos · {datos.hayGrupo ? `${datos.nGrupo} equipos en su grupo · ` : ""}
-              {datos.nTotal} en Primera RFEF
-            </p>
-          </div>
-          {idRival && (
-            <span className="inline-flex min-w-0 items-center gap-2 rounded-xl px-2.5 py-1.5 text-[12px] text-white/75" style={{ background: `${COMPARADO}1F` }}>
-              <Escudo src={escudoDe(nombreRival)} nombre={nombreRival} lado={26} />
-              <span className="min-w-0">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.14em]" style={{ color: COMPARADO }}>
-                  Próximo rival · en azul
-                </span>
-                <span className="block truncate font-semibold text-white">{nombreRival}</span>
-              </span>
-            </span>
-          )}
-        </div>
-
         {/* ------------------- LO MEJOR Y LO PEOR -------------------- */}
         {seccion === "Resumen" && mejor && peor && mejor !== peor && (
           <div className="mb-4 grid min-w-0 gap-2 sm:grid-cols-2">
@@ -289,71 +325,47 @@ export function OptaBalonParado() {
           </div>
         )}
 
-        {/* ------------------ EL PERFIL, EN MOSAICO ------------------ */}
+        {/* ------------- EL PERFIL, EN MAPA DE CALOR (25/11) ------------- */}
         {seccion === "Resumen" && juzgables.length > 0 && (
-          <div className="mb-5">
-            <h3 className="mb-1 text-[13px] font-semibold text-white">El perfil entero, de un vistazo</h3>
-            <p className="mb-2 text-[11px] text-white/50">
-              Cada casilla es una métrica que se juzga: su percentil contra su {pobl} (verde, P60 o más; oro, en la media; naranja, P40 o menos). Púlsala para ir a ella.
-            </p>
-            {/* 25/11/2026: casillas más holgadas (nombre en dos líneas, cifra grande,
-                percentil en una pastilla de color y su carril debajo). */}
-            <div className="space-y-4">
-              {SECCIONES_ABP.filter((s) => s !== "Resumen").map((s) => {
-                const suyas = juzgables.filter((l) => l.m.seccion === s);
-                if (!suyas.length) return null;
-                return (
-                  <div key={s} className="min-w-0">
-                    <p className="mb-1.5 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/45">{s}</p>
-                    <div className="grid min-w-0 grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-6">
-                      {suyas.map((l) => {
-                        const p = pos(l).p ?? 0;
-                        const c = colorPercentil(p);
-                        return (
-                          <button
-                            key={l.m.clave}
-                            type="button"
-                            onClick={() => {
-                              setSeccion(l.m.seccion);
-                              setAbierta(l.m.clave);
-                            }}
-                            title={`${l.m.nombre}: ${textoAbp(l.m, l.valor)} · ${pos(l).puesto}º de ${pos(l).de} · P${p}`}
-                            className="flex min-w-0 flex-col gap-1.5 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-left transition hover:bg-white/[0.06]"
-                          >
-                            <span className="line-clamp-2 min-h-[2.5em] text-[11.5px] leading-tight text-white/70">{l.m.nombre}</span>
-                            <span className="flex min-w-0 items-center justify-between gap-2">
-                              <span className="truncate text-lg font-semibold leading-none tabular-nums text-white">{textoAbp(l.m, l.valor)}</span>
-                              <span
-                                className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-bold leading-none tabular-nums"
-                                style={{ background: c, color: c === ORO ? "var(--rmcf-on-gold)" : "#FFFFFF" }}
-                              >
-                                P{p}
-                              </span>
-                            </span>
-                            <span aria-hidden className="relative block h-1 w-full rounded-full" style={{ background: tinta(0.1) }}>
-                              <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${Math.max(3, p)}%`, background: c }} />
-                            </span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="mb-6">
+            <CabeceraBloque
+              titulo="El perfil entero, de un vistazo"
+              queMirar={`las celdas más intensas: verde, donde el Castilla destaca en su ${pobl}; naranja, donde más le cuesta.`}
+            />
+            <MapaCalor
+              filas={SECCIONES_ABP.filter((sec) => sec !== "Resumen")
+                .map((sec) => ({
+                  seccion: sec,
+                  celdas: juzgables
+                    .filter((l) => l.m.seccion === sec)
+                    .map((l) => ({
+                      clave: l.m.clave,
+                      nombre: l.m.nombre,
+                      valor: textoAbp(l.m, l.valor),
+                      p: pos(l).p,
+                      titulo: `${l.m.nombre}: ${textoAbp(l.m, l.valor)} · ${pos(l).puesto}º de ${pos(l).de} · P${pos(l).p}`,
+                      alPulsar: () => {
+                        setSeccion(l.m.seccion);
+                        setAbierta(l.m.clave);
+                      },
+                    })),
+                }))
+                .filter((f) => f.celdas.length > 0)}
+            />
           </div>
         )}
 
         {/* ---------------- EL CUADRANTE DE LA SECCIÓN --------------- */}
         {lx && ly && puntos.length >= 3 && (
-          <div className="mb-5 min-w-0 rounded-2xl border border-white/10 p-3">
+          <div id="abp-cuadrante" className="mb-6 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] p-3 sm:p-4">
             <div className="mb-2 flex min-w-0 flex-wrap items-center justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="text-[13px] font-semibold text-white">
+                <h3 className="text-[13.5px] font-semibold text-white">
                   {lx.m.nombre} frente a {ly.m.nombre.toLowerCase()}
                 </h3>
-                <p className="text-[11px] text-white/50">
-                  {enGrupo ? `Los ${puntos.length} equipos de su grupo` : `Los ${puntos.length} equipos de Primera RFEF`}, un escudo cada uno.
+                <p className="mt-0.5 text-[11.5px] text-white/50">
+                  <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Qué mirar</span>
+                  dónde cae el Castilla (oro) frente al próximo rival (azul) y a la esquina verde. {enGrupo ? `Los ${puntos.length} equipos de su grupo` : `Los ${puntos.length} equipos de Primera RFEF`}, un escudo cada uno.
                 </p>
               </div>
               {datos.hayGrupo && (
@@ -384,6 +396,9 @@ export function OptaBalonParado() {
         )}
 
         {/* ---------------------- LAS MÉTRICAS ----------------------- */}
+        <div id="abp-metricas">
+          <CabeceraBloque titulo={`${seccion === "Resumen" ? "Lo esencial" : seccion}, métrica a métrica`} queMirar="el punto de oro frente a la raya central (la mediana) y la raya azul del rival. Pulsa el nombre para la clasificación entera." />
+        </div>
         <div className="mb-1 border-b border-white/[0.06] pb-2">
           <LeyendaPista nuestro={NOMBRE_CASTILLA} rival={nombreRival ? `Próximo rival: ${nombreRival}` : undefined} />
         </div>
@@ -497,6 +512,7 @@ export function OptaBalonParado() {
           })}
         </ul>
       </Panel>
+      </div>
     </div>
   );
 }

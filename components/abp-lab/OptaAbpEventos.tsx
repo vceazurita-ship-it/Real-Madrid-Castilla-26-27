@@ -223,7 +223,7 @@ export function OptaAbpEventos() {
   const xG10Cat = (categoria.xG / Math.max(1, categoria.n)) * 10;
 
   return (
-    <div className="mt-4">
+    <div id="abp-saques" className="mt-4">
       <Panel
         title="Opta · cada saque, uno a uno"
         subtitle={`${lado === "favor" ? `Los saques de ${nombre}` : `Los saques que le hacen a ${nombre}`} esta temporada. «Acaba en remate» es en la misma jugada (como lo cuenta Opta); la segunda jugada va aparte.`}
@@ -482,7 +482,7 @@ export function OptaAbpEventos() {
 
         {/* -------------------- LA CATEGORÍA ENTERA -------------------- */}
         {conMuestra.length >= 3 && (
-          <div className="mt-6 min-w-0 border-t border-white/10 pt-5">
+          <div id="abp-saques-categoria" className="mt-6 min-w-0 border-t border-white/10 pt-5">
             <h3 className="text-[14px] font-semibold text-white">
               La categoría en {tipoTexto}, {lado === "favor" ? "a favor" : "en contra"}
             </h3>
@@ -490,6 +490,10 @@ export function OptaAbpEventos() {
               Los {conMuestra.length} equipos con al menos {SAQUES_MIN} saques{banda !== "todas" ? `, desde la ${banda}` : ""}
               {tipo === "corner" && rosca !== "todas" ? `, ${rosca === "Short" ? "en corto" : ROSCA[rosca]?.toLowerCase() ?? ""}` : ""}
               {lado === "contra" ? " (los que les sacan sus rivales)" : ""}. Pulsa un escudo para mirarlo arriba.
+            </p>
+            <p className="-mt-2 mb-3 text-[11.5px] text-white/50">
+              <span className="mr-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-[#C8A96B]">Qué mirar</span>
+              quién saca mucho y además remata (arriba a la derecha) y dónde quedan el Castilla y el próximo rival.
             </p>
             <div className="grid min-w-0 gap-5 xl:grid-cols-2">
               <div className="min-w-0">

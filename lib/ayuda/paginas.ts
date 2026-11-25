@@ -4023,14 +4023,23 @@ export const AYUDAS: AyudaDePagina[] = [
         filas: [
           { que: "Categoría · Opta", es: "El Castilla en córners, faltas, bandas y penaltis frente a su grupo y a Primera RFEF, y cada saque: dónde cae, quién lo saca y si acaba en remate" },
           {
-            que: "cabecera y perfil (25/11/2026)",
-            es: "Arriba, el escudo del Castilla con sus partidos y el próximo rival con el suyo (en azul en toda la pestaña). En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una casilla por métrica que se juzga, agrupada por córners, faltas, bandas y penaltis, con su valor, su percentil en una pastilla de color y un carril de P0 a P100 debajo",
-            cuenta: "Percentil y puesto contra su grupo (o contra la categoría si el grupo no se puede deducir), los mismos de las pistas",
+            que: "cabecera: el Castilla contra el próximo rival (25/11/2026)",
+            es: "Arriba, el escudo del Castilla frente al del próximo rival y cuatro cifras de cabecera: goles a balón parado (a favor y encajados, en la temporada) y ocasiones a balón parado (a favor y concedidas, por partido). Cada una con su anillo de percentil, su puesto y la mediana; debajo, la misma cifra del próximo rival con su anillo y su puesto",
+            cuenta: "Percentil y puesto contra su grupo si el rival es del grupo (si no, contra toda la categoría), los mismos de las pistas. El anillo llega hasta el percentil: verde P60 o más, oro en la media, naranja P40 o menos",
+          },
+          {
+            que: "perfil entero, en mapa de calor",
+            es: "En Resumen, «Lo mejor» y «Lo peor» en dos tarjetas que llevan a su métrica y «El perfil entero, de un vistazo»: una fila por sección (córners, faltas, bandas, penaltis) y una celda por métrica que se juzga, con su valor y su percentil. Pulsar una celda abre su métrica",
+            cuenta: "La celda se pinta con el color de su percentil, más intenso cuanto más se aleja de P50; la franja media va en el oro de la marca",
+          },
+          {
+            que: "barra de navegación",
+            es: "Debajo de las pestañas, una barra que se queda pegada al bajar: Cabecera, Resumen, Córners, Faltas, Banda, Penaltis (cambian la sección del panel de Opta y llevan a él), Cada saque y La categoría en ese saque. Marca dónde se está. En Ligas · Wyscout: Cabecera, De un vistazo, Peligro, Escudo a escudo, Partido a partido y Frente a la Premier",
           },
           {
             que: "el cuadrante de cada sección",
             es: "Un escudo por equipo en dos métricas de la sección: ocasiones a balón parado a favor y concedidas (Resumen), remates de córner a favor y en contra, remates de falta directa a favor y en contra, saques de banda y remates de banda, penaltis a favor y en contra. «Su grupo» o «Toda la categoría»",
-            cuenta: "Las rayas son la mediana de los equipos que salen; la esquina buena va en verde y la mala en naranja cuando las dos métricas se juzgan, y debajo se dice cuál es cada una. Llevan nombre el Castilla (oro), el próximo rival (azul), el equipo elegido y el que está bajo el ratón; pasar por un escudo enseña sus cifras",
+            cuenta: "Las rayas son la mediana de los equipos que salen; la esquina buena va en verde y la mala en naranja cuando las dos métricas se juzgan, y debajo se dice cuál es cada una. Llevan nombre el Castilla (oro, con halo), el próximo rival (azul, con halo), el equipo elegido y el que está bajo el ratón; pasar o tocar un escudo lo agranda y abre una ficha con sus dos cifras",
           },
           {
             que: "cada métrica",
@@ -4061,8 +4070,8 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Los paneles",
         filas: [
           {
-            que: "Cabecera (25/11/2026)",
-            es: "El escudo y el nombre del equipo, su liga y sus partidos, el próximo rival con su escudo (pulsándolo se mira) y tres cifras: ABP con remate a favor y en contra por partido (con su puesto, la mediana de la liga y una barra con la raya de la mediana) y el balance",
+            que: "Cabecera: el equipo contra el próximo rival (25/11/2026)",
+            es: "El escudo del equipo frente al del próximo rival (pulsándolo se mira) y cuatro cifras: ABP con remate a favor y en contra por partido y ABP propio y del rival que acaba en remate (de cada 100), cada una con su anillo de percentil en la liga, su puesto y la mediana, y debajo la del próximo rival. Junto al nombre, el balance",
             cuenta: "Balance = a favor − en contra por partido; su puesto es el de la liga ordenada por ese balance",
           },
           { que: "De un vistazo", es: "Una pista por métrica, la misma de la pestaña Opta: su valor, la mediana de la liga, un carril de P0 a P100 con el equipo como punto (oro si es el Castilla) y el próximo rival como raya azul, su puesto y su percentil; debajo, la línea del próximo rival" },
@@ -4071,7 +4080,7 @@ export const AYUDAS: AyudaDePagina[] = [
           { que: "Peligro a favor y en contra", es: "Un escudo por equipo: ABP con remate a favor (derecha, más) frente a en contra (abajo, menos). Las rayas, las medianas; abajo a la derecha (verde), mejor en las dos. Llevan nombre el Castilla, el próximo rival y el equipo elegido; pulsar un escudo lo elige" },
           {
             que: "La liga, escudo a escudo",
-            es: "Una tarjeta por equipo con su escudo, sus barras de ABP con remate a favor (oro) y en contra (coral) por partido y el balance; ordenadas por el balance. El Castilla con filo de oro, el próximo rival en azul y el que se mira con filo gris. Pulsar una tarjeta elige el equipo",
+            es: "Una tarjeta por equipo con su escudo, sus barras de ABP con remate a favor (oro) y en contra (coral) por partido y el balance en una pastilla verde o naranja; ordenadas por el balance. El Castilla con filo de oro, el próximo rival en azul y el que se mira con filo gris. Pulsar una tarjeta elige el equipo",
           },
           { que: "Partido a partido", es: "La métrica elegida en cada partido del equipo; la raya, su valor en la temporada", cuenta: "Debajo, la base: partidos o acciones sobre las que se calcula" },
           { que: "Frente a la referencia", es: "El equipo contra un equipo de la Premier, escudo contra escudo, cada uno con su percentil en su liga: en cada pista, el punto es el equipo y la raya azul, el de la Premier" },
