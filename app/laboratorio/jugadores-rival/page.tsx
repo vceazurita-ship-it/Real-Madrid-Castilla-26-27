@@ -44,6 +44,8 @@ const COLOR: Record<string, string> = {
   paradas: "#4FD18B",
   /* Los rasgos de su puesto (25/11/2026). */
   finalizacion: "#E8735F",
+  progresa: "#3FBF9B",
+  duelosAereos: "#6FC3E8",
   regateDireccion: "#A98BF0",
   centros: "#4F8FE8",
   transicion: "#F0C75E",

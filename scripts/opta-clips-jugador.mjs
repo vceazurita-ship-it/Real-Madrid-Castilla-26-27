@@ -87,7 +87,7 @@ const TOPE_SEGUNDOS = 120;
 const PORTADA = 5;
 const PARTIDOS = 5;
 /* Sube cuando cambia la forma del vídeo: todos se rehacen la próxima pasada. */
-const VERSION = "v4-rasgos";
+const VERSION = "v5-rasgos";
 const MAX_CAPITULOS = 6;
 const MAX_POR_CAPITULO = 4;
 const MIN_MINUTOS = 360;

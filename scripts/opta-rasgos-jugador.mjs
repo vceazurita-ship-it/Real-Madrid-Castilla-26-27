@@ -264,7 +264,7 @@ function progresion(j) {
   const cortes = [];
   for (let i = 0; cortes.length < lista.length; i++) for (const [v] of vias) if (por.get(v)[i]) cortes.push(por.get(v)[i]);
   return {
-    clave: "progresion", tema: "progresion", titulo, peso: 50 + Math.round((vias[0][1] / total) * 30),
+    clave: "progresa", tema: "progresion", titulo, peso: 50 + Math.round((vias[0][1] / total) * 30),
     texto: `Cómo hace avanzar al equipo: ${plural(pases.length, "pase", "pases")} que avanzan (${plural(pases.filter((e) => e.cambio).length, "cambio de orientación", "cambios de orientación")}, ${pases.filter((e) => e.hueco).length} al hueco) · ${plural(cond.length, "conducción", "conducciones")} de 10 m o más · ${plural(reg.length, "regate", "regates")} ganados`,
     cortes,
   };
@@ -378,7 +378,7 @@ function aereo(j) {
   const arriba = a.filter((e) => e.x >= 50).length;
   const p = pct(ganados.length, a.length);
   return {
-    clave: "aereo", tema: p >= 55 ? "aereo" : undefined, contra: p < 50 ? "aereo" : undefined, titulo: p >= 60 ? `Por arriba · gana el ${p} %` : p <= 40 ? `Por arriba · pierde (${p} % ganados)` : `Por arriba · ${p} % ganados`,
+    clave: "duelosAereos", tema: p >= 55 ? "aereo" : undefined, contra: p < 50 ? "aereo" : undefined, titulo: p >= 60 ? `Por arriba · gana el ${p} %` : p <= 40 ? `Por arriba · pierde (${p} % ganados)` : `Por arriba · ${p} % ganados`,
     peso: p >= 65 ? 70 : p <= 35 ? 60 : 40,
     texto: `Gana ${ganados.length} de ${a.length} duelos aéreos (${p} %); ${enSuArea} en su área y ${arriba} en campo rival`,
     cortes: (p <= 40 ? a.filter((e) => !e.ok) : ganados).sort((x, y) => (j.grupo === "DC" ? y.x - x.x : x.x - y.x)).map((e) => corte(e, e.ok ? "Duelo aéreo ganado" : "Duelo aéreo perdido", 3, 3)),
