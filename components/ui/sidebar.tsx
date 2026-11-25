@@ -208,8 +208,6 @@ export const SECCIONES: Seccion[] = [
       { href: "/throw-ins-def", label: "Saque de Banda Defensivo", icon: ShieldHalf },
       { href: "/abp-microciclo", label: "Microciclo ABP", icon: CalendarRange },
       { href: "/abp-pizarra", label: "Pizarra ABP", icon: Projector },
-      /* 25/11/2026: las pestañas Opta y Datos del laboratorio, para todo el staff. */
-      { href: "/abp-datos", label: "ABP en datos", icon: BarChart3 },
       /* «Solo que lo vea yo» (20/10/2026): referentes, taller, retos y datos de ABP. */
       /* 10/11/2026: a la vista de todos; sin ser el administrador, la página avisa (PuertaLaboratorio). */
       { href: "/laboratorio/abp", label: "Laboratorio ABP", icon: FlaskConical },

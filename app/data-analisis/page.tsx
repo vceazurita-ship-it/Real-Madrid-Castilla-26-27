@@ -149,8 +149,6 @@ import { SelloJornada, useCalendarioCastilla } from "@/components/data/SelloJorn
 import { alcanceDeFechas, alcanceWyscout } from "@/lib/data-analisis/alcance";
 import { PanelGolesAbp } from "@/components/data/PanelGolesAbp";
 import { PanelAbpCategoria } from "@/components/data/PanelAbpCategoria";
-import { OptaBalonParado } from "@/components/abp-lab/OptaBalonParado";
-import { OptaAbpEventos } from "@/components/abp-lab/OptaAbpEventos";
 import { PanelIndividual } from "@/components/data/PanelIndividual";
 import { PanelOnce } from "@/components/data/PanelOnce";
 import { PanelTransferencia } from "@/components/data/PanelTransferencia";
@@ -230,8 +228,6 @@ type Area =
   | "destacados"
   | "golesAbp"
   | "abpCategoria"
-  /* 25/11/2026: el balón parado de la categoría con Opta (lo de la pestaña Opta del Laboratorio de ABP). */
-  | "abpOpta"
   | "eventos"
   | "individual"
   | "once"
@@ -239,9 +235,6 @@ type Area =
   | "transferencia"
   /* 10/11/2026 (fase 4): las que eran pestañas de /opta (components/data/AreasOpta.tsx). */
   | AreaOpta;
-
-/** Las que se pintan solas, sin los informes de Wyscout de la página: las de Opta y «ABP · Opta». */
-const areaAparte = (a: Area) => esAreaOpta(a) || a === "abpOpta";
 
 /** Las áreas donde tiene sentido ponerse al lado de otro equipo de la categoría. */
 const AREAS_CON_EQUIPO: Area[] = ["campo", "liga", "todos", "destacados", "golesAbp"];
@@ -358,16 +351,6 @@ const AREAS: { key: Area; label: string; icono: typeof History; pregunta: string
     icono: Crosshair,
     pregunta: "¿Cómo se marcan los goles a balón parado en la categoría?",
   },
-  /*
-    25/11/2026. Lo que era la pestaña Opta del Laboratorio de ABP (también en
-    Balón Parado → «ABP en datos»): mismos componentes, una sola versión.
-  */
-  {
-    key: "abpOpta",
-    label: "ABP · Opta (categoría)",
-    icono: Flag,
-    pregunta: "¿Cómo es nuestro balón parado frente al grupo y a toda la categoría, saque a saque?",
-  },
   {
     key: "eventos",
     label: "Acción por acción",
@@ -477,7 +460,7 @@ const BLOQUES: {
     areas: ["equipo", "todos", "destacados", "estilos", "partidoCategoria"],
     enlace: { href: "/scout-rival-collective", label: "Datos del rival en Scout colectivo" },
   },
-  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abpCategoria", "abpOpta", "abp", "penaltis"] },
+  { clave: "balonParado", label: "Balón parado", icono: Flag, areas: ["golesAbp", "abpCategoria", "abp", "penaltis"] },
   {
     clave: "entrenamiento",
     label: "Entreno e identidad",
@@ -488,7 +471,7 @@ const BLOQUES: {
 ];
 
 /* Las áreas que se miran con los filtros de la liga (temporada, competición, sistema, por partido o total). */
-const AREAS_SIN_FILTROS_LIGA: Area[] = ["post", "resumen", "eventos", "abp", "abpCategoria", "abpOpta", "individual", "transferencia", "parecidos"];
+const AREAS_SIN_FILTROS_LIGA: Area[] = ["post", "resumen", "eventos", "abp", "abpCategoria", "individual", "transferencia", "parecidos"];
 
 /* Las que pintan percentiles: llevan la leyenda de la escala en la cabecera. */
 const AREAS_CON_PERCENTIL: Area[] = ["resumen", "liga", "equipo", "todos", "destacados", "individual", "once"];
@@ -1771,7 +1754,7 @@ export default function DataAnalisisPage() {
               }
             />
 
-            {cargando && !areaAparte(area) && area !== "post" && (
+            {cargando && !esAreaOpta(area) && area !== "post" && (
               <div className="mt-8 flex items-center justify-center gap-2 py-16 text-sm text-white/40">
                 <Loader2 size={16} className="animate-spin" />
                 Abriendo los informes de la carpeta…
@@ -1796,24 +1779,6 @@ export default function DataAnalisisPage() {
 
             {/* 10/11/2026 (fase 4): las áreas de la descarga de la categoría no
                 dependen de la carpeta: salen aunque ésta no cargue (o mientras). */}
-            {area === "abpOpta" && (
-              <>
-                {barraYCabecera}
-                <div id="data-bloques" className="grid min-w-0 gap-8">
-                  <SelloFuente fuente="opta" poblacion="los dos grupos de Primera RFEF" />
-                  <OptaBalonParado />
-                  <OptaAbpEventos />
-                  <p className="text-[11.5px] text-white/40">
-                    Las cifras de Opta y las de Wyscout (las otras áreas de balón parado) no se comparan entre sí: cada proveedor cuenta distinto un córner, una falta o una acción que acaba en tiro.{" "}
-                    <Link href="/abp-datos?tab=ligas" className="text-[#C8A96B] underline-offset-2 hover:underline">
-                      Las ligas con Wyscout (Primera RFEF y Premier), en ABP en datos
-                    </Link>
-                    .
-                  </p>
-                </div>
-              </>
-            )}
-
             {esAreaOpta(area) && (
               <>
                 {barraYCabecera}
@@ -1823,7 +1788,7 @@ export default function DataAnalisisPage() {
               </>
             )}
 
-            {!cargando && !datos?.ok && area !== "post" && !areaAparte(area) && (
+            {!cargando && !datos?.ok && area !== "post" && !esAreaOpta(area) && (
               <div className="mt-6">
                 <Notice tone="warn" title="No se ha podido leer la carpeta de datos">
                   {datos?.error ??
@@ -1839,7 +1804,7 @@ export default function DataAnalisisPage() {
               </div>
             )}
 
-            {!cargando && datos?.ok && partidos.length === 0 && area !== "post" && !areaAparte(area) && (
+            {!cargando && datos?.ok && partidos.length === 0 && area !== "post" && !esAreaOpta(area) && (
               <div className="mt-6">
                 <Notice tone="warn" title="No ha llegado ningún informe">
                   <p>
@@ -1871,7 +1836,7 @@ export default function DataAnalisisPage() {
               </div>
             )}
 
-            {!cargando && datos?.ok && partidos.length > 0 && !areaAparte(area) && (
+            {!cargando && datos?.ok && partidos.length > 0 && !esAreaOpta(area) && (
               <>
                 {barraYCabecera}
 
@@ -2813,22 +2778,7 @@ export default function DataAnalisisPage() {
 
                 {/* ========= 3 quater · ABP DE LA CATEGORÍA ========= */}
 
-                {area === "abpCategoria" && (
-                  <>
-                    <PanelAbpCategoria />
-                    <p className="mt-6 text-[12px] text-white/50">
-                      Más balón parado de cada equipo, con sus escudos:{" "}
-                      <Link href="/abp-datos?tab=ligas" className="text-[#C8A96B] underline-offset-2 hover:underline">
-                        ABP en datos → Ligas · Wyscout
-                      </Link>{" "}
-                      (Primera RFEF y Premier) y{" "}
-                      <Link href="/data-analisis?area=abpOpta" className="text-[#C8A96B] underline-offset-2 hover:underline">
-                        ABP · Opta (categoría)
-                      </Link>
-                      .
-                    </p>
-                  </>
-                )}
+                {area === "abpCategoria" && <PanelAbpCategoria />}
 
                 {/* ============= 4 · ACCIÓN POR ACCIÓN ============= */}
 

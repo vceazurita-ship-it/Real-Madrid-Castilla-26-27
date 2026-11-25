@@ -887,9 +887,9 @@ export const EVENTO_SECCION_ACTUAL = "abp-datos:seccion-actual";
  * elemento lleva `seccion`, cambia además la sección del panel de Opta) y
  * marca dónde se está.
  */
-export function NavSecciones({ items }: { items: ItemNav[] }) {
-  const top = useAltoCabecera();
-  const nav = useRef<HTMLElement>(null);
+/** `extra`: px de más bajo la cabecera (en el Laboratorio de ABP, su propia barra de pestañas va pegada encima). */
+export function NavSecciones({ items, extra = 0 }: { items: ItemNav[]; extra?: number }) {
+  const top = useAltoCabecera() + extra;
   const [activo, setActivo] = useState(items[0]?.id ?? "");
   const [seccion, setSeccion] = useState("");
 

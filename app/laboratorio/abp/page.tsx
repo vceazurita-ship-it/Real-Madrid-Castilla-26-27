@@ -22,8 +22,12 @@
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { BarChart3, BookMarked, Database, FlaskConical, LayoutTemplate, Newspaper, Swords, Target, Trophy } from "lucide-react";
-import Link from "next/link";
+import { BookMarked, Database, FlaskConical, LayoutTemplate, Newspaper, Swords, Target, Trophy } from "lucide-react";
+
+import { AbpDatosPanel } from "@/components/abp-lab/AbpDatosPanel";
+
+/* Alto de la barra de pestañas pegada del laboratorio: la de secciones de «ABP en datos» se pega justo debajo. */
+const ALTO_PESTANAS = 58;
 import { toast } from "sonner";
 
 import { AbpHeader, Notice } from "@/components/abp/ui";
@@ -68,7 +72,8 @@ const PESTANAS: { key: Pestana; label: string; corto: string; icon: typeof Troph
   { key: "taller", label: "Taller", corto: "Taller", icon: FlaskConical, lema: "Nuestras rutinas" },
   { key: "retos", label: "Retos", corto: "Retos", icon: Swords, lema: "La competición" },
   /* 09/11/2026: el Castilla frente a su grupo y a la categoría, con los datos de Opta. */
-  { key: "opta", label: "Opta · balón parado de la categoría", corto: "Opta", icon: Database, lema: "Opta · Primera RFEF, los dos grupos" },
+  /* 25/11/2026: «ABP en datos» (Opta de la categoría + ligas de Wyscout), rediseñada; estuvo unas horas para el staff y volvió aquí. */
+  { key: "opta", label: "ABP en datos", corto: "Datos", icon: Database, lema: "Opta · la categoría, y Wyscout · Primera RFEF y Premier" },
 ];
 
 function esPestana(valor: string | null): valor is Pestana {
@@ -451,14 +456,6 @@ export default function LaboratorioAbpPage() {
                     </button>
                   );
                 })}
-                <Link
-                  href="/abp-datos?tab=ligas"
-                  title="Primera RFEF y Premier"
-                  className="flex shrink-0 items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3.5 py-2 text-sm font-semibold text-white/75 transition hover:bg-white/[0.07] hover:text-white"
-                >
-                  <BarChart3 size={15} />
-                  Datos
-                </Link>
               </div>
             </nav>
 
@@ -541,19 +538,7 @@ export default function LaboratorioAbpPage() {
                 />
               )}
 
-              {/* 25/11/2026: salió a la app, para todo el staff: Balón Parado → «ABP en datos» (y Análisis de datos). */}
-              {pestana === "opta" && (
-                <Link
-                  href="/abp-datos"
-                  className="flex min-w-0 items-center justify-between gap-4 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/[0.06] p-5 transition hover:bg-[#C8A96B]/[0.1]"
-                >
-                  <span className="min-w-0">
-                    <span className="block text-base font-semibold text-white">Ya está en la app: Balón Parado → ABP en datos</span>
-                    <span className="mt-1 block text-sm text-white/60">El balón parado de la categoría con Opta, para todo el staff. También en Análisis de datos → Balón parado.</span>
-                  </span>
-                  <BarChart3 size={22} className="shrink-0 text-[#C8A96B]" />
-                </Link>
-              )}
+              {pestana === "opta" && <AbpDatosPanel extra={ALTO_PESTANAS} />}
 
               {pestana === "retos" && <Retos doc={doc} jugadores={jugadores} porId={porId} guarda={guarda} ocupado={ocupado} cargando={estado === "cargando"} />}
             </div>

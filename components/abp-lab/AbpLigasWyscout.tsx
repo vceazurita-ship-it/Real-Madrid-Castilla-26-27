@@ -165,7 +165,7 @@ function gemeloEn(tabla: FilaLiga[], equipo: string, tablaPremier: FilaLiga[]) {
   return distancias[0] ?? null;
 }
 
-/** Pestaña «Ligas · Wyscout» de /abp-datos (antes /laboratorio/abp/datos, sólo admin; 25/11/2026 a la vista del staff). */
+/** Subpestaña «Ligas · Wyscout» de «ABP en datos», en el Laboratorio de ABP (components/abp-lab/AbpDatosPanel.tsx). */
 export function AbpLigasWyscout() {
   const { datos, fallo } = useAbpLigas();
   const proximo = useProximoRival();
