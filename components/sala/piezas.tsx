@@ -200,7 +200,7 @@ export function Marcador({
                   {reloj(h.min, h.parte)}
                 </span>
                 {/* En el móvil sólo el apellido («Ciria», no «Ciria po…»). */}
-                <span className="sm:hidden">{h.tipo === "cambio" ? `${ultimoNombre(h.entra ?? "?")} ⇄ ${ultimoNombre(h.jugador)}` : ultimoNombre(h.jugador)}</span>
+                <span className="sm:hidden">{h.tipo === "cambio" ? `⇄ ${ultimoNombre(h.entra ?? "?")}` : ultimoNombre(h.jugador)}</span>
                 <span className="hidden truncate sm:inline">
                   {h.tipo === "cambio" ? `${h.entra ?? "?"} por ${h.jugador}` : h.jugador}
                   {h.tipo === "gol" && h.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(h.xG, 2)}</span> : null}
