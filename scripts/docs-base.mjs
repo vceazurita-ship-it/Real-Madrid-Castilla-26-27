@@ -10,6 +10,8 @@
  * de datos de la app (lib/datos/cliente.cjs): Supabase de siempre y, si algún
  * día vuelve a hacer falta, la reserva con sólo poner DATOS_PG_URL.
  */
+import fs from "node:fs";
+import path from "node:path";
 import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
@@ -39,12 +41,52 @@ async function conReintento(fn) {
   }
 }
 
+/*
+| COPIA EN DISCO POR SELLO (26/11/2026). Supabase da 5,5 GB de bajada al mes y
+| el 25-26/11 estos scripts se llevaban 40-60 MB al día bajando cada noche los
+| mismos documentos grandes (opta:directo:*, opta:jugadores…). Ahora se pide
+| primero sólo el sello (key, updated_at: bytes) y se baja entero sólo lo que
+| cambió desde la última vez; lo demás sale de .cache/docs-base/.
+*/
+const COPIA = path.join(process.cwd(), ".cache", "docs-base");
+const fichero = (clave) => path.join(COPIA, `${encodeURIComponent(clave)}.json`);
+const leeCopia = (clave) => {
+  try {
+    return JSON.parse(fs.readFileSync(fichero(clave), "utf8"));
+  } catch {
+    return null;
+  }
+};
+const ponCopia = (clave, sello, data) => {
+  try {
+    fs.mkdirSync(COPIA, { recursive: true });
+    fs.writeFileSync(fichero(clave), JSON.stringify({ sello, data }));
+  } catch {
+    /* sin copia: la próxima vez se baja */
+  }
+};
+
 /** `{ clave: data }` de las que existan. */
 export async function leeDocs(claves) {
   return conReintento(async () => {
-    const { data, error } = await sb().from("app_documents").select("key, data").in("key", claves);
-    if (error) throw new Error(error.message);
-    return Object.fromEntries((data ?? []).map((f) => [f.key, f.data]));
+    const { data: sellos, error: e1 } = await sb().from("app_documents").select("key, updated_at").in("key", claves);
+    if (e1) throw new Error(e1.message);
+    const salida = {};
+    const faltan = [];
+    for (const f of sellos ?? []) {
+      const c = leeCopia(f.key);
+      if (c && f.updated_at && c.sello === f.updated_at) salida[f.key] = c.data;
+      else faltan.push(f.key);
+    }
+    if (faltan.length) {
+      const { data, error } = await sb().from("app_documents").select("key, data, updated_at").in("key", faltan);
+      if (error) throw new Error(error.message);
+      for (const f of data ?? []) {
+        salida[f.key] = f.data;
+        if (f.updated_at) ponCopia(f.key, f.updated_at, f.data);
+      }
+    }
+    return salida;
   });
 }
 
@@ -54,7 +96,10 @@ export async function leeDoc(clave) {
 
 export async function guardaDoc(clave, kind, data) {
   await conReintento(async () => {
-    const { error } = await sb().from("app_documents").upsert({ key: clave, kind, data, updated_at: new Date().toISOString() }, { onConflict: "key" });
+    const { data: vuelta, error } = await sb().from("app_documents").upsert({ key: clave, kind, data, updated_at: new Date().toISOString() }, { onConflict: "key" }).select("updated_at");
     if (error) throw new Error(error.message);
+    /* El sello tal y como lo guarda la base: la siguiente lectura no baja lo que acabamos de subir. */
+    const sello = Array.isArray(vuelta) ? vuelta[0]?.updated_at : null;
+    if (sello) ponCopia(clave, sello, data);
   });
 }
