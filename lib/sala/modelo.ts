@@ -105,6 +105,17 @@ export type Partido = {
 | - Recuperaciones altas y centros salen ×2: no se enseñan.
 */
 const TIROS = new Set(["Goal", "AttemptSaved", "Miss", "Post"]);
+/**
+ * Goles en propia puerta (26/11/2026, «el resultado de los partidos que sea
+ * correcto»): Opta los da como «OwnGoal» del que la mete (equipo contrario) y
+ * los penaltis marcados como «PenaltyGoal», no como «Goal». Antes la sala no
+ * contaba ninguno de los dos: Castilla-Antequera salía 3-1 (fue 3-2), con el
+ * Atlético Madrileño 2-2 (3-2) y con el Alcorcón 0-2 (1-2). Al leer, el penalti
+ * pasa a «Goal» (de penalti) y la propia puerta a «GolPropia», del equipo que
+ * se beneficia: cuenta en el marcador, pero no como remate ni xG de nadie.
+ */
+const esGol = (e: { tipo: string }) => e.tipo === "Goal" || e.tipo === "GolPropia";
+const PENALTI_FALLADO: Record<string, string> = { PenaltySaved: "AttemptSaved", PenaltyMiss: "Miss", PenaltyMissed: "Miss", PenaltyPost: "Post" };
 const A_PUERTA = new Set(["Goal", "AttemptSaved"]);
 const DEFENSIVAS = new Set(["Tackle", "Interception", "Challenge", "AttemptedTackle"]);
 const RECUPERA = new Set(["BallRecovery", "Interception", "Tackle"]);
@@ -192,14 +203,20 @@ export function partidoDe(doc: DocPartido): Partido | null {
   if (et?.filas) {
     const e = (n: string) => et.cols.indexOf(n);
     for (const f of et.filas) {
-      const lado = ladoDe(f[e("teamId")]);
-      const x = num(f[e("x")]), y = num(f[e("y")]);
-      if (!lado || x == null || y == null) continue;
+      const ladoOpta = ladoDe(f[e("teamId")]);
+      const xo = num(f[e("x")]), yo = num(f[e("y")]);
+      if (!ladoOpta || xo == null || yo == null) continue;
+      const bruto = String(f[e("tipo")] ?? "");
+      const propia = bruto === "OwnGoal";
+      const penalti = bruto === "PenaltyGoal" || bruto in PENALTI_FALLADO;
+      /* La propia puerta, del que se beneficia y vista desde su ataque. */
+      const lado: Lado = propia ? (ladoOpta === "L" ? "V" : "L") : ladoOpta;
+      const x = propia ? 100 - xo : xo, y = propia ? 100 - yo : yo;
       eventos.push({
         lado,
         parte: num(f[e("parte")]) ?? 1,
         min: (num(f[e("segundo")]) ?? 0) / 60,
-        tipo: String(f[e("tipo")] ?? ""),
+        tipo: propia ? "GolPropia" : bruto === "PenaltyGoal" ? "Goal" : (PENALTI_FALLADO[bruto] ?? bruto),
         jugador: String(f[e("jugadorId")] ?? ""),
         receptor: String(f[e("receptorId")] ?? ""),
         x,
@@ -211,7 +228,8 @@ export function partidoDe(doc: DocPartido): Partido | null {
         xPV: num(f[e("xPV")]) ?? 0,
         saque: String(f[e("saque")] ?? ""),
         bloqueado: e("bloqueado") < 0 ? null : num(f[e("bloqueado")]) === 1,
-        jugada: e("jugada") < 0 ? "" : String(f[e("jugada")] ?? ""),
+        jugada: penalti ? "penalti" : e("jugada") < 0 ? "" : String(f[e("jugada")] ?? ""),
+        ...(propia ? { xG: null, xPV: 0 } : {}),
       });
     }
     eventos.sort((a, b) => a.min - b.min);
@@ -337,7 +355,8 @@ export function cifrasEntre(p: Partido, desde: number, hasta: number, parte?: nu
         yo.xgAbp += e.xG ?? 0;
       }
       tiros.push({ lado: e.lado, parte: e.parte, min: e.min, x: e.x, y: e.y, xG: e.xG ?? 0.03, gol: e.tipo === "Goal", aPuerta, bloqueado, jugador: e.jugador, tipo: e.tipo, jugada });
-    } else if (e.xPV > 0) yo.amenaza += e.xPV;
+    } else if (e.tipo === "GolPropia") yo.goles++;
+    else if (e.xPV > 0) yo.amenaza += e.xPV;
     if (e.tipo === "Pass" && !e.saque) {
       yo.pases++;
       if (e.ok) yo.pasesOk++;
@@ -494,6 +513,9 @@ export function curvaProbabilidad(p: Partido, t: number, paso = 1) {
         else xV += e.xG ?? 0;
         if (e.tipo === "Goal" && e.lado === "L") gL++;
         else if (e.tipo === "Goal") gV++;
+      } else if (e.tipo === "GolPropia") {
+        if (e.lado === "L") gL++;
+        else gV++;
       }
     }
     salida.push({ min: m, ...probabilidad(p, m, gL, gV, xL, xV) });
@@ -760,6 +782,7 @@ export function hitos(p: Partido, t: number): Hito[] {
     if (e.min > t) break;
     const quien = p.jugadores.get(e.jugador)?.corto ?? "";
     if (e.tipo === "Goal") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "gol", jugador: quien, xG: e.xG });
+    else if (e.tipo === "GolPropia") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "gol", jugador: `${quien} (p. p.)`, xG: null });
     else if (TIROS.has(e.tipo)) out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: A_PUERTA.has(e.tipo) ? "parada" : "tiro", jugador: quien, xG: e.xG });
     else if (e.tipo === "Corner" && e.x >= 50) out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "corner", jugador: quien, xG: null });
   }
@@ -909,7 +932,7 @@ export function tramos15(p: Partido, t: number): Tramo15[] {
     if (TIROS.has(e.tipo)) {
       k.tiros++;
       k.xg += e.xG ?? 0;
-      if (e.tipo === "Goal") k.goles++;
+      if (esGol(e)) k.goles++;
     }
     if (e.tipo === "Pass" && !e.saque && e.x >= 66.7) k.tercio++;
   }
@@ -1043,8 +1066,8 @@ export function jugadoresDe(p: Partido, lado: Lado, desde: number, hasta: number
 /** Los goles con minuto, autor y xG (bajo el marcador). */
 export function golesHasta(p: Partido, t: number) {
   return p.eventos
-    .filter((e) => e.tipo === "Goal" && e.min <= t)
-    .map((e) => ({ lado: e.lado, min: e.min, parte: e.parte, jugador: p.jugadores.get(e.jugador)?.corto ?? "", xG: e.xG ?? null }));
+    .filter((e) => esGol(e) && e.min <= t)
+    .map((e) => ({ lado: e.lado, min: e.min, parte: e.parte, jugador: `${p.jugadores.get(e.jugador)?.corto ?? ""}${e.tipo === "GolPropia" ? " (p. p.)" : ""}`, xG: e.xG ?? null }));
 }
 
 /* ------------------------------------------------------------------ */
@@ -1071,14 +1094,20 @@ export function fichasDeGol(p: Partido, t: number): FichaGol[] {
   for (let i = 0; i < ev.length; i++) {
     const g = ev[i];
     if (g.min > t) break;
-    if (g.tipo !== "Goal") continue;
+    if (!esGol(g)) continue;
     if (g.lado === "L") gL++;
     else gV++;
+    if (g.tipo === "GolPropia") {
+      out.push({ lado: g.lado, min: g.min, parte: g.parte, marcador: `${gL}-${gV}`, goleador: `${nombre(g.jugador)} (p. p.)`, asistente: "", origen: "en propia puerta", pases: 0, segundos: 0, zona: "", xG: null, jugada: "" });
+      continue;
+    }
     let inicio = i;
     let origen = "ataque elaborado";
     let pases = 0;
     let asistente = "";
+    let atras = i;
     for (let j = i - 1; j >= 0 && g.min - ev[j].min <= 40 / 60; j--) {
+      atras = j;
       const e = ev[j];
       if (e.tipo === "Corner" && e.lado === g.lado && e.x >= 50) { origen = "de córner"; inicio = j; break; }
       if (e.tipo === "FreeKick" && e.lado === g.lado && e.x >= 50) { origen = "de falta"; inicio = j; break; }
@@ -1107,6 +1136,8 @@ export function fichasDeGol(p: Partido, t: number): FichaGol[] {
       }
       if (e.saque === "banda" && j < i) { origen = "de saque de banda"; inicio = j; break; }
     }
+    /* Sin corte en 40 s (posesión larga): la jugada empieza en lo más antiguo mirado. Antes salía «10 pases · 0 s». */
+    if (inicio === i && pases > 0) inicio = atras;
     if (g.jugada === "penalti") origen = "de penalti";
     else if (g.jugada === "corner") origen = "de córner";
     else if (g.jugada === "falta") origen = "de falta";

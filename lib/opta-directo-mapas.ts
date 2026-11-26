@@ -76,7 +76,8 @@ export function leeEventos(t: TablaOpta | null | undefined): EventoDirecto[] {
       parte: num(f[iP]) ?? 1,
       segundo,
       minuto: Math.floor(segundo / 60) + 1,
-      tipo: String(f[iTi] ?? ""),
+      /* El penalti marcado llega como «PenaltyGoal» (26/11/2026): es un gol y un remate. */
+      tipo: String(f[iTi] ?? "") === "PenaltyGoal" ? "Goal" : String(f[iTi] ?? ""),
       jugadorId: String(f[iJ] ?? ""),
       receptorId: String(f[iR] ?? ""),
       x,
@@ -154,10 +155,13 @@ function suaviza(m: number[]): number[] {
   return b;
 }
 
-export const esToque = (e: EventoDirecto) => !NO_ES_TOQUE.has(e.tipo) && !(e.x === 0 && e.y === 0);
+/** Sólo hace falta el tipo y el sitio: la sala de partido (lib/sala/modelo.ts) usa la misma densidad con sus eventos. */
+type ConSitio = Pick<EventoDirecto, "tipo" | "x" | "y">;
+
+export const esToque = (e: ConSitio) => !NO_ES_TOQUE.has(e.tipo) && !(e.x === 0 && e.y === 0);
 
 /** Densidad de toques (suma 1) en la malla; `max` para la escala. */
-export function densidad(ev: EventoDirecto[]): { malla: number[]; max: number; toques: number } {
+export function densidad(ev: ConSitio[]): { malla: number[]; max: number; toques: number } {
   const m = new Array(MX * MY).fill(0);
   let n = 0;
   for (const e of ev) {

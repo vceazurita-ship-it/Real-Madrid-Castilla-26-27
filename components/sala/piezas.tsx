@@ -17,11 +17,19 @@
 |   las cifras que no cuadran con Opta; PPDA y a puerta ajustados a la oficial.
 | - Nuevos: tramos de 15′, balón parado y transiciones, jugadores de cada equipo
 |   y la lectura del tramo (descanso, final o la parte elegida).
+|
+| 26/11/2026, tarde (el analista: «el mapa quedaría mejor como mapa de calor,
+| como en las huellas»): la capa «Territorio» de rectángulos pasa a «Mapa de
+| calor» continuo (la misma densidad suavizada ~6 m que la huella táctica y el
+| directo, lib/opta-directo-mapas.ts). Con los dos equipos, quién domina cada
+| zona; con uno, dónde toca él. El remate elegido ya no salta a otro al cambiar
+| de equipo o de tramo, y «ataca…» se lee en el móvil.
 */
 
 import { useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeftRight, Flame, Zap } from "lucide-react";
 
+import { MX, MY, densidad } from "@/lib/opta-directo-mapas";
 import {
   DURACION,
   aPuertaDe,
@@ -42,7 +50,6 @@ import {
   pulso,
   red,
   reloj,
-  territorio,
   tramos15,
   transiciones,
   type Alerta,
@@ -156,7 +163,13 @@ export function Marcador({
   fichas: FichaGol[];
   k: Calibracion;
 }) {
-  const ultimoNombre = (n: string) => n.split(" ").slice(-1)[0] ?? n;
+  /* El apellido para el móvil; la propia puerta conserva su marca («Cestero (p. p.)» salía «p.)»). */
+  const ultimoNombre = (n: string) => {
+    const PP = / \(p\. p\.\)$/;
+    const pp = PP.test(n);
+    const limpio = n.replace(PP, "");
+    return `${limpio.split(" ").slice(-1)[0] ?? limpio}${pp ? " (p.p.)" : ""}`;
+  };
   const avance = Math.min(1, t / DURACION);
   const R = 34;
   const circ = 2 * Math.PI * R;
@@ -186,21 +199,21 @@ export function Marcador({
           <b className="rounded-md px-1.5 py-0.5 text-[14px] sm:text-[16px]" style={{ background: `${color}22`, color: S.texto, border: `1px solid ${color}55` }}>
             xG {fmt(yo.xg, 2)}
           </b>
-          <span>
-            {yo.tiros} rem. · {aPuertaDe(yo, l === "L" ? k.aPuerta?.L : k.aPuerta?.V)} a puerta
-          </span>
+          {/* Dos trozos que no se parten por dentro (en el móvil salía «3 a / puerta»). */}
+          <span className="whitespace-nowrap">{yo.tiros} rem.</span>
+          <span className="whitespace-nowrap">· {aPuertaDe(yo, l === "L" ? k.aPuerta?.L : k.aPuerta?.V)} a puerta</span>
         </span>
         {/* Goles, tarjetas y cambios (estos dos, en los documentos desde el 26/11/2026). */}
         {suyas.length > 0 && (
           <ul className={`mt-2 grid gap-0.5 text-[12px] sm:text-[13px] ${derecha ? "justify-items-end" : ""}`} style={{ color: S.suave }}>
             {suyas.map((h, i) => (
-              <li key={i} className="flex max-w-full items-center gap-1.5 truncate">
+              <li key={i} className="flex max-w-full items-center gap-1 truncate sm:gap-1.5">
                 {h.tipo === "gol" ? <span aria-label="Gol">⚽</span> : h.tipo === "amarilla" ? <span aria-label="Amarilla" className="inline-block h-3 w-2 rounded-[2px]" style={{ background: "#F5D547" }} /> : h.tipo === "roja" ? <span aria-label="Roja" className="inline-block h-3 w-2 rounded-[2px]" style={{ background: "#FF3B4E" }} /> : <ArrowLeftRight size={12} aria-label="Cambio" />}
-                <span className="font-mono tabular-nums" style={{ color: S.texto }}>
+                <span className="shrink-0 font-mono text-[11px] tabular-nums sm:text-[13px]" style={{ color: S.texto }}>
                   {reloj(h.min, h.parte)}
                 </span>
                 {/* En el móvil sólo el apellido («Ciria», no «Ciria po…»). */}
-                <span className="sm:hidden">{h.tipo === "cambio" ? `⇄ ${ultimoNombre(h.entra ?? "?")}` : ultimoNombre(h.jugador)}</span>
+                <span className="min-w-0 truncate sm:hidden">{h.tipo === "cambio" ? ultimoNombre(h.entra ?? "?") : ultimoNombre(h.jugador)}</span>
                 <span className="hidden truncate sm:inline">
                   {h.tipo === "cambio" ? `${h.entra ?? "?"} por ${h.jugador}` : h.jugador}
                   {h.tipo === "gol" && h.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(h.xG, 2)}</span> : null}
@@ -285,7 +298,7 @@ export function Marcador({
                 ⚽ {reloj(g.min, g.parte)} · {g.marcador}
               </span>{" "}
               <b style={{ color: colorDe(p, g.lado) }}>{g.goleador}</b>
-              {g.asistente ? <span> (pase de {g.asistente})</span> : null} · {g.origen} · {g.pases} {g.pases === 1 ? "pase" : "pases"} · {g.segundos} s · {g.zona}
+              {g.asistente ? <span> (pase de {g.asistente})</span> : null} · {g.origen}{g.zona ? <> · {g.pases} {g.pases === 1 ? "pase" : "pases"} · {g.segundos} s · {g.zona}</> : null}
               {g.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(g.xG, 2)}</span> : null}
             </li>
           ))}
@@ -691,11 +704,78 @@ export function Probabilidad({ p, t, hitos }: { p: Partido; t: number; hitos: Hi
 /*  EL CAMPO                                                           */
 /* ------------------------------------------------------------------ */
 
-export type Capa = "remates" | "pordonde" | "territorio" | "redL" | "redV";
+export type Capa = "remates" | "pordonde" | "calor" | "redL" | "redV";
 
 /** Coordenadas del campo (105 × 68 → 1050 × 680), el local ataca a la derecha. */
 const cx = (l: Lado, x: number) => (l === "L" ? x : 100 - x) * 10.5;
 const cy = (l: Lado, y: number) => (l === "L" ? 100 - y : y) * 6.8;
+
+/** «#1E6BFF» o «rgb(30,107,255)» → [r, g, b]. */
+function rgbDe(c: string): [number, number, number] {
+  const h = c.trim().match(/^#([0-9a-f]{6})$/i);
+  if (h) return [0, 2, 4].map((i) => parseInt(h[1].slice(i, i + 2), 16)) as [number, number, number];
+  const r = c.match(/(\d+)\D+(\d+)\D+(\d+)/);
+  return r ? [Number(r[1]), Number(r[2]), Number(r[3])] : [255, 255, 255];
+}
+
+/** Los toques de un equipo en la ventana, en la malla del calor, ya colocados en el dibujo (el local ataca a la derecha). */
+function calorDe(p: Partido, l: Lado, v: Ventana) {
+  const ev = p.eventos.filter((e) => e.lado === l && e.min >= v.desde && e.min <= v.hasta && (!v.parte || e.parte === v.parte));
+  const d = densidad(ev);
+  /* La malla va en el sentido de quien ataca; el dibujo, fila 0 arriba y el local hacia la derecha. */
+  const malla = new Array(MX * MY).fill(0);
+  for (let fila = 0; fila < MY; fila++)
+    for (let col = 0; col < MX; col++) {
+      const j = l === "L" ? MY - 1 - fila : fila;
+      const i = l === "L" ? col : MX - 1 - col;
+      malla[fila * MX + col] = d.malla[j * MX + i] * d.toques;
+    }
+  return { malla, toques: d.toques };
+}
+
+/**
+ * La imagen del calor (un punto de la malla = un píxel; el navegador la estira
+ * suave, como en la huella táctica). Con un equipo, su color sube hacia el
+ * blanco donde más toca; con los dos, el color del que más toca en cada zona.
+ */
+function imagenCalor(p: Partido, capas: { L: number[]; V: number[] } | null, solo: number[] | null, colorSolo: string): string {
+  if (typeof document === "undefined") return "";
+  const lienzo = document.createElement("canvas");
+  lienzo.width = MX;
+  lienzo.height = MY;
+  const c = lienzo.getContext("2d");
+  if (!c) return "";
+  const img = c.createImageData(MX, MY);
+  if (solo) {
+    const tope = Math.max(1e-9, ...solo);
+    const [r, g, b] = rgbDe(colorSolo);
+    solo.forEach((v, k) => {
+      /* Por debajo del 12 % del máximo, nada; luego sube (más contraste que la raíz: con ella todo el campo salía igual de lleno). */
+      const f = Math.max(0, (v / tope - 0.12) / 0.88) ** 0.75;
+      const blanco = Math.max(0, (f - 0.6) / 0.4) * 0.65;
+      img.data[k * 4] = Math.round(r + (255 - r) * blanco);
+      img.data[k * 4 + 1] = Math.round(g + (255 - g) * blanco);
+      img.data[k * 4 + 2] = Math.round(b + (255 - b) * blanco);
+      img.data[k * 4 + 3] = Math.round(Math.min(1, f * 1.15) * 0.88 * 255);
+    });
+  } else if (capas) {
+    const dif = capas.L.map((v, k) => v - capas.V[k]);
+    const tope = Math.max(1e-9, ...dif.map(Math.abs));
+    const L = rgbDe(p.local.color);
+    const V = rgbDe(p.visitante.color);
+    dif.forEach((v, k) => {
+      const [r, g, b] = v >= 0 ? L : V;
+      img.data[k * 4] = r;
+      img.data[k * 4 + 1] = g;
+      img.data[k * 4 + 2] = b;
+      /* Lo parejo (menos del 10 % de la mayor diferencia) sin color; luego sube: se ve dónde manda cada uno, no un campo entero pintado. */
+      const fz = Math.max(0, (Math.abs(v) / tope - 0.1) / 0.9) ** 0.7;
+      img.data[k * 4 + 3] = Math.round(Math.min(1, fz * 1.2) * 0.85 * 255);
+    });
+  }
+  c.putImageData(img, 0, 0);
+  return lienzo.toDataURL("image/png");
+}
 
 function Lineas() {
   const c = "rgba(160, 220, 255, 0.62)";
@@ -724,20 +804,41 @@ function Lineas() {
 
 export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ventana; capa: Capa; setCapa: (c: Capa) => void }) {
   const [quien, setQuien] = useState<"ambos" | Lado>("ambos");
-  const [elegido, setElegido] = useState<number | null>(null);
+  /* Por su clave (equipo, minuto y quién): antes era la posición en la lista y, al cambiar de equipo o de tramo, la ficha saltaba a otro remate. */
+  const [elegido, setElegido] = useState<string | null>(null);
   const { tiros } = useMemo(() => cifrasEntre(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
   const lados: Lado[] = quien === "ambos" ? ["L", "V"] : [quien];
   const vistos = tiros.filter((s) => lados.includes(s.lado));
   const ultimo = vistos.at(-1);
-  const tiroElegido = elegido != null ? vistos[elegido] : null;
-  const territorios = useMemo(() => (capa === "territorio" ? { L: territorio(p, "L", v.hasta, v.desde, v.parte), V: territorio(p, "V", v.hasta, v.desde, v.parte) } : null), [p, v.hasta, v.desde, v.parte, capa]);
+  const claveTiro = (s: Tiro) => `${s.lado}${s.parte}${s.min.toFixed(3)}${s.jugador}`;
+  const tiroElegido = elegido != null ? (vistos.find((s) => claveTiro(s) === elegido) ?? null) : null;
+  const calor = useMemo(() => {
+    if (capa !== "calor") return null;
+    const L = calorDe(p, "L", v);
+    const V = calorDe(p, "V", v);
+    const href = quien === "ambos" ? imagenCalor(p, { L: L.malla, V: V.malla }, null, "") : imagenCalor(p, null, (quien === "L" ? L : V).malla, colorDe(p, quien));
+    /* La zona (de 6 × 3) donde más domina cada uno, para la frase de debajo. */
+    const zonas = (["L", "V"] as Lado[]).map((l) => {
+      const yo = l === "L" ? L.malla : V.malla, el = l === "L" ? V.malla : L.malla;
+      let mejor = { col: 0, fila: 0, v: -Infinity };
+      for (let fila = 0; fila < 3; fila++)
+        for (let col = 0; col < 6; col++) {
+          let d = 0;
+          for (let j = Math.floor((fila * MY) / 3); j < Math.floor(((fila + 1) * MY) / 3); j++)
+            for (let i = Math.floor((col * MX) / 6); i < Math.floor(((col + 1) * MX) / 6); i++) d += yo[j * MX + i] - el[j * MX + i];
+          if (d > mejor.v) mejor = { col, fila, v: d };
+        }
+      return { l, ...mejor };
+    });
+    return { href, toques: { L: L.toques, V: V.toques }, zonas };
+  }, [p, v, capa, quien]);
   const redes = useMemo(() => (capa === "redL" || capa === "redV" ? red(p, capa === "redL" ? "L" : "V", t) : null), [p, t, capa]);
   const vias = useMemo(() => (capa === "pordonde" ? { L: carriles(p, "L", v.desde, v.hasta, v.parte), V: carriles(p, "V", v.desde, v.hasta, v.parte) } : null), [p, v.desde, v.hasta, v.parte, capa]);
 
   const opciones: { k: Capa; t: string }[] = [
     { k: "remates", t: "Remates" },
     { k: "pordonde", t: "Por dónde llega" },
-    { k: "territorio", t: "Territorio" },
+    { k: "calor", t: "Mapa de calor" },
     { k: "redL", t: `Red · ${cortoDe(p, "L")}` },
     { k: "redV", t: `Red · ${cortoDe(p, "V")}` },
   ];
@@ -747,8 +848,10 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
       ? "Toca un remate para ver quién, cuándo y de dónde."
       : capa === "pordonde"
         ? "Entradas al último tercio con pase bueno, por carril (derecha, centro, izquierda de quien ataca). La flecha más gruesa es por donde más llega."
-        : capa === "territorio"
-          ? "Quién domina cada zona: el color del que más toca ahí, más intenso cuanto más."
+        : capa === "calor"
+          ? quien === "ambos"
+            ? "Mapa de calor de los toques: en cada zona, el color del que más toca ahí, más intenso cuanto más diferencia. Elige un equipo para ver sólo el suyo."
+            : "Mapa de calor de los toques de un equipo (suavizado unos 6 m): más intenso y más claro donde más toca."
           : "Posición media de los titulares (todo el partido) y los pases entre ellos (3 o más).";
 
   return (
@@ -765,13 +868,13 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
         </div>
       }
     >
-      {(capa === "remates" || capa === "pordonde") && (
+      {(capa === "remates" || capa === "pordonde" || capa === "calor") && (
         <div className="mb-2 flex gap-1 overflow-x-auto" role="group" aria-label="De quién">
-          <Pastilla activa={quien === "ambos"} onClick={() => setQuien("ambos")}>
+          <Pastilla activa={quien === "ambos"} onClick={() => { setQuien("ambos"); }}>
             Los dos
           </Pastilla>
           {(["L", "V"] as Lado[]).map((l) => (
-            <Pastilla key={l} activa={quien === l} onClick={() => { setQuien(l); setElegido(null); }}>
+            <Pastilla key={l} activa={quien === l} onClick={() => { setQuien(l); if (tiroElegido && tiroElegido.lado !== l) setElegido(null); }}>
               <span style={{ color: colorDe(p, l) }}>●</span> {cortoDe(p, l)}
             </Pastilla>
           ))}
@@ -787,8 +890,12 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
           <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-[3px]" style={{ border: `2px solid ${S.suave}` }} /> balón parado</span>
         </p>
       )}
+      <div className="mb-1 flex items-center justify-between gap-2 px-[2%] text-[12px] font-bold sm:text-[14px]">
+        <span style={{ color: p.visitante.color }}>← ataca {cortoDe(p, "V")}</span>
+        <span style={{ color: p.local.color }}>ataca {cortoDe(p, "L")} →</span>
+      </div>
       <div className="relative w-full">
-        <svg viewBox="-24 -30 1098 724" className="block h-auto w-full" role="img" aria-label="Campo con los remates, por dónde llega, el territorio o la red de pases">
+        <svg viewBox="-24 -16 1098 712" className="block h-auto w-full" role="img" aria-label="Campo con los remates, por dónde llega, el territorio o la red de pases">
           <defs>
             <linearGradient id="sala-cesped" x1="0" x2="1">
               <stop offset="0" stopColor="#06231A" />
@@ -817,23 +924,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
             <rect key={i} x={i * 105} y="0" width="105" height="680" fill={i % 2 ? "rgba(255,255,255,0.02)" : "transparent"} />
           ))}
 
-          {territorios &&
-            (() => {
-              const W = territorios.L.W, H = territorios.L.H;
-              const celda = (i: number) => {
-                const col = i % W, fila = Math.floor(i / W);
-                return { col, fila, l: territorios.L.malla[(H - 1 - fila) * W + col], v: territorios.V.malla[fila * W + (W - 1 - col)] };
-              };
-              const maxT = Math.max(1, ...Array.from({ length: W * H }, (_, i) => celda(i).l + celda(i).v));
-              return Array.from({ length: W * H }, (_, i) => {
-                const { col, fila, l, v: vv } = celda(i);
-                const total = l + vv;
-                if (!total) return null;
-                const domina = l >= vv ? "L" : "V";
-                const fuerza = Math.abs(l - vv) / total;
-                return <rect key={i} x={(col * 1050) / W + 2} y={(fila * 680) / H + 2} width={1050 / W - 4} height={680 / H - 4} rx="6" fill={colorDe(p, domina)} fillOpacity={0.08 + 0.55 * fuerza * Math.min(1, (total / maxT) * 1.6)} />;
-              });
-            })()}
+          {calor?.href && <image href={calor.href} x="0" y="0" width="1050" height="680" preserveAspectRatio="none" style={{ imageRendering: "auto", pointerEvents: "none" }} />}
 
           <Lineas />
 
@@ -865,7 +956,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
               const color = colorDe(p, s.lado);
               const abp = esAbp(s.jugada);
               return (
-                <g key={i} filter={s.gol ? "url(#sala-luz)" : undefined} onClick={() => setElegido(i === elegido ? null : i)} style={{ cursor: "pointer" }}>
+                <g key={i} filter={s.gol ? "url(#sala-luz)" : undefined} onClick={() => setElegido(claveTiro(s) === elegido ? null : claveTiro(s))} style={{ cursor: "pointer" }}>
                   <circle cx={X} cy={Y} r={r * 1.9} fill={`url(#sala-halo-${s.lado})`} />
                   {esUltimo && <circle cx={X} cy={Y} r={r} fill="none" stroke={color} strokeWidth="3" className="sala-onda" />}
                   {s.gol && <circle cx={X} cy={Y} r={r + 9} fill="none" stroke={S.oro} strokeWidth="3" strokeOpacity="0.9" />}
@@ -877,7 +968,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
                   {s.bloqueado && (
                     <path d={`M${X - r * 0.55},${Y - r * 0.55} L${X + r * 0.55},${Y + r * 0.55} M${X + r * 0.55},${Y - r * 0.55} L${X - r * 0.55},${Y + r * 0.55}`} stroke="#fff" strokeOpacity="0.8" strokeWidth="3" />
                   )}
-                  {i === elegido && <circle cx={X} cy={Y} r={r + 5} fill="none" stroke="#fff" strokeWidth="3" strokeDasharray="6 5" />}
+                  {s === tiroElegido && <circle cx={X} cy={Y} r={r + 5} fill="none" stroke="#fff" strokeWidth="3" strokeDasharray="6 5" />}
                   <circle cx={X} cy={Y} r={Math.max(r, 22)} fill="transparent">
                     <title>{`${reloj(s.min, s.parte)} · ${p.jugadores.get(s.jugador)?.corto ?? ""} · xG ${fmt(s.xG, 2)}${s.gol ? " · GOL" : s.aPuerta ? " · a puerta" : ""}`}</title>
                   </circle>
@@ -912,12 +1003,6 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
               );
             })()}
 
-          <text x="20" y="-10" fontSize="20" fontWeight="700" fill={p.visitante.color}>
-            ← ataca {cortoDe(p, "V")}
-          </text>
-          <text x="1030" y="-10" fontSize="20" fontWeight="700" textAnchor="end" fill={p.local.color}>
-            ataca {cortoDe(p, "L")} →
-          </text>
         </svg>
       </div>
 
@@ -931,6 +1016,38 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
           </p>
         );
       })()}
+      {capa === "calor" && calor && (
+        <div className="mt-2 grid gap-1.5 text-center text-[13px]" style={{ color: S.suave }}>
+          {quien === "ambos" ? (
+            <>
+              <p>
+                {calor.zonas
+                  .filter((z) => z.v > 0)
+                  .map((z) => {
+                    /* La zona contada desde quien ataca: tercio propio/medio/rival y su banda derecha/centro/izquierda. */
+                    const col = z.l === "L" ? z.col : 5 - z.col;
+                    const fila = z.l === "L" ? z.fila : 2 - z.fila;
+                    const altura = col <= 1 ? "su campo" : col <= 3 ? "el medio" : "el último tercio";
+                    const banda = fila === 0 ? "por su izquierda" : fila === 1 ? "por el centro" : "por su derecha";
+                    return `${cortoDe(p, z.l)} manda en ${altura} ${banda}`;
+                  })
+                  .join(" · ")}
+              </p>
+              <p className="inline-flex items-center justify-center gap-2 text-[12px]" aria-label="Escala de color">
+                <span>más {cortoDe(p, "V")}</span>
+                <span className="h-2.5 w-28 rounded-full" style={{ background: `linear-gradient(90deg, ${p.visitante.color}, transparent 50%, ${p.local.color})` }} />
+                <span>más {cortoDe(p, "L")}</span>
+              </p>
+            </>
+          ) : (
+            <p className="inline-flex items-center justify-center gap-2 text-[12px]" aria-label="Escala de color">
+              <span>{calor.toques[quien]} toques · poco</span>
+              <span className="h-2.5 w-28 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${colorDe(p, quien)} 60%, #fff)` }} />
+              <span>mucho</span>
+            </p>
+          )}
+        </div>
+      )}
       {capa === "pordonde" && vias && (
         <p className="mt-2 text-center text-[13px]" style={{ color: S.suave }}>
           {lados
