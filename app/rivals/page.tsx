@@ -128,6 +128,7 @@ import { ResumenDelOnce, type FichaResumen, type LineaResumen } from "@/componen
 import ResumenesRival from "@/components/rivals/ResumenesRival";
 import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
+import { AmenazaXT } from "@/components/rivals/AmenazaXT";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import DefinicionDelantero from "@/components/rivals/DefinicionDelantero";
 import { pieDominante } from "@/lib/rivals/pie";
@@ -5555,6 +5556,15 @@ export default function RivalPlayersPage() {
                   {/* GOLES EN VÍDEO — los suyos y los que encaja, de seguido o uno a uno (16/11/2026). */}
                   <SeccionGolesDelRival equipo={selectedTeam} />
                 </details>
+              )}
+
+              {/* QUIÉN CREA LA AMENAZA — xT/90 de pases y conducciones, npxG/90 y xA/90 (Opta, 26/11/2026). */}
+
+              {selectedTeam && !loading && (
+                <AmenazaXT
+                  equipo={selectedTeam}
+                  nombres={players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam).map((p) => String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())}
+                />
               )}
 
               {/* REVULSIVOS — quién le cambia el partido desde el banquillo (Opta). */}

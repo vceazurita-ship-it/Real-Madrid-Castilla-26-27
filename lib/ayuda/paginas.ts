@@ -1927,9 +1927,19 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
-    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-25",
+    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (quién crea la amenaza, revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
+    revisada: "2026-11-26",
     bloques: [
+      {
+        titulo: "Lo nuevo (26/11/2026): quién crea la amenaza del rival",
+        filas: [
+          {
+            que: "Quién crea la amenaza · xT/90",
+            es: "Debajo de la plantilla, encima de «Revulsivos», con el equipo elegido (al abrir, el próximo rival): un ranking de sus jugadores por la amenaza que generan por 90′ con pases y conducciones, aunque no rematen. Una barra por jugador (el primero en oro) y, al lado, el reparto pase · conducción, el xG sin penaltis/90 (npxG) y el xA/90, para que no suba quien sólo ha marcado de penalti (lleva «N pen. fuera»). Arriba, el sello «dato · Opta, 10 de 12 partidos»: cuántos de sus partidos tiene Opta evento a evento de los que tiene en total. Cada fila lleva su muestra («8 de 10 · 640′»: partidos que jugó de los leídos y minutos). «⚠ sin jugar las últimas 3» marca, algo apagado, a quien no ha tenido minutos en ninguna de las últimas 3 jornadas del equipo. Se ven los 8 primeros; «Ver los N jugadores» abre el resto",
+            cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de sus partidos de la temporada, los 12 más recientes como mucho. xT de cada acción = valor de la rejilla de amenaza esperada en el destino menos en el origen (rejilla pública de Karun Singh, 12 × 8 celdas sobre la x/y de Opta; no es dato de Opta). Pases: los acertados en juego (sin saques de banda ni de puerta), del punto del pase a su final. Conducción (Opta no la da como evento): de dónde le llega el balón al jugador (el final del pase acertado de un compañero que le llega, o su propia acción anterior) a dónde hace su siguiente acción, misma parte, 10 s como mucho y 5 m o más. Suma neta (el pase atrás resta). npxG/90: xG de sus remates de opta:remates sin los de penalti; xA/90: xA de opta:jugadores-partidos; todo por 90′ con los minutos de esos mismos partidos (los del directo). Entran con 270′ o más. Sello: partidos del archivo con el equipo frente a sus partidos en opta:partidos. Aviso: sus 3 partidos más recientes de opta:partidos que tienen alineación en opta:jugadores-partidos, sin minutos en ninguno. Cuentas en lib/rivals/amenaza-xt.ts; pantalla, components/rivals/AmenazaXT.tsx",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (19/11/2026): cómo define el delantero rival",
         filas: [
