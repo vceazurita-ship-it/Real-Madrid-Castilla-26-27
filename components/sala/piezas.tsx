@@ -91,8 +91,8 @@ export function Marcador({ p, t, c, modo, parte, prob }: { p: Partido; t: number
     const color = e.color;
     return (
       <div className={`flex min-w-0 flex-col ${l === "L" ? "items-end text-right" : "items-start text-left"}`}>
-        {/* En el móvil el nombre parte en dos líneas: con truncate y alineado a la derecha se comía el principio («RID CASTILLA», 26/11/2026). */}
-        <span className="fuente-club line-clamp-2 max-w-full break-words text-[clamp(16px,2.6vw,34px)] uppercase leading-[1.05] tracking-[0.04em]" style={{ color: S.texto, textShadow: `0 0 24px ${color}66` }}>
+        {/* En el móvil el nombre parte en líneas (hasta tres, «REAL / MADRID / CASTILLA»): con truncate y alineado a la derecha se comía el principio («RID CASTILLA», 26/11/2026). */}
+        <span className="fuente-club line-clamp-3 max-w-full break-words text-[clamp(16px,2.6vw,34px)] uppercase leading-[1.05] tracking-[0.04em]" style={{ color: S.texto, textShadow: `0 0 24px ${color}66` }}>
           {e.nombre}
         </span>
         <span className="mt-2 h-1 w-24 rounded-full" style={{ background: `linear-gradient(90deg, ${l === "L" ? "transparent" : color}, ${l === "L" ? color : "transparent"})`, boxShadow: `0 0 18px ${color}` }} />

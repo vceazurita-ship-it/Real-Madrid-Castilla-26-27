@@ -1440,7 +1440,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo que hay",
         filas: [
-          { que: "En el móvil (26/11/2026)", es: "El nombre de cada equipo parte en dos líneas si no cabe (antes se cortaba por delante) y los rótulos de la barra de probabilidad van en tres columnas que no se pisan" },
+          { que: "En el móvil (26/11/2026)", es: "El nombre de cada equipo parte en líneas (hasta tres) si no cabe (antes se cortaba por delante) y los rótulos de la barra de probabilidad van en tres columnas que no se pisan" },
           { que: "Arriba", es: "Castilla o Primer equipo y el partido (el que está en directo sale el primero, con «● EN DIRECTO»); Pantalla completa (o la tecla F). Se entra también desde el directo de Análisis de datos («Abrir la sala de partido») con el partido ya elegido (?partido=, ?fuente=rm)" },
           { que: "Marcador", es: "Goles, minuto con su anillo, xG, remates y a puerta de cada uno, «En directo» / «Repetición» / «Final» y la barra de probabilidad: gana el local, empate, gana el visitante", cuenta: "Goles que faltan de cada uno ~ Poisson con su ritmo de xG: (xG medio de su previa × 30 + xG de hoy × 90) ÷ (30 + minutos jugados), por lo que queda hasta el 94′. Sin previa, 1,25 de xG por partido" },
           { que: "El campo", es: "En perspectiva. Remates: cada uno en su sitio, tamaño según su xG, con aro blanco los goles y onda el último. Territorio: cada zona del color del que más toca ahí (más intenso cuanto más), de todo el partido o de los últimos 15′. Red de cada equipo: posición media de los titulares (con 6 toques o más) y los pases entre ellos (3 o más; más gruesa, más pases)" },
