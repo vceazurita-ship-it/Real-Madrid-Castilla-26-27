@@ -2696,7 +2696,8 @@ html[data-pizarra-abierta] [data-menu-flotante] {
   100% { text-shadow: 0 0 0 rgba(233, 196, 106, 0); }
 }
 .sala-destello { animation: sala-destello 1.2s ease-out both; }
-body:has(.sala-raiz) [data-menu-flotante] { bottom: 92px; }
+/* El «⋮» dentro de la barra de la repetición, a la derecha (antes tapaba tarjetas); la barra le reserva el hueco. */
+body:has(.sala-raiz) [data-menu-flotante] { bottom: 12px; right: 10px; }
 @media (min-width: 1500px) {
   .sala-tv .sala-contenido { zoom: 1.12; }
 }

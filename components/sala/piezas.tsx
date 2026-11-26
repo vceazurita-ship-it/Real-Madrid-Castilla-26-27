@@ -27,6 +27,7 @@ import {
   aPuertaDe,
   carriles,
   cifrasEntre,
+  detalleAbp,
   curvaProbabilidad,
   curvaXg,
   dominio,
@@ -47,6 +48,7 @@ import {
   type Alerta,
   type Calibracion,
   type Cifras,
+  type FichaGol,
   type Hito,
   type Lado,
   type Partido,
@@ -66,7 +68,7 @@ export const S = {
   texto: "#EEF4FF",
   /* Más claros que antes (26/11/2026): 0,62/0,38 no se leían desde lejos. */
   suave: "rgba(222, 234, 255, 0.78)",
-  tenue: "rgba(214, 228, 255, 0.58)",
+  tenue: "rgba(214, 228, 255, 0.68)",
   linea: "rgba(150, 190, 255, 0.16)",
   favor: "#2BE3A0",
   aviso: "#FF8A3D",
@@ -89,7 +91,8 @@ export function Panel({ titulo, detalle, children, className = "", derecha }: { 
       <div aria-hidden className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, rgba(120,190,255,0.55), transparent)" }} />
       <header className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="min-w-0">
-          <h2 className="fuente-club text-[17px] uppercase tracking-[0.16em]" style={{ color: S.texto }}>
+          <h2 className="fuente-club flex items-center gap-2 text-[17px] uppercase tracking-[0.16em]" style={{ color: S.texto }}>
+            <span aria-hidden className="inline-block h-4 w-[3px] shrink-0 rounded-full" style={{ background: S.oro }} />
             {titulo}
           </h2>
           {detalle && (
@@ -138,6 +141,7 @@ export function Marcador({
   justo,
   titular,
   hitos,
+  fichas,
   k,
 }: {
   p: Partido;
@@ -149,8 +153,10 @@ export function Marcador({
   justo: { L: number; X: number; V: number };
   titular: Titular;
   hitos: Hito[];
+  fichas: FichaGol[];
   k: Calibracion;
 }) {
+  const ultimoNombre = (n: string) => n.split(" ").slice(-1)[0] ?? n;
   const avance = Math.min(1, t / DURACION);
   const R = 34;
   const circ = 2 * Math.PI * R;
@@ -193,7 +199,9 @@ export function Marcador({
                 <span className="font-mono tabular-nums" style={{ color: S.texto }}>
                   {reloj(h.min, h.parte)}
                 </span>
-                <span className="truncate">
+                {/* En el móvil sólo el apellido («Ciria», no «Ciria po…»). */}
+                <span className="sm:hidden">{h.tipo === "cambio" ? `${ultimoNombre(h.entra ?? "?")} ⇄ ${ultimoNombre(h.jugador)}` : ultimoNombre(h.jugador)}</span>
+                <span className="hidden truncate sm:inline">
                   {h.tipo === "cambio" ? `${h.entra ?? "?"} por ${h.jugador}` : h.jugador}
                   {h.tipo === "gol" && h.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(h.xG, 2)}</span> : null}
                 </span>
@@ -267,6 +275,22 @@ export function Marcador({
         )}
         <span aria-hidden className="mx-auto mt-2 block h-[2px] w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${S.oro}, transparent)` }} />
       </div>
+
+      {/* LA FICHA DE CADA GOL (experto de fútbol): de dónde nace, cuánto tarda y desde dónde se remata. */}
+      {fichas.length > 0 && (
+        <ul className="relative mx-auto mt-3 grid max-w-[58rem] gap-1.5" aria-label="Cómo llegó cada gol">
+          {fichas.map((g, i) => (
+            <li key={i} className="rounded-lg px-3 py-1.5 text-[13px] leading-snug sm:text-[14px]" style={{ background: "rgba(255,255,255,0.035)", borderLeft: `3px solid ${colorDe(p, g.lado)}`, color: S.suave }}>
+              <span className="font-mono font-bold tabular-nums" style={{ color: S.texto }}>
+                ⚽ {reloj(g.min, g.parte)} · {g.marcador}
+              </span>{" "}
+              <b style={{ color: colorDe(p, g.lado) }}>{g.goleador}</b>
+              {g.asistente ? <span> (pase de {g.asistente})</span> : null} · {g.origen} · {g.pases} {g.pases === 1 ? "pase" : "pases"} y {g.segundos} s hasta el remate · {g.zona}
+              {g.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(g.xG, 2)}</span> : null}
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Probabilidad en vivo o resultado justo: cifras grandes a los lados, barra en medio. */}
       <div className="relative mt-4">
@@ -348,12 +372,13 @@ export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
   const orden = [...lista].sort((a, b) => Number(b.tono === "aviso") - Number(a.tono === "aviso") || b.fuerza - a.fuerza);
   const [principal, ...resto] = orden;
   const colorTono = (a: Alerta) => (a.tono === "favor" ? S.favor : a.tono === "aviso" ? S.aviso : S.info);
-  const chip = (a: Alerta) => (
-    <span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] tabular-nums" style={{ background: "rgba(255,255,255,0.05)", color: S.suave, border: `1px solid ${S.borde}` }}>
-      {reloj(a.min)}
-      {a.ventana ? ` · ${a.ventana}` : ""}
-    </span>
-  );
+  /* La ventana sólo cuando es un tramo («61′-71′», «desde el 82′»): «todo el partido» repetido en cada tarjeta era ruido. */
+  const chip = (a: Alerta) =>
+    a.ventana && a.ventana !== "todo el partido" ? (
+      <span className="shrink-0 rounded-full px-2 py-0.5 font-mono text-[11px] tabular-nums" style={{ background: "rgba(255,255,255,0.05)", color: S.suave, border: `1px solid ${S.borde}` }}>
+        {a.ventana}
+      </span>
+    ) : null;
   return (
     <Panel titulo="Lo que está pasando" detalle={p.nuestro ? "Verde, bueno para nosotros; naranja, a vigilar. Se recalcula a cada minuto." : "Lo que se sale de lo normal en el partido."}>
       {!principal && (
@@ -372,7 +397,7 @@ export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
               <p className="mt-1 text-[14px] leading-snug" style={{ color: S.suave }}>
                 {principal.texto}
               </p>
-              <div className="mt-2">{chip(principal)}</div>
+              {chip(principal) && <div className="mt-2">{chip(principal)}</div>}
             </div>
           </div>
         </div>
@@ -402,11 +427,26 @@ export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
 /*  LA LECTURA DEL TRAMO (DESCANSO, FINAL O LA PARTE ELEGIDA)          */
 /* ------------------------------------------------------------------ */
 
-export function Lectura({ p, v, titulo }: { p: Partido; v: Ventana; titulo: string }) {
-  const frases = useMemo(() => lecturaTramo(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
-  if (!frases.length) return null;
+export function Lectura({ p, v, titulo, omitir, tocar }: { p: Partido; v: Ventana; titulo: string; omitir: Set<string>; tocar: string[] }) {
+  const frases = useMemo(() => lecturaTramo(p, v.desde, v.hasta, v.parte, omitir), [p, v.desde, v.hasta, v.parte, omitir]);
+  if (!frases.length && !tocar.length) return null;
   return (
-    <Panel titulo={titulo} detalle={`Tres frases automáticas de ${v.nombre}: quién mandó y cuándo, lo que se sale de lo normal y por dónde llegó el rival.`}>
+    <Panel titulo={titulo} detalle={`Lo que dejó ${v.nombre} y, desde nuestro lado, qué tocar (reglas sobre las cifras de la sala).`}>
+      {tocar.length > 0 && (
+        <div className="mb-3 rounded-xl p-3" style={{ background: "rgba(233,196,106,0.08)", border: "1px solid rgba(233,196,106,0.4)" }}>
+          <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: S.oro }}>
+            Qué tocar
+          </p>
+          <ul className="grid gap-1.5">
+            {tocar.map((x, i) => (
+              <li key={i} className="flex gap-2 text-[14px] leading-snug" style={{ color: S.texto }}>
+                <span aria-hidden style={{ color: S.oro }}>→</span>
+                <span>{x}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
       <ol className="grid gap-2">
         {frases.map((f, i) => (
           <li key={i} className="flex gap-3 text-[14px] leading-snug" style={{ color: S.texto }}>
@@ -658,7 +698,7 @@ const cx = (l: Lado, x: number) => (l === "L" ? x : 100 - x) * 10.5;
 const cy = (l: Lado, y: number) => (l === "L" ? 100 - y : y) * 6.8;
 
 function Lineas() {
-  const c = "rgba(140, 210, 255, 0.45)";
+  const c = "rgba(160, 220, 255, 0.62)";
   return (
     <g fill="none" stroke={c} strokeWidth="2.2">
       <rect x="2" y="2" width="1046" height="676" rx="2" />
@@ -704,7 +744,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
 
   const detalle =
     capa === "remates"
-      ? "Tamaño = xG. Lleno, a puerta; hueco, fuera; con aspa, bloqueado; aro blanco, gol; cuadrado, de balón parado. Toca un remate para ver quién y cuándo."
+      ? "Toca un remate para ver quién, cuándo y de dónde."
       : capa === "pordonde"
         ? "Entradas al último tercio con pase bueno, por carril (derecha, centro, izquierda de quien ataca). La flecha más gruesa es por donde más llega."
         : capa === "territorio"
@@ -737,7 +777,17 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
           ))}
         </div>
       )}
-      <div className="relative mx-auto w-full max-w-[1100px]">
+      {capa === "remates" && (
+        <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: S.suave }} aria-label="Leyenda">
+          <span>⬤ tamaño = xG</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: S.info }} /> a puerta</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ border: `2px solid ${S.info}` }} /> fuera</span>
+          <span>✕ bloqueado</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ border: `2px solid ${S.oro}` }} /> gol</span>
+          <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-[3px]" style={{ border: `2px solid ${S.suave}` }} /> balón parado</span>
+        </p>
+      )}
+      <div className="relative w-full">
         <svg viewBox="-24 -30 1098 724" className="block h-auto w-full" role="img" aria-label="Campo con los remates, por dónde llega, el territorio o la red de pases">
           <defs>
             <linearGradient id="sala-cesped" x1="0" x2="1">
@@ -752,6 +802,12 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
                 <feMergeNode in="SourceGraphic" />
               </feMerge>
             </filter>
+            {(["L", "V"] as Lado[]).map((l) => (
+              <radialGradient key={l} id={`sala-halo-${l}`}>
+                <stop offset="0" stopColor={colorDe(p, l)} stopOpacity="0.55" />
+                <stop offset="1" stopColor={colorDe(p, l)} stopOpacity="0" />
+              </radialGradient>
+            ))}
             <marker id="sala-flecha" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="4" markerHeight="4" orient="auto-start-reverse">
               <path d="M0,0 L10,5 L0,10 z" fill="context-stroke" />
             </marker>
@@ -810,6 +866,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
               const abp = esAbp(s.jugada);
               return (
                 <g key={i} filter={s.gol ? "url(#sala-luz)" : undefined} onClick={() => setElegido(i === elegido ? null : i)} style={{ cursor: "pointer" }}>
+                  <circle cx={X} cy={Y} r={r * 1.9} fill={`url(#sala-halo-${s.lado})`} />
                   {esUltimo && <circle cx={X} cy={Y} r={r} fill="none" stroke={color} strokeWidth="3" className="sala-onda" />}
                   {s.gol && <circle cx={X} cy={Y} r={r + 9} fill="none" stroke={S.oro} strokeWidth="3" strokeOpacity="0.9" />}
                   {abp ? (
@@ -911,7 +968,7 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
     { nombre: "Posesión", L: pos.L, V: pos.V, d: 0, pct: true, nota: "% de los pases (no es la de Opta, por tiempo)" },
     { nombre: "Acierto en el pase", L: c.L.pases ? c.L.pasesOk / c.L.pases : null, V: c.V.pases ? c.V.pasesOk / c.V.pases : null, d: 0, previa: "Pass%", pct: true },
     { nombre: "PPDA (presión)", L: ppda(c.L, k.ppda.L), V: ppda(c.V, k.ppda.V), d: 1, previa: "PPDA", menosEsMejor: true, nota: "ajustado a la cifra oficial de Opta del partido; menos es presionar más" },
-    { nombre: "Pérdidas", L: c.L.perdidas, V: c.V.perdidas, d: 0, menosEsMejor: true },
+    { nombre: "Pérdidas", L: c.L.perdidas, V: c.V.perdidas, d: 0, menosEsMejor: true, nota: "pase fallado (sin saques) o desposeído; sin media: Opta las cuenta de otra forma" },
   ];
   const media = (l: Lado, f: FilaDuelo) => {
     const e = l === "L" ? p.local : p.visitante;
@@ -926,15 +983,18 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
     const m = media(l, f);
     if (x == null || m == null || !m) return null;
     const r = x / m - 1;
-    if (Math.abs(r) < 0.15) return { texto: "como siempre", color: S.tenue };
+    if (Math.abs(r) < 0.15) return { corto: "=", texto: "como siempre", color: S.tenue };
     const mejor = f.menosEsMejor ? r < 0 : r > 0;
-    return { texto: `${Math.round(Math.abs(r) * 100)} % ${r > 0 ? "más" : "menos"} que su media`, color: mejor ? S.favor : S.aviso };
+    /* Verde = bueno para nosotros; naranja = malo para nosotros (en el rival, al revés). Sin nosotros, neutro. */
+    const color = !p.nuestro ? S.suave : (l === p.nuestro) === mejor ? S.favor : S.aviso;
+    const n = Math.round(Math.abs(r) * 100);
+    return { corto: `${r > 0 ? "+" : "−"}${n} %`, texto: `${n} % ${r > 0 ? "más" : "menos"} que su media`, color };
   };
   const base = [p.local.previa?.pj, p.visitante.previa?.pj].filter(Boolean);
   return (
     <Panel
       titulo={`Cara a cara · ${v.nombre}`}
-      detalle={base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos).` : "Las cifras del partido en el tramo elegido."}
+      detalle={base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos${base.some((n) => (n ?? 0) < 8) ? "; con menos de 8, tendencia" : ""}). Verde, bueno para nosotros; naranja, malo.` : "Las cifras del partido en el tramo elegido."}
     >
       <ul className="grid gap-3">
         {filas.map((f) => {
@@ -966,10 +1026,12 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
                 <>
                   <span />
                   <span className="text-right text-[11.5px] leading-tight" style={{ color: dL?.color ?? S.tenue }}>
-                    {dL?.texto ?? ""}
+                    <span className="sm:hidden">{dL?.corto ?? ""}</span>
+                    <span className="hidden sm:inline">{dL?.texto ?? ""}</span>
                   </span>
                   <span className="text-[11.5px] leading-tight" style={{ color: dV?.color ?? S.tenue }}>
-                    {dV?.texto ?? ""}
+                    <span className="sm:hidden">{dV?.corto ?? ""}</span>
+                    <span className="hidden sm:inline">{dV?.texto ?? ""}</span>
                   </span>
                   <span />
                   {f.nota && (
@@ -995,6 +1057,7 @@ export function AbpTransiciones({ p, v }: { p: Partido; v: Ventana }) {
   const c = useMemo(() => cifrasEntre(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
   const tr = useMemo(() => transiciones(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
   const conJugada = p.eventos.some((e) => e.jugada);
+  const abp = useMemo(() => ({ L: detalleAbp(p, "L", v.desde, v.hasta, v.parte), V: detalleAbp(p, "V", v.desde, v.hasta, v.parte) }), [p, v.desde, v.hasta, v.parte]);
   const fila = (l: Lado) => {
     const yo = l === "L" ? c.L : c.V;
     const perd = tr.perdidas.filter((x) => x.lado === l);
@@ -1032,13 +1095,16 @@ export function AbpTransiciones({ p, v }: { p: Partido; v: Ventana }) {
                 {celda(<span style={{ color: robos.length ? S.favor : S.texto }}>{robos.length}</span>, `robos que acaban en remate${robos.length ? ` · ${fmt(robos.reduce((s, x) => s + x.xG, 0), 2)} xG` : ""}`)}
                 {celda(<span style={{ color: perd.length ? S.aviso : S.texto }}>{perd.length}</span>, `pérdidas que acaban en remate rival${perd.length ? ` · ${perd.filter((x) => x.x < 40).length} en salida` : ""}`)}
               </div>
+              <p className="mt-1.5 text-[13px] leading-snug" style={{ color: S.suave }}>
+                <b style={{ color: S.texto }}>Córners:</b> {abp[l].corners}
+                {abp[l].corners > 0 && <> · primer contacto suyo en {abp[l].cornerContacto} · remate en 1.ª jugada {abp[l].cornerRemate1}, en 2.ª {abp[l].cornerRemate2}</>}
+                {" · "}
+                <b style={{ color: S.texto }}>Faltas</b> laterales al área {abp[l].faltasLaterales}, directas a puerta {abp[l].faltasDirectas} · <b style={{ color: S.texto }}>Banda larga</b> al área {abp[l].bandasLargas}
+              </p>
               {perd.length > 0 && (
-                <p className="mt-1.5 text-[12.5px]" style={{ color: S.suave }}>
-                  Pérdidas que costaron remate:{" "}
-                  {perd
-                    .slice(-4)
-                    .map((x) => `${reloj(x.min, x.parte)} ${p.jugadores.get(x.jugador)?.corto ?? ""}${x.gol ? " (gol)" : ""}`)
-                    .join(" · ")}
+                <p className="mt-1 text-[13px] leading-snug" style={{ color: S.suave }}>
+                  <b style={{ color: S.texto }}>Pérdidas que costaron remate:</b>{" "}
+                  {perd.map((x) => `${reloj(x.min, x.parte)} ${p.jugadores.get(x.jugador)?.corto ?? ""}${x.x < 40 ? " (en salida)" : ""}${x.gol ? " → gol" : ""}`).join(" · ")}
                 </p>
               )}
             </div>
