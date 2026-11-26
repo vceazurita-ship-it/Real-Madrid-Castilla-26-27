@@ -54,7 +54,7 @@ for (const [k, v] of Object.entries(entorno() ?? {})) if (!process.env[k]) proce
 const { PUESTO_OPTA } = require("../lib/opta.ts");
 const b2 = require("./b2.cjs");
 const { caratulaJpeg, fotoDeCasa } = require("./caratula-node.cjs");
-const { marca, hayVision, DESFASE_OPTA } = require("./vision/marca.cjs");
+const { hayVision, relojDeClips, analiza, kitDe, pinta, DESFASE_POR_DEFECTO } = require("./vision/marca.cjs");
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
@@ -69,8 +69,12 @@ const DESPUES = 3;
 const JUNTA = 6;
 const TOPE_CLIP = 16;
 /* Sube cuando cambia la forma de los clips: se rehacen en la próxima pasada. */
-/* c2 (26/11/2026): corrige el desfase de 3 s de Opta y marca al jugador (foco y aro). */
-const VERSION = "c2";
+/*
+| c3 (26/11/2026, el analista: «no siempre son los jugadores y se marca el que no es»):
+| el desfase de Opta se lee en el reloj del marcador de CADA clip (c4: varía de clip a
+| clip, de 3 a 10 s) y sólo se marca a quien lleva su camiseta.
+*/
+const VERSION = "c4";
 
 const arg = (n) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -441,35 +445,75 @@ for (const j of elegidos) {
   }
 
   for (const viejo of fs.readdirSync(TMP)) if (viejo !== "fuente.ttf") fs.rmSync(path.join(TMP, viejo), { force: true });
-  const buenos = [];
+
+  /*
+  | El momento exacto de cada clip (26/11/2026, segunda vuelta): Opta corta por
+  | trozos y cada clip llega adelantado una cantidad distinta (de 3 a 10 s el
+  | 20/11). Se pide de sobra, se lee el reloj del marcador dentro del propio
+  | clip (scripts/vision/reloj.py) y se corta de antes a después de verdad.
+  */
+  const SOBRA = 12;
+  const brutos = [];
   for (const [n, c] of clips.entries()) {
-    const v = await opta.video({ partido: partido.partido, fecha: partido.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, Math.max(0, c.antes - DESFASE_OPTA), c.despues + DESFASE_OPTA);
+    const v = await opta.video({ partido: partido.partido, fecha: partido.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, c.antes, c.despues + SOBRA);
     if (v.sesion) {
       await guarda();
       opta.cierra();
       await fin(8, `la sesión de Opta ha caducado tras ${hechos} jugadores: entra en ProVision en el Chrome de Opta del club`);
     }
-    if (!v.url) continue;
+    if (!v.url) {
+      console.log(`      ${minutoDe(c.segundo)} ${c.que}: Opta no da el vídeo (${v.error ?? "sin enlace"})`);
+      continue;
+    }
     const k = String(n + 1).padStart(3, "0");
+    const error = await ffmpeg(["-i", v.url, "-t", String(c.antes + c.despues + SOBRA), "-an", "-c", "copy", `r${k}.mp4`], TMP);
+    if (error) {
+      console.log(`      ${minutoDe(c.segundo)} ${c.que}: ${error.split(/\r?\n/)[0]}`);
+      continue;
+    }
+    brutos.push({ c, k, bruto: `r${k}.mp4`, inicioPedido: c.segundo - c.antes });
+  }
+  const relojes = await relojDeClips({ dir: TMP, lista: brutos, ffmpeg: FFMPEG });
+  /* Lo que se adelanta cada clip; sin reloj leído, la mediana de los de su parte. */
+  const adelanto = brutos.map((b, i) => (relojes[i] == null ? null : b.inicioPedido - relojes[i]));
+  const medianaParte = (parte) => {
+    const v = adelanto.filter((x, i) => x != null && brutos[i].c.parte === parte).sort((a, b) => a - b);
+    return v.length ? v[Math.floor(v.length / 2)] : DESFASE_POR_DEFECTO;
+  };
+  const leidos = adelanto.filter((x) => x != null).length;
+  console.log(`      reloj leído en ${leidos} de ${brutos.length} clips · adelanto de Opta: ${[1, 2].map((p) => `${p}.ª parte ${medianaParte(p)} s`).join(" · ")}`);
+
+  const cortados = [];
+  for (const [i, { c, k, bruto }] of brutos.entries()) {
+    const salta = Math.max(0, adelanto[i] ?? medianaParte(c.parte));
     fs.writeFileSync(path.join(TMP, `a${k}.txt`), corta(c.que, 46));
     fs.writeFileSync(path.join(TMP, `b${k}.txt`), corta(`${j.nombre} · vs ${partido.rival} · ${fechaCorta} · ${minutoDe(c.segundo)}`, 80));
     const vf = [ESCALA, texto(`a${k}.txt`, 36, "h-132", 36, "0xC8A96B", 14), texto(`b${k}.txt`, 36, "h-72", 24, "0xD7DEE6", 10)].join(",");
-    const error = await ffmpeg(["-i", v.url, "-t", String(c.antes + c.despues), "-vf", vf, ...SALIDA, "-movflags", "+faststart", `k${k}.mp4`], TMP);
+    const error = await ffmpeg(["-ss", String(salta), "-i", bruto, "-t", String(c.antes + c.despues), "-vf", vf, ...SALIDA, "-movflags", "+faststart", `k${k}.mp4`], TMP);
+    fs.rmSync(path.join(TMP, bruto), { force: true });
     if (error) {
-      console.log(`      ${minutoDe(c.segundo)} ${c.que}: ${error.split("\n")[0]}`);
+      console.log(`      ${minutoDe(c.segundo)} ${c.que}: ${error.split(/\r?\n/)[0]}`);
       continue;
     }
-    /* El jugador, marcado: foco 1 s en la acción y aro a sus pies (scripts/vision). Si no hay seguridad, el clip va sin marca. */
-    let fichero = `k${k}.mp4`;
-    let marcado = false;
-    if (hayVision()) {
-      const m = await marca({ dir: TMP, entrada: fichero, salida: `m${k}.mp4`, segundo: c.antes, nombre: j.nombre, ffmpeg: FFMPEG, salidaFfmpeg: [...SALIDA, "-movflags", "+faststart"] });
-      fichero = `m${k}.mp4`;
-      marcado = Boolean(m.marcado);
-    }
+    /* Primera pasada de la marca: quién está en el balón y con qué camiseta. */
+    const an = await analiza({ dir: TMP, entrada: `k${k}.mp4`, segundo: c.antes, json: `a${k}.json` });
+    cortados.push({ c, k, cabeza: an?.cabeza ?? null, reloj: adelanto[i] != null });
+  }
+
+  /*
+  | La camiseta de ESTE jugador en este partido: la de quien lleva el balón en
+  | sus clips con balón y sin pérdida (pase, control, conducción: el balón es
+  | suyo seguro). Sólo se marca a quien la lleva; sin camiseta clara, nada.
+  */
+  const kit = kitDe(cortados.filter((x) => x.c.cat === "balon").map((x) => x.cabeza));
+  if (hayVision()) console.log(kit ? `      camiseta: Lab ${kit.map((x) => Math.round(x)).join(" ")}` : "      camiseta: no está clara, sin marca");
+  const buenos = [];
+  for (const { c, k } of cortados) {
+    const m = await pinta({ dir: TMP, entrada: `k${k}.mp4`, salida: `m${k}.mp4`, json: `a${k}.json`, nombre: j.nombre, kit, ffmpeg: FFMPEG, salidaFfmpeg: [...SALIDA, "-movflags", "+faststart"] });
+    const fichero = `m${k}.mp4`;
     const real = await duracion(TMP, fichero);
     if (real != null && real < 1) continue;
-    buenos.push({ ...c, fichero, marcado, dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
+    buenos.push({ ...c, fichero, marcado: Boolean(m.marcado), dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
   }
   if (!buenos.length) {
     console.log("      sin vídeo en Opta");

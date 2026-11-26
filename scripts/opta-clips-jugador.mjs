@@ -79,7 +79,9 @@ const { casaEquipo } = require("../lib/opta-eventos.ts");
 const { PUESTO_OPTA } = require("../lib/opta.ts");
 const b2 = require("./b2.cjs");
 const { caratulaJpeg, leeHojaRivales, datosRival } = require("./caratula-node.cjs");
-const { marca, hayVision, DESFASE_OPTA } = require("./vision/marca.cjs");
+const { hayVision, desfases, ventana, analiza, kitDe, pinta, DESFASE_POR_DEFECTO } = require("./vision/marca.cjs");
+/* El desfase de Opta de cada partido y parte (leído en el reloj del marcador), una vez por partido. */
+const desfasePorPartido = new Map();
 let hojaRivales = null;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -92,8 +94,12 @@ const PORTADA = 5;
 const CARATULA = 3;
 const PARTIDOS = 5;
 /* Sube cuando cambia la forma del vídeo: todos se rehacen la próxima pasada. */
-/* v6 (26/11/2026): carátula del club delante y el jugador marcado en cada corte (foco y aro, scripts/vision). */
-const VERSION = "v6-caratula-marca";
+/*
+| v7 (26/11/2026): carátula del club delante; el desfase de Opta leído en el reloj
+| del marcador en cada partido y parte (en la segunda parte no eran 3 s sino 6-7);
+| el jugador marcado sólo si lleva su camiseta (el analista vio marcas en el rival).
+*/
+const VERSION = "v7-reloj-camiseta";
 const MAX_CAPITULOS = 6;
 const MAX_POR_CAPITULO = 4;
 const MIN_MINUTOS = 360;
@@ -504,13 +510,13 @@ async function portada(dir, jugador, equipo, fuertes, rasgos, relativa = false) 
 }
 
 /* Cada corte: el nombre, el capítulo en dorado y debajo qué es, el rival, la fecha y el minuto. */
-async function corte(dir, n, hls, c, jugador, contra) {
+async function corte(dir, n, hls, c, jugador, contra, salta = 0, dura = c.antes + c.despues) {
   const min = `${Math.floor(c.segundo / 60) + 1}'`;
   fs.writeFileSync(path.join(dir, `a${n}.txt`), corta(c.titulo.toUpperCase(), 44));
   fs.writeFileSync(path.join(dir, `b${n}.txt`), corta(`${c.que ? `${c.que} · ` : ""}${contra ? `vs ${contra} · ` : ""}${c.fecha.split("-").reverse().slice(0, 2).join("/")} · ${min}`, 80));
   fs.writeFileSync(path.join(dir, `c${n}.txt`), jugador);
   const vf = [ESCALA, texto(`c${n}.txt`, 36, "h-200", 26, "white", 10), texto(`a${n}.txt`, 36, "h-142", 40, "0xC8A96B", 14), texto(`b${n}.txt`, 36, "h-76", 26, "0xD7DEE6", 10)].join(",");
-  return ffmpeg(["-i", hls, "-t", String(c.antes + c.despues), "-vf", vf, ...SALIDA, `k${n}.mp4`], dir);
+  return ffmpeg([...(salta ? ["-ss", String(salta)] : []), "-i", hls, "-t", String(dura), "-vf", vf, ...SALIDA, `k${n}.mp4`], dir);
 }
 
 /* ------------------------------------------------------------------ */
@@ -665,36 +671,61 @@ for (const r of rivales) {
     for (const viejo of fs.readdirSync(tmp)) if (viejo !== "fuente.ttf") fs.rmSync(path.join(tmp, viejo), { force: true });
     const piezas = [];
     const buenos = [];
+    const cortados = [];
     for (const [n, c] of cortes.entries()) {
       const partido = r.partidos.find((p) => p.partido === c.partido);
-      const v = await opta.video({ partido: c.partido, fecha: partido?.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, c.antes, c.despues);
+      if (!desfasePorPartido.has(c.partido)) {
+        const repartidos = (parte) => {
+          const es = eventos.filter((e) => e.partido === c.partido && e.parte === parte).sort((x, y) => x.segundo - y.segundo);
+          return [0.25, 0.75].map((q) => es[Math.floor(q * (es.length - 1))]?.segundo).filter((x) => x != null);
+        };
+        const d = await desfases({ opta, partido: c.partido, fecha: partido?.fecha, muestras: { 1: repartidos(1), 2: repartidos(2) }, ffmpeg: FFMPEG, dir: tmp });
+        desfasePorPartido.set(c.partido, d);
+        console.log(`      desfase de Opta vs ${partido?.rival ?? c.partido}: 1.ª parte ${d[1]} s · 2.ª parte ${d[2]} s`);
+      }
+      /*
+      | Las ventanas de cada corte (antes/después) se ajustaron el 25/11 mirando
+      | fotogramas de primeras partes, con 3 s de desfase dentro: lo que se vio
+      | bueno era de antes + 3 a después − 3 alrededor de la acción. Eso es lo que
+      | se pide ahora, con el desfase de verdad de cada parte.
+      */
+      const A = c.antes + DESFASE_POR_DEFECTO;
+      const D = Math.max(1.5, c.despues - DESFASE_POR_DEFECTO);
+      const vt = ventana(A, D, desfasePorPartido.get(c.partido)[c.parte] ?? DESFASE_POR_DEFECTO);
+      const v = await opta.video({ partido: c.partido, fecha: partido?.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, vt.pideAntes, vt.pideDespues);
       if (v.sesion) {
         await guarda();
         opta.cierra();
         await fin(8, `la sesión de Opta ha caducado tras ${hechos} vídeos: entra en ProVision en el Chrome de Opta del club`);
       }
       if (!v.url) continue;
-      const error = await corte(tmp, n, v.url, { ...c, fecha: partido?.fecha ?? "" }, nombre, partido?.rival ?? "");
+      const error = await corte(tmp, n, v.url, { ...c, fecha: partido?.fecha ?? "" }, nombre, partido?.rival ?? "", vt.salta, A + D);
       if (error) {
-        console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split("\n")[0]}`);
+        console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split(/\r?\n/)[0]}`);
         continue;
       }
-      /*
-      | El jugador, marcado (26/11/2026, «que apareciera el jugador de cada vídeo en cada
-      | clip con un foco o una marca»). Las ventanas de cada corte se ajustaron mirando
-      | fotogramas, con el desfase de Opta dentro: la acción cae en antes + 3 s.
-      */
-      let fichero = `k${n}.mp4`;
-      if (hayVision()) {
-        await marca({ dir: tmp, entrada: fichero, salida: `m${n}.mp4`, segundo: Math.min(c.antes + DESFASE_OPTA, c.antes + c.despues - 0.4), nombre, ffmpeg: FFMPEG, salidaFfmpeg: SALIDA });
-        fichero = `m${n}.mp4`;
-      }
+      const an = await analiza({ dir: tmp, entrada: `k${n}.mp4`, segundo: A, json: `a${n}.json` });
+      cortados.push({ c, n, cabeza: an?.cabeza ?? null });
+    }
+
+    /* La camiseta de este jugador EN CADA PARTIDO (cambia de equipación): la de quien lleva el balón en sus pases, regates y remates. */
+    const CON_BALON = new Set(["Pass", "TakeOn", "Goal", "AttemptSaved", "Miss", "Post"]);
+    const kits = new Map();
+    for (const pid of new Set(cortados.map((x) => x.c.partido))) {
+      kits.set(pid, kitDe(cortados.filter((x) => x.c.partido === pid && CON_BALON.has(x.c.tipo)).map((x) => x.cabeza)));
+    }
+    let marcados = 0;
+    for (const { c, n } of cortados) {
+      const m = await pinta({ dir: tmp, entrada: `k${n}.mp4`, salida: `m${n}.mp4`, json: `a${n}.json`, nombre, kit: kits.get(c.partido), ffmpeg: FFMPEG, salidaFfmpeg: SALIDA });
+      if (m.marcado) marcados++;
+      const fichero = `m${n}.mp4`;
       const real = await duracion(tmp, fichero);
       if (real != null && real < 1) continue;
       piezas.push(fichero);
       /* Sin fecha ni rival: salen de los partidos del equipo (normalizaClipsJugador los repone). */
       buenos.push({ partido: c.partido, parte: c.parte, segundo: c.segundo, fortaleza: c.fortaleza, que: c.que, dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
     }
+    if (hayVision()) console.log(`      marcado en ${marcados} de ${cortados.length} cortes`);
 
     if (buenos.length < 3) {
       fallos++;

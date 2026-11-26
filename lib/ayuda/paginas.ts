@@ -4162,6 +4162,25 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
   },
+  /* ==================== ESTADÍSTICAS DE LA PLANTILLA (26/11/2026) ==================== */
+  {
+    ruta: "/estadisticas-plantilla",
+    titulo: "Estadísticas de la plantilla",
+    resumen: "Todos los jugadores del Castilla en una tabla: partidos, titular, suplente, minutos, goles, asistencias, tarjetas y nota, y de Opta xG, xA, remates, pases, recuperaciones y duelos. Con los líderes arriba.",
+    origen: "Valoraciones (partido a partido: minutos, titular, goles, asistencias, amarillas y roja los rellena cada noche BeSoccer, scripts/valoraciones-besoccer.mjs; la nota la pone el cuerpo técnico), la hoja JUGADORES (plantilla, dorsal, puesto, licencia) y Opta (opta:castilla, la temporada en liga de cada jugador). El cálculo, en lib/plantilla/estadisticas.ts.",
+    revisada: "2026-11-26",
+    bloques: [
+      {
+        titulo: "Lo que hay",
+        filas: [
+          { que: "Líderes", es: "Los tres primeros en goles, asistencias, minutos y amarillas, con su foto" },
+          { que: "Filtros", es: "Todas las competiciones o sólo liga (si hay más de una), puesto (porteros, centrales, laterales, medios, bandas y mediapuntas, delanteros), buscador por nombre o dorsal y «sólo los que han jugado»" },
+          { que: "Tabla", es: "Una fila por jugador con licencia del Castilla (y los de fuera que han jugado), ordenable pinchando en cualquier columna; el nombre lleva a su ficha individual. En el móvil y la tablet se desliza de lado con el nombre fijo. Al final, el total de goles, asistencias, tarjetas y minutos", cuenta: "PJ = partidos con minutos o de titular; %Min = minutos ÷ (partidos jugados por el equipo × 90); Min/G+A = minutos ÷ (goles + asistencias); TR = roja directa o doble amarilla; Nota = media de las notas del cuerpo técnico (sin los «sin valorar» ni los 0)" },
+          { que: "Opta · temporada en liga", es: "xG, xA, remates y a puerta, ocasiones creadas, pases y su acierto, recuperaciones y duelos ganados; del portero, paradas y goles encajados. Sólo la liga y la temporada entera: no cambia con el filtro de competición", cuenta: "Se cruza por nombre (igual, o todas las palabras del de Opta en el de la hoja: «Cestero» → «Jorge Cestero»); un punto (·) es que Opta no lo tiene o no casa" },
+        ],
+      },
+    ],
+  },
   /* ==================== ESCUDOS DE LA LIGA (12/11/2026) ==================== */
   {
     ruta: "/laboratorio/escudos",

@@ -1,31 +1,29 @@
 """
-MARCA AL JUGADOR EN SU CLIP (26/11/2026).
+MARCA AL JUGADOR EN SU CLIP (26/11/2026, rehecho el mismo día).
 
 Petición del analista: «que apareciera el jugador de cada vídeo en cada clip
-con un foco o una marca para que se supiera que es ese».
+con un foco o una marca para que se supiera que es ese». La primera versión
+marcaba al que estaba pegado al balón, y el analista vio el fallo: en «le
+superan», en un duelo o en un balón dividido el más cercano era a veces el
+RIVAL. Ahora va en dos pasadas y con el color de la camiseta:
 
-Opta da el momento de la acción, pero no dónde está el jugador en la imagen.
-Se busca así, sólo alrededor de la acción (de 1,5 s antes a 0,6 s después,
-un fotograma de cada dos; YOLO pequeño a 1280 px en la CPU, ~0,3 s cada uno):
-  1. Personas y balón en cada fotograma (sin la grada: lo de arriba del todo
-     y lo muy pequeño fuera).
-  2. Quien hace la acción es la persona pegada al balón: cada fotograma vota a
-     la que tiene los pies (o el cuerpo) más cerca del balón, a menos de 1,3
-     veces su altura, y sólo si la segunda no está casi igual de cerca. Gana
-     si se lleva 3 votos o más y el 60 % de los que hay.
-  3. Si no hay seguridad (no se ve el balón, dos a la vez, cambio de plano),
-     el clip queda SIN marca: mejor eso que marcar a otro.
-  4. Se le sigue hacia atrás y hacia delante, fotograma a fotograma, por la
-     persona más cercana a donde estaba (si salta mucho, se deja de marcar).
-Con él localizado:
-  - en ese tramo, un aro dorado a sus pies y un triángulo sobre la cabeza;
-  - y en el momento de la acción el vídeo se CONGELA 1 s con un foco (el
-    resto más oscuro), el aro y su nombre encima.
+  1. analiza  python marca-jugador.py analiza <clip.mp4> <segundo_accion> <salida.json>
+     Personas y balón en cada fotograma de 1,5 s antes a 0,6 s después de la
+     acción (y medio segundo más a cada lado para seguirle), con el color de
+     la camiseta de cada persona (mediana Lab del pecho, sin césped). Dice
+     también quién está más pegado al balón y su color («cabeza»).
 
-  python marca-jugador.py <entrada.mp4> <salida.mp4> <segundo_accion> <nombre> <ffmpeg> [args de salida de ffmpeg…]
+  2. (Node junta las cabezas de los clips en que la acción es claramente SUYA
+     —pase, control, conducción— y saca el color de SU camiseta en ese partido.)
 
-Escribe una línea JSON: {"marcado": bool, "votos": n, "motivo": "…"}.
-Si no se marca, copia el clip tal cual para que el montaje siga.
+  3. pinta    python marca-jugador.py pinta <clip.mp4> <salida.mp4> <analisis.json> <nombre> <L> <a> <b> <ffmpeg> [args de salida…]
+     Sólo cuentan las personas con ESA camiseta: cada fotograma vota a la
+     de su equipo más pegada al balón (a menos de 1,3 veces su altura) si la
+     segunda de su equipo no está casi igual de cerca; gana con 3 votos o más
+     y el 60 %. Si no, el clip va SIN marca. Con él: congelado 1 s con foco,
+     aro dorado y su nombre; antes y después, el aro y un triángulo.
+
+Escribe una línea JSON con lo que ha hecho. Si no marca, copia el clip tal cual.
 """
 
 import json
@@ -40,25 +38,36 @@ import numpy as np
 CARPETA = os.path.join(os.environ.get("LOCALAPPDATA", "."), "rmcf-vision")
 MODELO = os.path.join(CARPETA, "yolo11n.pt")
 ORO = (107, 169, 200)  # BGR de #C8A96B
-CONGELA = 25  # fotogramas (1 s)
+CONGELA = 25
 ANTES_S = 1.5
 DESPUES_S = 0.6
+MARGEN_S = 0.5
+CERCA = 1.3
+COLOR_MAX = 38.0  # distancia Lab a la camiseta para contar como «de los suyos»
 
 
 def sal(info):
     print(json.dumps(info, ensure_ascii=False), flush=True)
 
 
-def deja_igual(entrada, salida, info):
-    shutil.copyfile(entrada, salida)
-    sal({"marcado": False, **info})
+def color_camiseta(img, caja):
+    x1, y1, x2, y2 = (int(round(v)) for v in caja)
+    h, w = y2 - y1, x2 - x1
+    if h < 8 or w < 4:
+        return None
+    pecho = img[max(0, y1 + int(h * 0.15)) : max(0, y1 + int(h * 0.5)), max(0, x1 + int(w * 0.2)) : max(0, x2 - int(w * 0.2))]
+    if pecho.size == 0:
+        return None
+    hsv = cv2.cvtColor(pecho, cv2.COLOR_BGR2HSV).reshape(-1, 3)
+    lab = cv2.cvtColor(pecho, cv2.COLOR_BGR2LAB).reshape(-1, 3).astype(np.float32)
+    # Fuera el césped (verde con algo de saturación).
+    no_cesped = ~((hsv[:, 0] >= 30) & (hsv[:, 0] <= 90) & (hsv[:, 1] >= 50))
+    if no_cesped.sum() < 6:
+        return None
+    return [round(float(v), 1) for v in np.median(lab[no_cesped], axis=0)]
 
 
-def main():
-    entrada, salida, t_accion, nombre, ffmpeg = sys.argv[1:6]
-    args_salida = sys.argv[6:]
-    t_accion = float(t_accion)
-
+def analiza(entrada, t_accion, salida_json):
     from ultralytics import YOLO
 
     os.makedirs(CARPETA, exist_ok=True)
@@ -69,78 +78,89 @@ def main():
     cap = cv2.VideoCapture(entrada)
     fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
     n = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-    ancho = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
     alto = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    if n <= 0 or not ancho:
-        cap.release()
-        return deja_igual(entrada, salida, {"votos": 0, "motivo": "sin fotogramas"})
-
-    centro = min(int(round(t_accion * fps)), n - 1)
-    desde = max(0, centro - int(ANTES_S * fps))
-    hasta = min(n - 1, centro + int(DESPUES_S * fps))
-    # En memoria sólo el tramo que se mira (con medio segundo de margen): un clip entero a 720p es ~1 GB.
-    margen = int(0.5 * fps)
-    frames = {}
+    centro = min(int(round(t_accion * fps)), max(n - 1, 0))
+    desde = max(0, centro - int((ANTES_S + MARGEN_S) * fps))
+    hasta = min(n - 1, centro + int((DESPUES_S + MARGEN_S) * fps))
+    fotos = {}
     k = 0
-    while k <= hasta + margen:
+    while k <= hasta:
         ok, img = cap.read()
         if not ok:
             break
-        if k >= desde - margen:
-            frames[k] = img
+        if k >= desde:
+            r = modelo.predict(img, imgsz=1280, conf=0.08, classes=[0, 32], verbose=False)[0]
+            personas, balon, mejor = [], None, 0.0
+            if r.boxes is not None and len(r.boxes):
+                for c, caja, p in zip(r.boxes.cls.cpu().numpy().astype(int), r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy()):
+                    x1, y1, x2, y2 = (float(v) for v in caja)
+                    if c == 32 and p > mejor and p >= 0.15:
+                        mejor, balon = float(p), [(x1 + x2) / 2, (y1 + y2) / 2]
+                    elif c == 0 and p >= 0.3 and (y2 - y1) >= alto * 0.035 and y2 > alto * 0.2:
+                        personas.append([round(x1, 1), round(y1, 1), round(x2, 1), round(y2, 1), color_camiseta(img, (x1, y1, x2, y2))])
+            fotos[k] = {"p": personas, "b": balon}
         k += 1
     cap.release()
-    if centro not in frames:
-        return deja_igual(entrada, salida, {"votos": 0, "motivo": "el momento de la acción cae fuera del clip"})
 
-    def detecta(k):
-        r = modelo.predict(frames[k], imgsz=1280, conf=0.08, classes=[0, 32], verbose=False)[0]
-        personas, balon, mejor = [], None, 0.0
-        if r.boxes is not None and len(r.boxes):
-            for c, caja, p in zip(r.boxes.cls.cpu().numpy().astype(int), r.boxes.xyxy.cpu().numpy(), r.boxes.conf.cpu().numpy()):
-                x1, y1, x2, y2 = (float(v) for v in caja)
-                if c == 32 and p > mejor and p >= 0.15:
-                    mejor, balon = float(p), ((x1 + x2) / 2, (y1 + y2) / 2)
-                elif c == 0 and p >= 0.3 and (y2 - y1) >= alto * 0.035 and y2 > alto * 0.2:
-                    personas.append((x1, y1, x2, y2))
-        return personas, balon
-
-    det = {}
-    for k in range(desde, hasta + 1, 2):
-        det[k] = detecta(k)
-
-    # Votos: la persona pegada al balón.
-    votos, cajas_voto = [], []
-    for k, (personas, bal) in det.items():
-        if bal is None or not personas:
+    # La «cabeza»: el más pegado al balón sin mirar equipo (para aprender la camiseta).
+    votos = []
+    for kk, f in fotos.items():
+        if abs(kk - centro) > ANTES_S * fps or f["b"] is None or not f["p"]:
             continue
-        cerca = []
-        for caja in personas:
-            x1, y1, x2, y2 = caja
-            h = max(y2 - y1, 1.0)
-            d = min(np.hypot(bal[0] - (x1 + x2) / 2, bal[1] - y2), np.hypot(bal[0] - (x1 + x2) / 2, bal[1] - (y1 + y2) / 2))
-            if d < 1.3 * h:
-                cerca.append((d / h, caja))
-        if not cerca:
+        cerca = sorted(((distancia(f["b"], p), p) for p in f["p"] if distancia(f["b"], p) < CERCA), key=lambda x: x[0])
+        if not cerca or (len(cerca) > 1 and cerca[1][0] - cerca[0][0] < 0.15):
             continue
-        cerca.sort(key=lambda x: x[0])
-        if len(cerca) > 1 and cerca[1][0] - cerca[0][0] < 0.15:
-            continue
-        votos.append(k)
-        cajas_voto.append(cerca[0][1])
+        if cerca[0][1][4] is not None:
+            votos.append(cerca[0][1][4])
+    cabeza = None
+    if len(votos) >= 3:
+        med = np.median(np.array(votos), axis=0)
+        cerca_med = [v for v in votos if np.linalg.norm(np.array(v) - med) < COLOR_MAX]
+        if len(cerca_med) / len(votos) >= 0.6:
+            cabeza = [round(float(x), 1) for x in np.median(np.array(cerca_med), axis=0)]
 
+    with open(salida_json, "w", encoding="utf-8") as fh:
+        json.dump({"fps": fps, "centro": centro, "fotos": {str(k): v for k, v in fotos.items()}}, fh)
+    sal({"cabeza": cabeza, "votos": len(votos)})
+
+
+def distancia(bal, p):
+    x1, y1, x2, y2 = p[:4]
+    h = max(y2 - y1, 1.0)
+    cx = (x1 + x2) / 2
+    return min(np.hypot(bal[0] - cx, bal[1] - y2), np.hypot(bal[0] - cx, bal[1] - (y1 + y2) / 2)) / h
+
+
+def pinta(entrada, salida, analisis, nombre, kit, ffmpeg, args_salida):
+    with open(analisis, encoding="utf-8") as fh:
+        a = json.load(fh)
+    fps, centro = a["fps"], a["centro"]
+    fotos = {int(k): v for k, v in a["fotos"].items()}
+    kit = np.array(kit, dtype=np.float32)
+
+    def suyo(p):
+        return p[4] is not None and np.linalg.norm(np.array(p[4]) - kit) < COLOR_MAX
+
+    votos = []
+    for k, f in fotos.items():
+        if abs(k - centro) > ANTES_S * fps or k - centro > DESPUES_S * fps or f["b"] is None:
+            continue
+        cerca = sorted(((distancia(f["b"], p), p) for p in f["p"] if suyo(p) and distancia(f["b"], p) < CERCA), key=lambda x: x[0])
+        if not cerca or (len(cerca) > 1 and cerca[1][0] - cerca[0][0] < 0.15):
+            continue
+        votos.append((k, cerca[0][1][:4]))
     if not votos:
-        return deja_igual(entrada, salida, {"votos": 0, "motivo": "no se ve el balón pegado a nadie en el momento de la acción"})
+        shutil.copyfile(entrada, salida)
+        return sal({"marcado": False, "motivo": "nadie de su camiseta pegado al balón en la acción"})
 
-    # ¿Es la misma persona en los fotogramas que votan? Se agrupan por cercanía (en altura de jugador).
-    def cerca_de(a, b, factor=1.2):
-        h = max(a[3] - a[1], b[3] - b[1], 1.0)
-        return np.hypot((a[0] + a[2]) / 2 - (b[0] + b[2]) / 2, a[3] - b[3]) < factor * h * (1 + 0.15)
+    def junto(a_, b_, factor=1.35):
+        h = max(a_[3] - a_[1], b_[3] - b_[1], 1.0)
+        return np.hypot((a_[0] + a_[2]) / 2 - (b_[0] + b_[2]) / 2, a_[3] - b_[3]) < factor * h
 
     grupos = []
-    for k, caja in zip(votos, cajas_voto):
+    for k, caja in votos:
         for g in grupos:
-            if any(cerca_de(caja, c2) and abs(k - k2) <= 12 for k2, c2 in g):
+            if any(junto(caja, c2) and abs(k - k2) <= 12 for k2, c2 in g):
                 g.append((k, caja))
                 break
         else:
@@ -148,32 +168,25 @@ def main():
     grupos.sort(key=len, reverse=True)
     g = grupos[0]
     if len(g) < 3 or len(g) / len(votos) < 0.6:
-        return deja_igual(entrada, salida, {"votos": len(g), "motivo": f"no está claro quién es ({len(g)} de {len(votos)} votos)"})
+        shutil.copyfile(entrada, salida)
+        return sal({"marcado": False, "motivo": f"no está claro ({len(g)} de {len(votos)} votos)"})
 
-    # El fotograma de la acción: el del grupo más cerca del momento de Opta.
     k0, caja0 = min(g, key=lambda x: abs(x[0] - centro))
-
-    # Se le sigue fotograma a fotograma desde ahí (hacia atrás y hacia delante), en todo el tramo.
     cajas = {k0: caja0}
     for paso in (-1, 1):
-        prev = caja0
-        k = k0 + paso
-        while k in frames:
-            personas = det[k][0] if k in det else detecta(k)[0]
-            if not personas:
+        prev, k = caja0, k0 + paso
+        while k in fotos:
+            propias = [p[:4] for p in fotos[k]["p"] if suyo(p)] or [p[:4] for p in fotos[k]["p"]]
+            if not propias:
                 break
-            sig = min(personas, key=lambda c: np.hypot((c[0] + c[2]) / 2 - (prev[0] + prev[2]) / 2, c[3] - prev[3]))
-            if not cerca_de(sig, prev, 0.9):
+            sig = min(propias, key=lambda c: np.hypot((c[0] + c[2]) / 2 - (prev[0] + prev[2]) / 2, c[3] - prev[3]))
+            if not junto(sig, prev, 0.9):
                 break
-            cajas[k] = sig
-            prev = sig
-            k += paso
-    # Suavizado de la caja (que el aro no tiemble).
-    orden = sorted(cajas)
+            cajas[k], prev, k = sig, sig, k + paso
     suave, ant = {}, None
-    for k in orden:
+    for k in sorted(cajas):
         c = cajas[k]
-        ant = c if ant is None else tuple(0.55 * c[j] + 0.45 * ant[j] for j in range(4))
+        ant = c if ant is None else [0.55 * c[j] + 0.45 * ant[j] for j in range(4)]
         suave[k] = ant
 
     def aro(img, c, grosor=3):
@@ -205,21 +218,21 @@ def main():
         aro(out, c, 4)
         flecha(out, c)
         texto = nombre.upper()
-        escala = 0.85
-        (tw, th), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_DUPLEX, escala, 2)
+        (tw, th), _ = cv2.getTextSize(texto, cv2.FONT_HERSHEY_DUPLEX, 0.85, 2)
         tx = int(min(max(cx - tw / 2, 12), img.shape[1] - tw - 12))
         ty = int(max(y1 - h * 0.6 - 18, th + 16))
         cv2.rectangle(out, (tx - 12, ty - th - 12), (tx + tw + 12, ty + 12), (20, 15, 11), -1)
         cv2.rectangle(out, (tx - 12, ty - th - 12), (tx + tw + 12, ty + 12), ORO, 2)
-        cv2.putText(out, texto, (tx, ty), cv2.FONT_HERSHEY_DUPLEX, escala, (255, 255, 255), 2, cv2.LINE_AA)
+        cv2.putText(out, texto, (tx, ty), cv2.FONT_HERSHEY_DUPLEX, 0.85, (255, 255, 255), 2, cv2.LINE_AA)
         return out
 
+    cap = cv2.VideoCapture(entrada)
+    ancho = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+    alto = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     proc = subprocess.Popen(
         [ffmpeg, "-y", "-loglevel", "error", "-f", "rawvideo", "-pix_fmt", "bgr24", "-s", f"{ancho}x{alto}", "-r", str(int(round(fps))), "-i", "-", *args_salida, salida],
         stdin=subprocess.PIPE,
     )
-    frames = None  # fuera de memoria: se vuelve a leer el clip, fotograma a fotograma
-    cap = cv2.VideoCapture(entrada)
     k = -1
     while True:
         ok, img = cap.read()
@@ -239,16 +252,25 @@ def main():
     proc.stdin.close()
     proc.wait()
     if proc.returncode != 0:
-        return deja_igual(entrada, salida, {"votos": len(g), "motivo": "ffmpeg no pudo escribir"})
-    sal({"marcado": True, "votos": len(g), "de": len(votos), "congela": round(k0 / fps, 2), "seguido": round(len(suave) / fps, 1)})
+        shutil.copyfile(entrada, salida)
+        return sal({"marcado": False, "motivo": "ffmpeg no pudo escribir"})
+    sal({"marcado": True, "votos": len(g), "de": len(votos), "congela": round(k0 / fps, 2)})
 
 
 if __name__ == "__main__":
+    modo = sys.argv[1] if len(sys.argv) > 1 else ""
     try:
-        main()
-    except Exception as e:  # nunca para el montaje
-        try:
-            shutil.copyfile(sys.argv[1], sys.argv[2])
-        except Exception:
-            pass
-        sal({"marcado": False, "votos": 0, "motivo": f"error: {e}"})
+        if modo == "analiza":
+            analiza(sys.argv[2], float(sys.argv[3]), sys.argv[4])
+        elif modo == "pinta":
+            e, s, an, nom, L, A, B, ff = sys.argv[2:10]
+            pinta(e, s, an, nom, [float(L), float(A), float(B)], ff, sys.argv[10:])
+        else:
+            sal({"error": "modo: analiza o pinta"})
+    except Exception as ex:  # nunca para el montaje
+        if modo == "pinta" and len(sys.argv) > 3:
+            try:
+                shutil.copyfile(sys.argv[2], sys.argv[3])
+            except Exception:
+                pass
+        sal({"marcado": False, "motivo": f"error: {ex}"})

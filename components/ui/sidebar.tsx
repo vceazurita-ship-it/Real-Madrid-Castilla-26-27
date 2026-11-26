@@ -234,6 +234,8 @@ export const SECCIONES: Seccion[] = [
     entradas: [
       { href: "/individual", label: "Plantilla", icon: User },
       { href: "/dashboard-plantilla", label: "Dashboard de Plantilla", icon: Gauge },
+      /* 26/11/2026: «una sección general de estadísticas de nuestra plantilla». */
+      { href: "/estadisticas-plantilla", label: "Estadísticas de la plantilla", icon: BarChart3 },
       { href: "/ratings", label: "Valoraciones", icon: Star },
       { href: "/calendar", label: "Calendario Seguimiento", icon: CalendarCheck },
       { href: "/individual_proc", label: "Dashboard Seguimiento", icon: BarChart3 },
