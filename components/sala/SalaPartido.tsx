@@ -230,7 +230,7 @@ export function SalaPartido() {
     };
   }, [partido, t, k, modo]);
   /* Lo que ya dicen los avisos no se repite en la lectura (experto de análisis). */
-  const omitir = useMemo(() => new Set((calculo?.alertas ?? []).map((a) => a.clave)), [calculo]);
+  const omitirBase = useMemo(() => (calculo?.alertas ?? []).map((a) => a.clave), [calculo]);
   const tocar = useMemo(() => {
     if (!partido || !k || !calculo) return [];
     const p1 = tramoDe(partido, "p1", t);
@@ -239,6 +239,10 @@ export function SalaPartido() {
     const w = v ?? tramoDe(partido, "todo", t);
     return w && t >= 15 ? queTocar(partido, w.desde, w.hasta, w.parte, k) : [];
   }, [partido, k, calculo, tramo, t]);
+  const clavesTocar = useMemo(() => new Set(tocar.map((x) => x.clave)), [tocar]);
+  const omitir = useMemo(() => new Set([...omitirBase, ...clavesTocar]), [omitirBase, clavesTocar]);
+  /* Los avisos que «Qué tocar» ya convierte en consigna no se repiten arriba (experto de análisis). */
+  const avisos = useMemo(() => (calculo?.alertas ?? []).filter((a) => !clavesTocar.has(a.clave)), [calculo, clavesTocar]);
 
   /* El tramo que se mira: si el elegido aún no existe (2.ª parte en el minuto 20), todo el partido. */
   const disponibles = useMemo(() => {
@@ -362,8 +366,8 @@ export function SalaPartido() {
             {/* En el móvil, los avisos van justo después del marcador (el experto de fútbol: es lo primero que se lee en el banquillo). */}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-start-1">
-                <Alertas lista={calculo.alertas} p={partido} />
-                {lectura && <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} omitir={omitir} tocar={tocar} />}
+                <Alertas lista={avisos} p={partido} final={modo === "final"} />
+                {lectura && <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} omitir={omitir} tocar={tocar.map((x) => x.texto)} final={modo === "final"} />}
               </div>
               <div className="grid min-w-0 content-start gap-3 xl:col-start-1 xl:row-start-1">
                 <SelectorTramo valor={disponibles[tramo] ? tramo : "todo"} onCambia={setTramo} disponibles={disponibles} />
@@ -396,8 +400,8 @@ export function SalaPartido() {
 
       {/* La barra de la repetición, siempre a mano. */}
       {partido && calculo && (
-        <div className="sala-barra fixed inset-x-0 bottom-0 z-30" style={{ background: "linear-gradient(180deg, rgba(3,8,18,0), rgba(3,8,18,0.92) 30%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          <div className="mx-auto flex max-w-[1600px] items-center gap-3 pb-3 pl-3 pr-16 pt-6 sm:pl-6 sm:pr-20">
+        <div className="sala-barra fixed inset-x-0 bottom-0 z-30" style={{ background: "linear-gradient(180deg, rgba(3,8,18,0.55), #030812 22%)", borderTop: "1px solid rgba(120,170,255,0.14)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+          <div className="mx-auto flex max-w-[1600px] items-center gap-3 pb-3 pl-3 pr-16 pt-3 sm:pl-6 sm:pr-20">
             <button type="button" onClick={alterna} className="grid h-11 w-11 shrink-0 place-items-center rounded-full" style={{ background: "linear-gradient(135deg, #3D8BFF, #2BE3A0)", color: "#031020", boxShadow: "0 0 24px rgba(80,170,255,0.6)" }} aria-label={reproduce ? "Pausa" : "Repetir"} title="Espacio">
               {reproduce ? <Pause size={18} /> : <Play size={18} />}
             </button>

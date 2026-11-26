@@ -659,7 +659,7 @@ export function alertas(p: Partido, t: number, k: Calibracion = calibracion(p)):
     if (ca.total < 8) continue;
     const m = ca.lista.reduce((a, b) => (b.n > a.n ? b : a));
     if (m.n / ca.total >= 0.5) {
-      out.push({ clave: `carril-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} llega por ${m.suyo}`, texto: `${Math.round((m.n / ca.total) * 100)} % de sus entradas al último tercio (${m.n} de ${ca.total})${p.nuestro && l !== p.nuestro ? `: por nuestra ${m.nuestro}` : ""}`, min: t, ventana: "todo el partido", fuerza: 1.4 + m.n / ca.total });
+      out.push({ clave: `carril-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} llega por ${m.suyo}`, texto: `${Math.round((m.n / ca.total) * 100)} % de sus entradas al último tercio (${m.n} de ${ca.total}${ca.total < 30 ? ", tendencia" : ""})${p.nuestro && l !== p.nuestro ? `: por nuestra ${m.nuestro}` : ""}`, min: t, ventana: "todo el partido", fuerza: 1.4 + m.n / ca.total });
     }
   }
 
@@ -958,7 +958,7 @@ export function lecturaTramo(p: Partido, desde: number, hasta: number, parte?: n
       const v = l === "L" ? x.L.amenaza : x.V.amenaza;
       if (v > mejor.v) mejor = { d, v };
     }
-    frases.push(`${nombre(l)} tuvo el ${Math.round(((l === "L" ? c.L.amenaza : c.V.amenaza) / total) * 100)} % de la amenaza; su mejor momento, del ${reloj(mejor.d)} al ${reloj(Math.min(hasta, mejor.d + 5))}.`);
+    frases.push(`${nombre(l)} tuvo el ${Math.round(((l === "L" ? c.L.amenaza : c.V.amenaza) / total) * 100)} % de la amenaza; su mejor momento por amenaza, del ${reloj(mejor.d)} al ${reloj(Math.min(hasta, mejor.d + 5))}.`);
   }
   /* 2. La cifra que más se sale de lo normal (por 90′, frente a su media). */
   const minutos = Math.max(1, parte === 1 ? Math.min(hasta, 46) - desde : parte === 2 ? hasta - Math.max(desde, 45) : hasta - desde);
@@ -993,7 +993,7 @@ export function lecturaTramo(p: Partido, desde: number, hasta: number, parte?: n
   /* 4. Transiciones que hicieron daño. */
   const tr = transiciones(p, desde, hasta, parte);
   const nuestras = p.nuestro ? tr.perdidas.filter((x) => x.lado === p.nuestro) : [];
-  if (nuestras.length >= 2) frases.push(`${nuestras.length} pérdidas nuestras acabaron en remate suyo en menos de 15 s (${dosD(nuestras.reduce((s, x) => s + x.xG, 0))} de xG).`);
+  if (nuestras.length >= 2 && !omitir.has("tocar-salida")) frases.push(`${nuestras.length} pérdidas nuestras acabaron en remate suyo en menos de 15 s (${dosD(nuestras.reduce((s, x) => s + x.xG, 0))} de xG).`);
   return frases.slice(0, 4);
 }
 
@@ -1097,7 +1097,7 @@ export function fichasDeGol(p: Partido, t: number): FichaGol[] {
         const previa = ev.slice(Math.max(0, j - 4), j).reverse().find((x) => x.lado !== g.lado && esPerdida(x) && e.min - x.min <= 5 / 60);
         origen = previa
           ? `robo de ${nombre(e.jugador)} tras pérdida de ${nombre(previa.jugador) || "su rival"}${previa.x < 40 ? " en salida" : previa.x < 66.7 ? " en medio campo" : ""} (por su ${carrilDe(previa.y)})`
-          : `robo de ${nombre(e.jugador)}${e.x >= 60 ? " arriba" : ""}`;
+          : `${e.tipo === "BallRecovery" ? "balón suelto que recoge" : "robo de"} ${nombre(e.jugador)} ${e.x >= 66.7 ? "arriba" : e.x >= 40 ? "en medio campo" : "en su campo"} (por su ${carrilDe(e.y)})`;
         inicio = j;
         break;
       }
@@ -1128,7 +1128,7 @@ export function fichasDeGol(p: Partido, t: number): FichaGol[] {
   return out;
 }
 
-export type DetalleAbp = { corners: number; cornerContacto: number; cornerRemate1: number; cornerRemate2: number; faltasLaterales: number; faltasDirectas: number; bandasLargas: number; caidas: { x: number; y: number; gana: boolean }[] };
+export type DetalleAbp = { despejados: number; corners: number; cornerContacto: number; cornerRemate1: number; cornerRemate2: number; faltasLaterales: number; faltasDirectas: number; bandasLargas: number; caidas: { x: number; y: number; gana: boolean }[] };
 
 /**
  * BALÓN PARADO CON CONTENIDO (experto de fútbol): por equipo, córners con su
@@ -1139,7 +1139,7 @@ export type DetalleAbp = { corners: number; cornerContacto: number; cornerRemate
  * caída de cada envío (fin del pase) para el campo.
  */
 export function detalleAbp(p: Partido, lado: Lado, desde: number, hasta: number, parte?: number): DetalleAbp {
-  const d: DetalleAbp = { corners: 0, cornerContacto: 0, cornerRemate1: 0, cornerRemate2: 0, faltasLaterales: 0, faltasDirectas: 0, bandasLargas: 0, caidas: [] };
+  const d: DetalleAbp = { despejados: 0, corners: 0, cornerContacto: 0, cornerRemate1: 0, cornerRemate2: 0, faltasLaterales: 0, faltasDirectas: 0, bandasLargas: 0, caidas: [] };
   const ev = p.eventos;
   for (let i = 0; i < ev.length; i++) {
     const e = ev[i];
@@ -1154,7 +1154,14 @@ export function detalleAbp(p: Partido, lado: Lado, desde: number, hasta: number,
     let k = i + 1;
     while (k < ev.length && ev[k].min - e.min <= 0.5 && !(ev[k].lado === lado && (ev[k].tipo === "Pass" || TIROS.has(ev[k].tipo)))) k++;
     const envio = ev[k];
-    if (!envio || envio.min - e.min > 0.5) continue;
+    if (!envio || envio.min - e.min > 0.5) {
+      /* Sin pase propio tras el córner: lo despejó el rival antes (cuenta como córner, primer contacto suyo). */
+      if (esCorner) {
+        d.corners++;
+        d.despejados++;
+      }
+      continue;
+    }
     if (esFalta) {
       if (TIROS.has(envio.tipo)) { d.faltasDirectas++; continue; }
       if (envio.x >= 60 && (envio.y < 25 || envio.y > 75) && envio.fx != null && envio.fy != null && enArea(envio.fx, envio.fy)) d.faltasLaterales++;
@@ -1184,31 +1191,37 @@ export function detalleAbp(p: Partido, lado: Lado, desde: number, hasta: number,
  * entran, pérdidas en salida que acaban en remate, la presión frente a su
  * media, el primer contacto en los córners en contra y la eficacia.
  */
-export function queTocar(p: Partido, desde: number, hasta: number, parte?: number, k: Calibracion = calibracion(p)): string[] {
+export function queTocar(p: Partido, desde: number, hasta: number, parte?: number, k: Calibracion = calibracion(p)): { clave: string; texto: string }[] {
   if (!p.nuestro) return [];
   const yo = p.nuestro;
   const el: Lado = yo === "L" ? "V" : "L";
-  const out: string[] = [];
+  const out: { clave: string; texto: string }[] = [];
   const c = cifrasEntre(p, desde, hasta, parte);
   const ca = carriles(p, el, desde, hasta, parte);
+  const corta = (n: number) => (n < 30 ? ", tendencia" : "");
   if (ca.total >= 6) {
     const m = ca.lista.reduce((a, b) => (b.n > a.n ? b : a));
     if (m.n / ca.total >= 0.45) {
-      out.push(m.clave === "cen"
-        ? `Nos entran por dentro (${m.n} de ${ca.total} entradas al último tercio): cerrar el pasillo central, pivotes más juntos.`
-        : `Nos entran por nuestra ${m.nuestro} (${m.n} de ${ca.total}): ayuda del interior a nuestro lateral ${m.nuestro === "izquierda" ? "izquierdo" : "derecho"} y vigilancia por ese lado.`);
+      out.push({
+        clave: `carril-${el}`,
+        texto:
+          m.clave === "cen"
+            ? `Nos entran por dentro (${m.n} de ${ca.total} entradas al último tercio${corta(ca.total)}): cerrar el pasillo central, pivotes más juntos.`
+            : `Nos entran por nuestra ${m.nuestro} (${m.n} de ${ca.total}${corta(ca.total)}): ayuda del interior a nuestro lateral ${m.nuestro === "izquierda" ? "izquierdo" : "derecho"} y vigilancia por ese lado.`,
+      });
     }
   }
   const tr = transiciones(p, desde, hasta, parte);
   const enSalida = tr.perdidas.filter((x) => x.lado === yo && x.x < 40);
-  if (enSalida.length >= 2) out.push(`${enSalida.length} pérdidas en salida acabaron en remate suyo (${dosD(enSalida.reduce((s2, x) => s2 + x.xG, 0))} de xG): salir en largo cuando aprieten o el pivote más cerca de los centrales.`);
+  if (enSalida.length >= 2) out.push({ clave: "tocar-salida", texto: `${enSalida.length} pérdidas en salida acabaron en remate suyo (${dosD(enSalida.reduce((s2, x) => s2 + x.xG, 0))} de xG): salir en largo cuando aprieten o el pivote más cerca de los centrales.` });
   const mio = ppda(yo === "L" ? c.L : c.V, yo === "L" ? k.ppda.L : k.ppda.V);
   const media = (yo === "L" ? p.local : p.visitante).previa?.medias.PPDA;
   const uno = (v: number) => v.toFixed(1).replace(".", ",");
-  if (mio != null && media && mio >= media * 1.35) out.push(`Presionamos menos que de costumbre (PPDA ${uno(mio)} frente a nuestro ${uno(media)}): adelantar la primera línea y juntar el bloque.`);
+  if (mio != null && media && mio >= media * 1.35) out.push({ clave: `ppda-baja-${yo}`, texto: `Presionamos menos que de costumbre (PPDA ${uno(mio)} frente a nuestro ${uno(media)}): adelantar la primera línea y juntar el bloque.` });
   const abpEl = detalleAbp(p, el, desde, hasta, parte);
-  if (abpEl.corners >= 2 && abpEl.cornerContacto / abpEl.corners >= 0.5) out.push(`Ganan el primer contacto en ${abpEl.cornerContacto} de sus ${abpEl.corners} córners: revisar quién ataca el primer palo y las marcas.`);
+  if (abpEl.corners >= 2 && abpEl.cornerContacto / abpEl.corners >= 0.5) out.push({ clave: "tocar-corner", texto: `Ganan el primer contacto en ${abpEl.cornerContacto} de sus ${abpEl.corners} córners: revisar quién ataca el primer palo y las marcas.` });
   const nos = yo === "L" ? c.L : c.V;
-  if (nos.tiros >= 8 && nos.goles === 0 && nos.xg >= 0.6) out.push(`${nos.tiros} remates y ${dosD(nos.xg)} de xG sin gol: el volumen está; buscar remates de más calidad (pase atrás, segundo palo) en vez de tiros lejanos.`);
-  return out.slice(0, 3);
+  const ataque = nos.tiros >= 8 && nos.goles === 0 && nos.xg >= 0.6 ? { clave: "tocar-ataque", texto: `${nos.tiros} remates y ${dosD(nos.xg)} de xG sin gol: el volumen está; buscar remates de más calidad (pase atrás, segundo palo) en vez de tiros lejanos.` } : null;
+  /* Hasta 3 de defensa y, si sale, la de ataque siempre (experto de fútbol: con 0-2 también hay que hablar de nuestro ataque). */
+  return [...out.slice(0, 3), ...(ataque ? [ataque] : [])];
 }

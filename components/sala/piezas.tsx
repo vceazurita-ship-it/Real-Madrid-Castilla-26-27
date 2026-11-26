@@ -285,7 +285,7 @@ export function Marcador({
                 ⚽ {reloj(g.min, g.parte)} · {g.marcador}
               </span>{" "}
               <b style={{ color: colorDe(p, g.lado) }}>{g.goleador}</b>
-              {g.asistente ? <span> (pase de {g.asistente})</span> : null} · {g.origen} · {g.pases} {g.pases === 1 ? "pase" : "pases"} y {g.segundos} s hasta el remate · {g.zona}
+              {g.asistente ? <span> (pase de {g.asistente})</span> : null} · {g.origen} · {g.pases} {g.pases === 1 ? "pase" : "pases"} · {g.segundos} s · {g.zona}
               {g.xG != null ? <span style={{ color: S.tenue }}> · xG {fmt(g.xG, 2)}</span> : null}
             </li>
           ))}
@@ -367,7 +367,7 @@ export function SelectorTramo({ valor, onCambia, disponibles }: { valor: TramoCl
 /*  AVISOS                                                             */
 /* ------------------------------------------------------------------ */
 
-export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
+export function Alertas({ lista, p, final = false }: { lista: Alerta[]; p: Partido; final?: boolean }) {
   /* Los de vigilar primero, luego por fuerza (el experto de comunicación: «lo importante se perdía»). */
   const orden = [...lista].sort((a, b) => Number(b.tono === "aviso") - Number(a.tono === "aviso") || b.fuerza - a.fuerza);
   const [principal, ...resto] = orden;
@@ -380,7 +380,7 @@ export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
       </span>
     ) : null;
   return (
-    <Panel titulo="Lo que está pasando" detalle={p.nuestro ? "Verde, bueno para nosotros; naranja, a vigilar. Se recalcula a cada minuto." : "Lo que se sale de lo normal en el partido."}>
+    <Panel titulo={final ? "Lo que pasó" : "Lo que está pasando"} detalle={final ? "Lo que se salió de lo normal en el partido. Verde, bueno para nosotros; naranja, malo." : p.nuestro ? "Verde, bueno para nosotros; naranja, a vigilar. Se recalcula a cada minuto." : "Lo que se sale de lo normal en el partido."}>
       {!principal && (
         <p className="py-6 text-center text-[14px]" style={{ color: S.tenue }}>
           Nada fuera de lo normal todavía.
@@ -427,7 +427,7 @@ export function Alertas({ lista, p }: { lista: Alerta[]; p: Partido }) {
 /*  LA LECTURA DEL TRAMO (DESCANSO, FINAL O LA PARTE ELEGIDA)          */
 /* ------------------------------------------------------------------ */
 
-export function Lectura({ p, v, titulo, omitir, tocar }: { p: Partido; v: Ventana; titulo: string; omitir: Set<string>; tocar: string[] }) {
+export function Lectura({ p, v, titulo, omitir, tocar, final = false }: { p: Partido; v: Ventana; titulo: string; omitir: Set<string>; tocar: string[]; final?: boolean }) {
   const frases = useMemo(() => lecturaTramo(p, v.desde, v.hasta, v.parte, omitir), [p, v.desde, v.hasta, v.parte, omitir]);
   if (!frases.length && !tocar.length) return null;
   return (
@@ -435,7 +435,7 @@ export function Lectura({ p, v, titulo, omitir, tocar }: { p: Partido; v: Ventan
       {tocar.length > 0 && (
         <div className="mb-3 rounded-xl p-3" style={{ background: "rgba(233,196,106,0.08)", border: "1px solid rgba(233,196,106,0.4)" }}>
           <p className="mb-1.5 text-[12px] font-bold uppercase tracking-[0.16em]" style={{ color: S.oro }}>
-            Qué tocar
+            {final ? "Para el próximo partido" : "Qué tocar"}
           </p>
           <ul className="grid gap-1.5">
             {tocar.map((x, i) => (
@@ -519,7 +519,7 @@ export function Pulso({ p, t, hitos }: { p: Partido; t: number; hitos: Hito[] })
         {goles.map((g, i) => {
           /* Escalón: si el gol anterior del mismo equipo está a menos de 16′, este baja (o sube) una línea. */
           const previos = goles.slice(0, i).filter((o) => o.lado === g.lado && g.min - o.min < 16).length;
-          const dy = (previos % 2) * 18;
+          const dy = (previos % 2) * 24;
           return (
           <g key={i}>
             <circle cx={X(g.min)} cy={mitad} r="8" fill={colorDe(p, g.lado)} stroke="#fff" strokeWidth="2" className="sala-pop" />
@@ -778,7 +778,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
         </div>
       )}
       {capa === "remates" && (
-        <p className="mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px]" style={{ color: S.suave }} aria-label="Leyenda">
+        <p className="mb-2 flex items-center gap-x-3 overflow-x-auto whitespace-nowrap pb-1 text-[12px]" style={{ color: S.suave }} aria-label="Leyenda">
           <span>⬤ tamaño = xG</span>
           <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ background: S.info }} /> a puerta</span>
           <span className="inline-flex items-center gap-1"><span className="inline-block h-3 w-3 rounded-full" style={{ border: `2px solid ${S.info}` }} /> fuera</span>
@@ -927,7 +927,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
           <p className="mt-2 rounded-lg px-3 py-2 text-center text-[14px]" style={{ background: "rgba(255,255,255,0.04)", color: S.suave, border: `1px solid ${S.borde}` }}>
             {tiroElegido ? "Remate elegido" : "Último remate"}: <b style={{ color: colorDe(p, s.lado) }}>{p.jugadores.get(s.jugador)?.corto ?? "—"}</b> · <span className="font-mono tabular-nums">{reloj(s.min, s.parte)}</span> · xG {fmt(s.xG, 2)}
             {s.gol ? " · GOL" : s.bloqueado ? " · bloqueado" : s.aPuerta ? " · a puerta" : " · fuera"} · {enArea(s.x, s.y) ? "desde el área" : "desde fuera"}
-            {esAbp(s.jugada) ? ` · de ${s.jugada === "corner" ? "córner" : s.jugada === "penalti" ? "penalti" : "falta"}` : ""}
+            {esAbp(s.jugada) ? (s.jugada === "penalti" ? " · de penalti" : ` · tras ${s.jugada === "corner" ? "córner" : s.jugada === "falta" ? "falta" : "balón parado"}`) : ""}
           </p>
         );
       })()}
@@ -963,8 +963,8 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
     { nombre: "Remates", L: c.L.tiros, V: c.V.tiros, d: 0, previa: "ShtIncBl", porMinuto: true },
     { nombre: "A puerta", L: aPuertaDe(c.L, k.aPuerta?.L), V: aPuertaDe(c.V, k.aPuerta?.V), d: 0, previa: "SOG", porMinuto: true },
     { nombre: "Toques en el área", L: c.L.toquesArea, V: c.V.toquesArea, d: 0, previa: "TouchOpBox", porMinuto: true },
-    { nombre: "Entradas al área con pase", L: c.L.entradasArea, V: c.V.entradasArea, d: 0 },
-    { nombre: "Dominio territorial", L: dom?.L ?? null, V: dom?.V ?? null, d: 0, pct: true, nota: "de los pases en el último tercio" },
+    { nombre: "Entradas al área con pase", L: c.L.entradasArea, V: c.V.entradasArea, d: 0, nota: "sin media de la competición" },
+    { nombre: "Dominio territorial", L: dom?.L ?? null, V: dom?.V ?? null, d: 0, pct: true, nota: "de los pases en el último tercio; sin media" },
     { nombre: "Posesión", L: pos.L, V: pos.V, d: 0, pct: true, nota: "% de los pases (no es la de Opta, por tiempo)" },
     { nombre: "Acierto en el pase", L: c.L.pases ? c.L.pasesOk / c.L.pases : null, V: c.V.pases ? c.V.pasesOk / c.V.pases : null, d: 0, previa: "Pass%", pct: true },
     { nombre: "PPDA (presión)", L: ppda(c.L, k.ppda.L), V: ppda(c.V, k.ppda.V), d: 1, previa: "PPDA", menosEsMejor: true, nota: "ajustado a la cifra oficial de Opta del partido; menos es presionar más" },
@@ -1095,12 +1095,24 @@ export function AbpTransiciones({ p, v }: { p: Partido; v: Ventana }) {
                 {celda(<span style={{ color: robos.length ? S.favor : S.texto }}>{robos.length}</span>, `robos que acaban en remate${robos.length ? ` · ${fmt(robos.reduce((s, x) => s + x.xG, 0), 2)} xG` : ""}`)}
                 {celda(<span style={{ color: perd.length ? S.aviso : S.texto }}>{perd.length}</span>, `pérdidas que acaban en remate rival${perd.length ? ` · ${perd.filter((x) => x.x < 40).length} en salida` : ""}`)}
               </div>
-              <p className="mt-1.5 text-[13px] leading-snug" style={{ color: S.suave }}>
-                <b style={{ color: S.texto }}>Córners:</b> {abp[l].corners}
-                {abp[l].corners > 0 && <> · primer contacto suyo en {abp[l].cornerContacto} · remate en 1.ª jugada {abp[l].cornerRemate1}, en 2.ª {abp[l].cornerRemate2}</>}
-                {" · "}
-                <b style={{ color: S.texto }}>Faltas</b> laterales al área {abp[l].faltasLaterales}, directas a puerta {abp[l].faltasDirectas} · <b style={{ color: S.texto }}>Banda larga</b> al área {abp[l].bandasLargas}
-              </p>
+              {(() => {
+                /* Sólo lo que tiene dato (regla de los informes: lo que no hay no se nombra). */
+                const a = abp[l];
+                const tipos = c.tiros.filter((x) => x.lado === l && esAbp(x.jugada));
+                const porTipo = (j: string) => tipos.filter((x) => x.jugada === j).length;
+                const trozos = [
+                  a.corners ? `${a.corners} ${a.corners === 1 ? "córner" : "córners"}: primer contacto propio en ${a.cornerContacto}${a.despejados ? `, ${a.despejados} ${a.despejados === 1 ? "despejado" : "despejados"} al primer toque` : ""}${a.cornerRemate1 ? `, ${a.cornerRemate1} remate en 1.ª jugada` : ""}${a.cornerRemate2 ? `, ${a.cornerRemate2} en 2.ª` : ""}` : "",
+                  a.faltasLaterales ? `${a.faltasLaterales} ${a.faltasLaterales === 1 ? "falta lateral" : "faltas laterales"} al área` : "",
+                  a.faltasDirectas ? `${a.faltasDirectas} ${a.faltasDirectas === 1 ? "falta directa" : "faltas directas"} a puerta` : "",
+                  a.bandasLargas ? `${a.bandasLargas} ${a.bandasLargas === 1 ? "saque de banda largo" : "saques de banda largos"} al área` : "",
+                  tipos.length ? `remates de ABP: ${[["corner", "tras córner"], ["falta", "tras falta"], ["penalti", "de penalti"], ["abp", "otras jugadas a balón parado"]].map(([j, t]) => (porTipo(j) ? `${porTipo(j)} ${t}` : "")).filter(Boolean).join(", ")}` : "",
+                ].filter(Boolean);
+                return trozos.length ? (
+                  <p className="mt-1.5 text-[13px] leading-snug" style={{ color: S.suave }}>
+                    {trozos.join(" · ")}
+                  </p>
+                ) : null;
+              })()}
               {perd.length > 0 && (
                 <p className="mt-1 text-[13px] leading-snug" style={{ color: S.suave }}>
                   <b style={{ color: S.texto }}>Pérdidas que costaron remate:</b>{" "}
@@ -1183,7 +1195,7 @@ export function Linea({ p, t, max, hitos, final, onCambia }: { p: Partido; t: nu
       <div className="absolute inset-x-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ background: "rgba(255,255,255,0.1)" }} />
       <div className="absolute left-0 top-1/2 h-1 -translate-y-1/2 rounded-full" style={{ width: `${(t / max) * 100}%`, background: `linear-gradient(90deg, ${p.local.color}, ${p.visitante.color})` }} />
       {tiros.filter(visto).map((h, i) => (
-        <span key={i} aria-hidden className="absolute h-2 w-[2px] rounded" style={{ left: `${(h.min / max) * 100}%`, top: h.lado === "L" ? 7 : 28, background: colorDe(p, h.lado), opacity: h.tipo === "parada" ? 0.9 : 0.45 }} />
+        <span key={i} aria-hidden className="absolute hidden h-2 w-[2px] rounded sm:block" style={{ left: `${(h.min / max) * 100}%`, top: h.lado === "L" ? 7 : 28, background: colorDe(p, h.lado), opacity: h.tipo === "parada" ? 0.9 : 0.45 }} />
       ))}
       {marcas.filter(visto).map((h, i) => (
         <span key={i} aria-hidden className="absolute h-2.5 w-1.5 -translate-x-1/2 rounded-[1px]" style={{ left: `${(h.min / max) * 100}%`, top: h.lado === "L" ? 0 : 33, background: h.tipo === "amarilla" ? "#F5D547" : h.tipo === "roja" ? "#FF3B4E" : "rgba(255,255,255,0.7)" }} />
