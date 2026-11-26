@@ -2705,3 +2705,7 @@ body:has(.sala-raiz) [data-menu-flotante] { bottom: 92px; }
 @media (prefers-reduced-motion: reduce) {
   .sala-destello { animation: none; }
 }
+/* En la sala (26/11/2026): el botón «subir» y la franja de tareas atrasadas tapaban la barra de la repetición
+   en el móvil; la sala es pantalla de partido y lleva sus propios mandos. La franja sigue en el resto de la app. */
+body:has(.sala-raiz) .boton-subir,
+body:has(.sala-raiz) .aviso-tareas { display: none; }

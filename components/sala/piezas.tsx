@@ -161,7 +161,10 @@ export function Marcador({
     const e = l === "L" ? p.local : p.visitante;
     const yo = l === "L" ? c.L : c.V;
     const color = e.color;
-    const suyas = marcas.filter((h) => h.lado === l);
+    /* Los goles siempre (el 26/11 los cinco cambios del Murcia los echaban de la lista); luego tarjetas y cambios hasta 7. */
+    const delLado = marcas.filter((h) => h.lado === l);
+    const peso = (h: Hito) => (h.tipo === "gol" ? 0 : h.tipo === "roja" ? 1 : h.tipo === "amarilla" ? 2 : 3);
+    const suyas = [...delLado].sort((a, b) => peso(a) - peso(b) || a.min - b.min).slice(0, 7).sort((a, b) => a.min - b.min);
     const derecha = l === "L";
     return (
       <div className={`flex min-w-0 flex-col ${derecha ? "items-end text-right" : "items-start text-left"}`}>
@@ -184,7 +187,7 @@ export function Marcador({
         {/* Goles, tarjetas y cambios (estos dos, en los documentos desde el 26/11/2026). */}
         {suyas.length > 0 && (
           <ul className={`mt-2 grid gap-0.5 text-[12px] sm:text-[13px] ${derecha ? "justify-items-end" : ""}`} style={{ color: S.suave }}>
-            {suyas.slice(-6).map((h, i) => (
+            {suyas.map((h, i) => (
               <li key={i} className="flex max-w-full items-center gap-1.5 truncate">
                 {h.tipo === "gol" ? <span aria-label="Gol">⚽</span> : h.tipo === "amarilla" ? <span aria-label="Amarilla" className="inline-block h-3 w-2 rounded-[2px]" style={{ background: "#F5D547" }} /> : h.tipo === "roja" ? <span aria-label="Roja" className="inline-block h-3 w-2 rounded-[2px]" style={{ background: "#FF3B4E" }} /> : <ArrowLeftRight size={12} aria-label="Cambio" />}
                 <span className="font-mono tabular-nums" style={{ color: S.texto }}>
@@ -473,14 +476,19 @@ export function Pulso({ p, t, hitos }: { p: Partido; t: number; hitos: Hito[] })
         <path d={area("L")} fill={`url(#sala-pulso-L)`} filter="url(#sala-brillo)" style={{ transition: "d .5s ease" }} />
         <path d={area("V")} fill={`url(#sala-pulso-V)`} filter="url(#sala-brillo)" style={{ transition: "d .5s ease" }} />
         <line x1={X(0)} x2={X(fin)} y1={mitad} y2={mitad} stroke="rgba(200,220,255,0.35)" />
-        {goles.map((g, i) => (
+        {goles.map((g, i) => {
+          /* Escalón: si el gol anterior del mismo equipo está a menos de 16′, este baja (o sube) una línea. */
+          const previos = goles.slice(0, i).filter((o) => o.lado === g.lado && g.min - o.min < 16).length;
+          const dy = (previos % 2) * 18;
+          return (
           <g key={i}>
             <circle cx={X(g.min)} cy={mitad} r="8" fill={colorDe(p, g.lado)} stroke="#fff" strokeWidth="2" className="sala-pop" />
-            <text x={X(g.min)} y={g.lado === "L" ? 20 : H - 22} textAnchor="middle" fontSize="14" fontWeight="700" fill={S.texto} paintOrder="stroke" stroke="#030812" strokeWidth="4">
+            <text x={X(g.min)} y={g.lado === "L" ? 20 + dy : H - 22 - dy} textAnchor="middle" fontSize="14" fontWeight="700" fill={S.texto} paintOrder="stroke" stroke="#030812" strokeWidth="4">
               ⚽ {reloj(g.min, g.parte)} {g.jugador}
             </text>
           </g>
-        ))}
+          );
+        })}
         <line x1={X(t)} x2={X(t)} y1={4} y2={H - 16} stroke="#fff" strokeOpacity="0.8" strokeWidth="1.5" filter="url(#sala-brillo)" />
         <text x={44} y={24} fontSize="14" fontWeight="700" fill={p.local.color}>
           ▲ {cortoDe(p, "L")}
@@ -920,7 +928,7 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
     const r = x / m - 1;
     if (Math.abs(r) < 0.15) return { texto: "como siempre", color: S.tenue };
     const mejor = f.menosEsMejor ? r < 0 : r > 0;
-    return { texto: `${r > 0 ? "+" : "−"}${Math.round(Math.abs(r) * 100)} % sobre su media`, color: mejor ? S.favor : S.aviso };
+    return { texto: `${Math.round(Math.abs(r) * 100)} % ${r > 0 ? "más" : "menos"} que su media`, color: mejor ? S.favor : S.aviso };
   };
   const base = [p.local.previa?.pj, p.visitante.previa?.pj].filter(Boolean);
   return (
@@ -957,10 +965,10 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
               {(dL || dV || f.nota) && (
                 <>
                   <span />
-                  <span className="truncate text-right text-[11.5px]" style={{ color: dL?.color ?? S.tenue }}>
+                  <span className="text-right text-[11.5px] leading-tight" style={{ color: dL?.color ?? S.tenue }}>
                     {dL?.texto ?? ""}
                   </span>
-                  <span className="truncate text-[11.5px]" style={{ color: dV?.color ?? S.tenue }}>
+                  <span className="text-[11.5px] leading-tight" style={{ color: dV?.color ?? S.tenue }}>
                     {dV?.texto ?? ""}
                   </span>
                   <span />
@@ -1059,7 +1067,7 @@ export function Jugadores({ p, v }: { p: Partido; v: Ventana }) {
         </p>
         <ol className="grid gap-1.5">
           {lista.map((d, i) => (
-            <li key={d.jugador.id} className="grid grid-cols-[2.2rem_minmax(0,1fr)_auto] items-center gap-2.5 rounded-xl px-2.5 py-2 sala-entra" style={{ background: i === 0 ? `linear-gradient(90deg, ${color}26, transparent)` : "rgba(255,255,255,0.02)", border: `1px solid ${i === 0 ? `${color}66` : S.borde}` }}>
+            <li key={d.jugador.id} className="grid grid-cols-[2.2rem_minmax(0,1fr)] items-center gap-x-2.5 gap-y-1 rounded-xl px-2.5 py-2 sala-entra sm:grid-cols-[2.2rem_minmax(0,1fr)_auto]" style={{ background: i === 0 ? `linear-gradient(90deg, ${color}26, transparent)` : "rgba(255,255,255,0.02)", border: `1px solid ${i === 0 ? `${color}66` : S.borde}` }}>
               <span className="grid h-9 w-9 place-items-center rounded-full font-mono text-[14px] font-bold" style={{ background: "#061424", border: `2px solid ${color}`, color: S.texto, boxShadow: `0 0 14px ${color}66` }}>
                 {d.jugador.dorsal || i + 1}
               </span>
@@ -1072,9 +1080,10 @@ export function Jugadores({ p, v }: { p: Partido; v: Ventana }) {
                   <span className="block h-full rounded-full" style={{ width: `${(d.amenaza / max) * 100}%`, background: `linear-gradient(90deg, ${color}66, ${color})`, transition: "width .6s ease" }} />
                 </span>
               </span>
-              <span className="text-right font-mono text-[12px] leading-tight tabular-nums" style={{ color: S.suave }}>
+              <span className="col-start-2 font-mono text-[12px] leading-tight tabular-nums sm:col-start-auto sm:text-right" style={{ color: S.suave }}>
                 <b style={{ color: S.texto }}>{fmt(d.amenaza, 2)}</b> amenaza
-                <br />
+                <br className="hidden sm:block" />
+                <span className="sm:hidden"> · </span>
                 {rivalDe ? `xG ${fmt(d.xg, 2)} · recibe en área ${d.recibeArea}` : `xG ${fmt(d.xg, 2)} · def. ${d.defensivas}${d.perdidasPropio ? ` · pierde atrás ${d.perdidasPropio}` : ""}`}
               </span>
             </li>

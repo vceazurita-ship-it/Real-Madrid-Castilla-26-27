@@ -224,7 +224,7 @@ function Franja({ n, alCerrar }: { n: number; alCerrar: () => void }) {
     <div
       role="status"
       data-export-hide
-      className="siempre-oscuro fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center gap-2 border-t border-white/12 px-3 pt-1.5 shadow-[0_-8px_24px_rgba(0,0,0,.3)]"
+      className="aviso-tareas siempre-oscuro fixed inset-x-0 bottom-0 z-[60] flex items-center justify-center gap-2 border-t border-white/12 px-3 pt-1.5 shadow-[0_-8px_24px_rgba(0,0,0,.3)]"
       style={{ background: "#11161D", paddingBottom: "calc(6px + env(safe-area-inset-bottom))" }}
     >
       <AlertTriangle className="h-4 w-4 shrink-0 text-red-300" />
