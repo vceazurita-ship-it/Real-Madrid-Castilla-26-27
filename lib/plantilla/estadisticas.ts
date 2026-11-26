@@ -88,18 +88,22 @@ export type OptaJugador = {
 const llano = (t: string) => t.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
 
 /**
- * Su fila de Opta por el nombre: igual, o todas las palabras del de Opta en el
- * de la hoja («Cestero» → «Jorge Cestero»), y sólo si es una.
+ * Su fila de Opta por el nombre, y sólo si es una: igual; o todas las palabras
+ * de uno dentro del otro, en los dos sentidos («Cestero» ↔ «Jorge Cestero»,
+ * «Fortea» → «Jesús Fortea»); una inicial casa con la palabra que empieza por
+ * ella («A. Leiva» → «Ávaro Leiva», que Opta escribe así).
  */
 export function casaOpta<T extends Record<string, unknown>>(nombre: string, apodo: string, filas: T[]): T | null {
   const n = llano(nombre);
   const a = llano(apodo);
-  const igual = filas.filter((f) => [n, a].includes(llano(String(f.jugador ?? ""))));
+  const igual = filas.filter((f) => [n, a].filter(Boolean).includes(llano(String(f.jugador ?? ""))));
   if (igual.length === 1) return igual[0];
-  const mias = new Set(`${n} ${a}`.split(" ").filter(Boolean));
+  const palabras = (t: string) => t.split(" ").filter(Boolean);
+  const cabe = (de: string[], en: string[]) => de.some((p) => p.length > 1) && de.every((p) => (p.length === 1 ? en.some((q) => q.startsWith(p)) : en.includes(p)));
+  const mias = [n, a].filter(Boolean).map(palabras);
   const dentro = filas.filter((f) => {
-    const suyas = llano(String(f.jugador ?? "")).split(" ").filter((p) => p.length > 1);
-    return suyas.length > 0 && suyas.every((p) => mias.has(p));
+    const suyas = palabras(llano(String(f.jugador ?? "")));
+    return mias.some((m) => cabe(suyas, m) || cabe(m, suyas));
   });
   return dentro.length === 1 ? dentro[0] : null;
 }

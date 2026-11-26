@@ -131,6 +131,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Lo nuevo (23/11/2026): mapa de la liga con escudos",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Post del partido: cara a cara y campo (26/11/2026)", es: "En «El partido, cara a cara» (Opta), las cifras a la izquierda y a la derecha el partido en el campo con las de Opta, con balón o sin balón; en «Partido en el campo» (Wyscout), ya a la vista, lo mismo: sus cifras del momento elegido (partido, referencia y cuánto cambia) a la izquierda y el campo del partido a la derecha. Lado a lado desde 1280 px; en tablet y móvil, el campo debajo. El botón Coding abre el coding con este partido elegido (y en el ordenador principal, con su grabación táctica cargada)", cuenta: "Campo de Opta: con balón posesión, pases, acierto de pase y en el último tercio, ocasiones, toques en el área y xG; sin balón PPDA, recuperaciones altas y totales, duelos y aéreos ganados, remates y xG en contra. Color frente a la media del Castilla en Opta sin este partido (3 partidos o más); verde mejora, naranja empeora, oro es estilo. Opta y Wyscout cuentan distinto: cada campo se compara sólo con su fuente" },
           { que: "Escudos en los gráficos de equipos (24/11/2026)", es: "En las nubes de equipos (Ocasiones que concede, las de cada área y los mapas de dos ejes) salen todos los escudos: los protagonistas (el Castilla en oro, el próximo rival o el elegido en azul) grandes, con halo y encima; los demás, pequeños y atenuados. Sin escudo, el punto de siempre" },
           { que: "Mapa de la liga · altura defensiva y ocasiones", es: "En Rival y categoría → Un equipo de un vistazo, debajo de «Ocasiones que concede». Cada equipo del grupo con su escudo: a la derecha, defiende más arriba; arriba, más xG por partido. «Eje vertical» cambia entre xG a favor (por defecto) y xG en contra. Dos rayas discontinuas marcan la mediana de cada eje con su cifra en el extremo («X 64,2», «Y 0,98») y dejan cuatro cuadrantes (p. ej. «defiende arriba y crea», «bloque bajo, crea poco»). El próximo rival lleva el nombre sobre fondo amarillo y una flecha; el Castilla, un contorno blanco y su nombre; los demás sólo llevan nombre si se salen de la nube. El titular dice en qué cuadrante cae el próximo rival y el texto, con qué equipos ya jugados se parece más (para reaprovechar el plan que funcionó contra ellos). Al pasar el ratón por un escudo, sus cifras", cuenta: "Opta, evento a evento (opta:directo:archivo y opta:directo:<partido>) de los últimos 8 partidos de cada equipo del grupo del Castilla (con menos de 2 no entra; con menos de 5 el sello dice tendencia). Altura defensiva = x media (Opta 0-100, desde su portería) de sus Tackle, Interception y BallRecovery. xG a favor / en contra por partido = suma del xG de sus remates / de los del contrario (penaltis incluidos) entre partidos. Rayas = mediana de los equipos. Fuera de la nube = distancia a las dos medianas, en desviaciones típicas de cada eje, mayor de 1,5. Parecidos = los 3 equipos que ya han jugado contra el Castilla (en el archivo) más cerca del rival en el mapa, con la misma escala. Escudos de BeSoccer (/api/data-analisis?escudos=1); próximo rival, del calendario de BeSoccer. Cuentas en lib/data-analisis/altura-ocasiones.ts" },
@@ -1005,6 +1006,7 @@ export const AYUDAS: AyudaDePagina[] = [
       {
         titulo: "Cosas que conviene saber",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Vista de entrada: lista", es: "Sin elección guardada en el aparato, la plantilla abre en lista en todos los anchos; «Fichas» enseña las tarjetas con foto. La elección se recuerda en el aparato." },
           { que: "A quién atender (gráfico)", es: "Junto a la lista de «A quién toca seguir», un gráfico de puntos: cada jugador de campo del Castilla con ficha de scout, por días desde su último seguimiento (horizontal) y su nota del scout (vertical). La franja de la derecha, pasados los 14 días, es «a atender»; el titular dice cuántos caen ahí y el mejor valorado de ellos. Quien no tiene ficha de scout no sale en el gráfico, sí en la lista. Un toque en un punto abre su ficha." },
           { que: "Un solo umbral de 14 días", es: "Cuenta quien lleva más de 14 días sin seguimiento (15 o más), la misma regla de lib/seguimiento.ts que Calendario y Dashboard Seguimiento. La lista enseña de entrada sólo a esos, los mismos que la cifra del titular; «Ver los N» enseña a todos." },
@@ -1104,7 +1106,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: ["Cada evento de Opta (saque, remate, penalti, acción, gol) lleva su vídeo (18/11/2026): si el ordenador del club ya bajó su corte a B2 (opta:goles-video, los goles; opta:acciones-video, las acciones del Castilla; 10 s antes y 6 s después), se ve aquí mismo, en un pop-up y sin sesión de Opta; si no, abre el Event Log de ProVision filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después), y hace falta la sesión de Opta (lib/opta-cortes.ts, lib/opta-video.ts). Sin reloj no hay enlace: el segundo no se inventa. Se comprueba con node scripts/opta-clips-comprueba.mjs (sólo lectura)."],
-    revisada: "2026-11-21",
+    revisada: "2026-11-26",
   },
   {
     ruta: "/individual_proc",
@@ -1260,11 +1262,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa con la categoría",
     resumen: "Cada jugador del Castilla frente a los de su puesto en la categoría (sub-21, sub-23 o todos), con Wyscout o con Opta: ranking, gráficos por fase, ficha y, según la fuente, contra otros equipos o su evolución por temporadas.",
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
-    revisada: "2026-11-25",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Arriba",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Enlace a una pestaña (23/11/2026)", es: "?pestana=ranking, graficos, ficha o cara abre esa pestaña directamente (lo usan los enlaces de las ideas de X); ?jugador= sigue mandando y abre la ficha" },
           { que: "Qué hacemos", es: "El objetivo va en negrita y la primera tarjeta trae «Por qué» abierto; cada fila del ranking abre también sus vídeos" },
           { que: "Fuente", es: "Wyscout u Opta, cada una con sus pestañas; nunca se mezclan" },
@@ -1458,11 +1461,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Comparativa de ligas",
     resumen: "Cómo se juega en LaLiga, Premier, Serie A, Bundesliga, Ligue 1, Segunda y los dos grupos de Primera RFEF, con la misma vara, y el Castilla en oro en cada gráfico: con qué liga encaja su estilo, dónde caerían sus números en cada una, el mapa de estilos de todos los equipos, el perfil de cada liga, una métrica a fondo con el ranking de todos y los equipos que juegan más parecido.",
     origen: "Los «Team Stats» de Wyscout de cada equipo (las mismas definiciones en todas las ligas). El ordenador del club los baja (scripts/wyscout-liga.mjs --solo-equipos, a public/data/wys-ligas/<liga>; el Grupo 2 es la carpeta de DATA) y scripts/ligas-comparativa.cjs los compacta en public/data/ligas-comparativa.json: por equipo, la media por partido de la temporada en curso, sólo partidos de liga y sin amistosos. «En contra» es la fila del rival en el mismo partido. Las cuentas, en lib/ligas/comparativa.ts.",
-    revisada: "2026-11-23",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo que hay (rehecha el 23/11/2026: «el Castilla en todos los sitios»)",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Se compara el estilo, no el nivel", es: "Arriba, el aviso y, por liga, cuántos equipos hay y hasta qué día llega lo bajado. Sale sólo una liga con 8 equipos o más. El percentil del Castilla en otra liga dice dónde caerían sus números allí, no que fuera a sacarlos" },
           { que: "El Castilla en cada liga (?vista=castilla, la de entrada)", es: "Tres piezas. «¿Con qué liga encaja su forma de jugar?»: barras con el % de parecido de su estilo con el equipo medio de cada liga y su gemelo allí (el equipo más parecido). «Si jugase en cada liga, ¿dónde caerían sus números?»: su percentil medio en cada liga, en total y por grupo de métricas. «Radiografía»: métrica × liga, su percentil en cada celda (verde P60 o más, oro en la media, naranja P40 o menos; en gris las de estilo, «P80» = hace más que el 80 % de esa liga). Pulsar una métrica la abre a fondo", cuenta: "Percentil = parte de los equipos de esa liga a los que supera (empates a medias); en su grupo, sin contarle a él. Nivel = media de los percentiles de las métricas con «mejor». Encaje = parecido de estilo con el equipo medio de la liga (ver «Equipos parecidos»)" },
           { que: "Mapa de estilos (?vista=mapa)", es: "Todos los equipos de todas las ligas como puntos, el equipo medio de cada liga como rombo con su nombre y el Castilla en oro con sus tres vecinos rotulados. Mapas: «Estilo global» (las 18 métricas de estilo en dos ejes), «Balón × presión» (posesión y PPDA), «Elaborado × directo», «Ocasiones a favor × en contra» (xG), «Llegada × remate» y «A elegir» (dos métricas cualesquiera). «Resaltar liga» pinta sus equipos en azul. Debajo, sus seis vecinos más cercanos en ese mapa", cuenta: "Estilo global = los dos componentes principales de las métricas de estilo en desviaciones sobre todos los equipos; cada eje dice qué métricas lo mueven y qué parte de las diferencias recoge. En PPDA y xG en contra el eje va al revés: a la derecha o arriba, mejor. Vecinos: distancia en los dos ejes, cada uno en desviaciones" },
@@ -1484,11 +1488,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Análisis de goles",
     resumen: "Lo primero, los goles del equipo elegido (el próximo rival por defecto) en el campo y en vídeo; debajo, sus goles y los de toda la liga por tramos de minutos, en casa y fuera, con remates y xG al lado, quién marca primero, cómo llega cada gol y la ficha técnica de los nuestros.",
     origen: "Goles, minutos y marcadores: BeSoccer, todos los partidos de liga. Remates, a puerta y xG por partido: Wyscout (sin minuto). Remates por minuto, tipología, corte de vídeo y enlace de cada gol: el timeline de Hudl de nuestros partidos. «En el campo»: los remates uno a uno de Opta (doc opta:remates). Lo cambiado a mano se guarda en Supabase («goles:tipologia-manual» y «goles:tecnico-manual»). Se rehace cada noche en el ordenador del club (scripts/goles-liga.mjs).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo primero: sus goles en el campo y en vídeo (18/11/2026)",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "¿Cuándo marca y cuándo encaja?", es: "El número va fuera de cada barra, en el color del texto; «*» = tendencia, menos de 5 goles" },
           { que: "Accesos", es: "Arriba, antes del campo: su ABP, su plan de partido, su plantilla; con el Castilla, también el plan del próximo partido" },
           { que: "¿Dónde está en la liga? · titular", es: "Titular de una frase; el equipo más parecido, debajo del gráfico" },
@@ -2311,11 +2316,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Su balón parado: cuánto peligro tiene, quién lo lanza y lo remata, qué repite, la proyección del próximo partido y el material de la jornada (clips, apuntes y láminas).",
     origen:
       "Scouting propio registrado aquí (documento «abp-rival-scout» de Supabase) o, si no lo hay, lo deducido de nuestras cuatro hojas de ABP. Sin acciones registradas, Wyscout y las etiquetas de Plantillas rivales. La proyección, de Opta. Las estaturas, de BeSoccer por encima de la hoja.",
-    revisada: "2026-11-24",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo nuevo (18/11/2026): las visuales de las ideas de X",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Nuestro balón parado · qué hacemos", es: "Tres líneas: «El dato · Wyscout», «Qué hacemos» (la decisión) y «Qué entrenamos»" },
           { que: "Quién lo lanza y quién remata · qué hacemos", es: "Numerado: 1, las marcas en el córner como parejas (nuestro → suyo, con su motivo); después, los que entran desde el banquillo y a quién vigilar" },
           { que: "Goles a balón parado · enlaces", es: "Debajo, «Sus goles en vídeo», «Cómo le marcan» y «Plan de ABP de la semana»" },
@@ -2426,11 +2432,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Sus centros laterales: cuánto centran y con qué acierto, cuántos reciben, qué hacemos en cada caso y las láminas de la jornada.",
     origen:
       "Wyscout (sus centros frente a los equipos de la liga), el texto del Scout Colectivo para contrastar y la carpeta de centros de cada jornada, con las láminas que se dibujan aquí (Supabase).",
-    revisada: "2026-11-20",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo nuevo (17/11/2026, ronda 20)",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Qué hacemos con los centros", es: "Encima del mapa de dos ejes, cada uno abre con «Cuando ellos centran:» o «Cuando les centramos:»" },
           { que: "Barras donde menos es mejor", es: "«Centros que recibe» y «Acierto de los centros que recibe»: el rombo dice «el mejor (menos es mejor)» y la lectura va girada" },
           { que: "Por dónde ataca · total de centros", es: "Sus centros aquí son la suma jugador a jugador (por 90 × minutos); el redondeo puede separarlos en uno o dos del total del equipo de Wyscout de las barras" },
@@ -2934,11 +2941,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "Lo que hacen los mejores en balón parado, los análisis de fuera que llegan cada mañana (@HybridMarking, con sus vídeos), las mejores acciones de cada jornada, nuestras rutinas de la idea al partido, el Castilla frente a la categoría en Opta y una competición de retos para la plantilla.",
     origen:
       "Los referentes son artículos y análisis publicados, cada uno con su enlace. Las acciones de cada jornada salen de Wyscout cada mañana, con el resumen oficial de YouTube; la categoría, de Opta. Las rutinas y los retos se escriben aquí y viven en un documento propio de Supabase que sólo ve el administrador.",
-    revisada: "2026-11-25",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Las pestañas",
         filas: [
+          { que: "Nombres: Destacados · Todos (26/11/2026)", es: "Sobre cada gráfico de puntos (mapa de dos ejes, nube de equipos o cuadrante), «Destacados» deja los nombres de siempre (el nuestro, el comparado y los que dicen algo) y «Todos» pone el de cada punto, con letra algo más pequeña; el que no cabe limpio va donde menos pisa. No se guarda: cada vez abre en «Destacados». No sale en las exportaciones" },
           { que: "Referentes", es: "Principios, rutinas y formación de Jover, Cueva, Brentford, Georgson, Vio, Grønnemark y Coulston, con buscador y ruta de aprendizaje gratuita. «Al taller» la lleva ya dibujada si hay esquema" },
           {
             que: "Análisis externos (23/11/2026, ?seccion=externos)",

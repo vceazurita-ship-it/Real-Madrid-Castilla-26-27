@@ -13,6 +13,8 @@
 |   texto debajo (en el móvil no hay ratón).
 | - De los demás se rotulan sólo los que dicen algo (élite y mejor en cada
 |   eje), y ninguno que pise a otro rótulo o a los nombres de las esquinas.
+| - «Todos» (26/11/2026, el analista): el nombre de cada punto, con letra algo
+|   más pequeña; el que no cabe limpio va donde menos pisa, con su raya.
 | - En pantallas estrechas el lienzo es más bajo y estrecho, así la letra no
 |   baja de 9 px reales.
 */
@@ -21,6 +23,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { chipInk } from "@/lib/theme";
 import { EscudoPunto, useEscudos } from "@/components/data/graficas";
+import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
 
 export type PuntoMapa = {
   id: string;
@@ -59,6 +62,7 @@ export function MapaDosEjes({
   detallePropios?: boolean;
 }) {
   const [encima, setEncima] = useState<string | null>(null);
+  const [todos, setTodos] = useState(false);
   /* 24/11/2026: si los puntos son equipos, con su escudo (los jugadores no tienen y siguen con su punto). */
   const escudoDe = useEscudos();
   const caja = useRef<HTMLDivElement>(null);
@@ -90,7 +94,8 @@ export function MapaDosEjes({
   /* «Puro»: el que más destaca en un eje sin el otro. */
   const mejorX = [...puntos].sort((a, b) => b.x - b.y - (a.x - a.y))[0];
   const mejorY = [...puntos].sort((a, b) => b.y - b.x - (a.y - a.x))[0];
-  const candidatos = new Set([...(estrecho ? [] : elite.map((p) => p.id)), mejorX.id, mejorY.id, mejorAmbos.id, ...puntos.filter((p) => p.propio).map((p) => p.id)]);
+  const candidatos = new Set(todos ? puntos.map((p) => p.id) : [...(estrecho ? [] : elite.map((p) => p.id)), mejorX.id, mejorY.id, mejorAmbos.id, ...puntos.filter((p) => p.propio).map((p) => p.id)]);
+  const letraOtros = todos ? letra - (estrecho ? 3 : 2) : letra;
 
   /* Los nombres de las esquinas, como cajas ocupadas desde el principio. */
   const esquinas = [
@@ -112,7 +117,7 @@ export function MapaDosEjes({
   const prioridad = [...puntos].sort((a, b) => Number(Boolean(b.propio)) - Number(Boolean(a.propio)) || b.x + b.y - (a.x + a.y));
   for (const p of prioridad) {
     if (!candidatos.has(p.id) && encima !== p.id) continue;
-    const t = p.propio ? letra + 3 : letra;
+    const t = p.propio ? letra + 3 : letraOtros;
     const w = p.nombre.length * t * (p.propio ? 0.64 : 0.6);
     const cx = px(p.x);
     const cy = py(p.y);
@@ -145,7 +150,7 @@ export function MapaDosEjes({
       }
     }
     /* Lo nuestro sale aunque no quepa limpio: en el sitio que menos pisa. */
-    if (!puesto && (p.propio || encima === p.id) && sitios.length) {
+    if (!puesto && (p.propio || encima === p.id || todos) && sitios.length) {
       const pisa = (s: (typeof sitios)[number]) => {
         const c: Caja = { x0: s.fin ? s.x - w : s.x, x1: s.fin ? s.x : s.x + w, y0: s.y - t, y1: s.y + 3 };
         return ocupadas.reduce((n, o) => n + Math.max(0, Math.min(c.x1, o.x1) - Math.max(c.x0, o.x0)) * Math.max(0, Math.min(c.y1, o.y1) - Math.max(c.y0, o.y0)), 0);
@@ -163,6 +168,7 @@ export function MapaDosEjes({
 
   return (
     <div ref={caja} className="space-y-2">
+      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />
       <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe-alto mx-auto h-auto w-full max-w-[860px]" role="img" aria-label={`${ejeY} frente a ${ejeX}`} onMouseLeave={() => setEncima(null)}>
         <polygon points={`${px(umbral - 100)},${py(100)} ${px(100)},${py(100)} ${px(100)},${py(umbral - 100)}`} fill={acento} fillOpacity={0.14} />
         <line {...diagonal(umbral)} stroke={acento} strokeWidth={2} />
@@ -209,7 +215,7 @@ export function MapaDosEjes({
                 <line x1={px(p.x)} y1={py(p.y)} x2={r.x} y2={r.y - 4} stroke="currentColor" strokeOpacity={0.35} />
               )}
               {r && (
-                <text className="md-rotulo" x={r.x} y={r.y} textAnchor={r.fin ? "end" : "start"} fontSize={propio ? letra + 3 : letra} fontWeight={propio ? 800 : 600} fill={propio ? color : "currentColor"} style={propio && color !== "currentColor" ? { fill: chipInk(color) } : undefined} fillOpacity={propio ? 1 : 0.85}>
+                <text className="md-rotulo" x={r.x} y={r.y} textAnchor={r.fin ? "end" : "start"} fontSize={propio ? letra + 3 : letraOtros} fontWeight={propio ? 800 : 600} fill={propio ? color : "currentColor"} style={propio && color !== "currentColor" ? { fill: chipInk(color) } : undefined} fillOpacity={propio ? 1 : 0.85}>
                   {p.nombre}
                 </text>
               )}

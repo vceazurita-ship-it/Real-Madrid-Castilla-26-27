@@ -21,6 +21,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
+import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
 import { COMPARADO, MEJOR, ORO, PEOR, PERCENTIL_ALTO, PERCENTIL_BAJO, colorPercentil, tinta } from "@/components/data/graficas";
 
 /** El oro de la marca como relleno (el `ORO` de graficas es el de texto, más oscuro en día). */
@@ -308,6 +309,8 @@ export function Cuadrante({
   const gid = `cu${id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
   const [caja, ancho] = useAncho<HTMLDivElement>();
   const [encima, setEncima] = useState<PuntoCuadrante | null>(null);
+  /* «Destacados / Todos» (26/11/2026, el analista): el nombre de cada equipo si se quiere. */
+  const [todos, setTodos] = useState(false);
 
   /* Lo que no depende del ratón, una vez por datos y ancho. */
   const dibujo = useMemo(() => {
@@ -362,14 +365,14 @@ export function Cuadrante({
     const halo = { stroke: FONDO, strokeWidth: 3, strokeLinejoin: "round", paintOrder: "stroke" } as const;
 
     /* Los rótulos: arriba del escudo, o debajo si no cabe o si pisa a otro ya puesto. */
-    const rotulados = orden.filter((p) => p.id === nuestro || p.id === rival || p.id === elegido || p.id === encima?.id);
+    const rotulados = todos ? orden : orden.filter((p) => p.id === nuestro || p.id === rival || p.id === elegido || p.id === encima?.id);
     const ocupados: { x: number; y: number; w: number }[] = [];
     const etiquetas = [...rotulados].reverse().map((p) => {
       const rol = p.id === nuestro ? "nuestro" : p.id === rival || p.id === elegido ? "comparado" : "fondo";
       const lado = ladoPlano(rol) + (rol === "fondo" ? 6 : 0);
       const cx = px(p.x);
       const cy = py(p.y);
-      const w = p.equipo.length * 6.2;
+      const w = p.equipo.length * (todos && rol === "fondo" ? 5.1 : 6.2);
       const ancla: "start" | "middle" | "end" = cx - w / 2 < 4 ? "start" : cx + w / 2 > W - 4 ? "end" : "middle";
       const x0 = ancla === "start" ? cx - lado / 2 : ancla === "end" ? cx + lado / 2 - w : cx - w / 2;
       const arriba = cy - lado / 2 - 6;
@@ -478,7 +481,7 @@ export function Cuadrante({
             style={{
               ...halo,
               fill: rol === "nuestro" ? ORO : p.id === rival ? COMPARADO : tinta(0.85),
-              fontSize: 11,
+              fontSize: todos && rol === "fondo" ? 9 : 11,
               fontWeight: rol === "fondo" ? 500 : 700,
             }}
           >
@@ -500,7 +503,9 @@ export function Cuadrante({
 
   return (
     <div className="min-w-0">
-      <p className="mb-1 flex justify-end">
+      <div className="mb-1 flex flex-wrap items-center justify-end gap-2">
+      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />
+      <p className="flex justify-end">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10.5px] font-medium text-white/60">
           <span aria-hidden className="relative inline-flex h-2 w-2">
             <span className="absolute inset-0 animate-ping rounded-full opacity-60 motion-reduce:animate-none" style={{ background: ORO_MARCA }} />
@@ -509,6 +514,7 @@ export function Cuadrante({
           {alPulsar ? "Pasa o toca un escudo: sus cifras; púlsalo para elegirlo" : "Pasa o toca un escudo para ver sus cifras"}
         </span>
       </p>
+      </div>
       <div ref={caja} className="relative w-full min-w-0">
         {svg}
         {ficha && encima && (

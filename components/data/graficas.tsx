@@ -23,6 +23,7 @@
  * ser fondo. La identidad la lleva el rótulo de cada barra, no el color.
  */
 
+import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { CASOS_MINIMOS, formatea, type Unidad } from "@/lib/data-analisis/metricas";
@@ -554,6 +555,8 @@ function DispersionBase({
   const id = useId();
 
   const [encima, setEncima] = useState<Punto | null>(null);
+  /* «Destacados / Todos» (26/11/2026, el analista): el nombre de cada punto si se quiere. */
+  const [todos, setTodos] = useState(rotulaTodos);
 
   const cadaUno = cadaPunto ?? "equipo";
   const deQuien = medianasDe ?? "de la liga";
@@ -599,6 +602,7 @@ function DispersionBase({
 
   return (
     <div className="min-w-0">
+      {puntos.length > 4 && <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />}
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -738,12 +742,12 @@ function DispersionBase({
                   style={{ cursor: alPulsar ? "pointer" : "default" }}
                 />
 
-                {(esNuestro || esOtro || rotulaTodos || extremos.has(punto.equipo)) && (
+                {(esNuestro || esOtro || todos || extremos.has(punto.equipo)) && (
                   <text
                     x={cx}
                     y={cy - lado / 2 - 5}
                     textAnchor={cx < M.izquierda + 50 ? "start" : cx > W - M.derecha - 50 ? "end" : "middle"}
-                    fontSize={esNuestro || esOtro ? 11 : 10}
+                    fontSize={esNuestro || esOtro ? 11 : todos && !rotulaTodos ? 9 : 10}
                     fontWeight={esNuestro || esOtro ? 700 : 500}
                     fill={esNuestro ? tinta(0.9) : esOtro ? COMPARADO : tinta(0.55)}
                   >
