@@ -1171,6 +1171,81 @@ function Coding() {
     };
   }, [abreVideos, fuenteGuardada]);
 
+  /*
+  | DESDE ANÁLISIS DE DATOS, CON EL PARTIDO PRECARGADO (26/11/2026).
+  |
+  | El analista: «cuando en Análisis de datos pincho en Coding debería
+  | precargar el partido de la grabación táctica en mi ordenador; en otros
+  | usuarios, que le abra la opción de seleccionar el partido y con todo
+  | preparado para cortar». El botón llega con `?dia=AAAA-MM-DD` (y
+  | `&tactica=<jornada>` si hay grabación):
+  | 1. se elige el partido de ese día (si la dirección no trae otro);
+  | 2. si el servidor ve la grabación táctica de esa jornada (sólo el
+  |    ordenador principal: /api/coding/videos la ofrece con «tactica/»), se
+  |    abre con su corte de inicio a fin, lista para marcar;
+  | 3. si no, se queda el selector de vídeo a la vista («El vídeo»).
+  | Una vez por visita: elegir después otro vídeo a mano no se pisa.
+  */
+  const diaParam = params.get("dia") ?? "";
+  const jornadaTactica = Number(params.get("tactica")) || 0;
+
+  useEffect(() => {
+    if (ambito !== "partido" || !diaParam || partidoId || !partidos.length) return;
+
+    const delDia = partidos.find((uno) => uno.date === diaParam);
+
+    if (!delDia) return;
+
+    const siguientes = new URLSearchParams(params.toString());
+
+    siguientes.set("partido", delDia.id);
+    router.replace(`/coding?${siguientes.toString()}`);
+  }, [ambito, diaParam, params, partidoId, partidos, router]);
+
+  const tacticaPedida = useRef(false);
+
+  useEffect(() => {
+    if (tacticaPedida.current || ambito !== "partido" || !diaParam || !partidoId || sesion.status === "loading") return;
+
+    tacticaPedida.current = true;
+
+    const alSelector = () =>
+      window.setTimeout(() => document.getElementById("coding-el-video")?.scrollIntoView({ behavior: "smooth", block: "start" }), 300);
+
+    if (!jornadaTactica) {
+      if (!sesion.sesion.fuente) alSelector();
+      return;
+    }
+
+    fetch("/api/coding/videos", { cache: "no-store" })
+      .then((respuesta) => respuesta.json())
+      .then((datos) => {
+        const grabacion = (datos?.videos ?? []).find(
+          (video: { tactica?: number }) => video.tactica === jornadaTactica,
+        ) as { ruta: string; nombre: string } | undefined;
+
+        if (!grabacion) {
+          if (!sesion.sesion.fuente) alSelector();
+          return;
+        }
+
+        if (sesion.sesion.videos?.some((uno) => uno.nombre === grabacion.nombre) && sesion.sesion.fuente?.nombre === grabacion.nombre) return;
+
+        abreVideos([
+          {
+            fuente: { tipo: "archivo", ruta: grabacion.ruta, nombre: grabacion.nombre },
+            src: `/api/coding/video?ruta=${encodeURIComponent(grabacion.ruta)}`,
+          },
+        ]);
+
+        toast.success("Grabación táctica cargada", { description: `${grabacion.nombre} · lista para cortar` });
+      })
+      .catch(() => {
+        if (!sesion.sesion.fuente) alSelector();
+      });
+    /* Sin cancelar al cambiar la sesión: se pide una vez y la respuesta se usa siempre. */
+  }, [abreVideos, ambito, diaParam, jornadaTactica, partidoId, sesion.status, sesion.sesion.fuente, sesion.sesion.videos]);
+
   /* ------------------------------------------------ estado de coding */
 
   /*

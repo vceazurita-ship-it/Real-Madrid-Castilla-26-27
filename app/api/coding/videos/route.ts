@@ -6,8 +6,11 @@ import { NextResponse } from "next/server";
 
 import {
   EXTENSIONES_VIDEO,
+  PREFIJO_TACTICA,
   carpetaDeVideos,
+  carpetaTactica,
   hayFfmpeg,
+  jornadaDeTactica,
 } from "@/lib/coding/servidor";
 
 /**
@@ -31,7 +34,24 @@ export type VideoDePartido = {
   nombre: string;
   tamano: number;
   modificado: string;
+  /** Grabación táctica (Downloads/RMCF CASTILLA/PARTIDOS): su jornada (26/11/2026). */
+  tactica?: number;
 };
+
+/* Las grabaciones tácticas, sólo donde está su carpeta (el ordenador principal). */
+async function tacticas(): Promise<VideoDePartido[]> {
+  const carpeta = carpetaTactica();
+
+  if (!carpeta) return [];
+
+  try {
+    const lista = await busca(carpeta, "", 0);
+
+    return lista.map((v) => ({ ...v, ruta: `${PREFIJO_TACTICA}${v.ruta}`, tactica: jornadaDeTactica(v.nombre) || undefined }));
+  } catch {
+    return [];
+  }
+}
 
 /** Hasta dos niveles de carpetas: `2026/jornada-01/partido.mp4`. */
 async function busca(base: string, relativa: string, profundidad: number) {
@@ -80,13 +100,14 @@ export async function GET() {
       carpeta,
       existe: false,
       ffmpeg: hayFfmpeg(),
-      videos: [],
+      videos: await tacticas(),
     });
   }
 
   try {
     const videos = await busca(carpeta, "", 2);
 
+    videos.push(...(await tacticas()));
     videos.sort((a, b) => b.modificado.localeCompare(a.modificado));
 
     return NextResponse.json({

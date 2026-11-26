@@ -16,6 +16,7 @@ import { Readable } from "node:stream";
 import path from "node:path";
 
 import ffmpegRuta from "ffmpeg-static";
+import enlacesPartidos from "@/lib/video-partido/enlaces.json";
 import ffprobe from "ffprobe-static";
 
 /**
@@ -57,6 +58,28 @@ export type FuenteServidor =
  * raíz del proyecto. No se sirve desde `public/` a propósito: ahí dentro
  * cualquiera con la URL se descargaría el partido entero.
  */
+/*
+| LAS GRABACIONES TÁCTICAS EN EL CODING (26/11/2026). El analista: «cuando en
+| Análisis de datos pincho en Coding debería precargar el partido de la
+| grabación táctica en mi ordenador». Viven en Downloads/RMCF CASTILLA/PARTIDOS
+| («J 07 - UD IBIZA - RM CASTILLA.mp4», 4-7 GB; lib/video-partido/enlaces.json),
+| que no es la carpeta de partidos del coding. Se ofrecen además, con la ruta
+| «tactica/<fichero>», sólo donde esa carpeta existe (el ordenador principal;
+| en Render no). CODING_TACTICA_DIR la cambia.
+*/
+export const PREFIJO_TACTICA = "tactica/";
+
+export function carpetaTactica() {
+  if (process.env.RENDER) return null;
+
+  const carpeta = process.env.CODING_TACTICA_DIR?.trim() || (enlacesPartidos as { carpetaTactica?: string }).carpetaTactica || "";
+
+  return carpeta && existsSync(carpeta) ? path.resolve(carpeta) : null;
+}
+
+/** La jornada de una grabación táctica por su nombre («J 07 - …» → 7). */
+export const jornadaDeTactica = (nombre: string) => Number(nombre.match(/^J\s*0*(\d{1,2})\s*-/i)?.[1]) || 0;
+
 export function carpetaDeVideos() {
   const configurada = process.env.CODING_VIDEOS_DIR;
 
@@ -85,9 +108,16 @@ export const EXTENSIONES_VIDEO = [
  * leerse las claves del servidor.
  */
 export function resuelveRutaDeVideo(relativa: string) {
-  const base = carpetaDeVideos();
+  const limpia0 = String(relativa ?? "").replace(/\\/g, "/");
 
-  const limpia = String(relativa ?? "").replace(/\\/g, "/");
+  /* Las grabaciones tácticas van con su prefijo y su carpeta (26/11/2026). */
+  const tactica = limpia0.startsWith(PREFIJO_TACTICA) ? carpetaTactica() : null;
+
+  if (limpia0.startsWith(PREFIJO_TACTICA) && !tactica) return null;
+
+  const base = tactica ?? carpetaDeVideos();
+
+  const limpia = tactica ? limpia0.slice(PREFIJO_TACTICA.length) : limpia0;
 
   if (!limpia || limpia.includes("..")) return null;
 

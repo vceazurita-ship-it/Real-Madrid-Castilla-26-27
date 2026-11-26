@@ -71,6 +71,15 @@ export function AccesosVideo({
 
   const resumen = enlaces?.resumen ?? null;
 
+  /*
+  | 26/11/2026: el Coding se abre con ESTE partido elegido (`dia`) y, en el
+  | ordenador principal, con su grabación táctica cargada y lista para cortar
+  | (`tactica`, ver app/coding/page.tsx). En los demás, el selector de vídeo a la vista.
+  */
+  const codingHref = coding && dia
+    ? `${coding}${coding.includes("?") ? "&" : "?"}dia=${encodeURIComponent(dia)}${principal && enlaces?.jornada ? `&tactica=${enlaces.jornada}` : ""}`
+    : null;
+
   if (!hudl && !tactica && !resumen && !coding) return null;
 
   const copia = async () => {
@@ -88,7 +97,7 @@ export function AccesosVideo({
   return (
     <div className={cn("flex flex-wrap items-center gap-1.5", className)}>
       {coding && (
-        <Link href={coding} title="Los cortes de este partido en Coding de Partido" className={cn(BOTON, NEUTRO, ANCHO)}>
+        <Link href={codingHref ?? coding} title={principal && enlaces?.tactica ? "Coding de este partido con la grabación táctica cargada" : "Coding de este partido: elige el vídeo y a cortar"} className={cn(BOTON, NEUTRO, ANCHO)}>
           <Scissors className="h-3.5 w-3.5 shrink-0" aria-hidden />
           <span className={TEXTO}>Coding</span>
         </Link>

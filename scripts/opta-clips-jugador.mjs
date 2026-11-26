@@ -78,6 +78,9 @@ for (const [k, v] of Object.entries(entorno() ?? {})) if (!process.env[k]) proce
 const { casaEquipo } = require("../lib/opta-eventos.ts");
 const { PUESTO_OPTA } = require("../lib/opta.ts");
 const b2 = require("./b2.cjs");
+const { caratulaJpeg, leeHojaRivales, datosRival } = require("./caratula-node.cjs");
+const { marca, hayVision, DESFASE_OPTA } = require("./vision/marca.cjs");
+let hojaRivales = null;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
@@ -85,9 +88,12 @@ const CLAVE = "opta:clips-jugador";
 const CASTILLA = "3kibouup3gxwnnxp3vhz83af7";
 const TOPE_SEGUNDOS = 120;
 const PORTADA = 5;
+/* 26/11/2026, el analista: «que lleven la carátula que tenemos puesta en coding para plantillas rivales». Va antes de la portada de fortalezas. */
+const CARATULA = 3;
 const PARTIDOS = 5;
 /* Sube cuando cambia la forma del vídeo: todos se rehacen la próxima pasada. */
-const VERSION = "v5-rasgos";
+/* v6 (26/11/2026): carátula del club delante y el jugador marcado en cada corte (foco y aro, scripts/vision). */
+const VERSION = "v6-caratula-marca";
 const MAX_CAPITULOS = 6;
 const MAX_POR_CAPITULO = 4;
 const MIN_MINUTOS = 360;
@@ -201,7 +207,7 @@ function percentil(v, muestra) {
 /*  DATOS QUE YA HAY                                                   */
 /* ------------------------------------------------------------------ */
 
-const docs = await leeDocs([CLAVE, "opta:partidos", "opta:equipos", "opta:jugadores", "castilla:calendario"]);
+const docs = await leeDocs([CLAVE, "opta:partidos", "opta:equipos", "opta:jugadores", "castilla:calendario", "rivals:stats"]);
 const tabla = (t) => (t?.cols ? t.filas.map((f) => Object.fromEntries(t.cols.map((c, i) => [c, f[i]]))) : []);
 const filasPartidos = tabla(docs["opta:partidos"]);
 const equiposOpta = tabla(docs["opta:equipos"]).map((f) => ({ teamId: String(f.teamId), equipo: String(f.equipo) }));
@@ -395,7 +401,7 @@ function cortesDe(fortalezas, rasgos, eventos, partidos) {
 
   const elegidos = [];
   const usados = new Set();
-  let total = PORTADA;
+  let total = PORTADA + CARATULA;
   const pisa = (e) => elegidos.some((c) => c.partido === e.partido && c.parte === e.parte && Math.abs(c.segundo - e.segundo) < 10);
   for (let ronda = 0; ronda < MAX_POR_CAPITULO; ronda++) {
     let alguno = false;
@@ -647,7 +653,7 @@ for (const r of rivales) {
       continue;
     }
 
-    const segundos = PORTADA + cortes.reduce((s, c) => s + c.antes + c.despues, 0);
+    const segundos = CARATULA + PORTADA + cortes.reduce((s, c) => s + c.antes + c.despues, 0);
     console.log(`  · ${nombre} (${ficha.rol}): ${capitulos.map((c) => c.titulo).join(" | ")} · ${cortes.length} cortes, ${segundos} s`);
     if (VER) {
       console.log(`      fortalezas: ${fortalezas.slice(0, 5).map((x) => `${x.F.nombre} p${x.percentil}`).join(", ") || "ninguna"}`);
@@ -673,9 +679,19 @@ for (const r of rivales) {
         console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split("\n")[0]}`);
         continue;
       }
-      const real = await duracion(tmp, `k${n}.mp4`);
+      /*
+      | El jugador, marcado (26/11/2026, «que apareciera el jugador de cada vídeo en cada
+      | clip con un foco o una marca»). Las ventanas de cada corte se ajustaron mirando
+      | fotogramas, con el desfase de Opta dentro: la acción cae en antes + 3 s.
+      */
+      let fichero = `k${n}.mp4`;
+      if (hayVision()) {
+        await marca({ dir: tmp, entrada: fichero, salida: `m${n}.mp4`, segundo: Math.min(c.antes + DESFASE_OPTA, c.antes + c.despues - 0.4), nombre, ffmpeg: FFMPEG, salidaFfmpeg: SALIDA });
+        fichero = `m${n}.mp4`;
+      }
+      const real = await duracion(tmp, fichero);
       if (real != null && real < 1) continue;
-      piezas.push(`k${n}.mp4`);
+      piezas.push(fichero);
       /* Sin fecha ni rival: salen de los partidos del equipo (normalizaClipsJugador los repone). */
       buenos.push({ partido: c.partido, parte: c.parte, segundo: c.segundo, fortaleza: c.fortaleza, que: c.que, dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
     }
@@ -690,7 +706,15 @@ for (const r of rivales) {
     const fuertes = fortalezas.slice(0, 3).map((x) => ({ nombre: x.F.nombre, percentil: x.percentil }));
     const lineas = [...rasgos.filter((x) => enVideo.has(x.clave)), ...rasgos.filter((x) => !enVideo.has(x.clave) && !x.reciente)].map((x) => x.titulo);
     const errPortada = await portada(tmp, nombre, `${r.equipo} · ${ficha.rol || ficha.puesto} · sus últimos ${r.partidos.length} partidos`, fuertes, lineas, fortalezas.length > 0 && fortalezas.every((x) => x.relativa));
-    const lista = [...(errPortada ? [] : ["p.mp4"]), ...piezas].map((p) => `file '${p}'`).join("\n");
+    /* La carátula del club (la de la ficha de /rivals: hoja RIVALES y rivals:stats), 3 s antes de todo. */
+    hojaRivales ??= await leeHojaRivales();
+    const jpeg = await caratulaJpeg(datosRival({ hoja: hojaRivales, statsDoc: docs["rivals:stats"], equipo: r.equipo, nombre, rol: ficha.rol || ficha.puesto, edad: infoJugador.get(id)?.Age }));
+    let conCaratula = false;
+    if (jpeg) {
+      fs.writeFileSync(path.join(tmp, "caratula.jpg"), jpeg);
+      conCaratula = !(await ffmpeg(["-loop", "1", "-framerate", "25", "-i", "caratula.jpg", "-t", String(CARATULA), "-vf", ESCALA, ...SALIDA, "c.mp4"], tmp));
+    }
+    const lista = [...(conCaratula ? ["c.mp4"] : []), ...(errPortada ? [] : ["p.mp4"]), ...piezas].map((p) => `file '${p}'`).join("\n");
     fs.writeFileSync(path.join(tmp, "lista.txt"), lista);
     const errJunta = await ffmpeg(["-f", "concat", "-safe", "0", "-i", "lista.txt", "-c", "copy", "-movflags", "+faststart", "final.mp4"], tmp);
     if (errJunta) {
@@ -714,8 +738,8 @@ for (const r of rivales) {
     liberados += viejas.bytes;
 
     doc.jugadores[id] = {
-      ...ficha, url, ruta, bytes: datos.length, firma, en: new Date().toISOString(), portada: errPortada ? 0 : PORTADA,
-      segundos: Math.round((errPortada ? 0 : PORTADA) + buenos.reduce((s, c) => s + c.dura, 0)), cortes: buenos,
+      ...ficha, url, ruta, bytes: datos.length, firma, en: new Date().toISOString(), portada: (conCaratula ? CARATULA : 0) + (errPortada ? 0 : PORTADA),
+      segundos: Math.round((conCaratula ? CARATULA : 0) + (errPortada ? 0 : PORTADA) + buenos.reduce((s, c) => s + c.dura, 0)), cortes: buenos,
     };
     hechos++;
     console.log(`      ${(datos.length / 1e6).toFixed(1)} MB, ${doc.jugadores[id].segundos} s${viejas.borradas ? ` (${viejas.borradas > 1 ? `borradas ${viejas.borradas} versiones viejas` : "borrada 1 versión vieja"}, ${(viejas.bytes / 1e6).toFixed(1)} MB)` : ""}`);

@@ -48,6 +48,7 @@ import { enArea, esProgresivo, type Remate } from "@/lib/opta-eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
+import { CampoOpta } from "@/components/data/CampoOpta";
 import { RelievePartido } from "@/components/data/RelievePartido";
 import { useAdmin } from "@/hooks/useAdmin";
 import { DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
@@ -365,12 +366,8 @@ export function PanelPostPartido({
           {/* 20/11/2026 (ronda 7, marketing): la pantalla pasaba de tres alturas;
               a la vista quedan las claves y el cara a cara, y el campo de
               Wyscout se abre aquí. */}
-          <details className="group min-w-0">
-            <summary className="inline-flex min-h-[40px] cursor-pointer list-none items-center gap-1.5 rounded-xl border border-white/10 px-3 text-[13px] font-medium text-[#C8A96B] hover:border-[#C8A96B]/50 [&::-webkit-details-marker]:hidden">
-              <span className="group-open:hidden">Ver el partido en el campo: cada fase frente a nuestra media ▾</span>
-              <span className="hidden group-open:inline">Plegar el partido en el campo ▴</span>
-            </summary>
-            <div className="mt-3 min-w-0">
+          {/* 26/11/2026 (el analista): a la vista y como el de Opta, las cifras de Wyscout a la izquierda y el campo a la derecha. */}
+          <div className="min-w-0">
               {visto.opta && (
                 <p className="mb-3 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[12px] leading-snug text-white/70">
                   Cifras de Wyscout: cuenta distinto que Opta (el cara a cara de arriba), así que xG, posesión o pases no coinciden. Aquí se comparan sólo con nuestra media de Wyscout.
@@ -385,9 +382,9 @@ export function PanelPostPartido({
                 equipos={equiposW}
                 temporada={temporada}
                 fijo={`${visto.wyscout.fecha}|${visto.wyscout.rival}`}
+                cara
               />
-            </div>
-          </details>
+          </div>
         </Bloque>
       )}
 
@@ -656,7 +653,17 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
       <LecturaCara datos={datos} partido={id} rival={lados[1].n} />
       {/* 16/11/2026 (expertos, ronda 17): 24 filas sin jerarquía; las 8 clave
           a la vista y el resto bajo «Ver todas las cifras». */}
-      <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} conMedia />
+      {/*
+      | 26/11/2026, el analista: «el cara a cara de Opta a la izquierda y a la
+      | derecha el visualizador de partido en el campo, como con Wyscout».
+      | Lado a lado desde 1280 px; en tablet y móvil, el campo debajo.
+      */}
+      <div className="grid min-w-0 gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
+        <div className="min-w-0">
+          <CaraACara datos={datos} partido={id} teamId={CASTILLA_OPTA} principales={PRINCIPALES_CARA} conMedia />
+        </div>
+        <CampoOpta datos={datos} partido={id} rival={lados[1].n} marcador={partido.gf != null && partido.gc != null ? `${partido.gf}-${partido.gc}` : undefined} fecha={partido.fecha} />
+      </div>
       {!cargando && <GolesDelPartidoEnVideo goles={delPartido.filter((r) => r.gol)} />}
 
       {/*

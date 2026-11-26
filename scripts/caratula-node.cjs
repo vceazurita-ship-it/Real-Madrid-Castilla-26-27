@@ -88,4 +88,77 @@ function fotoDeCasa(nombre) {
   return contiene.length === 1 ? `/players/cerca/${contiene[0]}.webp` : undefined;
 }
 
-module.exports = { caratulaJpeg, fotoDeCasa };
+/*
+| LOS DATOS DE LA CARÁTULA DE UN RIVAL (26/11/2026), los mismos que la ficha de
+| /rivals: la hoja RIVALES (foto, puesto, pie, altura, edad, peso, dorsal) y
+| rivals:stats (escudo y números de la temporada). Se cruza por equipo y nombre;
+| si no está en la hoja, lo que da Opta (nombre, puesto, edad).
+*/
+const stats = require(path.join(RAIZ, "lib/rivals/stats.ts"));
+const { metricasDeTemporada } = require(path.join(RAIZ, "lib/rivals/portada.ts"));
+const llano = (t) => String(t ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ").trim();
+const texto = (v) => (v == null ? "" : String(v).trim());
+const fotoGrande = (url) => (!url || !/cdn\.resfu\.com/.test(url) || /[?&]size=/.test(url) ? url : `${url}${url.includes("?") ? "&" : "?"}size=500x&lossy=1`);
+const temporadaCorta = (t) => {
+  const m = String(t ?? "").match(/(\d{2})(\d{2})\/(\d{2})/);
+  return m ? `${m[2]} / ${m[3]}` : "26 / 27";
+};
+
+const APPS_SCRIPT_URL = process.env.APPS_SCRIPT_URL ?? "https://script.google.com/macros/s/AKfycbxCaJ90F28CYdcLVNnI4RZjyQL5IJlXVunEAobWY-Qr6lUL8No9H1B3RdASk83Z_NUd/exec";
+/** Las filas de la hoja RIVALES (30-70 s en frío: una vez por pasada). Lista vacía si falla. */
+async function leeHojaRivales() {
+  try {
+    const r = await fetch(`${APPS_SCRIPT_URL}?action=rivalesPlantillas`, { headers: { Accept: "application/json" }, signal: AbortSignal.timeout(120_000) });
+    const filas = await r.json();
+    return Array.isArray(filas) ? filas : [];
+  } catch (e) {
+    console.log(`(la hoja RIVALES no contesta: ${e?.message || e}; carátulas con lo de Opta)`);
+    return [];
+  }
+}
+
+/** Su fila de la hoja: mismo equipo y mismo nombre (deportivo, completo o todas las palabras del de Opta). */
+function filaDe(hoja, statsDoc, equipo, nombre) {
+  const club = stats.findTeam(statsDoc, equipo);
+  const delEquipo = hoja.filter((f) => {
+    const t = stats.findTeam(statsDoc, texto(f.NOMBRE_EQUIPO));
+    return club && t ? t === club : llano(f.NOMBRE_EQUIPO) === llano(equipo);
+  });
+  const n = llano(nombre);
+  const exactos = delEquipo.filter((f) => llano(f["NOMBRE DEPORTIVO"]) === n || llano(f.JUGADOR) === n);
+  if (exactos.length === 1) return exactos[0];
+  const palabras = n.split(" ").filter((p) => p.length > 1);
+  const parecidos = delEquipo.filter((f) => {
+    const suyas = new Set(`${llano(f.JUGADOR)} ${llano(f["NOMBRE DEPORTIVO"])}`.split(" "));
+    return palabras.length && palabras.every((p) => suyas.has(p));
+  });
+  return parecidos.length === 1 ? parecidos[0] : null;
+}
+
+function datosRival({ hoja, statsDoc, equipo, nombre, rol, edad }) {
+  const club = stats.findTeam(statsDoc, equipo);
+  const f = filaDe(hoja, statsDoc, equipo, nombre);
+  if (!f) {
+    return { equipo, escudo: club?.escudo, temporada: temporadaCorta(statsDoc?.temporada), nombre, posicion: String(rol || "").toUpperCase(), edad: edad ? String(edad) : undefined, dorsal: "" };
+  }
+  const s = stats.findStats(statsDoc, f);
+  const season = stats.highlightSeason(s?.temporadas ?? [], statsDoc?.temporada);
+  return {
+    equipo: texto(f.NOMBRE_EQUIPO) || equipo,
+    escudo: club?.escudo,
+    temporada: temporadaCorta(statsDoc?.temporada),
+    nombre: texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR) || nombre,
+    nombreCompleto: texto(f.JUGADOR),
+    posicion: texto(f["POSICIÓN"]) || String(rol || "").toUpperCase(),
+    pieDominante: texto(f["PIE DOMINANTE"]),
+    altura: texto(f.ALTURA),
+    edad: texto(f.EDAD) || (edad ? String(edad) : ""),
+    peso: texto(f.PESO),
+    dorsal: texto(f.DORSAL),
+    foto: fotoGrande(texto(f.FOTO)) || undefined,
+    contexto: season ? [season.temporada, season.equipos.join(" / ")].filter(Boolean).join(" · ") : undefined,
+    metricas: season ? metricasDeTemporada(season, Boolean(s?.portero)) : undefined,
+  };
+}
+
+module.exports = { caratulaJpeg, fotoDeCasa, leeHojaRivales, datosRival };

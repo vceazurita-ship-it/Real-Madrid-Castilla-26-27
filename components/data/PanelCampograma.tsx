@@ -23,6 +23,7 @@ import {
   type MomentoJuego,
   type OtroEquipo,
   type ReferenciaCampo,
+  type ValorFicha,
 } from "@/lib/data-analisis/campograma";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { formatea } from "@/lib/data-analisis/metricas";
@@ -44,6 +45,7 @@ export function PanelCampograma({
   temporada,
   otro = null,
   fijo,
+  cara = false,
 }: {
   /** Nuestras filas de la temporada elegida. */
   nuestros: FilaPartido[];
@@ -61,6 +63,12 @@ export function PanelCampograma({
    * selector único de «Post del partido» y aquí no se pinta el propio.
    */
   fijo?: string;
+  /**
+   * 26/11/2026 (el analista, «idem con el de Wyscout»): las cifras del
+   * partido en un cara a cara a la izquierda (el partido, la referencia y
+   * cuánto cambia) y el campo del partido a la derecha, como el bloque de Opta.
+   */
+  cara?: boolean;
 }) {
   const [momento, setMomento] = useState<MomentoJuego>("con");
 
@@ -351,6 +359,17 @@ export function PanelCampograma({
             </div>
           )}
 
+          {cara && partido ? (
+            <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] xl:items-start">
+              <CaraWyscout fichas={fichas} referencia={contraOtro ? `Media de ${otro!.nombre}` : contraLaLiga ? "Media de la liga" : "Nuestra media"} />
+              <Campograma
+                fichas={fichas}
+                lado="partido"
+                titulo={`${partido.rival} · ${partido.golesFavor}-${partido.golesContra}`}
+                subtitulo={`${fechaLarga(partido.fecha)} · Wyscout`}
+              />
+            </div>
+          ) : (
           <div className="grid min-w-0 gap-6 xl:grid-cols-2">
             <Campograma
               fichas={fichas}
@@ -386,6 +405,7 @@ export function PanelCampograma({
               }
             />
           </div>
+          )}
 
           <Lectura>
             {lecturaDeMomento(fichas, partido?.rival ?? "", referenciaUsada, otro?.nombre)}
@@ -522,3 +542,32 @@ export function PanelCampograma({
 
 const formateaCelda = (valor: number | null, unidad: Parameters<typeof formatea>[1]) =>
   valor === null ? "—" : formatea(valor, unidad);
+
+/* El cara a cara de Wyscout (26/11/2026): cada cifra del momento elegido, el partido, la referencia y cuánto cambia, con el color del campo. */
+function CaraWyscout({ fichas, referencia }: { fichas: ValorFicha[]; referencia: string }) {
+  return (
+    <div className="min-w-0">
+      <div className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_4rem] items-end gap-x-2 border-b border-white/10 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/45">
+        <span>Cifra</span>
+        <span className="text-right">Partido</span>
+        <span className="text-right">{referencia.replace(/^Media de /, "Media ")}</span>
+        <span className="text-right">Cambio</span>
+      </div>
+      <ul className="divide-y divide-white/[0.06]">
+        {fichas.map((f) => {
+          const color = f.diferencia == null || f.mejorAlto == null ? ORO : f.diferencia >= 0 ? MEJOR : PEOR;
+          return (
+            <li key={f.ficha.rotulo} className="grid grid-cols-[minmax(0,1fr)_4.5rem_4.5rem_4rem] items-center gap-x-2 py-2 text-[13px]" title={f.ficha.nota}>
+              <span className="min-w-0 truncate text-white/80">{f.ficha.rotulo}{f.ficha.contra ? <span className="text-white/40"> · en contra</span> : null}</span>
+              <span className="text-right font-semibold tabular-nums text-white">{formatea(f.partido, f.unidad)}</span>
+              <span className="text-right tabular-nums text-white/55">{formatea(f.media, f.unidad)}</span>
+              <span className="text-right text-[12px] font-semibold tabular-nums" style={{ color: chipInk(color) }}>
+                {f.cambio == null ? "—" : `${f.cambio > 0 ? "+" : f.cambio < 0 ? "−" : ""}${Math.abs(Math.round(f.cambio))} %`}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+}

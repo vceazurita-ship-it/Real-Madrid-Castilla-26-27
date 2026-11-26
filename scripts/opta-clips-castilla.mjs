@@ -54,6 +54,7 @@ for (const [k, v] of Object.entries(entorno() ?? {})) if (!process.env[k]) proce
 const { PUESTO_OPTA } = require("../lib/opta.ts");
 const b2 = require("./b2.cjs");
 const { caratulaJpeg, fotoDeCasa } = require("./caratula-node.cjs");
+const { marca, hayVision, DESFASE_OPTA } = require("./vision/marca.cjs");
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 const FFMPEG = path.join(RAIZ, "node_modules", "ffmpeg-static", process.platform === "win32" ? "ffmpeg.exe" : "ffmpeg");
@@ -68,7 +69,8 @@ const DESPUES = 3;
 const JUNTA = 6;
 const TOPE_CLIP = 16;
 /* Sube cuando cambia la forma de los clips: se rehacen en la próxima pasada. */
-const VERSION = "c1";
+/* c2 (26/11/2026): corrige el desfase de 3 s de Opta y marca al jugador (foco y aro). */
+const VERSION = "c2";
 
 const arg = (n) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -441,7 +443,7 @@ for (const j of elegidos) {
   for (const viejo of fs.readdirSync(TMP)) if (viejo !== "fuente.ttf") fs.rmSync(path.join(TMP, viejo), { force: true });
   const buenos = [];
   for (const [n, c] of clips.entries()) {
-    const v = await opta.video({ partido: partido.partido, fecha: partido.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, c.antes, c.despues);
+    const v = await opta.video({ partido: partido.partido, fecha: partido.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, Math.max(0, c.antes - DESFASE_OPTA), c.despues + DESFASE_OPTA);
     if (v.sesion) {
       await guarda();
       opta.cierra();
@@ -457,9 +459,17 @@ for (const j of elegidos) {
       console.log(`      ${minutoDe(c.segundo)} ${c.que}: ${error.split("\n")[0]}`);
       continue;
     }
-    const real = await duracion(TMP, `k${k}.mp4`);
+    /* El jugador, marcado: foco 1 s en la acción y aro a sus pies (scripts/vision). Si no hay seguridad, el clip va sin marca. */
+    let fichero = `k${k}.mp4`;
+    let marcado = false;
+    if (hayVision()) {
+      const m = await marca({ dir: TMP, entrada: fichero, salida: `m${k}.mp4`, segundo: c.antes, nombre: j.nombre, ffmpeg: FFMPEG, salidaFfmpeg: [...SALIDA, "-movflags", "+faststart"] });
+      fichero = `m${k}.mp4`;
+      marcado = Boolean(m.marcado);
+    }
+    const real = await duracion(TMP, fichero);
     if (real != null && real < 1) continue;
-    buenos.push({ ...c, fichero: `k${k}.mp4`, dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
+    buenos.push({ ...c, fichero, marcado, dura: real != null ? Math.round(real * 100) / 100 : c.antes + c.despues });
   }
   if (!buenos.length) {
     console.log("      sin vídeo en Opta");
@@ -500,7 +510,7 @@ for (const j of elegidos) {
       const url = await b2.sube(ruta, datos, "video/mp4");
       await b2.borraVersiones(ruta).catch(() => {});
       bytes += datos.length;
-      subidos.push({ n: i + 1, url, ruta, parte: c.parte, segundo: c.segundo, que: c.que, acciones: c.acciones, cat: c.cat, dura: c.dura });
+      subidos.push({ n: i + 1, url, ruta, parte: c.parte, segundo: c.segundo, que: c.que, acciones: c.acciones, cat: c.cat, dura: c.dura, ...(c.marcado ? { marcado: true } : {}) });
     }
     if (jpeg) {
       const ruta = `${carpeta}/caratula.jpg`;
@@ -533,7 +543,7 @@ for (const j of elegidos) {
   hechos++;
   clipsTotal += subidos.length;
   bytesTotal += bytes;
-  console.log(`      ${subidos.length} clips · ${(bytes / 1e6).toFixed(1)} MB${completo ? ` · completo ${completo.segundos} s` : ""}`);
+  console.log(`      ${subidos.length} clips (${subidos.filter((c) => c.marcado).length} con el jugador marcado) · ${(bytes / 1e6).toFixed(1)} MB${completo ? ` · completo ${completo.segundos} s` : ""}`);
   await guarda();
 }
 opta.cierra();
