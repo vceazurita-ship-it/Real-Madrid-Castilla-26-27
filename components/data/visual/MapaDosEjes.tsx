@@ -136,7 +136,8 @@ export function MapaDosEjes({
       { x: cx - 14, y: cy - 38, fin: true },
       { x: cx + 14, y: cy - 38, fin: false },
       { x: cx - 14, y: cy - 54, fin: true },
-    ].filter((s) => (s.fin ? s.x - w > 2 : s.x + w < W - 2));
+      /* Ni por debajo de los números del eje (pisaba el título «… · PERCENTIL») ni por encima del lienzo. */
+    ].filter((s) => (s.fin ? s.x - w > 2 : s.x + w < W - 2) && s.y <= py(0) + 4 && s.y - t >= 2);
     let puesto = false;
     for (const s of sitios) {
       const c: Caja = { x0: s.fin ? s.x - w : s.x, x1: s.fin ? s.x : s.x + w, y0: s.y - t, y1: s.y + 3 };

@@ -91,7 +91,8 @@ export function Marcador({ p, t, c, modo, parte, prob }: { p: Partido; t: number
     const color = e.color;
     return (
       <div className={`flex min-w-0 flex-col ${l === "L" ? "items-end text-right" : "items-start text-left"}`}>
-        <span className="fuente-club truncate text-[clamp(18px,2.6vw,34px)] uppercase leading-none tracking-[0.04em]" style={{ color: S.texto, textShadow: `0 0 24px ${color}66` }}>
+        {/* En el móvil el nombre parte en dos líneas: con truncate y alineado a la derecha se comía el principio («RID CASTILLA», 26/11/2026). */}
+        <span className="fuente-club line-clamp-2 max-w-full break-words text-[clamp(16px,2.6vw,34px)] uppercase leading-[1.05] tracking-[0.04em]" style={{ color: S.texto, textShadow: `0 0 24px ${color}66` }}>
           {e.nombre}
         </span>
         <span className="mt-2 h-1 w-24 rounded-full" style={{ background: `linear-gradient(90deg, ${l === "L" ? "transparent" : color}, ${l === "L" ? color : "transparent"})`, boxShadow: `0 0 18px ${color}` }} />
@@ -142,10 +143,11 @@ export function Marcador({ p, t, c, modo, parte, prob }: { p: Partido; t: number
 
       {/* Probabilidad en vivo, en una barra. */}
       <div className="relative mt-5">
-        <div className="mb-1 flex justify-between text-[10px] font-semibold uppercase tracking-[0.16em]" style={{ color: S.tenue }}>
-          <span>Gana {p.local.nombre}</span>
-          <span>Empate</span>
-          <span>Gana {p.visitante.nombre}</span>
+        {/* Tres columnas que no se pisan («EMPATEGANA REAL MURCIA» en el móvil, 26/11/2026). */}
+        <div className="mb-1 grid grid-cols-[1fr_auto_1fr] gap-2 text-[10px] font-semibold uppercase tracking-[0.12em] sm:tracking-[0.16em]" style={{ color: S.tenue }}>
+          <span className="min-w-0 truncate">Gana {p.local.nombre}</span>
+          <span className="text-center">Empate</span>
+          <span className="min-w-0 truncate text-right">Gana {p.visitante.nombre}</span>
         </div>
         <div className="flex h-7 overflow-hidden rounded-full" style={{ border: `1px solid ${S.borde}` }}>
           {(["L", "X", "V"] as const).map((k) => (

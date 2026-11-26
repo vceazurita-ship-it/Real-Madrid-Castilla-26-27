@@ -1435,11 +1435,12 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Sala de partido",
     resumen: "El directo de Opta como sala de control, siempre en oscuro y a pantalla completa si se quiere: marcador con la probabilidad en vivo, el campo (remates, territorio o red de pases), lo que está pasando contra lo que suele hacer cada equipo, la probabilidad minuto a minuto, el pulso del partido con la carrera de xG, el cara a cara contra su media y quién está marcando el partido. Con repetición de cualquier partido ya jugado. Castilla y primer equipo.",
     origen: "El documento de cada partido que escribe scripts/opta-directo.mjs desde Opta ProVision: opta:directo:<partido> (el Castilla y su categoría; el directo del día y el archivo) y opta:rm:<partido> (el primer equipo, con scripts/opta-directo-rm.cmd). Todo se cuenta desde el evento a evento hasta el minuto que se ve (lib/sala/modelo.ts); la previa de cada equipo es su media por partido en la competición, sin ese partido, que el script guarda en el documento. Juvenil A y RM C no están en Opta ProVision.",
-    revisada: "2026-11-24",
+    revisada: "2026-11-26",
     bloques: [
       {
         titulo: "Lo que hay",
         filas: [
+          { que: "En el móvil (26/11/2026)", es: "El nombre de cada equipo parte en dos líneas si no cabe (antes se cortaba por delante) y los rótulos de la barra de probabilidad van en tres columnas que no se pisan" },
           { que: "Arriba", es: "Castilla o Primer equipo y el partido (el que está en directo sale el primero, con «● EN DIRECTO»); Pantalla completa (o la tecla F). Se entra también desde el directo de Análisis de datos («Abrir la sala de partido») con el partido ya elegido (?partido=, ?fuente=rm)" },
           { que: "Marcador", es: "Goles, minuto con su anillo, xG, remates y a puerta de cada uno, «En directo» / «Repetición» / «Final» y la barra de probabilidad: gana el local, empate, gana el visitante", cuenta: "Goles que faltan de cada uno ~ Poisson con su ritmo de xG: (xG medio de su previa × 30 + xG de hoy × 90) ÷ (30 + minutos jugados), por lo que queda hasta el 94′. Sin previa, 1,25 de xG por partido" },
           { que: "El campo", es: "En perspectiva. Remates: cada uno en su sitio, tamaño según su xG, con aro blanco los goles y onda el último. Territorio: cada zona del color del que más toca ahí (más intenso cuanto más), de todo el partido o de los últimos 15′. Red de cada equipo: posición media de los titulares (con 6 toques o más) y los pases entre ellos (3 o más; más gruesa, más pases)" },
