@@ -23,7 +23,7 @@
  * ser fondo. La identidad la lleva el rótulo de cada barra, no el color.
  */
 
-import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
+import { InterruptorNombres, useEscudosVisibles } from "@/components/data/visual/InterruptorNombres";
 import { useEffect, useId, useMemo, useState } from "react";
 
 import { CASOS_MINIMOS, formatea, type Unidad } from "@/lib/data-analisis/metricas";
@@ -557,6 +557,7 @@ function DispersionBase({
   const [encima, setEncima] = useState<Punto | null>(null);
   /* «Destacados / Todos» (26/11/2026, el analista): el nombre de cada punto si se quiere. */
   const [todos, setTodos] = useState(rotulaTodos);
+  const [conEscudos, setConEscudos] = useEscudosVisibles();
 
   const cadaUno = cadaPunto ?? "equipo";
   const deQuien = medianasDe ?? "de la liga";
@@ -602,7 +603,7 @@ function DispersionBase({
 
   return (
     <div className="min-w-0">
-      {puntos.length > 4 && <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />}
+      {puntos.length > 4 && <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} {...(puntos.some((q) => escudoDe(q.equipo)) ? { escudos: conEscudos, onEscudos: setConEscudos } : {})} />}
       <div className="overflow-x-auto">
         <svg
           viewBox={`0 0 ${W} ${H}`}
@@ -712,7 +713,8 @@ function DispersionBase({
             const esNuestro = punto.equipo === destacado;
             const esOtro = !!comparado && punto.equipo === comparado;
 
-            const escudo = escudoDe(punto.equipo);
+            /* Todos los escudos o sólo los implicados (el nuestro y el comparado). */
+            const escudo = conEscudos || esNuestro || esOtro ? escudoDe(punto.equipo) : null;
 
             const lado = ladoEscudo(esNuestro ? "nuestro" : esOtro ? "comparado" : "fondo");
 

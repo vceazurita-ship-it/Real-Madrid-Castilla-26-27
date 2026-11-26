@@ -23,7 +23,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { chipInk } from "@/lib/theme";
 import { EscudoPunto, useEscudos } from "@/components/data/graficas";
-import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
+import { InterruptorNombres, useEscudosVisibles } from "@/components/data/visual/InterruptorNombres";
 
 export type PuntoMapa = {
   id: string;
@@ -64,7 +64,10 @@ export function MapaDosEjes({
   const [encima, setEncima] = useState<string | null>(null);
   const [todos, setTodos] = useState(false);
   /* 24/11/2026: si los puntos son equipos, con su escudo (los jugadores no tienen y siguen con su punto). */
-  const escudoDe = useEscudos();
+  const escudoReal = useEscudos();
+  /* Todos los escudos o sólo los implicados (26/11/2026, el analista): el resto, un punto. */
+  const [conEscudos, setConEscudos] = useEscudosVisibles();
+  const escudoDe = (p: PuntoMapa) => (conEscudos || p.propio || p.color ? escudoReal(p.nombre) : null);
   const caja = useRef<HTMLDivElement>(null);
   const [ancho, setAncho] = useState(760);
 
@@ -169,7 +172,7 @@ export function MapaDosEjes({
 
   return (
     <div ref={caja} className="space-y-2">
-      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />
+      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} {...(puntos.some((p) => escudoReal(p.nombre)) ? { escudos: conEscudos, onEscudos: setConEscudos } : {})} />
       <svg viewBox={`0 0 ${W} ${H}`} className="grafico-cabe-alto mx-auto h-auto w-full max-w-[860px]" role="img" aria-label={`${ejeY} frente a ${ejeX}`} onMouseLeave={() => setEncima(null)}>
         <polygon points={`${px(umbral - 100)},${py(100)} ${px(100)},${py(100)} ${px(100)},${py(umbral - 100)}`} fill={acento} fillOpacity={0.14} />
         <line {...diagonal(umbral)} stroke={acento} strokeWidth={2} />
@@ -206,8 +209,8 @@ export function MapaDosEjes({
                   <animate attributeName="opacity" values="0.9;0" dur="2.2s" repeatCount="indefinite" />
                 </circle>
               )}
-              {escudoDe(p.nombre) && <EscudoPunto cx={px(p.x)} cy={py(p.y)} escudo={escudoDe(p.nombre)} rol={propio ? "nuestro" : p.color ? "comparado" : "fondo"} color={propio || p.color ? color : undefined} />}
-              <circle cx={px(p.x)} cy={py(p.y)} r={propio ? 7.5 : estrecho ? 5 : 4.2} display={escudoDe(p.nombre) ? "none" : undefined} fill={p.hueco ? "none" : color} fillOpacity={propio ? 1 : r ? 0.85 : 0.35} stroke={propio ? "#fff" : p.hueco ? "currentColor" : "none"} strokeOpacity={p.hueco ? 0.6 : 1} strokeWidth={1.5}>
+              {escudoDe(p) && <EscudoPunto cx={px(p.x)} cy={py(p.y)} escudo={escudoDe(p)} rol={propio ? "nuestro" : p.color ? "comparado" : "fondo"} color={propio || p.color ? color : undefined} />}
+              <circle cx={px(p.x)} cy={py(p.y)} r={propio ? 7.5 : estrecho ? 5 : 4.2} display={escudoDe(p) ? "none" : undefined} fill={p.hueco ? "none" : color} fillOpacity={propio ? 1 : r ? 0.85 : 0.35} stroke={propio ? "#fff" : p.hueco ? "currentColor" : "none"} strokeOpacity={p.hueco ? 0.6 : 1} strokeWidth={1.5}>
                 <title>{`${p.nombre}${p.detalle ? ` · ${p.detalle}` : ""} · ${ejeX} ${Math.round(p.x)} · ${ejeY} ${Math.round(p.y)}`}</title>
               </circle>
               {/* Zona de toque más grande que el punto, para el dedo. */}

@@ -94,7 +94,39 @@ function limpiaEventos(t, jugadores) {
   const vistos = new Map();
   const filas = [];
   const r1 = (v) => (typeof v === "number" ? Math.round(v * 10) / 10 : null);
+  const si = (n) => c(n) >= 0 && f0(n) === true;
+  let f0 = () => null;
+  /*
+  | Cambios y tarjetas (26/11/2026, la sala de partido): se guardan aparte. El
+  | cambio: «SubstitutionOut» (sale) y, del mismo equipo y en el mismo segundo,
+  | «SubstitutionIn» (entra). Tarjeta: «Booking» con q31 (amarilla), q32
+  | (segunda amarilla, cuenta como roja) o q33 (roja).
+  */
+  const marcas = [];
+  const sales = [];
+  const entran = [];
   for (const f of t.filas) {
+    const tipo = f[c("tipo")];
+    const jugador = f[c("jugadorId")] || f[c("tocaId")];
+    if (!jugador) continue;
+    f0 = (n) => f[c(n)];
+    const base = { partido: f[c("partido")], teamId: equipoDe.get(jugador) ?? "", parte: f[c("parte")], segundo: f[c("segundo")], jugador };
+    if (tipo === "Booking") {
+      const color = si("roja") || si("segunda") ? "roja" : "amarilla";
+      if (!marcas.some((m) => m.tipo === color && m.jugador === jugador && m.segundo === base.segundo)) marcas.push({ ...base, tipo: color });
+    }
+    if (tipo === "SubstitutionOut" && !sales.some((x) => x.jugador === jugador)) sales.push(base);
+    if (tipo === "SubstitutionIn" && !entran.some((x) => x.jugador === jugador)) entran.push(base);
+  }
+  for (const s of sales) {
+    const e = entran.find((x) => x.partido === s.partido && x.teamId === s.teamId && Math.abs(x.segundo - s.segundo) <= 5 && !x.usado);
+    if (e) e.usado = true;
+    marcas.push({ ...s, tipo: "cambio", entra: e?.jugador ?? "" });
+  }
+  const tablaMarcas = { cols: ["partido", "teamId", "parte", "segundo", "tipo", "jugadorId", "entraId"], filas: marcas.sort((a, b) => a.parte - b.parte || a.segundo - b.segundo).map((m) => [m.partido, m.teamId, m.parte, m.segundo, m.tipo, m.jugador, m.entra ?? ""]) };
+
+  for (const f of t.filas) {
+    f0 = (n) => f[c(n)];
     const tipo = f[c("tipo")];
     const jugador = f[c("jugadorId")] || f[c("tocaId")];
     if (!tipo || !jugador || NO_ACCION.has(tipo)) continue;
@@ -114,11 +146,14 @@ function limpiaEventos(t, jugadores) {
       typeof f[c("xG|EVENT")] === "number" ? Math.round(f[c("xG|EVENT")] * 1000) / 1000 : null, Math.round(xpv * 10000) / 10000,
       /* Saque de banda o de puerta: Opta no los cuenta en «pases intentados». */
       f[c("banda")] === true ? "banda" : f[c("puerta")] === true ? "puerta" : "",
+      /* Remate bloqueado (q82) y de qué jugada viene (q9 penalti, q25 córner, q26 falta, q24 balón parado). Sin las columnas, null y «». */
+      c("bloqueado") < 0 ? null : si("bloqueado") ? 1 : 0,
+      si("penalti") ? "penalti" : si("decorner") ? "corner" : si("defalta") ? "falta" : si("abp") ? "abp" : "",
     ];
     vistos.set(clave, fila);
     filas.push(fila);
   }
-  return { cols: ["partido", "teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV", "saque"], filas };
+  return { cols: ["partido", "teamId", "parte", "segundo", "tipo", "jugadorId", "receptorId", "x", "y", "finX", "finY", "ok", "xG", "xPV", "saque", "bloqueado", "jugada"], filas, marcas: tablaMarcas };
 }
 
 const espera = (ms) => new Promise((ok) => setTimeout(ok, ms));
@@ -374,9 +409,18 @@ async function vuelta(S) {
         `SELECT game.gameId as partido, playerId, fullName as jugador, newest(team.game.teamId) as teamId, newest(player.game.jerseyNum) as dorsal, newest(player.game.position) as puesto, ${METRICAS_JUGADOR.map((m) => `[${m}]`).join(",")} FROM player 'p' BY game ${SOLO ? `WHERE game.gameId = '${SOLO.replace(/[^a-z0-9]/gi, "")}' ` : ""}ORDER BY game.gameDate DESC LIMIT ${Math.max(120, ids.length * 60)}`,
         S, "player p");
       jugadores = { cols: jugadores.cols, filas: jugadores.filas.filter((f) => ids.includes(f[0])) };
-      const crudos = await consulta(
-        `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.playType as tipo, event.primaryPlayerId AS jugadorId, event.toucherPlayerId AS tocaId, event.receiverPlayerId AS receptorId, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[xG|EVENT],[xPVAdded|EVENT], event.q107 AS banda, event.q124 AS puerta FROM team BY event WHERE game.gameId IN (${ids.map((i) => `'${String(i).replace(/[^a-z0-9]/gi, "")}'`).join(",")}) ORDER BY event.gameEventIndex DEFAULT LIMIT ${ids.length * 6000}`,
-        S, "team t");
+      const consultaEventos = (extra) =>
+        consulta(
+          `SELECT game.gameId as partido, event.period as parte, event.gameClock as segundo, event.playType as tipo, event.primaryPlayerId AS jugadorId, event.toucherPlayerId AS tocaId, event.receiverPlayerId AS receptorId, [EventX|EVENT],[EventY|EVENT],[PassEndX|EVENT],[PassEndY|EVENT],[PsCompleted|EVENT],[xG|EVENT],[xPVAdded|EVENT], event.q107 AS banda, event.q124 AS puerta${extra} FROM team BY event WHERE game.gameId IN (${ids.map((i) => `'${String(i).replace(/[^a-z0-9]/gi, "")}'`).join(",")}) ORDER BY event.gameEventIndex DEFAULT LIMIT ${ids.length * 6000}`,
+          S, "team t");
+      let crudos;
+      try {
+        crudos = await consultaEventos(", event.q82 AS bloqueado, event.q9 AS penalti, event.q25 AS decorner, event.q26 AS defalta, event.q24 AS abp, event.q31 AS amarilla, event.q32 AS segunda, event.q33 AS roja");
+      } catch (e) {
+        if (e.sesion) throw e;
+        console.log(`  (Opta no acepta los qualifiers de bloqueado/jugada/tarjetas: ${String(e.message ?? e).slice(0, 120)}; va sin ellos)`);
+        crudos = await consultaEventos("");
+      }
       eventos = limpiaEventos(crudos, jugadores);
     } catch (e) {
       if (e.sesion) throw e;
@@ -404,7 +448,7 @@ async function vuelta(S) {
     }
     const cTeam = cifras.cols.indexOf("teamId");
     if (filas.length && !previas.has(partido)) previas.set(partido, await previaDe(S, partido, filas.map((f) => f[cTeam])));
-    if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, liga: LIGA, previa: previas.get(partido) ?? null, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
+    if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, liga: LIGA, previa: previas.get(partido) ?? null, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, marcas: eventos.marcas ? { cols: eventos.marcas.cols, filas: eventos.marcas.filas.filter((f) => f[0] === partido) } : undefined, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
   /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
   if (!process.env.SIN_INDICE) await guarda(CLAVE, { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });

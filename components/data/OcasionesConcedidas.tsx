@@ -21,6 +21,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { useProximoRival } from "@/components/data/ClasificacionJusta";
 import { COMPARADO, EscudoPunto, ORO, ladoEscudo, tinta, useEscudos } from "@/components/data/graficas";
+import { InterruptorNombres, useEscudosVisibles } from "@/components/data/visual/InterruptorNombres";
 import { CampoOpta } from "@/components/campo/CampoOpta";
 import { equiposDe, nombreDe, useRemates } from "@/app/opta/_piezas/eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
@@ -185,6 +186,8 @@ function Dispersion({ c, marcadoId, alElegir }: { c: Concesiones; marcadoId: str
   const colorDe = (f: FilaConcede) => (f.teamId === marcadoId ? COMPARADO : f.teamId === CASTILLA_OPTA ? ORO : null);
   /* 24/11/2026: todos con su escudo; el próximo rival y el Castilla, grandes y con halo. */
   const escudoDe = useEscudos();
+  /* Todos los escudos o sólo los implicados (26/11/2026): se recuerda y vale para todos los gráficos. */
+  const [conEscudos, setConEscudos] = useEscudosVisibles();
   const orden = [...c.filas].sort((a, b) => Number(Boolean(colorDe(a))) - Number(Boolean(colorDe(b))));
 
   const rotulo = (texto: string, x: number, y: number, ancla: "start" | "end") => (
@@ -195,6 +198,7 @@ function Dispersion({ c, marcadoId, alElegir }: { c: Concesiones; marcadoId: str
 
   return (
     <div className="mt-3 min-w-0">
+      <InterruptorNombres escudos={conEscudos} onEscudos={setConEscudos} />
       <svg viewBox={`0 0 ${AN} ${AL}`} className="block h-auto w-full" style={{ maxHeight: "60vh" }} role="img" aria-label="Remates concedidos por partido contra xG medio de cada remate concedido, equipo a equipo">
         {/* Cuadrantes, apenas tintados: el de arriba a la derecha es el peor. */}
         <rect x={mx} y={M.arr} width={AN - M.der - mx} height={my - M.arr} style={{ fill: "rgb(217 95 2 / 0.07)" }} />
@@ -233,7 +237,7 @@ function Dispersion({ c, marcadoId, alElegir }: { c: Concesiones; marcadoId: str
           return (
             <g key={f.teamId} onClick={() => alElegir(f.teamId)} style={{ cursor: f.teamId === CASTILLA_OPTA ? "default" : "pointer" }}>
               <circle cx={cx} cy={cy} r={Math.max(14, ladoEscudo(rol) / 2 + 2)} style={{ fill: "transparent" }} />
-              <EscudoPunto cx={cx} cy={cy} escudo={escudoDe(f.equipo)} rol={rol} />
+              <EscudoPunto cx={cx} cy={cy} escudo={conEscudos || rol !== "fondo" ? escudoDe(f.equipo) : null} rol={rol} />
               {color && (
                 <text x={cx + (derecha ? -aparte : aparte)} y={cy + 4} textAnchor={derecha ? "end" : "start"} style={{ fill: color, fontSize: 12.5, fontWeight: 700 }}>
                   {f.equipo}

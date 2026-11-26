@@ -21,7 +21,7 @@
 
 import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 
-import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
+import { InterruptorNombres, useEscudosVisibles } from "@/components/data/visual/InterruptorNombres";
 import { COMPARADO, MEJOR, ORO, PEOR, PERCENTIL_ALTO, PERCENTIL_BAJO, colorPercentil, tinta } from "@/components/data/graficas";
 
 /** El oro de la marca como relleno (el `ORO` de graficas es el de texto, más oscuro en día). */
@@ -311,6 +311,8 @@ export function Cuadrante({
   const [encima, setEncima] = useState<PuntoCuadrante | null>(null);
   /* «Destacados / Todos» (26/11/2026, el analista): el nombre de cada equipo si se quiere. */
   const [todos, setTodos] = useState(false);
+  /* Todos los escudos o sólo los implicados (26/11/2026): se recuerda y vale para todos los gráficos. */
+  const [conEscudos, setConEscudos] = useEscudosVisibles();
 
   /* Lo que no depende del ratón, una vez por datos y ancho. */
   const dibujo = useMemo(() => {
@@ -451,7 +453,7 @@ export function Cuadrante({
           const color = rol === "nuestro" ? ORO_MARCA : p.id === rival ? COMPARADO : rol === "comparado" ? tinta(0.7) : tinta(0.6);
           return (
             <g key={p.id}>
-              <EscudoPlano cx={cx} cy={cy} escudo={p.escudo} rol={rol} color={color} encima={encima?.id === p.id} />
+              <EscudoPlano cx={cx} cy={cy} escudo={conEscudos || rol !== "fondo" ? p.escudo : null} rol={rol} color={color} encima={encima?.id === p.id} />
               <circle
                 cx={cx}
                 cy={cy}
@@ -504,7 +506,7 @@ export function Cuadrante({
   return (
     <div className="min-w-0">
       <div className="mb-1 flex flex-wrap items-center justify-end gap-2">
-      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />
+      <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} {...(puntos.some((q) => q.escudo) ? { escudos: conEscudos, onEscudos: setConEscudos } : {})} />
       <p className="flex justify-end">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-0.5 text-[10.5px] font-medium text-white/60">
           <span aria-hidden className="relative inline-flex h-2 w-2">

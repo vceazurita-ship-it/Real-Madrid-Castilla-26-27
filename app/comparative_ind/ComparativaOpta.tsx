@@ -27,6 +27,7 @@
  * Aquí no hay ni una cifra de Opta: se leen en vivo con `traeOpta`.
  */
 
+import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowDownUp, ArrowUpRight, History, Loader2, Minus, ScatterChart, UserRound, Users } from "lucide-react";
 
@@ -992,6 +993,8 @@ function Dispersion({
   const W = 640;
   const H = 360;
   const M = { l: 52, r: 16, t: 14, b: 40 };
+  /* «Destacados · Todos» (26/11/2026, el analista): con «Todos», el nombre de cada jugador; si no, sólo los nuestros. */
+  const [todos, setTodos] = useState(false);
   const rango = (v: number[]) => {
     const min = Math.min(...v);
     const max = Math.max(...v);
@@ -1008,9 +1011,11 @@ function Dispersion({
   const nuestros = puntos.filter((p) => p.nuestro).sort((a, b) => Number(idDe(b.f) === elegido) - Number(idDe(a.f) === elegido));
   const cajas: { x: number; y: number; w: number; h: number }[] = [];
   const rotulos = new Map<string, { x: number; y: number; ancla: "start" | "end" }>();
-  for (const p of nuestros) {
-    const texto = apellido(nombreFila(p.f));
-    const w = texto.length * 5.8;
+  const ajenos = todos ? puntos.filter((p) => !p.nuestro) : [];
+  for (const p of [...nuestros, ...ajenos]) {
+    const texto = p.nuestro ? apellido(nombreFila(p.f)) : apellido(String(p.f.jugador ?? ""));
+    const w = texto.length * (p.nuestro ? 5.8 : 4.8);
+    let puesto = false;
     const cx = sx(p.x);
     const cy = sy(p.y);
     for (const t of [
@@ -1025,12 +1030,21 @@ function Dispersion({
       if (!fuera && !choca) {
         cajas.push(caja);
         rotulos.set(idDe(p.f), t);
+        puesto = true;
         break;
       }
+    }
+    /* Con «Todos», el que no cabe limpio sale igual (a la derecha, o a la izquierda si se sale). */
+    if (!puesto && todos) {
+      const cx = sx(p.x);
+      const cy = sy(p.y);
+      rotulos.set(idDe(p.f), cx + 7 + w < W ? { x: cx + 7, y: cy - 6, ancla: "start" } : { x: cx - 7, y: cy - 6, ancla: "end" });
     }
   }
 
   return (
+    <div className="mt-2">
+    <InterruptorNombres todos={todos} onCambia={setTodos} cuantos={puntos.length} />
     <svg viewBox={`0 0 ${W} ${H}`} className="mt-2 w-full" style={{ maxHeight: "max(260px, calc(100vh - 470px))" }} role="img" aria-label={`${etiquetaDe(x)} frente a ${etiquetaDe(y)}`}>
       {ticks(x0, x1).map((t) => (
         <g key={`x${t}`}>
@@ -1059,9 +1073,16 @@ function Dispersion({
       {puntos
         .filter((p) => !p.nuestro)
         .map((p) => (
-          <circle key={idDe(p.f)} cx={sx(p.x)} cy={sy(p.y)} r={3.4} style={{ fill: tinta(0.28) }}>
-            <title>{`${String(p.f.jugador ?? "")} (${String(p.f.equipo ?? "")})${edadDe(p.f) != null ? `, ${edadDe(p.f)} años` : ""} · ${textoDe(x, p.x)} · ${textoDe(y, p.y)}`}</title>
-          </circle>
+          <g key={idDe(p.f)}>
+            <circle cx={sx(p.x)} cy={sy(p.y)} r={3.4} style={{ fill: tinta(0.28) }}>
+              <title>{`${String(p.f.jugador ?? "")} (${String(p.f.equipo ?? "")})${edadDe(p.f) != null ? `, ${edadDe(p.f)} años` : ""} · ${textoDe(x, p.x)} · ${textoDe(y, p.y)}`}</title>
+            </circle>
+            {rotulos.get(idDe(p.f)) && (
+              <text x={rotulos.get(idDe(p.f))!.x} y={rotulos.get(idDe(p.f))!.y} textAnchor={rotulos.get(idDe(p.f))!.ancla} fontSize={8.5} style={{ fill: tinta(0.6) }}>
+                {apellido(String(p.f.jugador ?? ""))}
+              </text>
+            )}
+          </g>
         ))}
       {nuestros.map((p) => {
         const es = idDe(p.f) === elegido;
@@ -1080,6 +1101,7 @@ function Dispersion({
         );
       })}
     </svg>
+    </div>
   );
 }
 

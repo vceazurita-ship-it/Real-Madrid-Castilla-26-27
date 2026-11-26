@@ -79,9 +79,7 @@ const { casaEquipo } = require("../lib/opta-eventos.ts");
 const { PUESTO_OPTA } = require("../lib/opta.ts");
 const b2 = require("./b2.cjs");
 const { caratulaJpeg, leeHojaRivales, datosRival } = require("./caratula-node.cjs");
-const { hayVision, desfases, ventana, analiza, kitDe, pinta, DESFASE_POR_DEFECTO } = require("./vision/marca.cjs");
-/* El desfase de Opta de cada partido y parte (leído en el reloj del marcador), una vez por partido. */
-const desfasePorPartido = new Map();
+const { hayVision, relojDeClips, analiza, kitDe, pinta, DESFASE_POR_DEFECTO } = require("./vision/marca.cjs");
 let hojaRivales = null;
 
 const RAIZ = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
@@ -99,7 +97,7 @@ const PARTIDOS = 5;
 | del marcador en cada partido y parte (en la segunda parte no eran 3 s sino 6-7);
 | el jugador marcado sólo si lleva su camiseta (el analista vio marcas en el rival).
 */
-const VERSION = "v7-reloj-camiseta";
+const VERSION = "v8-reloj-por-corte";
 const MAX_CAPITULOS = 6;
 const MAX_POR_CAPITULO = 4;
 const MIN_MINUTOS = 360;
@@ -672,34 +670,50 @@ for (const r of rivales) {
     const piezas = [];
     const buenos = [];
     const cortados = [];
+    /*
+    | EL RELOJ DE CADA CORTE (26/11/2026, como en los clips de los nuestros).
+    | Opta entrega cada clip adelantado una cantidad distinta (3-7 s, según el
+    | trozo de su vídeo), así que medirlo una vez por parte no basta: se pide un
+    | tramo de sobra, se copia tal cual, se lee el reloj del marcador en dos
+    | fotogramas de cada uno (relojDeClips) y se corta en el segundo exacto.
+    | Las ventanas (antes + 3, después − 3) son las que se vieron buenas el 25/11.
+    */
+    const SOBRA = 12;
+    const brutos = [];
     for (const [n, c] of cortes.entries()) {
       const partido = r.partidos.find((p) => p.partido === c.partido);
-      if (!desfasePorPartido.has(c.partido)) {
-        const repartidos = (parte) => {
-          const es = eventos.filter((e) => e.partido === c.partido && e.parte === parte).sort((x, y) => x.segundo - y.segundo);
-          return [0.25, 0.75].map((q) => es[Math.floor(q * (es.length - 1))]?.segundo).filter((x) => x != null);
-        };
-        const d = await desfases({ opta, partido: c.partido, fecha: partido?.fecha, muestras: { 1: repartidos(1), 2: repartidos(2) }, ffmpeg: FFMPEG, dir: tmp });
-        desfasePorPartido.set(c.partido, d);
-        console.log(`      desfase de Opta vs ${partido?.rival ?? c.partido}: 1.ª parte ${d[1]} s · 2.ª parte ${d[2]} s`);
-      }
-      /*
-      | Las ventanas de cada corte (antes/después) se ajustaron el 25/11 mirando
-      | fotogramas de primeras partes, con 3 s de desfase dentro: lo que se vio
-      | bueno era de antes + 3 a después − 3 alrededor de la acción. Eso es lo que
-      | se pide ahora, con el desfase de verdad de cada parte.
-      */
       const A = c.antes + DESFASE_POR_DEFECTO;
       const D = Math.max(1.5, c.despues - DESFASE_POR_DEFECTO);
-      const vt = ventana(A, D, desfasePorPartido.get(c.partido)[c.parte] ?? DESFASE_POR_DEFECTO);
-      const v = await opta.video({ partido: c.partido, fecha: partido?.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, vt.pideAntes, vt.pideDespues);
+      const pideAntes = Math.ceil(A);
+      const v = await opta.video({ partido: c.partido, fecha: partido?.fecha, parte: c.parte, segundo: c.segundo, tipo: c.tipo }, pideAntes, Math.ceil(D) + SOBRA);
       if (v.sesion) {
         await guarda();
         opta.cierra();
         await fin(8, `la sesión de Opta ha caducado tras ${hechos} vídeos: entra en ProVision en el Chrome de Opta del club`);
       }
       if (!v.url) continue;
-      const error = await corte(tmp, n, v.url, { ...c, fecha: partido?.fecha ?? "" }, nombre, partido?.rival ?? "", vt.salta, A + D);
+      const error = await ffmpeg(["-i", v.url, "-t", String(pideAntes + Math.ceil(D) + SOBRA), "-an", "-c", "copy", `r${n}.mp4`], tmp);
+      if (error) {
+        console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split(/\r?\n/)[0]}`);
+        continue;
+      }
+      brutos.push({ c, n, A, D, partido, bruto: `r${n}.mp4`, inicioPedido: c.segundo - pideAntes });
+    }
+    const relojes = await relojDeClips({ dir: tmp, lista: brutos, ffmpeg: FFMPEG });
+    const adelanto = brutos.map((b, i) => (relojes[i] == null ? null : b.inicioPedido - relojes[i]));
+    /* Sin reloj leído: la mediana de su partido y parte; sin ninguna, el de siempre. */
+    const medianaDe = (b) => {
+      const v = brutos.map((x, i) => (x.c.partido === b.c.partido && x.c.parte === b.c.parte ? adelanto[i] : null)).filter((x) => x != null && x >= -2 && x <= 20).sort((x, y) => x - y);
+      return v.length ? v[Math.floor(v.length / 2)] : DESFASE_POR_DEFECTO;
+    };
+    console.log(`      reloj leído en ${relojes.filter((x) => x != null).length} de ${brutos.length} cortes`);
+    for (const [i, b] of brutos.entries()) {
+      const { c, n, A, D, partido } = b;
+      const d = adelanto[i] != null && adelanto[i] >= -2 && adelanto[i] <= 20 ? adelanto[i] : medianaDe(b);
+      /* El bruto arranca en (segundo − pideAntes − d); el corte bueno, en (segundo − A). */
+      const salta = Math.max(0, Math.round((c.segundo - A - (b.inicioPedido - d)) * 100) / 100);
+      const error = await corte(tmp, n, b.bruto, { ...c, fecha: partido?.fecha ?? "" }, nombre, partido?.rival ?? "", salta, A + D);
+      fs.rmSync(path.join(tmp, b.bruto), { force: true });
       if (error) {
         console.log(`      ${c.titulo} ${Math.floor(c.segundo / 60) + 1}': ${error.split(/\r?\n/)[0]}`);
         continue;

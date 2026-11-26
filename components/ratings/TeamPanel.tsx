@@ -1,5 +1,6 @@
 "use client";
 
+import { InterruptorNombres } from "@/components/data/visual/InterruptorNombres";
 import { LecturaGrafico } from "@/components/ui/LecturaGrafico";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { nombrePuesto } from "@/lib/posiciones";
@@ -360,6 +361,8 @@ export function TeamPanel({
   /* 07/11/2026: nota frente a minutos de todos los que tienen 4+ partidos.
      Se rotulan sólo los tres primeros, el último y el de más minutos, para
      que los nombres no se pisen. */
+  /* «Destacados · Todos» (26/11/2026, el analista): con «Todos», el nombre de cada uno aunque se pise. */
+  const [todosNombres, setTodosNombres] = useState(false);
   const topChart = useMemo(() => {
     const masMinutos = [...elegiblesTop].sort(
       (a, b) => b.summary.minutes - a.summary.minutes
@@ -399,11 +402,11 @@ export function TeamPanel({
       else if (cabe(p.minutes, debajo)) {
         p.abajo = true;
         puestos.push({ minutes: p.minutes, y: debajo });
-      } else p.rotulo = "";
+      } else if (!todosNombres) p.rotulo = "";
     }
 
     return puntos;
-  }, [elegiblesTop]);
+  }, [elegiblesTop, todosNombres]);
 
   const dominioNota = useMemo((): [number, number] => {
     const valores = topChart.map((p) => p.value);
@@ -707,6 +710,8 @@ export function TeamPanel({
           {topChart.length === 0 ? (
             <EmptyState title="Sin datos suficientes" />
           ) : (
+            <>
+            <InterruptorNombres todos={todosNombres} onCambia={setTodosNombres} cuantos={topChart.length} />
             <div className="h-[300px] w-full min-w-0 sm:h-[340px]">
               <ResponsiveConVistas
                 width="100%"
@@ -821,6 +826,7 @@ export function TeamPanel({
                 </ScatterChart>
               </ResponsiveConVistas>
             </div>
+            </>
           )}
 
           {topChart.length > 0 && (

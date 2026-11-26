@@ -506,7 +506,12 @@ for (const j of elegidos) {
   | suyo seguro). Sólo se marca a quien la lleva; sin camiseta clara, nada.
   */
   const kit = kitDe(cortados.filter((x) => x.c.cat === "balon").map((x) => x.cabeza));
-  if (hayVision()) console.log(kit ? `      camiseta: Lab ${kit.map((x) => Math.round(x)).join(" ")}` : "      camiseta: no está clara, sin marca");
+  if (hayVision()) {
+    const conBalon = cortados.filter((x) => x.c.cat === "balon");
+    /* Para ver por qué no sale: cuántos clips con balón dieron color y cuáles. */
+    console.log(`      clips con balón: ${conBalon.length} · con color: ${conBalon.filter((x) => x.cabeza).length} · ${conBalon.map((x) => (x.cabeza ? x.cabeza.map((v) => Math.round(v)).join("/") : "—")).join("  ")}`);
+    console.log(kit ? `      camiseta: Lab ${kit.map((x) => Math.round(x)).join(" ")}` : "      camiseta: no está clara, sin marca");
+  }
   const buenos = [];
   for (const { c, k } of cortados) {
     const m = await pinta({ dir: TMP, entrada: `k${k}.mp4`, salida: `m${k}.mp4`, json: `a${k}.json`, nombre: j.nombre, kit, ffmpeg: FFMPEG, salidaFfmpeg: [...SALIDA, "-movflags", "+faststart"] });

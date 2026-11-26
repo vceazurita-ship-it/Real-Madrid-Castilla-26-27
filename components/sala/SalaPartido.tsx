@@ -22,8 +22,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { ChevronLeft, Maximize2, Minimize2, Pause, Play, Radio, SkipForward } from "lucide-react";
 
-import { alertas, cifrasHasta, destacados, hitos as hitosDe, parteEn, partidoDe, probabilidad, type DocPartido, type Partido } from "@/lib/sala/modelo";
-import { Alertas, Campo, Destacados, Duelo, Linea, Marcador, Probabilidad, Pulso, S, type Capa } from "./piezas";
+import { alertas, calibracion, cifrasHasta, esAcabado, hitos as hitosDe, inicioSegunda, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
+import { AbpTransiciones, Alertas, Campo, Duelo, Jugadores, Lectura, Linea, Marcador, Probabilidad, Pulso, S, SelectorTramo, Tramos, type Capa } from "./piezas";
 
 type Fuente = "castilla" | "rm";
 type EntradaArchivo = { partido: string; fecha?: string; equipos?: string[]; goles?: (number | null)[]; estado?: string };
@@ -50,10 +50,10 @@ async function doc<T>(clave: string): Promise<T | null> {
 const nombreLista = (n: string) => (n === "Real Madrid II" ? "Castilla" : n);
 const fechaCorta = (f?: string) => (f ? new Date(`${String(f).slice(0, 10)}T12:00:00Z`).toLocaleDateString("es-ES", { day: "numeric", month: "short" }) : "");
 const leeUrl = () => {
-  if (typeof window === "undefined") return { fuente: null as Fuente | null, partido: "" };
+  if (typeof window === "undefined") return { fuente: null as Fuente | null, partido: "", tv: false };
   const q = new URLSearchParams(window.location.search);
   const f = q.get("fuente");
-  return { fuente: f === "rm" || f === "castilla" ? (f as Fuente) : null, partido: q.get("partido") ?? "" };
+  return { fuente: f === "rm" || f === "castilla" ? (f as Fuente) : null, partido: q.get("partido") ?? "", tv: q.get("tv") === "1" };
 };
 
 export function SalaPartido() {
@@ -70,6 +70,10 @@ export function SalaPartido() {
   const [velocidad, setVelocidad] = useState(60);
   const [capa, setCapa] = useState<Capa>("remates");
   const [pantalla, setPantalla] = useState(false);
+  const [tramo, setTramo] = useState<TramoClave>("todo");
+  /* Modo TV (26/11/2026): pantalla completa o ?tv=1. La barra se esconde tras 3 s sin mover el ratón. */
+  const [quieta, setQuieta] = useState(false);
+  const [tvUrl, setTvUrl] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
   const inicial = useRef(leeUrl());
 
@@ -77,6 +81,7 @@ export function SalaPartido() {
   useEffect(() => {
     const f = inicial.current.fuente;
     if (f) void Promise.resolve().then(() => setFuente(f));
+    if (inicial.current.tv) void Promise.resolve().then(() => setTvUrl(true));
   }, []);
 
   /* La lista: los de hoy (índice) y el archivo. En el Castilla, sólo sus partidos. */
@@ -93,7 +98,8 @@ export function SalaPartido() {
       if (fuente === "castilla") entradas = entradas.filter((x) => (x.equipos ?? []).includes("Real Madrid II"));
       entradas.sort((a, b) => String(b.fecha).localeCompare(String(a.fecha)));
       setLista(entradas);
-      const enJuego = new Set(delDia.filter((x) => !/played|full/i.test(String(x.estado))).map((x) => x.partido));
+      /* La misma regla de «acabado» que la sala (antes «Finished» salía como en directo). */
+      const enJuego = new Set(delDia.filter((x) => !esAcabado(String(x.estado ?? ""))).map((x) => x.partido));
       setVivos(enJuego);
       const pedido = inicial.current.partido;
       inicial.current.partido = "";
@@ -203,29 +209,72 @@ export function SalaPartido() {
     return () => document.removeEventListener("fullscreenchange", cambia);
   }, []);
 
-  const calculo = useMemo(() => {
-    if (!partido) return null;
-    const c = cifrasHasta(partido, t);
-    return {
-      c,
-      prob: probabilidad(partido, t, c.L.goles, c.V.goles, c.L.xg, c.V.xg),
-      alertas: alertas(partido, t),
-      destacados: destacados(partido, t, 8),
-      hitos: hitosDe(partido, t),
-      hitosTodos: hitosDe(partido, partido.ultimo),
-      parte: parteEn(partido, t),
-    };
-  }, [partido, t]);
+  const k = useMemo(() => (partido ? calibracion(partido) : null), [partido]);
 
   const enDirecto = !!partido && !partido.acabado && vivos.has(partido.id);
   const modo: "vivo" | "repeticion" | "final" = enDirecto && siguiendo ? "vivo" : partido?.acabado && t >= partido.ultimo - 0.01 && !reproduce ? "final" : "repeticion";
 
+  const calculo = useMemo(() => {
+    if (!partido || !k) return null;
+    const c = cifrasHasta(partido, t);
+    return {
+      c,
+      prob: probabilidad(partido, t, c.L.goles, c.V.goles, c.L.xg, c.V.xg),
+      justo: resultadoJusto(c.tiros),
+      titular: titular(partido, t, c, modo === "final"),
+      alertas: alertas(partido, t, k),
+      hitos: hitosDe(partido, t),
+      hitosTodos: hitosDe(partido, partido.ultimo),
+      parte: parteEn(partido, t),
+    };
+  }, [partido, t, k, modo]);
+
+  /* El tramo que se mira: si el elegido aún no existe (2.ª parte en el minuto 20), todo el partido. */
+  const disponibles = useMemo(() => {
+    const d: Record<TramoClave, boolean> = { todo: true, p1: true, p2: false, u15: false, cambio: false };
+    if (!partido) return d;
+    d.p2 = !!tramoDe(partido, "p2", t);
+    d.u15 = t >= 16;
+    d.cambio = !!tramoDe(partido, "cambio", t);
+    return d;
+  }, [partido, t]);
+  const ventana = useMemo(() => (partido ? ((disponibles[tramo] ? tramoDe(partido, tramo, t) : null) ?? tramoDe(partido, "todo", t)) : null), [partido, tramo, t, disponibles]);
+  /* La lectura: en el descanso, de la 1.ª parte; al final, del partido; si se elige un tramo, de ese tramo. */
+  const lectura = useMemo(() => {
+    if (!partido || !ventana) return null;
+    const enDescanso = parteEn(partido, t) === 1 && t >= 44;
+    if (tramo !== "todo" && disponibles[tramo]) return { v: ventana, titulo: `Lectura · ${ventana.nombre}` };
+    if (modo === "final") return { v: ventana, titulo: "Lectura del partido" };
+    const p1 = tramoDe(partido, "p1", t);
+    if (enDescanso && p1) return { v: p1, titulo: "Para el descanso" };
+    if (t >= inicioSegunda(partido) + 1 && t < inicioSegunda(partido) + 15 && p1) return { v: p1, titulo: "Lo que dejó la 1.ª parte" };
+    return t >= 15 ? { v: ventana, titulo: `Lectura hasta el ${reloj(t)}` } : null;
+  }, [partido, ventana, tramo, modo, t, disponibles]);
+
+  const tv = pantalla || tvUrl;
+  useEffect(() => {
+    if (!tv) return;
+    let espera = window.setTimeout(() => setQuieta(true), 3000);
+    const mueve = () => {
+      setQuieta(false);
+      window.clearTimeout(espera);
+      espera = window.setTimeout(() => setQuieta(true), 3000);
+    };
+    window.addEventListener("pointermove", mueve);
+    window.addEventListener("keydown", mueve);
+    return () => {
+      window.clearTimeout(espera);
+      window.removeEventListener("pointermove", mueve);
+      window.removeEventListener("keydown", mueve);
+    };
+  }, [tv]);
+
   return (
-    <div ref={raiz} className="siempre-oscuro min-h-screen overflow-y-auto" style={{ background: `radial-gradient(1200px 600px at 50% -10%, rgba(30,70,150,0.35), transparent), radial-gradient(900px 500px at 100% 100%, rgba(20,120,110,0.12), transparent), ${S.fondo}`, color: S.texto }}>
+    <div ref={raiz} className={`sala-raiz siempre-oscuro min-h-screen overflow-y-auto ${tv ? "sala-tv" : ""} ${tv && quieta ? "sala-quieta" : ""}`} style={{ background: `radial-gradient(1200px 600px at 50% -10%, rgba(30,70,150,0.35), transparent), radial-gradient(900px 500px at 100% 100%, rgba(20,120,110,0.12), transparent), ${S.fondo}`, color: S.texto }}>
       {/* Rejilla tenue de fondo: la sala. */}
       <div aria-hidden className="pointer-events-none fixed inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(140,190,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(140,190,255,1) 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
 
-      <div className="relative mx-auto max-w-[1600px] px-3 pb-28 pt-3 sm:px-6">
+      <div className={`sala-contenido relative mx-auto px-3 pb-28 pt-3 sm:px-6 ${tv ? "max-w-[1920px]" : "max-w-[1600px]"}`}>
         <header className="flex min-w-0 flex-wrap items-center gap-3">
           {!pantalla && (
             <Link href="/data-analisis?area=directo" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold" style={{ border: `1px solid ${S.borde}`, color: S.suave }}>
@@ -295,26 +344,38 @@ export function SalaPartido() {
         )}
         {!cargando && lista.length > 0 && !partido && <p className="py-24 text-center text-[14px]" style={{ color: S.tenue }}>{error || "Cargando el partido…"}</p>}
 
-        {partido && calculo && (
+        {partido && calculo && k && ventana && (
           <div className="mt-4 grid gap-4">
-            <Marcador p={partido} t={t} c={calculo.c} modo={modo} parte={calculo.parte} prob={calculo.prob} />
+            <Marcador p={partido} t={t} c={calculo.c} modo={modo} parte={calculo.parte} prob={calculo.prob} justo={calculo.justo} titular={calculo.titular} hitos={calculo.hitos} k={k} />
 
+            {/* En el móvil, los avisos van justo después del marcador (el experto de fútbol: es lo primero que se lee en el banquillo). */}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <Campo p={partido} t={t} tiros={calculo.c.tiros} capa={capa} setCapa={setCapa} />
-              <div className="grid min-w-0 content-start gap-4">
+              <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-start-1">
                 <Alertas lista={calculo.alertas} p={partido} />
-                <Probabilidad p={partido} t={t} />
+                {lectura && <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} />}
+              </div>
+              <div className="grid min-w-0 content-start gap-3 xl:col-start-1 xl:row-start-1">
+                <SelectorTramo valor={disponibles[tramo] ? tramo : "todo"} onCambia={setTramo} disponibles={disponibles} />
+                <Campo p={partido} t={t} v={ventana} capa={capa} setCapa={setCapa} />
               </div>
             </div>
 
-            <Pulso p={partido} t={t} hitos={calculo.hitos} />
-
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
-              <Duelo p={partido} t={t} c={calculo.c} />
-              <Destacados p={partido} lista={calculo.destacados} />
+              <Duelo p={partido} v={ventana} k={k} />
+              <div className="grid min-w-0 content-start gap-4">
+                <AbpTransiciones p={partido} v={ventana} />
+                <Tramos p={partido} t={t} />
+              </div>
             </div>
 
-            <p className="text-center text-[11px]" style={{ color: S.tenue }}>
+            <Jugadores p={partido} v={ventana} />
+
+            <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+              <Pulso p={partido} t={t} hitos={calculo.hitos} />
+              <Probabilidad p={partido} t={t} hitos={calculo.hitos} />
+            </div>
+
+            <p className="text-center text-[12px]" style={{ color: S.tenue }}>
               Opta ProVision · {partido.liga || (fuente === "castilla" ? "Primera RFEF" : "")} · todo se cuenta desde el evento a evento hasta el minuto que se ve
               {partido.actualizado ? ` · leído ${new Date(partido.actualizado).toLocaleString("es-ES", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""} · Juvenil A y RM C no están en Opta.
             </p>
@@ -324,7 +385,7 @@ export function SalaPartido() {
 
       {/* La barra de la repetición, siempre a mano. */}
       {partido && calculo && (
-        <div className="fixed inset-x-0 bottom-0 z-30" style={{ background: "linear-gradient(180deg, rgba(3,8,18,0), rgba(3,8,18,0.92) 30%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
+        <div className="sala-barra fixed inset-x-0 bottom-0 z-30" style={{ background: "linear-gradient(180deg, rgba(3,8,18,0), rgba(3,8,18,0.92) 30%)", paddingBottom: "env(safe-area-inset-bottom)" }}>
           <div className="mx-auto flex max-w-[1600px] items-center gap-3 px-3 pb-3 pt-6 sm:px-6">
             <button type="button" onClick={alterna} className="grid h-11 w-11 shrink-0 place-items-center rounded-full" style={{ background: "linear-gradient(135deg, #3D8BFF, #2BE3A0)", color: "#031020", boxShadow: "0 0 24px rgba(80,170,255,0.6)" }} aria-label={reproduce ? "Pausa" : "Repetir"} title="Espacio">
               {reproduce ? <Pause size={18} /> : <Play size={18} />}
@@ -342,6 +403,7 @@ export function SalaPartido() {
                 t={t}
                 max={Math.max(partido.ultimo, 1)}
                 hitos={calculo.hitosTodos}
+                final={modo === "final"}
                 onCambia={(m) => {
                   setSiguiendo(false);
                   setReproduce(false);
@@ -349,7 +411,8 @@ export function SalaPartido() {
                 }}
               />
             </div>
-            <span className="w-14 text-right font-mono text-[14px] font-bold tabular-nums">{Math.floor(t) + 1 > partido.ultimo ? partido.ultimo : Math.floor(t) + 1}′</span>
+            {/* El mismo reloj que el marcador («45+2′», «90+3′»). */}
+            <span className="w-16 text-right font-mono text-[14px] font-bold tabular-nums">{reloj(Math.min(t, partido.ultimo - 0.01), calculo.parte)}</span>
             {enDirecto && !siguiendo && (
               <button
                 type="button"

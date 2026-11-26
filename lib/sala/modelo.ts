@@ -29,6 +29,8 @@ export type DocPartido = {
   equipos?: Tabla;
   eventos?: Tabla;
   jugadores?: Tabla;
+  /** Cambios y tarjetas: partido, teamId, parte, segundo, tipo, jugadorId, entraId. */
+  marcas?: Tabla;
   previa?: Record<string, { pj: number; medias: Record<string, number> }> | null;
 };
 
@@ -59,7 +61,14 @@ export type Ev = {
   xG: number | null;
   xPV: number;
   saque: string;
+  /** Remate bloqueado (q82). null si el documento es anterior a esa columna. */
+  bloqueado: boolean | null;
+  /** De qué jugada viene el remate: «corner», «falta», «penalti», «abp» o «» (jugada). Vacío también en documentos viejos. */
+  jugada: string;
 };
+
+/** Cambios y tarjetas (desde el 26/11/2026; los documentos viejos no los traen). */
+export type Marca = { lado: Lado; parte: number; min: number; tipo: "cambio" | "amarilla" | "roja"; jugador: string; entra?: string };
 
 export type Jugador = { id: string; nombre: string; corto: string; lado: Lado; dorsal: string; puesto: string; minutos: number; titular: boolean };
 
@@ -74,6 +83,7 @@ export type Partido = {
   local: Equipo;
   visitante: Equipo;
   eventos: Ev[];
+  marcas: Marca[];
   jugadores: Map<string, Jugador>;
   /** El último minuto con eventos (hasta donde llega lo leído). */
   ultimo: number;
@@ -81,10 +91,27 @@ export type Partido = {
   nuestro: Lado | null;
 };
 
-const TIROS = new Set(["Goal", "AttemptSaved", "Miss", "Post", "SavedShot"]);
-const A_PUERTA = new Set(["Goal", "AttemptSaved", "SavedShot"]);
+/*
+| Revisión del 26/11/2026 (expertos de análisis y fútbol), cotejado con las
+| cifras oficiales de Opta del Castilla-Murcia del 20/11:
+| - Remates: Goal + AttemptSaved + Miss + Post = ShtIncBl exacto (12 y 6). No
+|   hay «SavedShot» en el evento a evento (la parada es «Save», del portero).
+| - A puerta: AttemptSaved incluye los bloqueados (5 frente a 3 oficiales). Con
+|   la columna `bloqueado` (q82, desde hoy en scripts/opta-directo.mjs) se
+|   descuentan; sin ella, se ajusta a la cifra oficial (`calibracion`).
+| - PPDA: ninguna suma de acciones defensivas del evento a evento da la de Opta
+|   (32,4 / 17,6 frente a 18,6 / 12,2). Se ajusta a la oficial del partido (la
+|   de la última lectura) y, sin ella, no se enseña ni hay aviso.
+| - Recuperaciones altas y centros salen ×2: no se enseñan.
+*/
+const TIROS = new Set(["Goal", "AttemptSaved", "Miss", "Post"]);
+const A_PUERTA = new Set(["Goal", "AttemptSaved"]);
 const DEFENSIVAS = new Set(["Tackle", "Interception", "Challenge", "AttemptedTackle"]);
 const RECUPERA = new Set(["BallRecovery", "Interception", "Tackle"]);
+/** Pérdidas de balón: pase fallado (no de saque) o desposeído. */
+const esPerdida = (e: Ev) => (e.tipo === "Pass" && !e.saque && !e.ok) || e.tipo === "Dispossessed";
+/** El partido está acabado (la misma regla en la lista y en la sala). */
+export const esAcabado = (estado: string) => /played|full|finished/i.test(estado);
 
 export const NUESTROS = ["Real Madrid II", "Real Madrid"];
 
@@ -183,9 +210,24 @@ export function partidoDe(doc: DocPartido): Partido | null {
         xG: num(f[e("xG")]),
         xPV: num(f[e("xPV")]) ?? 0,
         saque: String(f[e("saque")] ?? ""),
+        bloqueado: e("bloqueado") < 0 ? null : num(f[e("bloqueado")]) === 1,
+        jugada: e("jugada") < 0 ? "" : String(f[e("jugada")] ?? ""),
       });
     }
     eventos.sort((a, b) => a.min - b.min);
+  }
+
+  const marcas: Marca[] = [];
+  const mt = doc.marcas;
+  if (mt?.filas) {
+    const m = (n: string) => mt.cols.indexOf(n);
+    for (const f of mt.filas) {
+      const lado = ladoDe(f[m("teamId")]);
+      const tipo = String(f[m("tipo")] ?? "");
+      if (!lado || !["cambio", "amarilla", "roja"].includes(tipo)) continue;
+      marcas.push({ lado, parte: num(f[m("parte")]) ?? 1, min: (num(f[m("segundo")]) ?? 0) / 60, tipo: tipo as Marca["tipo"], jugador: String(f[m("jugadorId")] ?? ""), entra: f[m("entraId")] ? String(f[m("entraId")]) : undefined });
+    }
+    marcas.sort((a, b) => a.min - b.min);
   }
 
   const nuestro: Lado | null = NUESTROS.includes(String(filas[0][c("equipo")])) ? "L" : NUESTROS.includes(String(filas[1][c("equipo")])) ? "V" : null;
@@ -197,10 +239,11 @@ export function partidoDe(doc: DocPartido): Partido | null {
     liga: String(doc.liga ?? ""),
     estado,
     actualizado: String(doc.actualizado ?? ""),
-    acabado: /played|full|finished/i.test(estado),
+    acabado: esAcabado(estado),
     local,
     visitante,
     eventos,
+    marcas,
     jugadores,
     ultimo: eventos.length ? Math.ceil(eventos[eventos.length - 1].min) : 0,
     nuestro,
@@ -226,52 +269,133 @@ export type Cifras = {
   defensivas: number;
   /** Pases del rival en su 60 % de campo (para el PPDA). */
   pasesRivalSuCampo: number;
+  /** Amenaza: xPV positivo de las acciones que no son remate más el xG de los remates (sin contarlo dos veces). */
   amenaza: number;
+  /** Pases buenos que entran en el área rival desde fuera. */
+  entradasArea: number;
+  /** Pases en el último tercio (para el dominio territorial, «field tilt»). */
+  pasesTercio: number;
+  /** Remates y xG que vienen de balón parado (córner, falta, penalti). */
+  tirosAbp: number;
+  xgAbp: number;
+  bloqueados: number;
 };
 
-export type Tiro = { lado: Lado; parte: number; min: number; x: number; y: number; xG: number; gol: boolean; aPuerta: boolean; jugador: string; tipo: string };
+export type Tiro = { lado: Lado; parte: number; min: number; x: number; y: number; xG: number; gol: boolean; aPuerta: boolean; bloqueado: boolean; jugador: string; tipo: string; jugada: string };
 
-const vacias = (): Cifras => ({ goles: 0, xg: 0, tiros: 0, aPuerta: 0, pases: 0, pasesOk: 0, toquesArea: 0, recAltas: 0, perdidas: 0, centros: 0, corners: 0, defensivas: 0, pasesRivalSuCampo: 0, amenaza: 0 });
+const vacias = (): Cifras => ({ goles: 0, xg: 0, tiros: 0, aPuerta: 0, pases: 0, pasesOk: 0, toquesArea: 0, recAltas: 0, perdidas: 0, centros: 0, corners: 0, defensivas: 0, pasesRivalSuCampo: 0, amenaza: 0, entradasArea: 0, pasesTercio: 0, tirosAbp: 0, xgAbp: 0, bloqueados: 0 });
 
 export const enArea = (x: number, y: number) => x >= 83 && y >= 21 && y <= 79;
 
-export function cifrasHasta(p: Partido, t: number) {
+/**
+ * La jugada de cada remate: la que trae Opta (columna `jugada`) o, en los
+ * documentos viejos, por cercanía: un remate del mismo equipo hasta 10 s
+ * después de su córner o de una falta suya en campo rival (x ≥ 55).
+ */
+function jugadasDe(p: Partido) {
+  const cache = jugadasCache.get(p);
+  if (cache) return cache;
+  const salida = new Map<Ev, string>();
+  let ultima: { lado: Lado; min: number; tipo: string } | null = null;
+  for (const e of p.eventos) {
+    /* «Corner» viene para los dos equipos (a favor y en contra): el suyo es el de su lado de ataque (x ≥ 50). */
+    if (e.tipo === "Corner" && e.x >= 50) ultima = { lado: e.lado, min: e.min, tipo: "corner" };
+    else if (e.tipo === "FreeKick" && e.x >= 55) ultima = { lado: e.lado, min: e.min, tipo: "falta" };
+    if (!TIROS.has(e.tipo)) continue;
+    if (e.jugada) salida.set(e, e.jugada);
+    else if (ultima && ultima.lado === e.lado && e.min - ultima.min <= 10 / 60) salida.set(e, ultima.tipo);
+    else salida.set(e, "");
+  }
+  jugadasCache.set(p, salida);
+  return salida;
+}
+const jugadasCache = new WeakMap<Partido, Map<Ev, string>>();
+export const esAbp = (jugada: string) => ["corner", "falta", "penalti", "abp"].includes(jugada);
+
+/** Las cifras de cada equipo entre dos minutos (por defecto, desde el inicio). */
+export function cifrasEntre(p: Partido, desde: number, hasta: number, parte?: number) {
   const L = vacias(), V = vacias();
   const tiros: Tiro[] = [];
+  const jugadas = jugadasDe(p);
   for (const e of p.eventos) {
-    if (e.min > t) break;
+    if (e.min > hasta) break;
+    if (e.min < desde || (parte && e.parte !== parte)) continue;
     const yo = e.lado === "L" ? L : V;
     const el = e.lado === "L" ? V : L;
     if (TIROS.has(e.tipo)) {
+      const bloqueado = e.bloqueado === true;
+      const aPuerta = A_PUERTA.has(e.tipo) && !bloqueado;
+      const jugada = jugadas.get(e) ?? "";
       yo.tiros++;
-      if (A_PUERTA.has(e.tipo)) yo.aPuerta++;
+      if (aPuerta) yo.aPuerta++;
+      if (bloqueado) yo.bloqueados++;
       if (e.tipo === "Goal") yo.goles++;
       yo.xg += e.xG ?? 0;
-      tiros.push({ lado: e.lado, parte: e.parte, min: e.min, x: e.x, y: e.y, xG: e.xG ?? 0.03, gol: e.tipo === "Goal", aPuerta: A_PUERTA.has(e.tipo), jugador: e.jugador, tipo: e.tipo });
-    }
+      yo.amenaza += e.xG ?? 0;
+      if (esAbp(jugada)) {
+        yo.tirosAbp++;
+        yo.xgAbp += e.xG ?? 0;
+      }
+      tiros.push({ lado: e.lado, parte: e.parte, min: e.min, x: e.x, y: e.y, xG: e.xG ?? 0.03, gol: e.tipo === "Goal", aPuerta, bloqueado, jugador: e.jugador, tipo: e.tipo, jugada });
+    } else if (e.xPV > 0) yo.amenaza += e.xPV;
     if (e.tipo === "Pass" && !e.saque) {
       yo.pases++;
       if (e.ok) yo.pasesOk++;
-      else yo.perdidas++;
       if (e.x < 60) el.pasesRivalSuCampo++;
+      if (e.x >= 66.7) yo.pasesTercio++;
+      if (e.ok && !enArea(e.x, e.y) && e.fx != null && e.fy != null && enArea(e.fx, e.fy)) yo.entradasArea++;
       if (e.x >= 66 && (e.y < 21 || e.y > 79) && e.fx != null && e.fy != null && enArea(e.fx, e.fy)) yo.centros++;
     }
-    if (e.tipo === "Dispossessed") yo.perdidas++;
-    if (e.tipo === "Corner") yo.corners++;
+    if (esPerdida(e)) yo.perdidas++;
+    /* Córner a favor: el del lado de ataque (Opta lo da a los dos; el Castilla-Murcia, 1 y 2 como la oficial). */
+    if (e.tipo === "Corner" && e.x >= 50) yo.corners++;
     if (enArea(e.x, e.y) && e.tipo !== "Corner") yo.toquesArea++;
     if (RECUPERA.has(e.tipo) && e.x >= 66.7) yo.recAltas++;
     if (DEFENSIVAS.has(e.tipo) && e.x >= 40) yo.defensivas++;
-    if (e.xPV > 0) yo.amenaza += e.xPV;
   }
   return { L, V, tiros };
 }
+
+export const cifrasHasta = (p: Partido, t: number) => cifrasEntre(p, 0, t);
 
 export const posesion = (c: { L: Cifras; V: Cifras }) => {
   const t = c.L.pases + c.V.pases;
   return t ? { L: c.L.pases / t, V: c.V.pases / t } : { L: 0.5, V: 0.5 };
 };
 
-export const ppda = (yo: Cifras) => (yo.defensivas ? yo.pasesRivalSuCampo / yo.defensivas : null);
+/** Dominio territorial: de los pases en el último tercio, qué parte es de cada uno. */
+export const dominio = (c: { L: Cifras; V: Cifras }) => {
+  const t = c.L.pasesTercio + c.V.pasesTercio;
+  return t ? { L: c.L.pasesTercio / t, V: c.V.pasesTercio / t } : null;
+};
+
+const ppdaCrudo = (yo: Cifras) => (yo.defensivas ? yo.pasesRivalSuCampo / yo.defensivas : null);
+
+/**
+ * El ajuste a las cifras oficiales de Opta de este partido (las de la última
+ * lectura): cuánto hay que multiplicar lo contado desde los eventos para que,
+ * al último minuto leído, dé lo que dice Opta. Sólo PPDA y, en documentos sin
+ * la columna de bloqueados, los remates a puerta.
+ */
+export function calibracion(p: Partido) {
+  const c = cifrasEntre(p, 0, p.ultimo + 1);
+  const factor = (oficial: number | null | undefined, crudo: number | null) => (oficial != null && crudo ? oficial / crudo : null);
+  const conBloqueo = p.eventos.some((e) => e.bloqueado != null);
+  return {
+    ppda: { L: factor(p.local.opta.PPDA, ppdaCrudo(c.L)), V: factor(p.visitante.opta.PPDA, ppdaCrudo(c.V)) },
+    aPuerta: conBloqueo ? null : { L: factor(p.local.opta.SOG, c.L.aPuerta), V: factor(p.visitante.opta.SOG, c.V.aPuerta) },
+  };
+}
+export type Calibracion = ReturnType<typeof calibracion>;
+
+/** PPDA ajustado a la cifra oficial; sin ella (o con poca muestra), null: no se enseña. */
+export const ppda = (yo: Cifras, k: number | null | undefined) => {
+  const crudo = ppdaCrudo(yo);
+  return crudo != null && k && yo.defensivas >= 4 ? crudo * k : null;
+};
+
+/** Remates a puerta: con bloqueados en el documento, tal cual; si no, ajustado a la cifra oficial. */
+export const aPuertaDe = (yo: Cifras, k: number | null | undefined) => (k ? Math.round(yo.aPuerta * k) : yo.aPuerta);
 
 /* ------------------------------------------------------------------ */
 /*  PULSO: QUIÉN MANDA EN CADA TRAMO                                   */
@@ -287,13 +411,15 @@ export function pulso(p: Partido, t: number, ancho = 3): TramoPulso[] {
   for (const e of p.eventos) {
     if (e.min > t) break;
     const k = Math.min(tramos.length - 1, Math.floor(e.min / ancho));
-    const v = (e.xPV > 0 ? e.xPV : 0) + (TIROS.has(e.tipo) ? (e.xG ?? 0) : 0);
+    /* Remate: su xG; el resto, su xPV positivo (el xPV del remate ya va en su xG: no se cuenta dos veces). */
+    const v = TIROS.has(e.tipo) ? (e.xG ?? 0) : e.xPV > 0 ? e.xPV : 0;
     tramos[k][e.lado] += v;
   }
-  /* Suavizado ligero (media con los vecinos), para que se lea como una ola. */
+  /* Suavizado sólo hacia atrás (26/11/2026): en la repetición, el tramo siguiente es el futuro. El último, a medias, se escala a tramo entero. */
   return tramos.map((x, i) => {
-    const a = tramos[i - 1], b = tramos[i + 1];
-    const m = (k: Lado) => (x[k] * 2 + (a?.[k] ?? x[k]) + (b?.[k] ?? x[k])) / 4;
+    const a = tramos[i - 1];
+    const lleno = i === tramos.length - 1 ? Math.max(0.34, Math.min(1, (t - x.desde) / ancho)) : 1;
+    const m = (k: Lado) => ((x[k] / lleno) * 2 + (a?.[k] ?? x[k] / lleno)) / 3;
     return { desde: x.desde, L: m("L"), V: m("V") };
   });
 }
@@ -372,75 +498,127 @@ export function curvaProbabilidad(p: Partido, t: number, paso = 1) {
     }
     salida.push({ min: m, ...probabilidad(p, m, gL, gV, xL, xV) });
   }
+  /* El último punto en t exacto (26/11/2026): la curva, las tarjetas y la barra del marcador dicen lo mismo. */
+  if (!salida.length || salida[salida.length - 1].min < t) {
+    const c = cifrasHasta(p, t);
+    salida.push({ min: t, ...probabilidad(p, t, c.L.goles, c.V.goles, c.L.xg, c.V.xg) });
+  }
   return salida;
+}
+
+/**
+ * EL RESULTADO JUSTO: con los remates de cada uno y su xG, la probabilidad de
+ * cada resultado (cada remate es gol con probabilidad su xG, independientes;
+ * la cuenta es exacta, sin simulación). Es la lectura «quién mereció ganar».
+ */
+export function resultadoJusto(tiros: Tiro[]) {
+  const distribucion = (lado: Lado) => {
+    let d = [1];
+    for (const s of tiros) {
+      if (s.lado !== lado) continue;
+      const q = Math.min(0.99, Math.max(0, s.xG));
+      const n = new Array(d.length + 1).fill(0);
+      d.forEach((v, k) => {
+        n[k] += v * (1 - q);
+        n[k + 1] += v * q;
+      });
+      d = n;
+    }
+    return d;
+  };
+  const a = distribucion("L"), b = distribucion("V");
+  let L = 0, X = 0, V = 0;
+  a.forEach((pa, i) => b.forEach((pb, j) => {
+    if (i > j) L += pa * pb;
+    else if (i === j) X += pa * pb;
+    else V += pa * pb;
+  }));
+  return { L, X, V };
+}
+
+/** «64 %», y nunca «100 %» ni «0 %» si no es seguro del todo. */
+export function porcentaje(v: number) {
+  if (v >= 0.995 && v < 1) return ">99 %";
+  if (v > 0 && v < 0.005) return "<1 %";
+  return `${Math.round(v * 100)} %`;
 }
 
 /* ------------------------------------------------------------------ */
 /*  ALERTAS                                                            */
 /* ------------------------------------------------------------------ */
 
-export type Alerta = { clave: string; lado: Lado | null; tono: "favor" | "aviso" | "info"; titulo: string; texto: string; min: number; fuerza: number };
+export type Alerta = { clave: string; lado: Lado | null; tono: "favor" | "aviso" | "info"; titulo: string; texto: string; min: number; fuerza: number; ventana?: string };
 
 const fmt = (v: number, d = 1) => v.toLocaleString("es-ES", { minimumFractionDigits: d, maximumFractionDigits: d });
 
 /**
- * Lo que se sale de lo normal en el minuto t, de más a menos fuerte. El tono
- * va desde el lado nuestro (si juega): «favor» es bueno para nosotros.
+ * Lo que se sale de lo normal en el minuto t, de más a menos fuerte.
+ * Revisión del 26/11/2026 (expertos): cada aviso dice su minuto y su ventana;
+ * el tono va desde nuestro lado y contando el marcador (el que pierde y
+ * aprieta «aprieta para remontar», no «manda»); la presión, sólo ajustada a la
+ * cifra oficial; la eficacia (goles frente a xG) tiene su aviso; las rachas
+ * cuentan los remates de los últimos 15′, sin tope; la previa dice su base (n).
  */
-export function alertas(p: Partido, t: number): Alerta[] {
+export function alertas(p: Partido, t: number, k: Calibracion = calibracion(p)): Alerta[] {
   if (t < 8) return [];
   const c = cifrasHasta(p, t);
   const out: Alerta[] = [];
-  const nombre = (l: Lado) => (l === "L" ? p.local.nombre : p.visitante.nombre);
+  const nombre = (l: Lado) => nombreEquipoCorto(l === "L" ? p.local.nombre : p.visitante.nombre);
   const tono = (l: Lado, buenoParaEl: boolean): Alerta["tono"] => (!p.nuestro ? "info" : (l === p.nuestro) === buenoParaEl ? "favor" : "aviso");
+  const va = (l: Lado) => (l === "L" ? c.L.goles - c.V.goles : c.V.goles - c.L.goles);
 
-  /* 1. Quién manda en los últimos 10 minutos. */
+  /* 1. Quién manda en los últimos 10 minutos (con el marcador: si pierde, «aprieta para remontar»). */
   const desde = Math.max(0, t - 10);
-  let aL = 0, aV = 0;
-  for (const e of p.eventos) {
-    if (e.min > t) break;
-    if (e.min < desde) continue;
-    const v = (e.xPV > 0 ? e.xPV : 0) + (TIROS.has(e.tipo) ? (e.xG ?? 0) : 0);
-    if (e.lado === "L") aL += v;
-    else aV += v;
-  }
-  const total = aL + aV;
+  const tramo = cifrasEntre(p, desde, t);
+  const total = tramo.L.amenaza + tramo.V.amenaza;
   if (total > 0.25) {
-    const l: Lado = aL >= aV ? "L" : "V";
-    const parte = (l === "L" ? aL : aV) / total;
-    if (parte >= 0.68) out.push({ clave: `manda-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} manda`, texto: `${Math.round(parte * 100)} % de la amenaza en los últimos 10′`, min: t, fuerza: parte * 3 });
+    const l: Lado = tramo.L.amenaza >= tramo.V.amenaza ? "L" : "V";
+    const parte = (l === "L" ? tramo.L.amenaza : tramo.V.amenaza) / total;
+    const yo = l === "L" ? tramo.L : tramo.V;
+    if (parte >= 0.68) {
+      const verbo = va(l) < 0 ? "aprieta para remontar" : va(l) > 0 ? "gana y sigue mandando" : "manda";
+      out.push({ clave: `manda-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} ${verbo}`, texto: `${Math.round(parte * 100)} % de la amenaza · ${yo.tiros} ${yo.tiros === 1 ? "remate" : "remates"} y ${fmt(yo.xg, 2)} de xG`, min: t, ventana: `${reloj(desde)}-${reloj(t)}`, fuerza: parte * 3 });
+    }
   }
 
-  /* 2. El marcador frente a las ocasiones. */
+  /* 2. El marcador frente a las ocasiones: quién merece más y quién está siendo eficaz. */
   const dif = c.L.xg - c.V.xg;
-  if (Math.abs(dif) >= 0.7) {
+  if (Math.abs(dif) >= 0.6) {
     const l: Lado = dif > 0 ? "L" : "V";
-    const goles = l === "L" ? c.L.goles - c.V.goles : c.V.goles - c.L.goles;
+    const goles = va(l);
     out.push({
       clave: `xg-${l}`,
       lado: l,
       tono: tono(l, true),
       titulo: goles <= 0 ? `${nombre(l)} merece más` : `${nombre(l)} gana y lo merece`,
-      texto: `xG ${fmt(l === "L" ? c.L.xg : c.V.xg, 2)} contra ${fmt(l === "L" ? c.V.xg : c.L.xg, 2)}${goles <= 0 ? " y no va ganando" : ""}`,
+      texto: `xG ${fmt(l === "L" ? c.L.xg : c.V.xg, 2)} contra ${fmt(l === "L" ? c.V.xg : c.L.xg, 2)}${goles < 0 ? " y va perdiendo" : goles === 0 ? " y va empatando" : ""}`,
       min: t,
+      ventana: "todo el partido",
       fuerza: Math.abs(dif) * (goles <= 0 ? 2.4 : 1.2),
     });
   }
+  for (const l of ["L", "V"] as Lado[]) {
+    const yo = l === "L" ? c.L : c.V;
+    if (yo.goles - yo.xg >= 1) {
+      const aPuerta = aPuertaDe(yo, l === "L" ? k.aPuerta?.L : k.aPuerta?.V);
+      out.push({ clave: `eficaz-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} marca más de lo que genera`, texto: `${yo.goles} ${yo.goles === 1 ? "gol" : "goles"} con ${fmt(yo.xg, 2)} de xG y ${aPuerta} a puerta`, min: t, ventana: "todo el partido", fuerza: (yo.goles - yo.xg) * 1.6 });
+    }
+  }
 
-  /* 3. Rachas: remates seguidos de un mismo equipo. */
-  const ultimos = c.tiros.slice(-8);
+  /* 3. Rachas: remates seguidos de un mismo equipo en los últimos 15′. */
+  const ultimos = c.tiros.filter((s) => s.min >= t - 15);
   let racha = 0;
   for (let i = ultimos.length - 1; i >= 0 && ultimos[i].lado === ultimos[ultimos.length - 1]?.lado; i--) racha++;
   if (racha >= 4) {
     const l = ultimos[ultimos.length - 1].lado;
-    out.push({ clave: `racha-${l}`, lado: l, tono: tono(l, true), titulo: `${racha} remates seguidos`, texto: `de ${nombre(l)} sin respuesta del rival`, min: t, fuerza: racha * 0.5 });
+    const xg = ultimos.slice(-racha).reduce((s, x) => s + x.xG, 0);
+    out.push({ clave: `racha-${l}`, lado: l, tono: tono(l, true), titulo: `${racha} remates seguidos de ${nombre(l)}`, texto: `${fmt(xg, 2)} de xG sin respuesta del rival`, min: t, ventana: `desde el ${reloj(ultimos[ultimos.length - racha].min)}`, fuerza: racha * 0.5 });
   }
 
   /* 4. Contra lo que suele hacer (la previa), por 90 minutos. */
   if (t >= 15) {
-    const reglas: { m: string; nombre: string; valor: (x: Cifras) => number; bueno: boolean; minimo: number; por90?: boolean }[] = [
-      /* Sólo las que, contadas desde los eventos, salen como las de Opta (probado con el Real Madrid - Celta del
-         21/11: toques en el área 69/65, remates 24/24). Centros y recuperaciones altas no cuadran: fuera. */
+    const reglas: { m: string; nombre: string; valor: (x: Cifras) => number; bueno: boolean; minimo: number }[] = [
+      /* Sólo las que, contadas desde los eventos, salen como las de Opta (toques en el área, remates, xG). */
       { m: "TouchOpBox", nombre: "toques en el área", valor: (x) => x.toquesArea, bueno: true, minimo: 6 },
       { m: "ShtIncBl", nombre: "remates", valor: (x) => x.tiros, bueno: true, minimo: 4 },
       { m: "ExpG", nombre: "goles esperados", valor: (x) => x.xg, bueno: true, minimo: 0.5 },
@@ -449,20 +627,21 @@ export function alertas(p: Partido, t: number): Alerta[] {
       const eq = l === "L" ? p.local : p.visitante;
       const yo = l === "L" ? c.L : c.V;
       if (!eq.previa) continue;
+      const base = `media de ${eq.previa.pj} partidos`;
       for (const r of reglas) {
         const media = eq.previa.medias[r.m];
         const v = r.valor(yo);
         if (!media || v < r.minimo) continue;
         const ritmo = (v * 90) / t;
         const veces = ritmo / media;
-        if (veces >= 1.6) out.push({ clave: `previa-${l}-${r.m}`, lado: l, tono: tono(l, r.bueno), titulo: `${nombre(l)}: ${fmt(veces, 1)}× sus ${r.nombre}`, texto: `a este ritmo ${ritmo < 10 ? fmt(ritmo, 1) : Math.round(ritmo)} por partido; su media es ${fmt(media, 1)}`, min: t, fuerza: veces });
+        if (veces >= 1.6) out.push({ clave: `previa-${l}-${r.m}`, lado: l, tono: tono(l, r.bueno), titulo: `${nombre(l)}: ${fmt(veces, 1)}× sus ${r.nombre}`, texto: `a este ritmo ${ritmo < 10 ? fmt(ritmo, 1) : Math.round(ritmo)} por partido; lo normal en él, ${fmt(media, 1)} (${base})`, min: t, ventana: "todo el partido", fuerza: veces });
       }
-      /* Presión: PPDA bajo = presiona más que de costumbre. */
-      const mio = ppda(yo);
+      /* Presión: sólo con el PPDA ajustado a la cifra oficial de Opta. */
+      const mio = ppda(yo, l === "L" ? k.ppda.L : k.ppda.V);
       const suPpda = eq.previa.medias.PPDA;
       if (mio != null && suPpda && yo.defensivas >= 8) {
-        if (mio <= suPpda * 0.7) out.push({ clave: `ppda-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} aprieta más que nunca`, texto: `PPDA ${fmt(mio)} (su media ${fmt(suPpda)}): presiona más arriba de lo que suele`, min: t, fuerza: suPpda / mio });
-        if (mio >= suPpda * 1.45) out.push({ clave: `ppda-baja-${l}`, lado: l, tono: tono(l, false), titulo: `${nombre(l)} no presiona`, texto: `PPDA ${fmt(mio)} (su media ${fmt(suPpda)}): deja tocar mucho más de lo normal`, min: t, fuerza: mio / suPpda });
+        if (mio <= suPpda * 0.7) out.push({ clave: `ppda-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} presiona más arriba que nunca`, texto: `PPDA ${fmt(mio)} frente a su ${fmt(suPpda)} habitual (${base}): deja tocar menos`, min: t, ventana: "todo el partido", fuerza: suPpda / mio });
+        if (mio >= suPpda * 1.45) out.push({ clave: `ppda-baja-${l}`, lado: l, tono: tono(l, false), titulo: `${nombre(l)} presiona menos de lo normal`, texto: `PPDA ${fmt(mio)} frente a su ${fmt(suPpda)} habitual (${base}): deja tocar más`, min: t, ventana: "todo el partido", fuerza: mio / suPpda });
       }
     }
   }
@@ -471,7 +650,17 @@ export function alertas(p: Partido, t: number): Alerta[] {
   for (const l of ["L", "V"] as Lado[]) {
     const contra = l === "L" ? c.V : c.L;
     const goles = l === "L" ? c.V.goles : c.L.goles;
-    if (contra.xg - goles >= 1) out.push({ clave: `portero-${l}`, lado: l, tono: tono(l, true), titulo: `El portero de ${nombre(l)} sostiene`, texto: `le han hecho ${fmt(contra.xg, 2)} de xG y ha encajado ${goles}`, min: t, fuerza: contra.xg - goles + 1 });
+    if (contra.xg - goles >= 1) out.push({ clave: `portero-${l}`, lado: l, tono: tono(l, true), titulo: `El portero de ${nombre(l)} sostiene`, texto: `le han hecho ${fmt(contra.xg, 2)} de xG y ha encajado ${goles}`, min: t, ventana: "todo el partido", fuerza: contra.xg - goles + 1 });
+  }
+
+  /* 6. Por dónde llegan: un carril con la mitad o más de las entradas al último tercio (con 8 o más). */
+  for (const l of ["L", "V"] as Lado[]) {
+    const ca = carriles(p, l, 0, t);
+    if (ca.total < 8) continue;
+    const m = ca.lista.reduce((a, b) => (b.n > a.n ? b : a));
+    if (m.n / ca.total >= 0.5) {
+      out.push({ clave: `carril-${l}`, lado: l, tono: tono(l, true), titulo: `${nombre(l)} llega por ${m.suyo}`, texto: `${Math.round((m.n / ca.total) * 100)} % de sus entradas al último tercio (${m.n} de ${ca.total})${p.nuestro && l !== p.nuestro ? `: por nuestra ${m.nuestro}` : ""}`, min: t, ventana: "todo el partido", fuerza: 1.4 + m.n / ca.total });
+    }
   }
 
   return out.sort((a, b) => b.fuerza - a.fuerza).slice(0, 6);
@@ -546,12 +735,12 @@ export function red(p: Partido, lado: Lado, t: number, minimo = 3) {
 }
 
 /** Malla de toques (12 × 8) del equipo hasta t, en su sentido de ataque. */
-export function territorio(p: Partido, lado: Lado, t: number, desde = 0) {
+export function territorio(p: Partido, lado: Lado, t: number, desde = 0, parte?: number) {
   const W = 12, H = 8;
   const malla = new Array(W * H).fill(0);
   for (const e of p.eventos) {
     if (e.min > t) break;
-    if (e.min < desde || e.lado !== lado) continue;
+    if (e.min < desde || (parte && e.parte !== parte) || e.lado !== lado) continue;
     const i = Math.min(W - 1, Math.floor((e.x / 100) * W));
     const k = Math.min(H - 1, Math.floor((e.y / 100) * H));
     malla[k * W + i]++;
@@ -563,7 +752,7 @@ export function territorio(p: Partido, lado: Lado, t: number, desde = 0) {
 /*  LA CRONOLOGÍA                                                      */
 /* ------------------------------------------------------------------ */
 
-export type Hito = { lado: Lado; parte: number; min: number; tipo: "gol" | "tiro" | "parada" | "corner"; jugador: string; xG: number | null };
+export type Hito = { lado: Lado; parte: number; min: number; tipo: "gol" | "tiro" | "parada" | "corner" | "cambio" | "amarilla" | "roja"; jugador: string; xG: number | null; entra?: string };
 
 export function hitos(p: Partido, t: number): Hito[] {
   const out: Hito[] = [];
@@ -572,9 +761,14 @@ export function hitos(p: Partido, t: number): Hito[] {
     const quien = p.jugadores.get(e.jugador)?.corto ?? "";
     if (e.tipo === "Goal") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "gol", jugador: quien, xG: e.xG });
     else if (TIROS.has(e.tipo)) out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: A_PUERTA.has(e.tipo) ? "parada" : "tiro", jugador: quien, xG: e.xG });
-    else if (e.tipo === "Corner") out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "corner", jugador: quien, xG: null });
+    else if (e.tipo === "Corner" && e.x >= 50) out.push({ lado: e.lado, parte: e.parte, min: e.min, tipo: "corner", jugador: quien, xG: null });
   }
-  return out;
+  /* Cambios y tarjetas (documentos desde el 26/11/2026). */
+  for (const m of p.marcas) {
+    if (m.min > t) break;
+    out.push({ lado: m.lado, parte: m.parte, min: m.min, tipo: m.tipo, jugador: p.jugadores.get(m.jugador)?.corto ?? "", xG: null, entra: m.entra ? p.jugadores.get(m.entra)?.corto : undefined });
+  }
+  return out.sort((a, b) => a.min - b.min);
 }
 
 /** «67′», «45+2′», «90+3′». */
@@ -594,4 +788,240 @@ export function parteEn(p: Partido, t: number) {
     parte = Math.max(parte, e.parte);
   }
   return parte;
+}
+
+/* ------------------------------------------------------------------ */
+/*  REVISIÓN DEL 26/11/2026: LO QUE PIDIERON LOS EXPERTOS              */
+/* ------------------------------------------------------------------ */
+
+/** «Real Madrid Castilla» → «Castilla»; «Real Murcia» → «Murcia»; «Gimnàstic Tarragona» → «Gimnàstic». */
+export function nombreEquipoCorto(n: string) {
+  if (/castilla|real madrid ii/i.test(n)) return "Castilla";
+  const sin = n.replace(/^(Real|Club|CD|CF|UD|SD|RCD|CE|AD|SCR|Atlético|Atletico|Racing|Deportivo|Sporting|Gimnàstic de)\s+/i, "").trim();
+  const primera = sin.split(/\s+/)[0] ?? n;
+  return /^(Madrid|Club|de)$/i.test(primera) ? n : primera.length >= 4 ? (sin.split(/\s+/).length > 2 ? primera : sin) : sin;
+}
+
+const dosD = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+/**
+ * EL PARTIDO EN UNA FRASE (experto de comunicación): resultado + si lo
+ * merece, con el xG. Desde nuestro lado si jugamos. `clave` es la palabra que
+ * va en oro.
+ */
+export function titular(p: Partido, t: number, c: { L: Cifras; V: Cifras }, final: boolean) {
+  const A: Lado = p.nuestro ?? "L";
+  const B: Lado = A === "L" ? "V" : "L";
+  const nA = nombreEquipoCorto(A === "L" ? p.local.nombre : p.visitante.nombre);
+  const gA = c[A].goles, gB = c[B].goles, xA = c[A].xg, xB = c[B].xg;
+  const xg = `xG ${dosD(xA)} – ${dosD(xB)}`;
+  const v = (pasado: string, presente: string) => (final ? pasado : presente);
+  const mas = xA - xB >= 0.4, menos = xB - xA >= 0.4;
+  if (t < 3) return { texto: `Arranca el partido`, clave: "Arranca", detalle: "" };
+  if (gA > gB) {
+    const clave = v("ganó", "gana");
+    return { texto: `${nA} ${clave} ${gA}-${gB}${menos ? " sufriendo: el rival generó más" : mas ? " y lo merece" : " en un partido parejo"}`, clave, detalle: xg };
+  }
+  if (gA < gB) {
+    const clave = v("perdió", "pierde");
+    return { texto: `${nA} ${clave} ${gA}-${gB}${mas ? " pese a generar más" : menos ? ": el rival fue mejor" : " con las ocasiones igualadas"}`, clave, detalle: xg };
+  }
+  const clave = v("empató", "empata");
+  return { texto: `${nA} ${clave} ${gA}-${gB}${mas ? " y mereció más" : menos ? " y lo da por bueno" : " en un partido igualado"}`, clave, detalle: xg };
+}
+
+/**
+ * POR DÓNDE LLEGA (experto de fútbol): las entradas al último tercio (pases
+ * buenos que acaban con x ≥ 66,7 desde x < 66,7) por carril, según dónde
+ * acaban. En Opta y = 0 es la banda derecha de quien ataca.
+ */
+export function carriles(p: Partido, lado: Lado, desde: number, hasta: number, parte?: number) {
+  const n = [0, 0, 0];
+  for (const e of p.eventos) {
+    if (e.min > hasta) break;
+    if (e.min < desde || (parte && e.parte !== parte) || e.lado !== lado || e.tipo !== "Pass" || !e.ok || e.saque || e.fx == null || e.fy == null) continue;
+    if (e.x >= 66.7 || e.fx < 66.7) continue;
+    n[e.fy < 33.3 ? 0 : e.fy < 66.7 ? 1 : 2]++;
+  }
+  const total = n[0] + n[1] + n[2];
+  const lista = [
+    { clave: "der", n: n[0], suyo: "su derecha", nuestro: "izquierda" },
+    { clave: "cen", n: n[1], suyo: "el centro", nuestro: "zona central" },
+    { clave: "izq", n: n[2], suyo: "su izquierda", nuestro: "derecha" },
+  ];
+  return { total, lista };
+}
+
+export type Transicion = { lado: Lado; min: number; parte: number; x: number; y: number; xG: number; gol: boolean; jugador: string; tirador: string };
+
+/**
+ * TRANSICIONES (experto de fútbol): pérdidas de un equipo que acaban en remate
+ * del rival en 15 s o menos, y robos que acaban en remate propio en 15 s. El
+ * punto es dónde se perdió o se robó (en el sentido de quien la pierde/roba).
+ */
+export function transiciones(p: Partido, desde: number, hasta: number, parte?: number) {
+  const perdidas: Transicion[] = [];
+  const robos: Transicion[] = [];
+  const ev = p.eventos;
+  for (let i = 0; i < ev.length; i++) {
+    const e = ev[i];
+    if (e.min > hasta) break;
+    if (e.min < desde || (parte && e.parte !== parte)) continue;
+    const pierde = esPerdida(e);
+    const roba = RECUPERA.has(e.tipo);
+    if (!pierde && !roba) continue;
+    for (let j = i + 1; j < ev.length && ev[j].min - e.min <= 0.25; j++) {
+      const s = ev[j];
+      if (!TIROS.has(s.tipo)) continue;
+      if (pierde && s.lado !== e.lado) perdidas.push({ lado: e.lado, min: e.min, parte: e.parte, x: e.x, y: e.y, xG: s.xG ?? 0, gol: s.tipo === "Goal", jugador: e.jugador, tirador: s.jugador });
+      if (roba && s.lado === e.lado) robos.push({ lado: e.lado, min: e.min, parte: e.parte, x: e.x, y: e.y, xG: s.xG ?? 0, gol: s.tipo === "Goal", jugador: e.jugador, tirador: s.jugador });
+      break;
+    }
+  }
+  return { perdidas, robos };
+}
+
+export type Tramo15 = { etiqueta: string; L: { xg: number; tiros: number; goles: number }; V: { xg: number; tiros: number; goles: number }; dominio: { L: number; V: number } | null };
+
+/** El partido por tramos de 15′ hasta t (el descuento va con el último tramo de su parte): xG, remates, goles y dominio territorial. */
+export function tramos15(p: Partido, t: number): Tramo15[] {
+  const etiquetas = ["0-15′", "15-30′", "30-45′", "45-60′", "60-75′", "75-90′"];
+  const cajas = etiquetas.map((etiqueta) => ({ etiqueta, L: { xg: 0, tiros: 0, goles: 0, tercio: 0 }, V: { xg: 0, tiros: 0, goles: 0, tercio: 0 }, hay: false }));
+  for (const e of p.eventos) {
+    if (e.min > t) break;
+    const i = e.parte === 1 ? Math.min(2, Math.floor(e.min / 15)) : 3 + Math.min(2, Math.max(0, Math.floor((e.min - 45) / 15)));
+    const k = cajas[i][e.lado];
+    cajas[i].hay = true;
+    if (TIROS.has(e.tipo)) {
+      k.tiros++;
+      k.xg += e.xG ?? 0;
+      if (e.tipo === "Goal") k.goles++;
+    }
+    if (e.tipo === "Pass" && !e.saque && e.x >= 66.7) k.tercio++;
+  }
+  return cajas
+    .filter((c) => c.hay)
+    .map((c) => {
+      const tt = c.L.tercio + c.V.tercio;
+      return { etiqueta: c.etiqueta, L: { xg: c.L.xg, tiros: c.L.tiros, goles: c.L.goles }, V: { xg: c.V.xg, tiros: c.V.tiros, goles: c.V.goles }, dominio: tt ? { L: c.L.tercio / tt, V: c.V.tercio / tt } : null };
+    });
+}
+
+/** Los tramos que se pueden elegir para mirar el campo y el cara a cara. */
+export type TramoClave = "todo" | "p1" | "p2" | "u15" | "cambio";
+
+/** El inicio de la 2.ª parte, en minutos del reloj de Opta. */
+export const inicioSegunda = (p: Partido) => p.eventos.find((e) => e.parte === 2)?.min ?? 45;
+
+export type Ventana = { desde: number; hasta: number; nombre: string; parte?: number };
+
+export function tramoDe(p: Partido, clave: TramoClave, t: number): Ventana | null {
+  if (clave === "todo") return { desde: 0, hasta: t, nombre: "todo el partido" };
+  /* Por parte, con el evento (el descuento de la 1.ª va en minutos > 45, igual que el arranque de la 2.ª). */
+  if (clave === "p1") return { desde: 0, hasta: t, nombre: "1.ª parte", parte: 1 };
+  if (clave === "p2") return t >= inicioSegunda(p) ? { desde: 0, hasta: t, nombre: "2.ª parte", parte: 2 } : null;
+  if (clave === "u15") return { desde: Math.max(0, t - 15), hasta: t, nombre: "últimos 15′" };
+  const ultimo = [...p.marcas].reverse().find((m) => m.tipo === "cambio" && m.min <= t);
+  return ultimo ? { desde: ultimo.min, hasta: t, nombre: `desde el cambio del ${reloj(ultimo.min, ultimo.parte)}` } : null;
+}
+
+/**
+ * LA LECTURA DE UN TRAMO (el descanso, el final o cualquier parte): tres
+ * frases automáticas: quién dominó y cuándo, la cifra que más se sale de su
+ * media y por dónde llegó el rival.
+ */
+export function lecturaTramo(p: Partido, desde: number, hasta: number, parte?: number): string[] {
+  const frases: string[] = [];
+  const nombre = (l: Lado) => nombreEquipoCorto(l === "L" ? p.local.nombre : p.visitante.nombre);
+  const c = cifrasEntre(p, desde, hasta, parte);
+  /* 1. Quién mandó: amenaza total y el mejor tramo de 5′ de cada uno. */
+  const total = c.L.amenaza + c.V.amenaza;
+  if (total > 0.2) {
+    const l: Lado = c.L.amenaza >= c.V.amenaza ? "L" : "V";
+    let mejor = { d: desde, v: 0 };
+    for (let d = desde; d < hasta; d += 5) {
+      const x = cifrasEntre(p, d, Math.min(hasta, d + 5), parte);
+      const v = l === "L" ? x.L.amenaza : x.V.amenaza;
+      if (v > mejor.v) mejor = { d, v };
+    }
+    frases.push(`${nombre(l)} tuvo el ${Math.round(((l === "L" ? c.L.amenaza : c.V.amenaza) / total) * 100)} % de la amenaza; su mejor momento, del ${reloj(mejor.d)} al ${reloj(Math.min(hasta, mejor.d + 5))}.`);
+  }
+  /* 2. La cifra que más se sale de lo normal (por 90′, frente a su media). */
+  const minutos = Math.max(1, parte === 1 ? Math.min(hasta, 46) - desde : parte === 2 ? hasta - Math.max(desde, 45) : hasta - desde);
+  let fuera: { texto: string; veces: number } | null = null;
+  for (const l of ["L", "V"] as Lado[]) {
+    const eq = l === "L" ? p.local : p.visitante;
+    const yo = l === "L" ? c.L : c.V;
+    if (!eq.previa || minutos < 15) continue;
+    for (const [m, nom, v] of [["ExpG", "xG", yo.xg], ["ShtIncBl", "remates", yo.tiros], ["TouchOpBox", "toques en el área", yo.toquesArea]] as const) {
+      const media = eq.previa.medias[m];
+      if (!media) continue;
+      const ritmo = (v * 90) / minutos;
+      const veces = ritmo >= media ? ritmo / media : media / Math.max(ritmo, 0.01);
+      if (veces >= 1.5 && (!fuera || veces > fuera.veces)) fuera = { veces, texto: `${nombre(l)} ${ritmo >= media ? "multiplicó" : "se quedó muy por debajo de"} sus ${nom}: a ritmo de ${ritmo < 10 ? ritmo.toFixed(1).replace(".", ",") : Math.round(ritmo)} por partido (lo normal en él, ${media < 10 ? media.toFixed(1).replace(".", ",") : Math.round(media)}).` };
+    }
+  }
+  if (fuera) frases.push(fuera.texto);
+  /* 3. Por dónde llega el rival (o el visitante si no jugamos). */
+  const rival: Lado = p.nuestro ? (p.nuestro === "L" ? "V" : "L") : "V";
+  const ca = carriles(p, rival, desde, hasta, parte);
+  if (ca.total >= 5) {
+    const m = ca.lista.reduce((a, b) => (b.n > a.n ? b : a));
+    frases.push(`${nombre(rival)} entró al último tercio sobre todo por ${m.suyo} (${m.n} de ${ca.total})${p.nuestro ? `: nuestra ${m.nuestro}` : ""}.`);
+  }
+  /* 4. Transiciones que hicieron daño. */
+  const tr = transiciones(p, desde, hasta, parte);
+  const nuestras = p.nuestro ? tr.perdidas.filter((x) => x.lado === p.nuestro) : [];
+  if (nuestras.length >= 2) frases.push(`${nuestras.length} pérdidas nuestras acabaron en remate suyo en menos de 15 s (${dosD(nuestras.reduce((s, x) => s + x.xG, 0))} de xG).`);
+  return frases.slice(0, 4);
+}
+
+export type JugadorSala = { jugador: Jugador; amenaza: number; xg: number; tiros: number; goles: number; recibeArea: number; defensivas: number; perdidasPropio: number; pases: number; pasesOk: number; nota: number };
+
+/**
+ * LOS JUGADORES DE CADA EQUIPO (expertos de fútbol y análisis): amenaza sin
+ * contar el gol tres veces (xPV de lo que no es remate + xG de los remates),
+ * cuántas veces recibe en el área, acciones defensivas y pérdidas en campo
+ * propio. Ordenados por amenaza.
+ */
+export function jugadoresDe(p: Partido, lado: Lado, desde: number, hasta: number, cuantos = 5, parte?: number): JugadorSala[] {
+  const por = new Map<string, JugadorSala>();
+  const de = (id: string) => {
+    const j = p.jugadores.get(id);
+    if (!j || j.lado !== lado) return null;
+    let d = por.get(id);
+    if (!d) por.set(id, (d = { jugador: j, amenaza: 0, xg: 0, tiros: 0, goles: 0, recibeArea: 0, defensivas: 0, perdidasPropio: 0, pases: 0, pasesOk: 0, nota: 0 }));
+    return d;
+  };
+  for (const e of p.eventos) {
+    if (e.min > hasta) break;
+    if (e.min < desde || (parte && e.parte !== parte) || e.lado !== lado) continue;
+    const d = de(e.jugador);
+    if (!d) continue;
+    if (TIROS.has(e.tipo)) {
+      d.tiros++;
+      d.xg += e.xG ?? 0;
+      d.amenaza += e.xG ?? 0;
+      if (e.tipo === "Goal") d.goles++;
+    } else if (e.xPV > 0) d.amenaza += e.xPV;
+    if (RECUPERA.has(e.tipo) || DEFENSIVAS.has(e.tipo)) d.defensivas++;
+    if (esPerdida(e) && e.x < 40) d.perdidasPropio++;
+    if (e.tipo === "Pass" && !e.saque) {
+      d.pases++;
+      if (e.ok) d.pasesOk++;
+      if (e.ok && e.receptor && e.fx != null && e.fy != null && enArea(e.fx, e.fy)) {
+        const r = de(e.receptor);
+        if (r) r.recibeArea++;
+      }
+    }
+  }
+  for (const d of por.values()) d.nota = d.amenaza;
+  return [...por.values()].sort((a, b) => b.nota - a.nota).slice(0, cuantos);
+}
+
+/** Los goles con minuto, autor y xG (bajo el marcador). */
+export function golesHasta(p: Partido, t: number) {
+  return p.eventos
+    .filter((e) => e.tipo === "Goal" && e.min <= t)
+    .map((e) => ({ lado: e.lado, min: e.min, parte: e.parte, jugador: p.jugadores.get(e.jugador)?.corto ?? "", xG: e.xG ?? null }));
 }
