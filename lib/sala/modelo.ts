@@ -31,6 +31,8 @@ export type DocPartido = {
   jugadores?: Tabla;
   /** Cambios y tarjetas: partido, teamId, parte, segundo, tipo, jugadorId, entraId. */
   marcas?: Tabla;
+  /** Las cifras oficiales de Opta de cada equipo cada 5 minutos: partido, teamId, equipo, parte, tramo, ExpG, ShtIncBl… */
+  tramos?: Tabla;
   previa?: Record<string, { pj: number; medias: Record<string, number> }> | null;
 };
 
@@ -89,6 +91,8 @@ export type Partido = {
   ultimo: number;
   /** El equipo «nuestro» (Castilla o Real Madrid) si juega. */
   nuestro: Lado | null;
+  /** Las cifras oficiales de Opta cada 5 minutos (tramo k = minutos 5k a 5k+5 del reloj del partido). */
+  tramos: { lado: Lado; parte: number; desde: number; m: Record<string, number | null> }[];
 };
 
 /*
@@ -248,6 +252,21 @@ export function partidoDe(doc: DocPartido): Partido | null {
     marcas.sort((a, b) => a.min - b.min);
   }
 
+  const tramos: Partido["tramos"] = [];
+  const tt = doc.tramos;
+  if (tt?.filas && tt.cols?.length) {
+    const q = (n: string) => tt.cols.indexOf(n);
+    for (const f of tt.filas) {
+      const lado = ladoDe(f[q("teamId")]);
+      const parte = num(f[q("parte")]);
+      const k = num(f[q("tramo")]);
+      if (!lado || !parte || k == null) continue;
+      const m: Record<string, number | null> = {};
+      for (const col of tt.cols) if (!["partido", "teamId", "equipo", "parte", "tramo"].includes(col)) m[col] = num(f[q(col)]);
+      tramos.push({ lado, parte, desde: k * 5, m });
+    }
+  }
+
   const nuestro: Lado | null = NUESTROS.includes(String(filas[0][c("equipo")])) ? "L" : NUESTROS.includes(String(filas[1][c("equipo")])) ? "V" : null;
   const estado = String(doc.estado ?? "");
 
@@ -265,6 +284,7 @@ export function partidoDe(doc: DocPartido): Partido | null {
     jugadores,
     ultimo: eventos.length ? Math.ceil(eventos[eventos.length - 1].min) : 0,
     nuestro,
+    tramos,
   };
 }
 
@@ -1255,4 +1275,59 @@ export function queTocar(p: Partido, desde: number, hasta: number, parte?: numbe
   const ataque = nos.tiros >= 8 && nos.goles === 0 && nos.xg >= 0.6 ? { clave: "tocar-ataque", texto: `${nos.tiros} remates y ${dosD(nos.xg)} de xG sin gol: el volumen está; buscar remates de más calidad (pase atrás, segundo palo) en vez de tiros lejanos.` } : null;
   /* Hasta 3 de defensa y, si sale, la de ataque siempre (experto de fútbol: con 0-2 también hay que hablar de nuestro ataque). */
   return [...out.slice(0, 3), ...(ataque ? [ataque] : [])];
+}
+
+/* ------------------------------------------------------------------ */
+/*  LAS CIFRAS OFICIALES DE OPTA (27/11/2026)                          */
+/* ------------------------------------------------------------------ */
+
+/*
+| El analista: «debe salir todo de Opta porque será en directo muchas veces, y
+| tengo que ver la media». Lo que se puede sumar sale de los tramos oficiales de
+| 5 minutos (su suma da exactamente la cifra del partido: comprobado en el
+| Castilla-Murcia); lo que no (acierto en el pase, PPDA, centros…), de la cifra
+| oficial del partido hasta la última lectura. En la repetición de un minuto
+| anterior sólo entran los tramos ya cerrados: nada de lo que aún no ha pasado.
+*/
+export const SUMABLES = ["ExpG", "ShtIncBl", "TouchOpBox", "TchsA3", "PsAtt", "Recovery", "PosWonA3rd", "PossLost"] as const;
+
+export type Oficial = { L: Record<string, number | null>; V: Record<string, number | null>; entero: boolean; tramos: number };
+
+/** ¿Es lo último leído (en directo, o el final)? Entonces vale la cifra oficial del partido entero. */
+export const alDia = (p: Partido, t: number) => t >= p.ultimo - 0.5;
+
+export function oficialEntre(p: Partido, desde: number, hasta: number, parte?: number): Oficial {
+  const entero = alDia(p, hasta) && desde <= 0.01 && !parte;
+  if (entero) return { L: { ...p.local.opta }, V: { ...p.visitante.opta }, entero: true, tramos: 0 };
+  const vivo = alDia(p, hasta);
+  const L: Record<string, number | null> = {}, V: Record<string, number | null> = {};
+  for (const m of SUMABLES) { L[m] = null; V[m] = null; }
+  const pesos = { L: 0, V: 0 }, pos = { L: 0, V: 0 };
+  const usados = new Set<string>();
+  /* Por tramo, los dos equipos juntos (la posesión es el reparto). */
+  const porTramo = new Map<string, Partial<Record<Lado, Record<string, number | null>>>>();
+  for (const r of p.tramos) {
+    if (parte && r.parte !== parte) continue;
+    /* Un tramo entra si su mitad cae en la ventana (los últimos 15′ empiezan a mitad de uno). La 2.ª parte arranca su reloj en 45′ y el descuento de la 1.ª va con la 1.ª. */
+    if (r.desde + 2.5 < desde || r.desde >= hasta) continue;
+    if (!vivo && r.desde + 5 > hasta + 0.01) continue;
+    const clave = `${r.parte}:${r.desde}`;
+    usados.add(clave);
+    const x = porTramo.get(clave) ?? {};
+    x[r.lado] = r.m;
+    porTramo.set(clave, x);
+  }
+  for (const x of porTramo.values()) {
+    for (const l of ["L", "V"] as Lado[]) {
+      const m = x[l];
+      if (!m) continue;
+      const dest = l === "L" ? L : V;
+      for (const k of SUMABLES) if (m[k] != null) dest[k] = (dest[k] ?? 0) + (m[k] as number);
+      const pa = (x.L?.PsAtt ?? 0) + (x.V?.PsAtt ?? 0);
+      if (m["Poss%"] != null && pa > 0) { pos[l] += (m["Poss%"] as number) * pa; pesos[l] += pa; }
+    }
+  }
+  L["Poss%"] = pesos.L ? pos.L / pesos.L : null;
+  V["Poss%"] = pesos.V ? pos.V / pesos.V : null;
+  return { L, V, entero: false, tramos: usados.size };
 }

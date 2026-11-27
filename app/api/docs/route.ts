@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readDoc, writeDoc } from "@/lib/docStore";
+import { COOKIE_ADMIN, esAdmin } from "@/lib/admin/sesion";
 
 /** Clave: letras, números, guiones y dos puntos. Evita accesos arbitrarios. */
 const KEY_PATTERN = /^[a-z0-9][a-z0-9:_-]{2,120}$/i;
@@ -56,6 +57,13 @@ const vetada = (key: string) =>
  * podría pisar las apuestas de todos con lo que tenía al cargar.
  */
 /* `hudl:clips-rival` (17/11/2026) lo escribe sólo scripts/hudl-clips-rival.mjs. */
+/*
+| El primer equipo en la sala de partido (27/11/2026, el analista: «que la
+| opción del primer equipo sólo la vea yo»): opta:rm y sus partidos, sólo con
+| la sesión de administrador. Se escriben desde el script, no desde aquí.
+*/
+const DEL_ADMIN = /^opta:rm(:|$)/i;
+
 const SOLO_LECTURA = new Set(["quiniela", "apuestas-staff", "hudl:clips-rival"]);
 
 export async function GET(request: NextRequest) {
@@ -66,6 +74,10 @@ export async function GET(request: NextRequest) {
       { success: false, error: "Clave no válida." },
       { status: 400 }
     );
+  }
+
+  if (DEL_ADMIN.test(key) && !esAdmin(request.cookies.get(COOKIE_ADMIN)?.value)) {
+    return NextResponse.json({ success: false, error: "Sólo para el administrador." }, { status: 403 });
   }
 
   try {
@@ -101,7 +113,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (SOLO_LECTURA.has(key)) {
+    if (SOLO_LECTURA.has(key) || DEL_ADMIN.test(key)) {
       return NextResponse.json(
         { success: false, error: "Este documento se guarda desde su pantalla." },
         { status: 403 }

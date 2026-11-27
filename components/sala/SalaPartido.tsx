@@ -22,8 +22,12 @@ import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } f
 import Link from "next/link";
 import { ChevronLeft, Maximize2, Minimize2, Pause, Play, Radio, SkipForward } from "lucide-react";
 
-import { alertas, calibracion, cifrasHasta, esAcabado, fichasDeGol, queTocar, hitos as hitosDe, inicioSegunda, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
-import { AbpTransiciones, Alertas, Campo, Duelo, Jugadores, Lectura, Linea, Marcador, Probabilidad, Pulso, S, SelectorTramo, Tramos, type Capa } from "./piezas";
+import { useAdmin } from "@/hooks/useAdmin";
+import { alDia, alertas, calibracion, cifrasHasta, esAcabado, fichasDeGol, queTocar, hitos as hitosDe, inicioSegunda, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
+import { traeJson } from "@/lib/hojaCsv";
+import { mismoClub } from "@/lib/rivals/mismoClub";
+import { filaDelPlan, planEnElCampo, rumbo, type FilaPlan } from "@/lib/sala/rumbo";
+import { AbpTransiciones, Alertas, Campo, Duelo, HaciaDonde, PlanEnCampo, Jugadores, Lectura, Linea, Marcador, Probabilidad, Pulso, S, SelectorTramo, Tramos, type Capa } from "./piezas";
 
 type Fuente = "castilla" | "rm";
 type EntradaArchivo = { partido: string; fecha?: string; equipos?: string[]; goles?: (number | null)[]; estado?: string };
@@ -75,14 +79,24 @@ export function SalaPartido() {
   const [quieta, setQuieta] = useState(false);
   const [tvUrl, setTvUrl] = useState(false);
   const raiz = useRef<HTMLDivElement>(null);
+  /* El primer equipo, de momento sólo para el administrador (27/11/2026; la API tampoco lo sirve a nadie más). */
+  const { admin } = useAdmin();
+  const fuentes = (Object.keys(FUENTES) as Fuente[]).filter((f) => f !== "rm" || admin);
   const inicial = useRef(leeUrl());
 
   /* La fuente pedida en el enlace, una vez. */
   useEffect(() => {
     const f = inicial.current.fuente;
-    if (f) void Promise.resolve().then(() => setFuente(f));
+    if (f === "castilla") void Promise.resolve().then(() => setFuente(f));
     if (inicial.current.tv) void Promise.resolve().then(() => setTvUrl(true));
   }, []);
+  /* «?fuente=rm» sólo vale con la sesión de administrador (se sabe un poco después). */
+  useEffect(() => {
+    if (admin && inicial.current.fuente === "rm") {
+      inicial.current.fuente = null;
+      void Promise.resolve().then(() => setFuente("rm"));
+    }
+  }, [admin]);
 
   /* La lista: los de hoy (índice) y el archivo. En el Castilla, sólo sus partidos. */
   useEffect(() => {
@@ -210,6 +224,19 @@ export function SalaPartido() {
   }, []);
 
   const k = useMemo(() => (partido ? calibracion(partido) : null), [partido]);
+  /* El plan de partido (hoja de rivales, la copia del aparato): sólo en partidos del Castilla. */
+  const [filasPlan, setFilasPlan] = useState<FilaPlan[]>([]);
+  const conPlan = fuente === "castilla" && !!partido?.nuestro;
+  useEffect(() => {
+    if (!conPlan) return;
+    let vivo = true;
+    traeJson<unknown>("/api/rivals?action=rivales&rancia=1", { alRenovar: (d) => vivo && Array.isArray(d) && setFilasPlan(d as FilaPlan[]) })
+      .then((d) => vivo && Array.isArray(d) && setFilasPlan(d as FilaPlan[]))
+      .catch(() => {});
+    return () => {
+      vivo = false;
+    };
+  }, [conPlan]);
   /*
    * El minuto de los paneles (26/11/2026, «hay bugs en la sala»): en la
    * repetición se recalculaba todo en cada fotograma y en el móvil iba a 6
@@ -224,7 +251,10 @@ export function SalaPartido() {
 
   const calculo = useMemo(() => {
     if (!partido || !k) return null;
-    const c = cifrasHasta(partido, tVista);
+    const bruto = cifrasHasta(partido, tVista);
+    /* El xG del marcador, el oficial de Opta con lo último leído (Opta junta los remates de una misma jugada: el penalti parado y su rechace no suman 1,0). */
+    const xL = partido.local.opta.ExpG, xV = partido.visitante.opta.ExpG;
+    const c = alDia(partido, tVista) && xL != null && xV != null ? { ...bruto, L: { ...bruto.L, xg: xL }, V: { ...bruto.V, xg: xV } } : bruto;
     return {
       c,
       prob: probabilidad(partido, tVista, c.L.goles, c.V.goles, c.L.xg, c.V.xg),
@@ -237,6 +267,12 @@ export function SalaPartido() {
       fichas: fichasDeGol(partido, tVista),
     };
   }, [partido, tVista, k, modo]);
+  const haciaDonde = useMemo(() => (partido ? rumbo(partido, tVista) : null), [partido, tVista]);
+  const plan = useMemo(() => {
+    if (!partido || !conPlan || !filasPlan.length) return null;
+    const fila = filaDelPlan(filasPlan, partido, mismoClub);
+    return fila ? { cruces: planEnElCampo(partido, fila, tVista), jornada: fila.JORNADA ? `jornada ${String(fila.JORNADA)}` : "" } : null;
+  }, [partido, conPlan, filasPlan, tVista]);
   /* Lo que ya dicen los avisos no se repite en la lectura (experto de análisis). */
   const omitirBase = useMemo(() => (calculo?.alertas ?? []).map((a) => a.clave), [calculo]);
   const tocar = useMemo(() => {
@@ -289,6 +325,7 @@ export function SalaPartido() {
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
               <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-start-1">
                 <Alertas lista={avisos} p={partido} final={modo === "final"} />
+                {haciaDonde && <HaciaDonde p={partido} r={haciaDonde} final={modo === "final"} />}
                 {lectura && <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} omitir={omitir} tocar={tocar.map((x) => x.texto)} final={modo === "final"} />}
               </div>
               <div className="grid min-w-0 content-start gap-3 xl:col-start-1 xl:row-start-1">
@@ -296,6 +333,8 @@ export function SalaPartido() {
                 <Campo p={partido} t={tVista} v={ventana} capa={capa} setCapa={setCapa} />
               </div>
             </div>
+
+            {plan && plan.cruces.length > 0 && <PlanEnCampo cruces={plan.cruces} jornada={plan.jornada} />}
 
             <div className="grid min-w-0 gap-4 lg:grid-cols-2">
               <Duelo p={partido} v={ventana} k={k} />
@@ -318,7 +357,7 @@ export function SalaPartido() {
             </p>
           </div>
       ) : null,
-    [partido, calculo, k, ventana, tVista, modo, avisos, lectura, omitir, tocar, disponibles, tramo, capa, fuente],
+    [partido, calculo, k, ventana, tVista, modo, avisos, lectura, omitir, tocar, disponibles, tramo, capa, fuente, haciaDonde, plan],
   );
 
   const tv = pantalla || tvUrl;
@@ -356,8 +395,8 @@ export function SalaPartido() {
             Sala de partido
           </p>
           <div className="ml-auto flex min-w-0 flex-wrap items-center gap-2">
-            <div className="flex rounded-full p-0.5" style={{ border: `1px solid ${S.borde}`, background: "rgba(255,255,255,0.03)" }}>
-              {(Object.keys(FUENTES) as Fuente[]).map((f) => (
+            {fuentes.length > 1 && <div className="flex rounded-full p-0.5" style={{ border: `1px solid ${S.borde}`, background: "rgba(255,255,255,0.03)" }}>
+              {fuentes.map((f) => (
                 <button
                   key={f}
                   type="button"
@@ -377,7 +416,7 @@ export function SalaPartido() {
                   {FUENTES[f].nombre}
                 </button>
               ))}
-            </div>
+            </div>}
             <label className="sr-only" htmlFor="sala-partido">
               Partido
             </label>

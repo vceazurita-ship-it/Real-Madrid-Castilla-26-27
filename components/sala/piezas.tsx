@@ -30,6 +30,7 @@ import { useMemo, useState, type ReactNode } from "react";
 import { AlertTriangle, ArrowLeftRight, Flame, Zap } from "lucide-react";
 
 import { MX, MY, densidad } from "@/lib/opta-directo-mapas";
+import { type Cruce, type Rumbo } from "@/lib/sala/rumbo";
 import {
   DURACION,
   aPuertaDe,
@@ -38,14 +39,13 @@ import {
   detalleAbp,
   curvaProbabilidad,
   curvaXg,
-  dominio,
   enArea,
   esAbp,
   jugadoresDe,
   lecturaTramo,
   nombreEquipoCorto,
+  oficialEntre,
   porcentaje,
-  posesion,
   ppda,
   pulso,
   red,
@@ -1073,20 +1073,34 @@ type FilaDuelo = { nombre: string; L: number | null; V: number | null; d: number
 export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
   const c = useMemo(() => cifrasEntre(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
   const minutos = Math.max(1, v.parte === 1 ? Math.min(v.hasta, 46) : v.parte === 2 ? v.hasta - 45 : v.hasta - v.desde);
-  const pos = posesion(c);
-  const dom = dominio(c);
+  /*
+   * TODO DE OPTA (27/11/2026, el analista: «debe salir todo de Opta porque será
+   * en directo, y tengo que ver la media»). Con el partido hasta lo último leído,
+   * la cifra oficial del partido; en un tramo, la suma de los tramos oficiales
+   * de 5′ ya cerrados. Lo que Opta no da por tramos (a puerta, acierto, PPDA,
+   * córners) sale del evento a evento con su misma regla (cotejado: cuadra);
+   * lo que no se puede contar así (ocasiones, centros, duelos), sólo con el
+   * partido entero. Todas las filas con su media de la competición.
+   */
+  const o = useMemo(() => oficialEntre(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
+  const of = (l: Lado, m: string) => (l === "L" ? o.L : o.V)[m] ?? null;
+  const entero = (m: string) => (o.entero ? { L: of("L", m), V: of("V", m) } : { L: null, V: null });
   const filas: FilaDuelo[] = [
-    { nombre: "Goles esperados (xG)", L: c.L.xg, V: c.V.xg, d: 2, previa: "ExpG", porMinuto: true },
-    { nombre: "Remates", L: c.L.tiros, V: c.V.tiros, d: 0, previa: "ShtIncBl", porMinuto: true },
-    { nombre: "A puerta", L: aPuertaDe(c.L, k.aPuerta?.L), V: aPuertaDe(c.V, k.aPuerta?.V), d: 0, previa: "SOG", porMinuto: true },
-    { nombre: "Toques en el área", L: c.L.toquesArea, V: c.V.toquesArea, d: 0, previa: "TouchOpBox", porMinuto: true },
-    { nombre: "Entradas al área con pase", L: c.L.entradasArea, V: c.V.entradasArea, d: 0, nota: "sin media de la competición" },
-    { nombre: "Dominio territorial", L: dom?.L ?? null, V: dom?.V ?? null, d: 0, pct: true, nota: "de los pases en el último tercio; sin media" },
-    { nombre: "Posesión", L: pos.L, V: pos.V, d: 0, pct: true, nota: "% de los pases (no es la de Opta, por tiempo)" },
-    { nombre: "Acierto en el pase", L: c.L.pases ? c.L.pasesOk / c.L.pases : null, V: c.V.pases ? c.V.pasesOk / c.V.pases : null, d: 0, previa: "Pass%", pct: true },
-    { nombre: "PPDA (presión)", L: ppda(c.L, k.ppda.L), V: ppda(c.V, k.ppda.V), d: 1, previa: "PPDA", menosEsMejor: true, nota: "ajustado a la cifra oficial de Opta del partido; menos es presionar más" },
-    { nombre: "Pérdidas", L: c.L.perdidas, V: c.V.perdidas, d: 0, menosEsMejor: true, nota: "pase fallado (sin saques) o desposeído; sin media: Opta las cuenta de otra forma" },
-  ];
+    { nombre: "Goles esperados (xG)", L: of("L", "ExpG"), V: of("V", "ExpG"), d: 2, previa: "ExpG", porMinuto: true },
+    { nombre: "Remates", L: of("L", "ShtIncBl"), V: of("V", "ShtIncBl"), d: 0, previa: "ShtIncBl", porMinuto: true },
+    { nombre: "A puerta", L: o.entero ? of("L", "SOG") : aPuertaDe(c.L, k.aPuerta?.L), V: o.entero ? of("V", "SOG") : aPuertaDe(c.V, k.aPuerta?.V), d: 0, previa: "SOG", porMinuto: true },
+    { nombre: "Toques en el área rival", L: of("L", "TouchOpBox"), V: of("V", "TouchOpBox"), d: 0, previa: "TouchOpBox", porMinuto: true },
+    { nombre: "Ocasiones creadas", ...entero("Chance"), d: 0, previa: "Chance", porMinuto: true },
+    { nombre: "Llegadas al último tercio", ...entero("SeqEndInA3"), d: 0, previa: "SeqEndInA3", porMinuto: true, nota: "posesiones que acaban en el último tercio" },
+    { nombre: "Posesión", L: of("L", "Poss%"), V: of("V", "Poss%"), d: 0, pct: true, previa: "Poss%" },
+    { nombre: "Acierto en el pase", L: o.entero ? of("L", "Pass%") : c.L.pases ? c.L.pasesOk / c.L.pases : null, V: o.entero ? of("V", "Pass%") : c.V.pases ? c.V.pasesOk / c.V.pases : null, d: 0, previa: "Pass%", pct: true },
+    { nombre: "PPDA (presión)", L: o.entero ? of("L", "PPDA") : ppda(c.L, k.ppda.L), V: o.entero ? of("V", "PPDA") : ppda(c.V, k.ppda.V), d: 1, previa: "PPDA", menosEsMejor: true, nota: "pases del rival por cada acción defensiva nuestra: menos es presionar más" },
+    { nombre: "Recuperaciones arriba", L: of("L", "PosWonA3rd"), V: of("V", "PosWonA3rd"), d: 0, previa: "PosWonA3rd", porMinuto: true, nota: "balones ganados en el último tercio" },
+    { nombre: "Pérdidas", L: of("L", "PossLost"), V: of("V", "PossLost"), d: 0, previa: "PossLost", porMinuto: true, menosEsMejor: true },
+    { nombre: "Centros", ...entero("Crosses"), d: 0, previa: "Crosses", porMinuto: true },
+    { nombre: "Córners", L: o.entero ? of("L", "Corners") : c.L.corners, V: o.entero ? of("V", "Corners") : c.V.corners, d: 0, previa: "Corners", porMinuto: true },
+    { nombre: "Duelos ganados", ...entero("Duel%"), d: 0, previa: "Duel%", pct: true },
+  ].filter((x) => x.L != null || x.V != null);
   const media = (l: Lado, f: FilaDuelo) => {
     const e = l === "L" ? p.local : p.visitante;
     const m = f.previa ? e.previa?.medias[f.previa] : undefined;
@@ -1111,7 +1125,7 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
   return (
     <Panel
       titulo={`Cara a cara · ${v.nombre}`}
-      detalle={base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos${base.some((n) => (n ?? 0) < 8) ? "; con menos de 8, tendencia" : ""}). Verde, bueno para nosotros; naranja, malo.` : "Las cifras del partido en el tramo elegido."}
+      detalle={`${o.entero ? "Cifras oficiales de Opta del partido" : `Cifras oficiales de Opta por tramos de 5′${o.tramos ? "" : " (aún sin tramos)"}; ocasiones, centros y duelos, sólo con el partido hasta ahora`}. ${base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos${base.some((n) => (n ?? 0) < 8) ? "; con menos de 8, tendencia" : ""}). Verde, bueno para nosotros; naranja, malo.` : ""}`}
     >
       <ul className="grid gap-3">
         {filas.map((f) => {
@@ -1327,5 +1341,96 @@ export function Linea({ p, t, max, hitos, final, onCambia }: { p: Partido; t: nu
       <input type="range" min={0} max={max} step={0.25} value={t} onChange={(e) => onCambia(Number(e.target.value))} aria-label="Minuto del partido" className="absolute inset-0 w-full cursor-pointer opacity-0" />
       <span aria-hidden className="pointer-events-none absolute top-1/2 h-4 w-4 -translate-x-1/2 -translate-y-1/2 rounded-full" style={{ left: `${(t / max) * 100}%`, background: "#fff", boxShadow: "0 0 14px rgba(160,210,255,0.9)" }} />
     </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  HACIA DÓNDE VA (27/11/2026)                                        */
+/* ------------------------------------------------------------------ */
+
+export function HaciaDonde({ p, r, final }: { p: Partido; r: Rumbo; final: boolean }) {
+  if (!r.ahora.length && !r.cambio && !r.proyeccion) return null;
+  const pct = (x: number) => `${Math.round(x * 100)} %`;
+  return (
+    <Panel titulo={final ? "Cómo se movió el partido" : "Hacia dónde va"} detalle="Los últimos 15′ contra lo de antes y lo que cambió con los cambios. Cifras oficiales de Opta por tramos de 5′, por 90 minutos para poder comparar.">
+      <div className="grid gap-2 text-[14px] leading-snug" style={{ color: S.suave }}>
+        {r.ahora.map((x, i) => (
+          <p key={i} className="flex gap-2">
+            <span aria-hidden style={{ color: S.info }}>→</span>
+            <span>{x}</span>
+          </p>
+        ))}
+        {r.cambio && (
+          <div className="rounded-xl px-3 py-2" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.borde}` }}>
+            <p className="flex items-center gap-1.5 font-semibold" style={{ color: S.texto }}>
+              <ArrowLeftRight size={14} aria-hidden /> {r.cambio.titulo}
+            </p>
+            {r.cambio.frases.map((x, i) => (
+              <p key={i} className="mt-1 text-[13px]">{x}</p>
+            ))}
+          </div>
+        )}
+        {r.proyeccion && (
+          <div className="rounded-xl px-3 py-2" style={{ background: "rgba(233,196,106,0.07)", border: "1px solid rgba(233,196,106,0.35)" }}>
+            <p className="text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: S.oro }}>
+              Si sigue así, en los {Math.round(r.proyeccion.restante)}′ que quedan
+            </p>
+            {(["L", "V"] as Lado[]).map((l) => (
+              <p key={l} className="mt-1 text-[14px]">
+                <b style={{ color: colorDe(p, l) }}>{cortoDe(p, l)}</b>: unos {fmt(r.proyeccion![l].xg, 2)} de xG más · {pct(r.proyeccion![l].marca)} de marcar al menos uno
+              </p>
+            ))}
+          </div>
+        )}
+      </div>
+    </Panel>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  EL PLAN EN EL CAMPO (27/11/2026)                                   */
+/* ------------------------------------------------------------------ */
+
+export function PlanEnCampo({ cruces, jornada }: { cruces: Cruce[]; jornada: string }) {
+  const [todas, setTodas] = useState(false);
+  if (!cruces.length) return null;
+  /* Primero lo que tiene cifra y dice algo (bien o mal); las líneas sin cifra, plegadas. */
+  const conCifra = cruces.filter((c) => c.cifra);
+  const sin = cruces.filter((c) => !c.cifra);
+  const orden = [...conCifra.filter((c) => c.tono !== "neutro"), ...conCifra.filter((c) => c.tono === "neutro")];
+  const color = (c: Cruce) => (c.tono === "bien" ? S.favor : c.tono === "mal" ? S.aviso : S.tenue);
+  return (
+    <Panel titulo="El plan, en el campo" detalle={`Cada línea del plan de partido${jornada ? ` (${jornada})` : ""} con la cifra de Opta que la mide y su media. Verde, bueno para nosotros; naranja, malo; en gris, sólo el dato.`}>
+      <ul className="grid gap-2">
+        {orden.map((c, i) => (
+          <li key={i} className="rounded-xl px-3 py-2 text-[13px] leading-snug" style={{ background: "rgba(255,255,255,0.035)", borderLeft: `3px solid ${color(c)}` }}>
+            <p style={{ color: S.texto }}>
+              <span className="mr-1.5 text-[11px] font-semibold uppercase tracking-[0.1em]" style={{ color: S.oro }}>{c.apartado}</span>
+              {c.linea}
+            </p>
+            <p className="mt-0.5" style={{ color: S.suave }}>
+              {c.cifra} · <b style={{ color: color(c) }}>{c.lectura}</b>
+            </p>
+          </li>
+        ))}
+      </ul>
+      {sin.length > 0 && (
+        <div className="mt-2">
+          <button type="button" onClick={() => setTodas((x) => !x)} className="text-[12px] font-semibold underline" style={{ color: S.suave }}>
+            {todas ? "Ocultar" : "Ver"} las {sin.length} líneas del plan sin cifra de Opta
+          </button>
+          {todas && (
+            <ul className="mt-1 grid gap-1 text-[12.5px]" style={{ color: S.tenue }}>
+              {sin.map((c, i) => (
+                <li key={i}>
+                  <span className="mr-1 font-semibold" style={{ color: S.suave }}>{c.apartado}:</span>
+                  {c.linea}
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </Panel>
   );
 }
