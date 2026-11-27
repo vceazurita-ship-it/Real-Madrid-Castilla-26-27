@@ -24,7 +24,7 @@ import { Topbar } from "@/components/ui/topbar";
 import { DOCUMENTO_VALORES } from "@/lib/cultura/documentos/valores";
 import { conVotos } from "@/components/cultura/HojaCultura";
 import { TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
-import { ValoresIndice } from "@/components/cultura/ValoresIndice";
+import { TOTAL_VOTOS_ANTIVALORES, VALORES_INDICE, ValoresIndice, antivaloresDelValor } from "@/components/cultura/ValoresIndice";
 import Link from "next/link";
 import { ClipboardList, Route } from "lucide-react";
 
@@ -40,8 +40,15 @@ const TITULAR = (() => {
 
   if (!primero || !votos(primero.votos)) return "Los valores que votó la plantilla";
 
-  /* 10/11/2026: con su base, «9 de 32 votos». */
-  return `${indice.length} valores votados por la plantilla: ${primero.titulo}, el más votado (${votos(primero.votos)} de ${TOTAL_VOTOS_VALORES} votos)`;
+  /* 10/11/2026: con su base, «9 de 32 votos». 27/11/2026 (guionista, ronda 9):
+     la conclusión del gráfico va aquí, con lo que más rechaza el vestuario,
+     y el gráfico ya no la repite. */
+  const anti = VALORES_INDICE.flatMap((v) => antivaloresDelValor(v).conVotos).sort((a, b) => b.votos - a.votos)[0];
+  const lidera = `${primero.titulo} lidera la votación (${votos(primero.votos)} de ${TOTAL_VOTOS_VALORES} votos)`;
+
+  return anti
+    ? `${lidera}; ${anti.nombre.toLowerCase()} es lo que más rechaza el vestuario (${anti.votos} de ${TOTAL_VOTOS_ANTIVALORES})`
+    : lidera;
 })();
 
 export default function IdentidadCulturaPage() {

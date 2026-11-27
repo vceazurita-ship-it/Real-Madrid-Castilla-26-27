@@ -143,13 +143,6 @@ const faseDe = (fase: string) => {
   return FASES_COLOR.find((f) => f.re.test(v)) ?? null;
 };
 
-/** La fase que manda en la sesión (sin Global), o null. */
-const faseDominante = (s: SesionDia | undefined) => {
-  const top = Object.entries(s?.porFase ?? {}).sort((a, b) => b[1] - a[1])[0];
-
-  return top ? (FASES_COLOR.find((f) => f.clave === top[0]) ?? null) : null;
-};
-
 /** «2-0» (el Castilla primero) → «ganado 2-0», «empate 2-2», «perdido 0-1». */
 const resultadoConSentido = (marcador: string) => {
   const [a, b] = marcador.split("-").map(Number);
@@ -976,20 +969,29 @@ export default function CalendarGeneralPage() {
     });
 
     /* 07/11/2026: la sesión también tiene su entrada en la leyenda. */
-    /* 16/11/2026: la sesión con el color de la fase que manda, como /micro_calendar. */
-    const fasesMes = new Set<string>();
-    sesionesDia.forEach((s, key) => {
-      const f = enMes(key) ? faseDominante(s) : null;
-      if (f) fasesMes.add(f.clave);
-    });
+    /*
+    | 27/11/2026 (jueces): el operativo ya no repite el calendario de
+    | contenidos. La sesión va sólo con «Sesión · minutos» y su enlace (la
+    | fase y la tarea están en /micro_calendar), así que la leyenda ya no
+    | habla de fases; y explica las insignias de documentos del día.
+    */
     if ([...sesionesDia.keys()].some(enMes)) {
-      items.push({ label: "Fase con más minutos (sin Global):", color: "hidden" });
-      FASES_COLOR.filter((f) => f.dot && fasesMes.has(f.clave)).forEach((f) => items.push({ label: f.label, color: f.dot }));
+      items.push({ label: "Sesión · minutos: el contenido y la fase, en el calendario de contenidos", color: "hidden" });
       items.push({ label: "MD-n = días hasta el partido · discontinuo = aún sin sesión", color: "hidden" });
+    }
+    let conPdf = false;
+    let conImagen = false;
+    Object.entries(filesByDay).forEach(([key, f]) => {
+      if (!enMes(key)) return;
+      if (f.pdfs.length) conPdf = true;
+      if (f.images.length) conImagen = true;
+    });
+    if (conPdf || conImagen) {
+      items.push({ label: `${[conPdf ? "«PDF»" : "", conImagen ? "«img.»" : ""].filter(Boolean).join(" e ")} = documentos subidos ese día (se abren en el día)`, color: "hidden" });
     }
 
     return items;
-  }, [eventsByDay, autoByDay, sesionesDia, active]);
+  }, [eventsByDay, autoByDay, sesionesDia, filesByDay, active]);
 
   const selectedDate = selectedKey ? parseDateKey(selectedKey) : null;
   const selectedEvents = selectedKey ? eventsByDay.get(selectedKey) ?? [] : [];
@@ -1324,18 +1326,18 @@ export default function CalendarGeneralPage() {
               ) : null}
               {imageCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-sky-500/30 bg-sky-500/15 px-1.5 py-0.5">
-                  <ImageIcon className="h-3 w-3 text-sky-300" />
-                  <span className="text-[10px] font-medium text-sky-200">
-                    {imageCount}
+                  <ImageIcon className="h-3 w-3 text-sky-300" aria-hidden />
+                  <span className="text-[10px] font-medium text-sky-200" title={`${imageCount} ${imageCount === 1 ? "imagen subida" : "imágenes subidas"} ese día`}>
+                    {imageCount} img.
                   </span>
                 </span>
               )}
 
               {pdfCount > 0 && (
                 <span className="flex items-center gap-1 rounded-full border border-amber-500/30 bg-amber-500/15 px-1.5 py-0.5">
-                  <FileText className="h-3 w-3 text-amber-300" />
-                  <span className="text-[10px] font-medium text-amber-200">
-                    {pdfCount}
+                  <FileText className="h-3 w-3 text-amber-300" aria-hidden />
+                  <span className="text-[10px] font-medium text-amber-200" title={`${pdfCount} PDF ${pdfCount === 1 ? "subido" : "subidos"} ese día`}>
+                    {pdfCount} PDF
                   </span>
                 </span>
               )}
@@ -1351,15 +1353,10 @@ export default function CalendarGeneralPage() {
                   <div
                     className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-1"
                     style={sesionDia.planificado ? { borderStyle: "dashed", borderColor: "rgb(var(--rmcf-ink-rgb) / .35)" } : undefined}
-                    title={sesionDia.principal || "Sesión"}
+                    title={sesionDia.principal ? `${sesionDia.principal} (el contenido, en el calendario de contenidos)` : "Sesión"}
                   >
-                    <p className="flex items-start gap-1 text-[10px] font-semibold leading-tight md:text-[11px]">
-                      {faseDominante(sesionDia)?.dot ? (
-                        <span aria-hidden className={cn("mt-[3px] h-2 w-2 shrink-0 rounded-full", faseDominante(sesionDia)?.dot)} />
-                      ) : null}
-                      <span className="min-w-0 break-words">{sesionDia.principal || "Sesión"}</span>
-                    </p>
-                    <p className="text-[10px] text-white/60 md:text-[10px]">
+                    {/* 27/11/2026 (jueces): sin la fase ni el nombre de la tarea, que ya están en /micro_calendar; aquí, sesión y minutos. */}
+                    <p className="text-[10px] font-semibold text-white/85 md:text-[11px]">
                       {/* 20/11/2026 (fútbol, ronda 5): sin minutos, cuántas tareas, para que la fila mida lo mismo. */}
                       {sesionDia.planificado
                         ? "Planificada"
@@ -1400,6 +1397,13 @@ export default function CalendarGeneralPage() {
                         Ver la sesión →
                       </Link>
                     ) : null}
+                    <Link
+                      href="/micro_calendar"
+                      onClick={(e) => e.stopPropagation()}
+                      className="block text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                    >
+                      Contenidos →
+                    </Link>
                   </div>
                 )}
                 {autoVisible.map((auto) =>
@@ -1442,6 +1446,16 @@ export default function CalendarGeneralPage() {
                       </Link>
                       {/* 17/11/2026 (r20, jueces): sus goles en vídeo y su ABP, con el rival ya elegido. */}
                       <span className="mt-0.5 flex flex-wrap gap-x-2 gap-y-0.5">
+                        {/* 27/11/2026 (jueces): el partido fuera que aún no se ha jugado, a su desplazamiento. */}
+                        {!auto.marcador && !auto.enCasa && auto.jornada ? (
+                          <Link
+                            href={`/desplazamiento?jornada=${auto.jornada}`}
+                            onClick={(ev) => ev.stopPropagation()}
+                            className="text-[10px] font-semibold text-sky-300 underline-offset-2 hover:underline md:text-[11px]"
+                          >
+                            Desplazamiento
+                          </Link>
+                        ) : null}
                         {enlacesDelRival(jornadasRivales, auto.rival, auto.fecha)
                           .filter((e) => e.texto === "Su ABP" || e.texto === "Sus goles en vídeo" || e.texto === "Su plantilla")
                           .map((e) =>

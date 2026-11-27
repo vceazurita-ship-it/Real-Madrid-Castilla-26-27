@@ -198,7 +198,8 @@ function Anillo({ titulo, goles, color, resaltado, onResalta, marcados }: { titu
       </figcaption>
       {faltan ? (
         <p className="mt-0.5 text-[11px] text-white/60">
-          {goles.length} de {total} con su tipo · {faltan} en gris, sin su jugada en Hudl
+          {/* 27/11/2026 (ronda 9, fútbol): sin nombrar lo que no tiene dato; el porqué, en la ayuda. */}
+          {goles.length} de {total} con su tipo
         </p>
       ) : null}
     </figure>

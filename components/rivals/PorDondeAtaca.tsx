@@ -213,9 +213,23 @@ export function PorDondeAtaca({
         Por dónde ataca · sus tres carriles
         <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">dato · Wyscout, temporada</span>
       </p>
-      {carga && (
+      {/*
+        Un titular, de la cifra mayor (27/11/2026, jueces de fútbol, ronda 9):
+        «Carga la banda izquierda» salía encima de «su ataque pasa más por el
+        centro: 46 %». Si el carril con más acciones es el centro, manda él y
+        la banda que carga por fuera va detrás.
+      */}
+      {(carga || masCargado) && (
         <h3 className="fuente-club mt-1.5 text-[24px] font-bold uppercase leading-[1.05] text-white sm:text-[30px]">
-          {dominante ? `Carga la banda ${dominante}` : `El ${carga.parte} % ${carga.tipo.deQue} es de ${carga.lider!.jugador}`}
+          {masCargado?.key === "centro"
+            ? `Ataca por dentro: ${pctCarril("centro")} %${dominante ? `; por fuera, la ${dominante}` : ""}`
+            : dominante
+              ? `Carga la banda ${dominante}`
+              : carga
+                ? `El ${carga.parte} % ${carga.tipo.deQue} es de ${carga.lider!.jugador}`
+                : masCargado
+                  ? `Su ataque pasa por ${nombreCarril(masCargado.key)}`
+                  : ""}
         </h3>
       )}
 

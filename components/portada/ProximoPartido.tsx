@@ -25,6 +25,7 @@ import { useAdmin } from "@/hooks/useAdmin";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
 import { CASTILLA_OPTA } from "@/lib/opta";
 import { ponEquipoElegido } from "@/lib/data-analisis/eleccion-compartida";
+import { nombreCorto } from "@/lib/partido-frases";
 import {
   contenidosDelDia,
   diaEnMadrid,
@@ -337,6 +338,21 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
   const semanaDelRival = faltan !== null && faltan >= 1 && faltan <= 4;
   const pasados = anterior && hoy ? diasEntre(anterior.cuando, hoy) : null;
 
+  /*
+  | UN SOLO NOMBRE PARA CADA DÍA (27/11/2026, los tres jueces). El sábado
+  | después del J13 salía «Hoy MD-8» en la chapa y en la tira y «lo de hoy
+  | (MD+1)» en los accesos. Ahora, como en «lo de hoy»: los dos días siguientes
+  | a un partido son MD+1 y MD+2 (si el próximo queda a más de dos días) y,
+  | de ahí en adelante, la cuenta atrás MD-n. Lo usan la chapa, la tira y el día.
+  */
+  const rotuloDe = (dia: { fecha: string; rotulo: string }) => {
+    if (!anterior || !anterior.jugado) return dia.rotulo;
+    const despues = diasEntre(anterior.cuando, dia.fecha);
+    const antes = proximo ? diasEntre(dia.fecha, proximo.cuando) : null;
+
+    return despues >= 1 && despues <= 2 && (antes === null || antes > 2) ? `MD+${despues}` : dia.rotulo;
+  };
+
   const hoyToca: { rotulo: string; atajos: { href: string; texto: string; title: string }[] } | null =
     faltan !== null && faltan <= 1
       ? {
@@ -390,8 +406,11 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
                 <span className="absolute inline-flex h-full w-full animate-ping rounded-full opacity-70" style={{ background: "#0B0F14" }} />
                 <span className="relative inline-flex h-1.5 w-1.5 rounded-full" style={{ background: "#0B0F14" }} />
               </span>
-              Hoy {diaDeHoy.rotulo}
-              {libres.has(diaDeHoy.fecha) && (
+              Hoy {rotuloDe(diaDeHoy)}
+              {rotuloDe(diaDeHoy) !== diaDeHoy.rotulo && anterior ? (
+                <span className="font-medium normal-case tracking-normal opacity-80">· post del {nombreCorto(anterior.rival)}</span>
+              ) : null}
+              {libres.has(diaDeHoy.fecha) && rotuloDe(diaDeHoy) === diaDeHoy.rotulo && (
                 <span className="font-medium normal-case tracking-normal opacity-80">
                   · libre
                 </span>
@@ -507,7 +526,8 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
         {semana.length > 0 && (
           <div className="mt-6">
             {/* Una sola fila aunque el micro tenga más de siete días (02/11/2026). Desde el 09/11/2026 cada día tiene un ancho mínimo legible: con 8-9 días en el móvil quedaban palillos; si no caben, la tira se desliza. */}
-            <div className="-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+            {/* 27/11/2026 (jueces): con ocho o más días la tira se desliza en el móvil; el borde derecho se difumina para que se vea que sigue. */}
+            <div className={`-mx-1 overflow-x-auto px-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden ${semana.length > 7 ? "[mask-image:linear-gradient(90deg,#000_82%,transparent)] sm:[mask-image:none]" : ""}`}>
             <div
               className="grid gap-1 pb-1 sm:gap-1.5"
               /* 16/11/2026 (fútbol): siete días caben siempre a 390 px, con el MD a la vista; sólo un micro de ocho o más se desliza. */
@@ -522,9 +542,9 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
                 return (
                   <button
                     type="button"
-                    onClick={() => setDiaAbierto({ fecha: dia.fecha, nombre: dia.nombre, rotulo: dia.rotulo })}
+                    onClick={() => setDiaAbierto({ fecha: dia.fecha, nombre: dia.nombre, rotulo: rotuloDe(dia) })}
                     key={dia.fecha}
-                    title={`${dia.nombre} ${Number(dia.fecha.slice(8, 10))} · ${dia.rotulo}${
+                    title={`${dia.nombre} ${Number(dia.fecha.slice(8, 10))} · ${rotuloDe(dia)}${
                       libre
                         ? delMicro
                           ? " · libre (del microciclo)"
@@ -547,7 +567,7 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
                         esHoy ? "" : esPartido ? "text-[#F7D98B]" : "text-white/45"
                       }`}
                     >
-                      {dia.rotulo}
+                      {rotuloDe(dia)}
                     </span>
 
                     <span
@@ -588,7 +608,7 @@ export function ProximoPartido({ videosEnPanel = false, junto = null }: { videos
               <button
                 type="button"
                 onClick={() =>
-                  setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: diaDeHoy.rotulo })
+                  setDiaAbierto({ fecha: diaDeHoy.fecha, nombre: diaDeHoy.nombre, rotulo: rotuloDe(diaDeHoy) })
                 }
                 title={`${/^MD-(\d+)$/.test(diaDeHoy.rotulo) ? `${diaDeHoy.rotulo}: ${diaDeHoy.rotulo.slice(3)} ${diaDeHoy.rotulo === "MD-1" ? "día" : "días"} antes del partido. ` : ""}${sesionDeHoy.join(" · ")}`}
                 className="group mt-3 flex w-full max-w-full items-center justify-between gap-2 rounded-xl border border-[#D8B45A]/50 bg-[#D8B45A]/10 px-4 py-2.5 text-left text-[13px] font-semibold text-[#F7D98B] transition hover:-translate-y-0.5 hover:bg-[#D8B45A]/20 sm:inline-flex sm:w-auto"
@@ -908,7 +928,8 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
       <span className="flex items-center justify-between gap-2">
         <span className="text-[12px] font-semibold uppercase tracking-[0.18em] text-white/60">
           Castilla · últimos {ultimos.length || 5}
-          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/60">· toca uno para su análisis</span>
+          {/* 27/11/2026 (jueces): la misma leyenda que la ficha del rival. */}
+          <span className="ml-1.5 font-medium normal-case tracking-normal text-white/60">· el más reciente, a la derecha · C en casa, F fuera · toca uno para su análisis</span>
         </span>
         <Link
           href="/collective_history"
@@ -949,6 +970,9 @@ function Racha({ ultimos, cargando, ultimo }: { ultimos: PartidoNuestro[]; carga
                       {partido.golesFavor}-{partido.golesContra}
                     </span>
                   )}
+                  <span className="text-[11px] font-semibold text-white/55" aria-hidden>
+                    {partido.lado === "casa" ? "C" : "F"}
+                  </span>
                 </>
               );
 

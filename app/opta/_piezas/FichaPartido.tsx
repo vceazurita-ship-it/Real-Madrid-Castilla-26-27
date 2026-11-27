@@ -135,7 +135,11 @@ export function CaraACara({
     <div className="mx-auto max-w-3xl">
       {conMedia && nMedia >= 3 && otros && (
         <p className="mb-2 flex flex-wrap items-center gap-x-1.5 text-[12px] leading-snug text-white/65">
-          <span aria-hidden className="inline-block h-3 w-0.5 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .85)" }} />
+          {/* 27/11/2026 (ronda 9, fútbol): la muestra lleva su pista y su barra; la raya sola parecía un trazo suelto. */}
+          <span aria-hidden className="relative inline-block h-2 w-8 shrink-0 overflow-visible rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .08)" }}>
+            <span className="absolute inset-y-0 left-0 w-5 rounded-full" style={{ background: ORO, opacity: 0.7 }} />
+            <span className="absolute -inset-y-0.5 left-[60%] w-0.5 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .85)" }} />
+          </span>
           <span>
             La raya fina es la media de la temporada de cada equipo sin este partido (Opta): {esNuestro ? "la nuestra" : nombreEquipo(a)}, en los otros {otros.a.length};{" "}
             {esNuestro ? "la suya" : nombreEquipo(b)}, en sus otros {otros.b.length}

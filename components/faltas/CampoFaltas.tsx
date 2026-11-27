@@ -154,7 +154,8 @@ export function CampoFaltas({
           ))}
 
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-3 w-3 rounded-full border-2 border-white/80" /> frontal, cerca del área
+            {/* 27/11/2026 (ronda 9, marketing): el anillo dibujado igual que en el campo; con la clase, en modo día salía tinta oscura sobre el verde y no se veía. */}
+            <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" className="shrink-0"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeOpacity="0.9" /><circle cx="8" cy="8" r="3.6" fill="rgba(255,255,255,0.55)" stroke="rgba(8,11,15,0.8)" strokeWidth="1" /></svg> frontal, cerca del área
           </span>
           <span>Cifras de cada zona: a favor · en contra</span>
           {/* En línea, como el resto del pie: la clase se volvía tinta oscura

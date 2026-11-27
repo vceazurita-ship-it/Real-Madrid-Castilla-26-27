@@ -98,7 +98,7 @@ const ROTULO_TIPO: Record<TipoDia, string> = {
  * El dato de la temporada que trabaja la tarea (20/11/2026, jueces, ronda 5):
  * «Ataca» sólo si es una carencia; si es una fortaleza, «Mantiene».
  */
-export type DatoTrabajo = { rotulo: "Ataca" | "Mantiene"; texto: string };
+export type DatoTrabajo = { rotulo: "Ataca" | "Mantiene" | "Tendencia"; texto: string };
 
 type DatosArrastre = { dia: DiaKey; id: string };
 type DatosDestino = { dia: DiaKey; antesDe: string | null };
@@ -628,9 +628,10 @@ function DiaColumna({
           />
         ))}
 
-        {!plan.trabajos.length && (
+        {/* 27/11/2026 (jueces): un día de sesión sin nada no se rotula; basta «Añadir». */}
+        {!plan.trabajos.length && (descansa || plan.tipo === "partido") && (
           <p className="px-1 py-2 text-center text-[13px] leading-snug text-white/45">
-            {descansa ? "Descanso" : plan.tipo === "partido" ? "Día de partido" : "Sin balón parado"}
+            {descansa ? "Descanso" : "Día de partido"}
           </p>
         )}
 

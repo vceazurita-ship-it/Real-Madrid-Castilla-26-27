@@ -29,7 +29,7 @@ import { mismoClub } from "@/lib/rivals/mismoClub";
 import { normalizarOnce, playerKey, rivalOnceKey } from "@/lib/rivals/once";
 import type { RatingsSeason } from "@/lib/ratings/types";
 import type { FilaJugador } from "@/lib/data-analisis/leer";
-import { baseSuyaDe, colocacionDelCampograma, huecosDeBloques, onceNuestroDe, onceSuyoDe, nuestrosDe, suyosDe } from "@/lib/duelos-onces";
+import { baseSuyaDe, dibujoDeWyscout, huecosDeBloques, onceNuestroDe, onceProbableDelRival, onceSuyoDe, nuestrosDe, suyosDe } from "@/lib/duelos-onces";
 import { normalizaDuelos, type JugadorDuelo } from "@/lib/duelos";
 import type { Player } from "@/types/player";
 
@@ -282,22 +282,39 @@ export async function oncesDeLaSemana(plantilla: Player[]): Promise<OncesSemana 
   /* Sin Wyscout no hay forma de repartir igual que Duelos: la vía anterior. */
   if (jugadores.length === 0 || !hoja.some((f) => texto(f.NOMBRE_EQUIPO) === equipo)) return oncesPorLaVieja(plantilla, semana, temporada);
 
-  const [onceDoc, duelosDoc] = await Promise.all([
+  const [onceDoc, duelosDoc, perfiles] = await Promise.all([
     leeDoc<unknown>(rivalOnceKey(equipo)),
     leeDoc<unknown>(`duelos:${slugClave(equipo)}`),
+    /* Su sistema más usado en Wyscout, como en /rivals y /duelos (27/11/2026). */
+    traeJson<{ ok?: boolean; sistemas?: { partidos: number; lista: { sistema: string }[] } }>(`/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=4`).catch(() => null),
   ]);
   const aMano = normalizaDuelos(duelosDoc);
 
   const nuestros = nuestrosDe(jugadores, plantilla);
   const suyos = suyosDe(hoja, equipo, jugadores);
-  const baseSuya = baseSuyaDe(suyos, normalizarOnce(onceDoc).titulares, findInforme(informeDoc, equipo));
+  /*
+  | EL MISMO ONCE PROBABLE QUE /rivals Y /duelos (27/11/2026, jueces, ronda 9):
+  | sin once marcado, la pizarra cogía su último once de BeSoccer (1-5-4-1 sin
+  | Manin y con Ale Díez de delantero) mientras las otras dos pantallas usaban
+  | el que propone el motor. Ahora pasa por `onceProbableDelRival`, igual que
+  | Duelos: mismos titulares y cada uno en el bloque del campograma.
+  */
+  const marcado = normalizarOnce(onceDoc);
+  const informe = findInforme(informeDoc, equipo);
+  const probable = onceProbableDelRival(
+    hoja,
+    equipo,
+    informe,
+    { dibujo: marcado.dibujo, puestos: marcado.puestos, titulares: marcado.titulares },
+    dibujoDeWyscout(perfiles?.ok === false ? null : perfiles?.sistemas),
+  );
+  const baseSuya = baseSuyaDe(suyos, marcado.titulares, informe, probable.sugerido);
   const reparto = huecosDelUltimoOnce(temporada, plantilla);
   const baseNuestra = reparto.ultimo ? Object.fromEntries(Object.entries(reparto.huecos).filter(([, id]) => id)) : null;
 
   const onceNuestro = onceNuestroDe(nuestros, aMano.nuestro, baseNuestra, plantilla);
   /* Lo colocado a mano en el campograma de Plantillas rivales, como en Duelos (16/11/2026). */
-  const marcado = normalizarOnce(onceDoc);
-  const onceSuyo = onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(colocacionDelCampograma(hoja, equipo, findInforme(informeDoc, equipo), marcado), marcado.titulares));
+  const onceSuyo = onceSuyoDe(suyos, baseSuya.lista, aMano.suyo, huecosDeBloques(probable.colocacion, probable.titulares));
 
   const fichaDe = new Map(plantilla.map((p) => [p.id, p]));
   const idHoja = new Map(hoja.map((f) => [playerKey(f as never), texto(f.ID_JUGADOR)]));

@@ -72,7 +72,21 @@ function filasDe(dia: DiaEntreno): Fila[] {
     .filter((f) => f.acciones.length > 0);
 }
 
-export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntreno[]; fecha: string; onAbre: (p: PeticionVisor) => void; onIrAlDia: (fecha: string) => void }) {
+export function PanelVisual({
+  dias,
+  fecha,
+  onAbre,
+  onIrAlDia,
+  nombreCompleto,
+}: {
+  dias: DiaEntreno[];
+  fecha: string;
+  onAbre: (p: PeticionVisor) => void;
+  onIrAlDia: (fecha: string) => void;
+  /** 27/11/2026 (jueces): el apodo guardado en el objetivo («Meso») con el nombre de la plantilla, por id de jugador. */
+  nombreCompleto?: (id: string, apodo: string) => string;
+}) {
+  const nombreDe = (j: { id: string; nombre: string }) => nombreCompleto?.(j.id, j.nombre) || j.nombre;
   const dia = dias.find((d) => d.fecha === fecha) ?? null;
   const val = dia?.sesion.validaciones;
   const filas = dia ? filasDe(dia) : [];
@@ -121,6 +135,19 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
   const provisional = total.total === 0;
   const propuestasBien = todas.filter((p) => p.accion.veredicto === "correcta").length;
   const propuestasMal = todas.length - propuestasBien;
+  /*
+  | 27/11/2026 (jueces): sin nada revisado, el titular era un recuento («125
+  | acciones propuestas»). Ahora dice la conclusión de la propuesta por el
+  | objetivo con más acciones («Bloque bajo: 27 de 62 bien en la propuesta») y,
+  | si hay más de uno, el que peor sale; siempre como propuesta sin validar.
+  */
+  const propuestaDe = (f: Fila) => ({ f, bien: f.acciones.filter((a) => a.veredicto === "correcta").length, n: f.acciones.length });
+  const propuestasPorObjetivo = filas.map(propuestaDe).sort((a, b) => b.n - a.n);
+  const principal = propuestasPorObjetivo[0] ?? null;
+  const masCuesta =
+    propuestasPorObjetivo.length >= 2
+      ? [...propuestasPorObjetivo].filter((x) => x.n >= MINIMO_PORCENTAJE && x.f !== principal?.f).sort((a, b) => a.bien / a.n - b.bien / b.n)[0] ?? null
+      : null;
   const lectura = [
     conMeta.length ? `${enMeta} de ${conMeta.length} objetivos con meta la cumplen` : "",
     mejor ? `lo mejor: «${corto(mejor.objetivo.objetivo, 48)}» (${mejor.c.pct} %)` : "",
@@ -161,7 +188,7 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
   /* Por jugador: con varios jugadores en un objetivo, la acción es de quien nombra el análisis (lib/entreno/jugador.ts, `duenoDe`). */
   const nombres = new Map<string, string>();
 
-  for (const f of filas) for (const j of f.objetivo.jugadores) if (normaliza(j.nombre)) nombres.set(normaliza(j.nombre), j.nombre);
+  for (const f of filas) for (const j of f.objetivo.jugadores) if (normaliza(j.nombre)) nombres.set(normaliza(j.nombre), nombreDe(j));
 
   const porJugador = [...nombres.entries()]
     .map(([clave, nombre]) => {
@@ -181,12 +208,22 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
         {provisional ? (
           <>
             <h2 id="panel-visual" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
-              <span className="tabular-nums">{todas.length} acciones propuestas</span>
-              <span className="text-base font-medium text-white/65">
-                {propuestasBien} parecen correctas y {propuestasMal} mejorables
-              </span>
+              {principal && filas.length > 1 ? (
+                <span className="min-w-0 break-words">
+                  {corto(principal.f.objetivo.objetivo, 48)}: <span className="tabular-nums">{principal.bien} de {principal.n} bien</span>
+                </span>
+              ) : (
+                <span className="tabular-nums">
+                  {principal ? `${corto(principal.f.objetivo.objetivo, 48)}: ` : ""}
+                  {propuestasBien} de {todas.length} bien
+                </span>
+              )}
+              <span className="text-base font-medium text-white/65">en la propuesta del análisis, sin validar</span>
             </h2>
-            <p className="text-sm text-white/70">Propuesta del análisis, sin revisar: va rayada y no cuenta en las cifras hasta que la valides.</p>
+            <p className="text-sm text-white/70">
+              {filas.length > 1 ? `En total, ${propuestasBien} de ${todas.length} acciones parecen correctas y ${propuestasMal} mejorables` : `${propuestasMal} ${propuestasMal === 1 ? "parece mejorable" : "parecen mejorables"}`}
+              {masCuesta ? `; lo que más cuesta: «${corto(masCuesta.f.objetivo.objetivo, 48)}» (${masCuesta.bien} de ${masCuesta.n})` : ""}. Va rayada y no cuenta en las cifras hasta que la valides.
+            </p>
           </>
         ) : (
         <h2 id="panel-visual" className="flex flex-wrap items-baseline gap-x-3 gap-y-1 text-2xl font-semibold leading-tight text-white sm:text-3xl">
@@ -238,16 +275,17 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
         ) : null}
       </div>
 
-      <Leyenda />
+      <Leyenda conMeta={filas.some((f) => f.objetivo.meta)} />
 
       {/* 3. Cumplimiento por objetivo */}
-      <Bloque titulo="Cumplimiento por objetivo" nota={`Reparto de sus acciones; la raya dorada es la meta. Porcentaje con ${MINIMO_PORCENTAJE} acciones o más; por debajo, la cuenta.`}>
+      {/* 27/11/2026 (jueces): la raya de la meta sólo se nombra si algún objetivo tiene meta guardada. */}
+      <Bloque titulo="Cumplimiento por objetivo" nota={`Reparto de sus acciones${filas.some((f) => f.objetivo.meta) ? "; la raya dorada es la meta del objetivo" : ""}. Porcentaje con ${MINIMO_PORCENTAJE} acciones o más; por debajo, la cuenta.`}>
         <div className="space-y-3.5">
           {filas.map((f) => (
             <FilaBarra
               key={f.objetivo.id}
               titulo={`${f.numero}. ${f.objetivo.objetivo}`}
-              detalle={[`${f.acciones.length} ${f.acciones.length === 1 ? "acción" : "acciones"}`, f.objetivo.jugadores.map((j) => j.nombre).join(", "), f.objetivo.tarea ? `Tarea ${f.objetivo.tarea}` : ""].filter(Boolean).join(" · ")}
+              detalle={[`${f.acciones.length} ${f.acciones.length === 1 ? "acción" : "acciones"}`, f.objetivo.jugadores.map(nombreDe).join(", "), f.objetivo.tarea ? `Tarea ${f.objetivo.tarea}` : ""].filter(Boolean).join(" · ")}
               acciones={f.acciones}
               val={val}
               c={f.c}
@@ -383,13 +421,16 @@ export function PanelVisual({ dias, fecha, onAbre, onIrAlDia }: { dias: DiaEntre
             </Bloque>
           ) : null}
           {porJugador.length >= 1 ? (
-            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, a cada uno se le cuenta la acción en la que se le nombra. Pulsa el nombre o la barra para ver sus clips; «Ficha», su ficha individual.">
+            <Bloque titulo="Por jugador" nota="Con varios jugadores en un objetivo, a cada uno se le cuenta la acción en la que se le nombra. Pulsa el nombre o la barra para ver sus clips; «Ficha», su ficha individual; «Seguimiento», un seguimiento nuevo con él ya elegido.">
               <div className="space-y-3.5">
                 {porJugador.map((j) => (
                   <FilaBarra
                     key={j.clave}
                     titulo={j.nombre}
-                    enlace={{ href: `/individual?nombre=${encodeURIComponent(j.nombre)}`, texto: "Ficha" }}
+                    enlaces={[
+                      { href: `/individual?nombre=${encodeURIComponent(j.nombre)}`, texto: "Ficha" },
+                      { href: `/individual?nombre=${encodeURIComponent(j.nombre)}&nuevo=seguimiento`, texto: "Seguimiento" },
+                    ]}
                     detalle={`${j.fs.length} ${j.fs.length === 1 ? "objetivo" : "objetivos"}`}
                     acciones={j.fs.flatMap((f) => f.acciones)}
                     val={val}
@@ -487,7 +528,7 @@ function Bloque({ titulo, nota, children }: { titulo: string; nota?: string; chi
   );
 }
 
-function Leyenda() {
+function Leyenda({ conMeta }: { conMeta: boolean }) {
   return (
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/60" aria-hidden>
       <span className="inline-flex items-center gap-1.5">
@@ -499,9 +540,11 @@ function Leyenda() {
       <span className="inline-flex items-center gap-1.5">
         <span className="h-2.5 w-4 rounded-sm" style={{ background: rayado("rgb(var(--rmcf-ink-rgb) / .5)") }} /> Rayado = propuesta sin revisar: no cuenta en las cifras
       </span>
-      <span className="inline-flex items-center gap-1.5">
-        <span className="h-3 w-0.5" style={{ background: "var(--rmcf-gold-ink)" }} /> Meta
-      </span>
+      {conMeta ? (
+        <span className="inline-flex items-center gap-1.5">
+          <span className="h-3 w-0.5" style={{ background: "var(--rmcf-gold-ink)" }} /> Meta
+        </span>
+      ) : null}
     </div>
   );
 }
@@ -536,12 +579,12 @@ function FilaBarra({
   meta,
   cumple = null,
   onAbre,
-  enlace,
+  enlaces,
 }: {
   titulo: string;
   detalle?: string;
-  /** Un enlace junto al título (16/11/2026: la ficha del jugador). */
-  enlace?: { href: string; texto: string };
+  /** Enlaces junto al título (16/11/2026: la ficha del jugador; 27/11/2026: y su seguimiento). */
+  enlaces?: { href: string; texto: string }[];
   acciones: AccionEntreno[];
   val: Record<string, Validacion> | undefined;
   c: Cuentas;
@@ -566,11 +609,11 @@ function FilaBarra({
           <p className="truncate text-sm text-white/90 hover:underline">{titulo}</p>
           {detalle ? <p className="truncate text-[11px] text-white/50">{detalle}</p> : null}
         </button>
-        {enlace ? (
-          <Link href={enlace.href} className={`shrink-0 rounded px-1 text-[11px] font-semibold text-[#C8A96B] hover:underline ${FOCO}`}>
-            {enlace.texto}
+        {enlaces?.map((e) => (
+          <Link key={e.href} href={e.href} className={`shrink-0 rounded px-1 text-[11px] font-semibold text-[#C8A96B] hover:underline ${FOCO}`}>
+            {e.texto}
           </Link>
-        ) : null}
+        ))}
       </div>
       <div className="min-w-0 space-y-1">
         <div className="relative">

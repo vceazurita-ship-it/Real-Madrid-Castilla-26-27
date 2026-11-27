@@ -31,6 +31,7 @@ import {
   Brain,
   CalendarDays,
   CheckCircle2,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   ClipboardList,
@@ -43,6 +44,7 @@ import {
   Pencil,
   PlayCircle,
   Plus,
+  PlusCircle,
   RotateCcw,
   Scale,
   Search,
@@ -50,6 +52,7 @@ import {
   Star,
   Target,
   Trash2,
+  UserRound,
   Users,
   Video,
   X,
@@ -69,7 +72,8 @@ import { useRatingsSeason } from "@/hooks/useRatings";
 import { AreaMejora } from "@/components/individual/AreaMejora";
 import { Tendencia } from "@/components/individual/Tendencia";
 import { OptaFicha } from "@/components/individual/OptaFicha";
-import { playerEntries, sortedMatches, summarizeAll } from "@/lib/ratings/compute";
+import { playerEntries } from "@/lib/ratings/compute";
+import { minutosDeValoraciones, partidosDeLiga } from "@/lib/plantilla/dashboard";
 import { EnlacesJugador, hrefJugador, type DestinoJugador } from "@/components/individual/EnlacesJugador";
 import { getPlayerImage, normalizePlayerName, PLAYER_PHOTO_FALLBACK } from "@/lib/playerImages";
 import { isHiddenPlayer } from "@/lib/hiddenPlayers";
@@ -1487,9 +1491,12 @@ function RejillaJugadores({
   onSelect,
   lista = false,
   rinde,
+  onRegistrar,
 }: {
   jugadores: MergedPlayer[];
   onSelect: (player: MergedPlayer) => void;
+  /** Abre su ficha con «Nuevo seguimiento» ya puesto (27/11/2026, ronda 9). */
+  onRegistrar?: (player: MergedPlayer) => void;
   /** Vista en lista compacta (la del móvil por defecto, 07/11/2026); «auto», según el ancho. */
   lista?: boolean | "auto";
   /** Nota de los 3 últimos y % de minutos, por ID (Valoraciones). */
@@ -1521,13 +1528,13 @@ function RejillaJugadores({
     enLista ? (
       <div className="grid min-w-0 gap-2 md:grid-cols-2">
         {grupo.map((player) => (
-          <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} rinde={rinde?.get(player.idJugador)} />
+          <FilaListaJugador key={player.idJugador} player={player} onSelect={onSelect} onRegistrar={onRegistrar} rinde={rinde?.get(player.idJugador)} />
         ))}
       </div>
     ) : (
       <div className={REJILLA}>
         {grupo.map((player, i) => (
-          <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} prioridad={primeros && i < 8} rinde={rinde?.get(player.idJugador)} />
+          <PlayerCard key={player.idJugador} player={player} onSelect={onSelect} onRegistrar={onRegistrar} prioridad={primeros && i < 8} rinde={rinde?.get(player.idJugador)} />
         ))}
       </div>
     );
@@ -1613,6 +1620,8 @@ const HOY_INICIO = (() => {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 })();
 const HOY_FIN = HOY_INICIO + 86_400_000 - 1;
+/* «AAAA-MM-DD» de hoy, como lo lee `partidosDeLiga` (el mismo corte que el Dashboard de plantilla). */
+const HOY_ISO = new Date(ABIERTA_EN).toISOString().slice(0, 10);
 
 /*
 | Días desde su último seguimiento (null si no tiene ninguno). 10/11/2026:
@@ -1685,15 +1694,31 @@ function MapaAtender({
       ? `Ninguno con ficha de scout pasa de ${DIAS_SIN_SEGUIMIENTO} días sin seguimiento`
       : `${atender.length} con ficha de scout a atender; el mejor valorado, ${nombreVisible(mejor.jugador.name)} (${coma(mejor.jugador.score)})`;
 
-  /* Rótulos sólo de los que hay que atender, sin pisarse: de arriba abajo, 11 unidades como mínimo entre uno y otro. */
-  const rotulos = [...atender]
+  /* 27/11/2026 (fútbol, ronda 9): dos jugadores en el mismo punto (Izan
+     Regueira y Rachad) salían montados. Los que caen a menos de un punto de
+     distancia van en un solo rótulo, «Izan Regueira · Rachad». */
+  const grupos = [...atender]
     .sort((a, b) => y(a.jugador.score) - y(b.jugador.score))
-    .reduce<{ f: (typeof atender)[number]; xx: number; yy: number; izquierda: boolean }[]>((acc, f) => {
+    .reduce<{ f: (typeof atender)[number]; nombres: string[] }[]>((acc, f) => {
+      const junto = acc.find(
+        (g) => Math.abs(x(g.f.dias) - x(f.dias)) < 12 && Math.abs(y(g.f.jugador.score) - y(f.jugador.score)) < 8,
+      );
+      if (junto) {
+        junto.nombres.push(nombreVisible(f.jugador.name));
+        return acc;
+      }
+      return [...acc, { f, nombres: [nombreVisible(f.jugador.name)] }];
+    }, []);
+  /* Rótulos sólo de los que hay que atender, sin pisarse: de arriba abajo, 11 unidades como mínimo entre uno y otro. */
+  const rotulos = grupos.reduce<{ f: (typeof atender)[number]; texto: string; xx: number; yy: number; izquierda: boolean }[]>(
+    (acc, { f, nombres }) => {
       const previo = acc.length ? acc[acc.length - 1].yy : -Infinity;
       const yy = Math.max(y(f.jugador.score) + 3.5, previo + 11);
       const xx = x(f.dias);
-      return [...acc, { f, xx, yy, izquierda: xx > W * 0.7 }];
-    }, []);
+      return [...acc, { f, texto: nombres.join(" · "), xx, yy, izquierda: xx > W * 0.55 }];
+    },
+    [],
+  );
 
   const marcasY: number[] = [];
   for (let v = yMin; v <= yMax; v += 1) marcasY.push(v);
@@ -1736,7 +1761,7 @@ function MapaAtender({
             </circle>
           );
         })}
-        {rotulos.map(({ f, xx, yy, izquierda }) => (
+        {rotulos.map(({ f, texto, xx, yy, izquierda }) => (
           <text
             key={f.jugador.idJugador}
             x={izquierda ? xx - 7 : xx + 7}
@@ -1746,11 +1771,15 @@ function MapaAtender({
             fontWeight={600}
             style={{ fill: "rgb(var(--rmcf-ink-rgb) / .9)" }}
           >
-            {nombreVisible(f.jugador.name)}
+            {texto}
           </text>
         ))}
       </svg>
-      <p className="mt-1 text-[11px] text-white/60">
+      {/* 27/11/2026 (análisis, ronda 9): la base y el umbral, en texto, también en el móvil. */}
+      <p className="mt-1 text-[12px] text-white/65">
+        {`Base: ${puntos.length} de ${filas.length} de campo con ficha de scout. Franja dorada «a atender»: más de ${DIAS_SIN_SEGUIMIENTO} días sin seguimiento.`}
+      </p>
+      <p className="mt-0.5 text-[11px] text-white/60">
         Nota del scout (0-10) frente a días desde su último seguimiento. Pincha un punto para abrir su ficha.
         {filas.length > puntos.length ? ` ${filas.length - puntos.length} sin ficha de scout van sólo en la lista.` : ""}
       </p>
@@ -1790,7 +1819,8 @@ function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer;
           className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap"
         >
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(rinde.ultimas3) }} />
-          <span>{`partidos (últ. ${rinde.nUltimas})`}</span>
+          {/* 27/11/2026 (fútbol, ronda 9): que no se confunda con la del scout. */}
+          <span>{`media últ. ${rinde.nUltimas} partidos`}</span>
           <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
           {rinde.nUltimas < 3 && <span title="Menos de tres partidos con nota: tendencia">· tend.</span>}
         </span>
@@ -1835,7 +1865,25 @@ const ACCESOS_FICHA: { destino: DestinoJugador; texto: string; Icono: typeof Sta
   { destino: "calendario", texto: "Calendario", Icono: CalendarDays },
 ];
 
-function AccesosFicha({ player, enLista = false }: { player: MergedPlayer; enLista?: boolean }) {
+/*
+| 27/11/2026 (ronda 9, marketing y análisis): seis botones iguales en cada
+| una de las 22 fichas eran ruido. Ahora dos acciones a la vista —abrir su
+| ficha y registrar un seguimiento con él ya elegido— y el resto (notas,
+| comparativa, vídeos, Data, su seguimiento y su calendario) en «Más», que se
+| despliega dentro de la propia ficha. Los porteros no llevan «Registrar»
+| (su seguimiento lo lleva su entrenador). Mismo alto en todas las fichas.
+*/
+function AccesosFicha({
+  player,
+  enLista = false,
+  onSelect,
+  onRegistrar,
+}: {
+  player: MergedPlayer;
+  enLista?: boolean;
+  onSelect?: (player: MergedPlayer) => void;
+  onRegistrar?: (player: MergedPlayer) => void;
+}) {
   const portero = esPortero(player.linea);
   const jugador = { id: player.idJugador, nombre: nombreVisible(player.name) };
   const accesos = ACCESOS_FICHA.filter((a) => !portero || (a.destino !== "dashboard" && a.destino !== "calendario"));
@@ -1847,24 +1895,63 @@ function AccesosFicha({ player, enLista = false }: { player: MergedPlayer; enLis
     dashboard: "Su seguimiento en el Dashboard Seguimiento, ya filtrado",
     calendario: "Su seguimiento en el calendario",
   };
+  const boton =
+    "inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border px-2 text-[12px] font-semibold transition";
 
   return (
-    <nav
-      aria-label={`Accesos de ${jugador.nombre}`}
-      className={enLista ? "flex min-w-0 flex-wrap gap-1" : "grid min-h-[100px] min-w-0 grid-cols-2 content-start gap-1"}
-    >
-      {accesos.map(({ destino, texto, Icono }) => (
-        <Link
-          key={destino}
-          href={hrefJugador(destino, jugador)}
-          title={`${titulo[destino]} · ${jugador.nombre}`}
-          onClick={(e) => e.stopPropagation()}
-          className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+    <nav aria-label={`Accesos de ${jugador.nombre}`} className="flex min-w-0 flex-wrap items-center gap-1">
+      {onSelect && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onSelect(player);
+          }}
+          title={`Abrir la ficha completa de ${jugador.nombre}`}
+          className={`${boton} border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:bg-[#C8A96B]/25`}
         >
-          <Icono size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
-          <span className="truncate">{texto}</span>
-        </Link>
-      ))}
+          <UserRound size={12} className="shrink-0" aria-hidden />
+          Ficha
+        </button>
+      )}
+      {onRegistrar && !portero && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onRegistrar(player);
+          }}
+          title={`Nuevo seguimiento con ${jugador.nombre} ya elegido`}
+          className={`${boton} border-white/15 bg-white/[0.03] text-white/80 hover:border-[#C8A96B]/50 hover:text-white`}
+        >
+          <PlusCircle size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          Registrar
+        </button>
+      )}
+      {/* Abierto, ocupa la fila entera: los accesos caen debajo sin salirse de la ficha. */}
+      <details className="group/mas min-w-0 open:basis-full" onClick={(e) => e.stopPropagation()}>
+        <summary
+          className={`${boton} w-fit cursor-pointer list-none border-white/10 bg-white/[0.03] text-white/75 hover:text-white [&::-webkit-details-marker]:hidden`}
+          title={`Notas, comparativa, vídeos, Data${portero ? "" : ", su seguimiento y su calendario"}`}
+        >
+          Más
+          <ChevronDown size={12} className="shrink-0 transition group-open/mas:rotate-180" aria-hidden />
+        </summary>
+        <div className={`mt-1 grid min-w-0 gap-1 ${enLista ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-2"}`}>
+          {accesos.map(({ destino, texto, Icono }) => (
+            <Link
+              key={destino}
+              href={hrefJugador(destino, jugador)}
+              title={`${titulo[destino]} · ${jugador.nombre}`}
+              onClick={(e) => e.stopPropagation()}
+              className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+            >
+              <Icono size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+              <span className="min-w-0 break-words leading-tight">{texto}</span>
+            </Link>
+          ))}
+        </div>
+      </details>
     </nav>
   );
 }
@@ -1872,11 +1959,13 @@ function AccesosFicha({ player, enLista = false }: { player: MergedPlayer; enLis
 function PlayerCard({
   player,
   onSelect,
+  onRegistrar,
   prioridad = false,
   rinde,
 }: {
   player: MergedPlayer;
   onSelect: (player: MergedPlayer) => void;
+  onRegistrar?: (player: MergedPlayer) => void;
   /** Las primeras de la rejilla cargan ya: con «lazy», en el móvil salía la inicial. */
   prioridad?: boolean;
   rinde?: Rinde;
@@ -1986,7 +2075,7 @@ function PlayerCard({
           llevan el seguimiento con su entrenador). Ronda 7: con rótulo. */}
       {!player.externo && (
         <div className="min-w-0 border-t border-white/10 px-2 py-1.5">
-          <AccesosFicha player={player} />
+          <AccesosFicha player={player} onSelect={onSelect} onRegistrar={onRegistrar} />
         </div>
       )}
     </div>
@@ -2004,7 +2093,17 @@ function baseFicha(player: MergedPlayer) {
 }
 
 /** Una fila de la vista en lista (07/11/2026): lo mismo que la ficha, en 56 px. */
-function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; onSelect: (player: MergedPlayer) => void; rinde?: Rinde }) {
+function FilaListaJugador({
+  player,
+  onSelect,
+  onRegistrar,
+  rinde,
+}: {
+  player: MergedPlayer;
+  onSelect: (player: MergedPlayer) => void;
+  onRegistrar?: (player: MergedPlayer) => void;
+  rinde?: Rinde;
+}) {
   const { valoradas, pocas, detalle } = baseFicha(player);
   /* 20/11/2026 (ronda 7): la lista es la vista de entrada; lleva los mismos accesos, con nombre, que la ficha. */
   return (
@@ -2041,7 +2140,7 @@ function FilaListaJugador({ player, onSelect, rinde }: { player: MergedPlayer; o
     </button>
       {!player.externo && (
         <div className="min-w-0 px-3 pb-2">
-          <AccesosFicha player={player} enLista />
+          <AccesosFicha player={player} enLista onSelect={onSelect} onRegistrar={onRegistrar} />
         </div>
       )}
     </div>
@@ -2700,27 +2799,31 @@ export default function IndividualPage() {
 
   /* 16/11/2026 (ronda 18): nota de los tres últimos y minutos, por jugador,
      de Valoraciones; los posibles son 90′ por partido de la temporada. */
+  /* 27/11/2026 (fútbol, ronda 9): la misma cuenta que el Dashboard de
+     plantilla (`minutosDeValoraciones`: sin partidos ocultos ni futuros y por
+     el ID vigente). Antes sumaba todo lo guardado y no casaban. */
+  const cuentaValoraciones = useMemo(
+    () => (ratingsSeason ? minutosDeValoraciones(partidosDeLiga(ratingsSeason, HOY_ISO)) : null),
+    [ratingsSeason],
+  );
   const rinde = useMemo(() => {
     const m = new Map<string, Rinde>();
-    if (!ratingsSeason) return m;
+    if (!cuentaValoraciones) return m;
 
-    const posibles = sortedMatches(ratingsSeason).length * 90;
-
-    summarizeAll(ratingsSeason).forEach((s, id) => {
-      const notas = s.entries.map((e) => e.entry.rating).filter((n) => n > 0);
-      const ultimas = notas.slice(-3);
+    cuentaValoraciones.porJugador.forEach((c, id) => {
+      const ultimas = c.notas.slice(-3);
       m.set(id, {
         ultimas3: ultimas.length ? ultimas.reduce((a, b) => a + b, 0) / ultimas.length : null,
         nUltimas: ultimas.length,
-        minutos: s.minutes,
-        posibles,
+        minutos: c.minutos,
+        posibles: cuentaValoraciones.posibles,
       });
     });
 
     return m;
-  }, [ratingsSeason]);
+  }, [cuentaValoraciones]);
 
-  const posiblesValoraciones = ratingsSeason ? sortedMatches(ratingsSeason).length * 90 : 0;
+  const posiblesValoraciones = cuentaValoraciones?.posibles ?? 0;
 
   /* 16/11/2026 (ronda 18): lo primero, un gráfico con conclusión: días desde
      el último seguimiento de cada jugador de campo del Castilla, con la raya
@@ -3066,6 +3169,14 @@ export default function IndividualPage() {
     setTrackingForm(inicial);
 
     setShowTrackingForm(true);
+  };
+
+  /* 27/11/2026 (ronda 9): «Registrar» de cada ficha: su ficha abierta en
+     Seguimiento con el formulario nuevo ya puesto. */
+  const registrarDe = (player: MergedPlayer) => {
+    goToPlayer(player);
+    setActiveTab("seguimiento");
+    openTrackingForm();
   };
 
   const openVideoForm = (video?: VideoItem) => {
@@ -4130,9 +4241,12 @@ export default function IndividualPage() {
                 <div className="mt-1 space-y-1.5 pl-5">
                   {posiblesValoraciones > 0 && (
                     <p>
-                      «scout», la nota de su ficha de scout · «partidos (últ. 3)», la media de sus 3 últimas notas en Valoraciones (con menos, «tend.») · «810′ de {posiblesValoraciones}′ · Valoraciones», sus minutos de los posibles en Valoraciones (BeSoccer; el Dashboard de plantilla usa Wyscout). Sin minutos, la línea no sale.
+                      «scout», la nota de su ficha de scout · «media últ. 3 partidos», la nota media de sus 3 últimos partidos en Valoraciones (con menos, «tend.») · «810′ de {posiblesValoraciones}′ · Valoraciones», sus minutos de los posibles en Valoraciones (BeSoccer; la misma cuenta que el Dashboard de plantilla, que pone primero los de Wyscout). Sin minutos, la línea no sale.
                     </p>
                   )}
+                  <p>
+                    «Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Más», sus notas, su comparativa, sus vídeos, su Data análisis, su seguimiento y su calendario.
+                  </p>
                   <p>
                     «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
                   </p>
@@ -4334,7 +4448,7 @@ export default function IndividualPage() {
 
                     return (
                       <section key={line.key} className="min-w-0">
-                        <div className="mb-4 flex min-w-0 items-center gap-3">
+                        <div className="mb-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
                           <span
                             className="h-2 w-2 shrink-0 rounded-full"
                             style={{ background: line.color }}
@@ -4349,7 +4463,7 @@ export default function IndividualPage() {
                           {/* 16/11/2026: una sola nota para los porteros, en
                               vez del mismo rótulo repetido en cada ficha. */}
                           {line.key === "Portero" && (
-                            <span className="min-w-0 truncate text-[11px] text-white/50">
+                            <span className="order-last min-w-0 basis-full text-[11px] text-white/60 sm:order-none sm:basis-auto">
                               Seguimiento con su entrenador, en un registro aparte
                             </span>
                           )}
@@ -4359,14 +4473,14 @@ export default function IndividualPage() {
                           </span>
                         </div>
 
-                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
+                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} onRegistrar={registrarDe} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
                       </section>
                     );
                   })}
                 </div>
               ) : (
                 <div className="mt-8">
-                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
+                  <RejillaJugadores jugadores={filtered} onSelect={openPlayer} onRegistrar={registrarDe} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
                 </div>
               )}
             </div>

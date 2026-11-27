@@ -34,8 +34,14 @@ export function RevisionSemana({
   puntos,
   onAbrir,
   onPlanificar,
+  cerrada = false,
 }: {
   puntos: PuntoRevision[];
+  /**
+   * El partido ya se jugó (27/11/2026, jueces ronda 9): no es «antes de
+   * cerrarla», es el cierre. Sale plegada, con lo que quedó por ajustar.
+   */
+  cerrada?: boolean;
   onAbrir: (dia: DiaKey, trabajo: Trabajo) => void;
   onPlanificar: (falta: NonNullable<PuntoRevision["falta"]>) => void;
 }) {
@@ -44,6 +50,38 @@ export function RevisionSemana({
   if (!puntos.length) return null;
 
   const pendientes = puntos.filter((punto) => punto.tono !== "bien").length;
+
+  if (cerrada) {
+    return (
+      <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+        <summary className="flex min-h-[40px] cursor-pointer select-none flex-wrap items-center gap-x-2 text-sm font-semibold text-white/80">
+          <CheckCircle2 size={15} className="shrink-0 text-emerald-300" aria-hidden />
+          Cierre de la semana
+          <span className="text-[12px] font-normal text-white/55">
+            {pendientes
+              ? `· el partido ya se jugó; ${pendientes} ${pendientes === 1 ? "cosa quedó" : "cosas quedaron"} por ajustar en el plan`
+              : "· el partido ya se jugó y el plan quedó completo"}
+          </span>
+        </summary>
+        <ul className="mt-3 divide-y divide-white/[0.06] rounded-xl border border-white/10 bg-white/[0.02]">
+          {[...puntos]
+            .sort((a, b) => (a.tono === "bien" ? 1 : 0) - (b.tono === "bien" ? 1 : 0))
+            .map((punto) => {
+              const { Icono, clase, etiqueta } = ICONO[punto.tono];
+              return (
+                <li key={punto.id} className="flex min-w-0 items-start gap-2.5 px-3 py-2">
+                  <Icono size={14} className={`mt-0.5 shrink-0 ${clase}`} aria-label={etiqueta} />
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-medium leading-snug text-white">{punto.titulo}</p>
+                    <p className="mt-0.5 whitespace-pre-line text-[11.5px] leading-snug text-white/60">{punto.detalle}</p>
+                  </div>
+                </li>
+              );
+            })}
+        </ul>
+      </details>
+    );
+  }
 
   /*
   | Por gravedad (21/10/2026): lo que hay que corregir, lo que conviene mirar y

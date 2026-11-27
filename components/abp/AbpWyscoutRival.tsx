@@ -255,6 +255,15 @@ function lectura(
     const de = sitio.de ?? equipos;
     const puesto = sitio.puesto;
 
+    /*
+    | 27/11/2026 (jueces, ronda 9): «5.º de 20» salía «mejor que 8 de cada 10»
+    | porque la frase salía del percentil y el puesto, de otra cuenta. Con el
+    | puesto, la frase sale del puesto: deja detrás a (de − puesto) de los otros
+    | (de − 1), redondeado hacia abajo. 5.º de 20 → mejor que 7 de cada 10.
+    */
+    const desdePuesto = deCadaDiezPorPuesto(puesto, de, mejorAlto);
+    if (desdePuesto) base.texto = desdePuesto;
+
     if (mejorAlto === null) {
       if (puesto === 1) return { texto: `el que más de los ${de}`, bueno: null };
       if (puesto === de) return { texto: `el que menos de los ${de}`, bueno: null };
@@ -291,6 +300,23 @@ function lectura(
   const extremo = /^el (mejor|peor|que más|que menos) de los/.test(base.texto);
 
   return extremo ? base : { ...base, texto: `${base.texto} (${puesto}.º de ${equipos}${mejorAlto === null ? ", de más a menos" : ""})` };
+}
+
+/**
+ * «Mejor/peor que X de cada 10» desde el puesto (1.º = el mejor o el que más).
+ * X = suelo((de − puesto) / (de − 1) × 10) por arriba; por abajo, al revés.
+ * En la mitad (X < 6 por los dos lados) no devuelve nada: «en la media de la liga».
+ */
+function deCadaDiezPorPuesto(puesto: number, de: number, mejorAlto?: boolean | null): string | null {
+  if (!(de >= 2) || puesto < 1 || puesto > de) return null;
+
+  const arriba = Math.floor(((de - puesto) / (de - 1)) * 10);
+  const abajo = Math.floor(((puesto - 1) / (de - 1)) * 10);
+
+  if (arriba >= 6) return mejorAlto === null ? `más que ${Math.min(9, arriba)} de cada 10` : `mejor que ${Math.min(9, arriba)} de cada 10`;
+  if (abajo >= 6) return mejorAlto === null ? `menos que ${Math.min(9, abajo)} de cada 10` : `peor que ${Math.min(9, abajo)} de cada 10`;
+
+  return "en la media de la liga";
 }
 
 function lecturaSinPuesto(percentil: number, equipos: number, mejorAlto?: boolean | null) {
@@ -369,10 +395,21 @@ function consignaOfensiva(aspecto: Aspecto | undefined, equipos: number, nuestro
   const partes: { dato: string; frase: string; tarea: string }[] = [];
 
   if (corners) {
+    /*
+    | 27/11/2026 (jueces, ronda 9): «objetivo: 8 córners a favor» no salía de
+    | ningún dato nuestro. Ahora la meta es la mediana de la liga en córners a
+    | favor por partido (la misma unidad), con nuestro dato al lado (Wyscout).
+    */
+    const nuestros = nuestro?.filas.find((f) => f.nombre === "Córners");
+    const meta = nuestros
+      ? nuestros.valor < nuestros.mediana
+        ? `subir de nuestros ${cifra1(nuestros.valor, nuestros.unidad)} córners a favor por partido a la mediana de la liga, ${cifra1(nuestros.mediana, nuestros.unidad)}`
+        : `sostener nuestros ${cifra1(nuestros.valor, nuestros.unidad)} córners a favor por partido, por encima de la mediana de la liga (${cifra1(nuestros.mediana, nuestros.unidad)})`
+      : `llegar a la mediana de la liga en córners a favor por partido`;
     partes.push({
       dato: `concede ${cifra1(corners.valor, corners.unidad)} córners por partido (mediana ${cifra1(corners.mediana, corners.unidad)}; ${lectura(corners.percentil, equipos, false, corners).texto})`,
       frase: "llegar a línea de fondo y forzar córner",
-      tarea: `dos rutinas de córner ofensivo; objetivo en el partido: ${Math.ceil(corners.valor)} córners a favor, por encima de los ${cifra1(corners.valor, corners.unidad)} que concede de media`,
+      tarea: `dos rutinas de córner ofensivo; objetivo: ${meta} (córners por partido, Wyscout)`,
     });
   }
 
@@ -581,7 +618,8 @@ function queHacemosConCentros(
           ? ["el centro es una de sus vías", "cerrar el carril exterior y ganar el área", `basculación al carril exterior y defensa del área; objetivo: dejarle en la mediana de la liga (${cifra1(volumen.mediana, volumen.unidad)} centros) o menos`]
           : bien
             ? ["centra poco pero bien", "cuando centre, tapar al rematador del segundo palo", "defensa del centro con marca al rematador del segundo palo; objetivo: ningún remate suyo en el segundo palo"]
-            : ["su peligro no llega por fuera", "cerrar el pase interior antes que el centro", `bloque medio con los pasillos interiores cerrados; objetivo: que siga por debajo de ${cifra1(volumen.valor, volumen.unidad)} centros por partido sin abrirle el pase por dentro`];
+            : ["su peligro no llega por fuera", "cerrar el pase interior antes que el centro", /* 27/11/2026 (ronda 9): el objetivo era su propia media; ahora, la referencia de la liga. */
+              `bloque medio con los pasillos interiores cerrados; objetivo: que no llegue a la mediana de la liga (${cifra1(volumen.mediana, volumen.unidad)} centros por partido; hoy hace ${cifra1(volumen.valor, volumen.unidad)}) sin abrirle el pase por dentro`];
 
   const nosCentran: BloqueCentros = {
     rotulo: "Su ataque · cuando nos centran",
@@ -608,6 +646,8 @@ export function AbpWyscoutRival({
   plantilla,
   ambito = "abp",
   acciones = [],
+  lado,
+  onCambiaLado,
 }: {
   equipo: string;
   plantilla: RivalPlayerAerial[];
@@ -615,11 +655,20 @@ export function AbpWyscoutRival({
   ambito?: "abp" | "area";
   /** Sus acciones de las hojas de ABP: de ahí sale cómo defiende el córner, si está escrito. */
   acciones?: RivalScoutAction[];
+  /**
+   * 27/11/2026 (jueces, ronda 9): el conmutador «Su ataque / Su defensa» de la
+   * página. Con «Su ataque», su balón parado a favor y quién remata; con «Su
+   * defensa», lo que concede y nuestro córner. Sin él, todo junto (como antes).
+   */
+  lado?: "ofensivo" | "defensivo";
+  onCambiaLado?: (lado: "ofensivo" | "defensivo") => void;
 }) {
-  const [estado, setEstado] = useState<{ equipo: string; datos: Datos | null }>({
+  const [estado, setEstado] = useState<{ equipo: string; datos: Datos | null; fallo?: boolean }>({
     equipo: "",
     datos: null,
   });
+  /* 27/11/2026 (jueces, ronda 9): un hueco mudo tras la carga contaba como fallo; ahora hay «Reintentar». */
+  const [intento, setIntento] = useState(0);
 
   useEffect(() => {
     if (!equipo) return;
@@ -641,13 +690,13 @@ export function AbpWyscoutRival({
       .catch((error) => {
         console.error("[abp-rival] Wyscout", error);
 
-        if (!cancelado) setEstado({ equipo, datos: null });
+        if (!cancelado) setEstado({ equipo, datos: null, fallo: true });
       });
 
     return () => {
       cancelado = true;
     };
-  }, [equipo, ambito]);
+  }, [equipo, ambito, intento]);
 
   /*
   | NUESTRO DATO AL LADO DEL SUYO (16/11/2026, segunda vuelta, fútbol y
@@ -1102,10 +1151,41 @@ export function AbpWyscoutRival({
       );
     }
 
-    return null;
+    /*
+    | 27/11/2026 (jueces, ronda 9): después de cargar, sin nada que pintar, se
+    | dice por qué y qué hacer, en vez de dejar la pestaña en blanco.
+    */
+    return (
+      <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-sm text-white/75" role="status">
+        <p className="font-semibold text-white">
+          {estado.fallo
+            ? `No ha llegado ${ambito === "area" ? "lo de sus centros" : "su balón parado"} de Wyscout.`
+            : `${equipo} todavía no tiene ${ambito === "area" ? "centros" : "balón parado"} en la descarga de Wyscout de esta liga.`}
+        </p>
+        <p className="mt-1 text-[13px] text-white/60">
+          {estado.fallo
+            ? "Puede ser la conexión o que el servidor esté despertando: vuelve a pedirlo."
+            : "Llega con la descarga semanal de los lunes; mientras, lo que hay de él está en sus goles en vídeo y en Plantillas rivales."}
+        </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setIntento((n) => n + 1)}
+            className="inline-flex min-h-9 items-center rounded-full border border-[#C8A96B]/50 bg-[#C8A96B]/10 px-3 py-1 text-xs font-semibold text-[var(--rmcf-gold-ink,#C8A96B)] max-sm:min-h-11"
+          >
+            Reintentar
+          </button>
+          <EnlacesDelRival equipo={equipo} incluye={["goles", "encaja"]} />
+        </div>
+      </div>
+    );
   }
 
   const nEquipos = datos?.equipos ?? 20;
+  const porLado = ambito === "abp" && !!lado;
+  const aspectosVisibles = porLado
+    ? aspectos.filter((a) => (lado === "ofensivo" ? a.clave !== "abpDef" : a.clave !== "abpOf"))
+    : aspectos;
   const partidosWy = aspectos[0]?.filas[0]?.partidos ?? null;
   const ofensiva = ambito === "abp" ? consignaOfensiva(aspectos.find((a) => a.clave === "abpDef"), nEquipos, nuestroAbp) : [];
   const conTendencia = golesOpta
@@ -1173,6 +1253,11 @@ export function AbpWyscoutRival({
     const dicePoco = /\bpoco|apenas|rara vez|no centra|evita/.test(texto);
     const puesto = lectura(volumenCentros.percentil, nEquipos, null, volumenCentros).texto;
 
+    /* 27/11/2026 (ronda 9): el veredicto corto, con icono; el texto entero va plegado. */
+    const coincide = diceMucho && !dicePoco ? !centros.poco : dicePoco && !diceMucho ? centros.poco : null;
+    const wyscoutDice = `${centros.poco ? "centra poco" : "centra mucho"}: ${cifra1(volumenCentros.valor, volumenCentros.unidad)} por partido, ${puesto}`;
+    const scoutDice = diceMucho && !dicePoco ? "que centra mucho" : dicePoco && !diceMucho ? "que centra poco" : null;
+
     const veredicto =
       diceMucho && !dicePoco
         ? centros.poco
@@ -1184,7 +1269,7 @@ export function AbpWyscoutRival({
             : `no lo respalda: Wyscout le cuenta muchos centros (${puesto}); conviene revisarlo en vídeo`
           : `Wyscout le cuenta ${centros.poco ? "pocos" : "muchos"} centros (${puesto})`;
 
-    return { veredicto };
+    return { veredicto, coincide, wyscoutDice, scoutDice };
   })();
 
   /*
@@ -1270,19 +1355,29 @@ export function AbpWyscoutRival({
                     )}
                   </p>
                   {b.rotulo.startsWith("Su ataque") && colectivo && contraste && (
-                    <p className="mt-1 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-[13px] text-white/70">
-                      <b className="text-white/85">Contraste con Scout Colectivo</b>
-                      {" · "}
-                      {colectivo.lineas.map((l) => `${l.rotulo}: «${l.texto}»`).join("; ")}
-                      {" — "}
-                      {contraste.veredicto}.{" "}
+                    <div className="mt-1 space-y-0.5 rounded-lg border border-white/[0.07] bg-white/[0.02] px-3 py-1.5 text-[13px] text-white/75">
+                      {/* 27/11/2026 (ronda 9): dos líneas cortas y un veredicto; las citas, plegadas. */}
+                      <p>
+                        <span aria-hidden className="mr-1 font-bold" style={{ color: contraste.coincide === true ? "var(--rmcf-rate-good, #15803D)" : contraste.coincide === false ? "var(--rmcf-rate-low, #DC2626)" : undefined }}>
+                          {contraste.coincide === true ? "✓" : contraste.coincide === false ? "≠" : "·"}
+                        </span>
+                        <b className="text-white/85">
+                          {contraste.coincide === true ? "El vídeo y Wyscout coinciden" : contraste.coincide === false ? "El vídeo y Wyscout no coinciden" : "Vídeo y Wyscout"}
+                        </b>
+                      </p>
+                      {contraste.scoutDice && <p>Scout Colectivo (vídeo) dice {contraste.scoutDice}.</p>}
+                      <p>Wyscout: {contraste.wyscoutDice}.{contraste.coincide === false ? " Mirar en vídeo desde dónde centra." : ""}</p>
+                      <details className="text-[12px] text-white/60">
+                        <summary className="cursor-pointer select-none text-[var(--rmcf-gold-ink,#C8A96B)]">El texto del Scout Colectivo</summary>
+                        <p className="mt-1">{colectivo.lineas.map((l) => `${l.rotulo}: «${l.texto}»`).join("; ")}</p>
+                      </details>
                       <Link
                         href={colectivo.id ? `/scout-rival-collective?rival=${encodeURIComponent(colectivo.id)}` : "/scout-rival-collective"}
-                        className="text-[#C8A96B] hover:underline"
+                        className="text-[12px] text-[var(--rmcf-gold-ink,#C8A96B)] hover:underline"
                       >
                         Ver el análisis →
                       </Link>
-                    </p>
+                    </div>
                   )}
                 </div>
   );
@@ -1298,7 +1393,7 @@ export function AbpWyscoutRival({
           icon={BarChart3}
         >
           {/* Lo que hacemos, en el primer pliegue (11/11/2026, marketing): encima de la tabla y de los goles. */}
-          {ofensiva.length > 0 && (
+          {ofensiva.length > 0 && lado !== "ofensivo" && (
             <div className="mb-4 space-y-2 border-b border-white/10 pb-3 text-sm text-white/85">
               <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">Nuestro balón parado · qué hacemos</p>
               {ofensiva.map((o) => (
@@ -1352,7 +1447,7 @@ export function AbpWyscoutRival({
           {/* El mapa, lo primero que se ve (16/11/2026, ronda 18): antes iba al final del panel. */}
           {mapaCentros}
 
-          {defensaCorner && (
+          {defensaCorner && lado !== "ofensivo" && (
             <p className="mb-4 border-b border-white/10 pb-3 text-sm text-white/85">
               <b className="text-white">Cómo defiende el córner: </b>
               {defensaCorner.tipo === "zonal" ? "en zona" : defensaCorner.tipo === "hombre" ? "al hombre" : "mixto"}
@@ -1445,8 +1540,8 @@ export function AbpWyscoutRival({
             {hayEstilo ? " Sin flecha: cifra de estilo, ni buena ni mala por sí misma; el puesto va de más a menos." : ""}
           </p>
 
-          <div className="grid grid-cols-1 gap-5 md:grid-cols-2">
-            {aspectos.map((aspecto) => (
+          <div className={`grid grid-cols-1 gap-5 ${aspectosVisibles.length > 1 ? "md:grid-cols-2" : "md:max-w-xl"}`}>
+            {aspectosVisibles.map((aspecto) => (
               <div key={aspecto.clave} className="min-w-0">
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">
                   {/* Quién centra a quién, en el rótulo (16/11/2026, ronda 18, análisis): los dos bloques se leían al revés. */}
@@ -1537,10 +1632,22 @@ export function AbpWyscoutRival({
             ))}
           </div>
 
+          {/* Lo del otro lado, a un toque (27/11/2026, ronda 9): cada pestaña lee un solo lado. */}
+          {porLado && onCambiaLado && (
+            <button
+              type="button"
+              onClick={() => onCambiaLado(lado === "ofensivo" ? "defensivo" : "ofensivo")}
+              className="mt-3 text-[13px] font-semibold text-[var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+            >
+              {lado === "ofensivo"
+                ? "Lo que concede a balón parado y qué hacemos con nuestro córner: en «Su defensa» →"
+                : "Su balón parado a favor, quién lo lanza y quién remata: en «Su ataque» →"}
+            </button>
+          )}
         </Panel>
       )}
 
-      {esperaQuien && (
+      {esperaQuien && lado !== "defensivo" && (
         <div
           className="rounded-2xl border border-white/10 bg-white/[0.03] p-4"
           role="status"
@@ -1552,7 +1659,7 @@ export function AbpWyscoutRival({
         </div>
       )}
 
-      {salenQuien && (
+      {salenQuien && lado !== "defensivo" && (
         <Panel
           title={sacan.length > 0 && filasRemata.length > 0 ? "Quién lo lanza y quién remata" : sacan.length > 0 ? "Quién lo lanza" : "Quién remata"}
           subtitle={`${lanzaDeWyscout ? "Lanzan: Wyscout, estimado (≈) con lanzamientos por 90 × minutos" : "Lanzan: etiquetas de la plantilla"}. Rematan: etiquetas de Plantillas rivales${conRemates ? " y remates contados en nuestras hojas de ABP" : ""}${titulares ? ", cruzados con su once probable" : ""}.`}
@@ -1650,7 +1757,7 @@ export function AbpWyscoutRival({
                     <tr className="text-left text-[11px] text-white/50">
                       <th className="py-0.5 pr-2 font-semibold">Jugador</th>
                       <th className="py-0.5 pr-2 text-right font-semibold">Altura</th>
-                      {conAereos && <th className="py-0.5 pr-2 text-right font-semibold">Duelos aéreos</th>}
+                      {conAereos && <th className="py-0.5 pr-2 text-right font-semibold">Aéreos ganados</th>}
                       {conRemates && <th className="py-0.5 text-right font-semibold">Remates ABP</th>}
                     </tr>
                   </thead>
@@ -1668,7 +1775,13 @@ export function AbpWyscoutRival({
                         {conAereos && (
                           <td className="py-1 pr-2 text-right tabular-nums">
                             {uno.aereoPct != null ? `${Math.round(uno.aereoPct)} %` : ""}
-                            {uno.aereoPct != null && uno.duelos ? <span className="ml-1 text-[11px] text-white/50">de {Math.round(uno.duelos)}</span> : null}
+                            {/* «67 % · 8 de 12 duelos», sin paréntesis (27/11/2026, ronda 9); con menos de 15, tendencia. */}
+                            {uno.aereoPct != null && uno.duelos ? (
+                              <span className="ml-1 text-[12px] text-white/55">
+                                · {Math.round((uno.aereoPct * uno.duelos) / 100)} de {Math.round(uno.duelos)}
+                                {uno.duelos < POCOS_CASOS ? " · tendencia" : ""}
+                              </span>
+                            ) : null}
                           </td>
                         )}
                         {conRemates && <td className="py-1 text-right tabular-nums">{uno.remates > 0 ? uno.remates : ""}</td>}

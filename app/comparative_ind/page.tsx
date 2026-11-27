@@ -177,9 +177,9 @@ function EscalaIndices({
     .join("; ");
   return (
     <section className="mt-3 rounded-2xl border border-white/10 bg-white/[0.02] p-4 sm:p-5">
-      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-white/50">¿Cómo está cada uno frente a su puesto? · contra {refLabel.toLowerCase()}</p>
+      <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-white/50">¿Cómo está cada uno frente a su puesto? · contra {refLabel.toLowerCase()}</p>
       {titulo && <h3 className="mt-0.5 text-base font-bold leading-snug text-white sm:text-lg">{titulo.charAt(0).toUpperCase() + titulo.slice(1)}</h3>}
-      <div className="mt-3 grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 text-[10px] text-white/45 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem_5.5rem]">
+      <div className="mt-3 grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_2.5rem] items-center gap-x-2 lg:pr-12 text-[11px] text-white/45 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_3rem_5.5rem]">
         <span />
         <span className="relative h-3">
           {[0, 25, 50, 75, 100].map((v) => (
@@ -191,7 +191,8 @@ function EscalaIndices({
         <span />
         <span className="hidden sm:block" />
       </div>
-      <ol className="mt-1 space-y-0.5">
+      {/* 27/11/2026 (marketing, ronda 9): margen a la derecha en escritorio para que el ⋮ flotante no tape los accesos. */}
+      <ol className="mt-1 space-y-0.5 lg:pr-12">
         {orden.map((f) => {
           const color = f.corta ? tinta(0.4) : colorIndice(f.indice);
           return (
@@ -208,8 +209,15 @@ function EscalaIndices({
                     {f.puesto} · {f.minutos}′{f.ranking ? ` · ${f.ranking}` : ""}
                   </span>
                   {/* 17/11/2026 (ronda 20, jueces): «tendencia» dentro de cada puesto corto, en su fila. */}
+                  {/* 27/11/2026 (fútbol, ronda 9): con su espacio y con el porqué, para no
+                      confundirla con la tendencia por menos de 300′. */}
                   {f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES && (
-                    <span className="ml-1 rounded-full border border-dashed border-white/25 px-1.5 text-[10px] text-white/55">tendencia</span>
+                    <>
+                      {" "}
+                      <span className="ml-1 whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 text-[11px] text-white/60">
+                        tendencia · puesto con {f.comparables} comparables
+                      </span>
+                    </>
                   )}
                 </span>
                 <span className="relative block h-5">
@@ -372,7 +380,7 @@ function DosCifrasPosesion({ fila, bruta, posesion }: { fila: FilaComparativa; b
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[420px] text-xs">
           <thead>
-            <tr className="text-left text-[10px] uppercase tracking-wider text-white/40">
+            <tr className="text-left text-[11px] uppercase tracking-wider text-white/40">
               <th className="py-1.5 pr-2 font-medium">Métrica /90</th>
               <th className="px-2 py-1.5 text-right font-medium">Wyscout</th>
               <th className="px-2 py-1.5 text-right font-medium">Ajustada</th>
@@ -421,13 +429,17 @@ const COMPARABLES_FIRMES = 25;
 const TAREA_POR_METRICA: { patron: RegExp; tarea: string }[] = [
   { patron: /largo/i, tarea: "salida en largo a la espalda del lateral rival; contar envíos acertados de cada 10" },
   { patron: /aére|cabeza/i, tarea: "duelos aéreos en centros laterales y despejes; contar los ganados de cada 10" },
-  { patron: /progresiv|hacia adelante|último tercio|entre líneas/i, tarea: "rondo de salida con pase entre líneas al pivote o al interior; contar pases que rompen línea de cada 10" },
+  /* 27/11/2026 (fútbol, ronda 9): cada tarea cuenta la misma acción que su
+     métrica. «Conducciones progresivas» caía en la de pases y se contaban
+     pases que rompen línea: la conducción va antes y cuenta conducciones. */
+  { patron: /conducc|carreras? progresiv/i, tarea: "recepción en banda o entre líneas y conducción hacia dentro ante un defensor; contar conducciones progresivas (10 m o más hacia portería) de cada 10 recepciones" },
+  { patron: /regate|1c1|uno contra uno/i, tarea: "1c1 ofensivo en carril con portería pequeña; contar regates completados de cada 10 intentos" },
+  { patron: /progresiv|hacia adelante|último tercio|entre líneas/i, tarea: "rondo de salida con pase entre líneas al pivote o al interior; contar pases progresivos acertados de cada 10" },
   /* 17/11/2026 (ronda 19): «acciones defensivas» se quedaba sin tarea («una acción sobre…»). */
   { patron: /acciones defens|defensivas? (realiz|con éxito|ganad)/i, tarea: "4c4+2 en zona media con presión tras pérdida en 5″; contar acciones defensivas ganadas (entradas, interceptaciones y duelos) por serie de 4′" },
   { patron: /intercep|recuper/i, tarea: "4c4+2 con lectura de la línea de pase; contar interceptaciones por serie" },
   { patron: /duelos? defens|entradas/i, tarea: "1c1 defensivo en carril con orientación a banda; contar duelos ganados de cada 10" },
   { patron: /centro/i, tarea: "centro tras desborde o pared en banda; contar centros que encuentran rematador de cada 10" },
-  { patron: /regate|conducc|1c1|uno contra uno/i, tarea: "1c1 ofensivo y conducción hacia dentro en banda; contar los superados de cada 10" },
   { patron: /pase|precisi/i, tarea: "posesión 5c5+3 a dos toques; contar pases acertados de cada 20" },
 ];
 const tareaPara = (metrica: string) => TAREA_POR_METRICA.find((t) => t.patron.test(metrica))?.tarea ?? null;
@@ -714,9 +726,13 @@ export default function ComparativaCategoria() {
       /* 08/11/2026: «p98» era jerga; se escribe entero. */
       const p = (x: { percentil: number }) => `percentil ${Math.round(x.percentil)}: supera al ${Math.round(x.percentil)} % de los ${puesto} comparados`;
       const corto = (d.f.ranking?.de ?? 0) < GRUPO_CORTO;
-      const dato = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) · ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking)})` : ""}`;
+      /* 27/11/2026 (marketing, ronda 9): la base de cada tarjeta, con sus minutos y sus comparables. */
+      const dato = `${d.nota.avg.toFixed(1).replace(".", ",")} de nota (${d.nota.played} partidos) · ${d.f.indice} de índice${d.f.ranking ? ` (${textoRanking(d.f.ranking).replace(" · tendencia", "")})` : ""} · ${d.f.jugador.minutos.toLocaleString("es-ES")}′ en Wyscout${d.f.ranking ? ` · contra ${d.f.ranking.de} ${puesto}` : ""}`;
       const tarea = peor ? tareaPara(peor.metrica.nombre) : null;
-      const accion = notaAlta
+      /* Con un grupo corto no se concluye: la tarjeta dice que es tendencia y qué se mira antes de decidir (Mestre mezclaba las dos cosas). */
+      const accion = corto
+        ? `Qué hacemos: con sólo ${d.f.ranking?.de ?? 0} comparables no es diagnóstico; ver en vídeo 3 acciones suyas de ${peor ? peor.metrica.nombre.toLowerCase() : "su puesto"} y apuntar lo que se vea en su seguimiento.`
+        : notaAlta
         ? `Qué hacemos: ver con él 3 acciones de ${peor ? peor.metrica.nombre.toLowerCase() : "esa fase"} y decidir si es carencia o el rol que le damos.`
         : peor && peor !== mejor
           ? `Qué hacemos con ${peor.metrica.nombre.toLowerCase()} (Wyscout): ${tarea ?? "una tarea de su puesto donde se repita esa acción; contar las logradas de cada 10"}; objetivo, acercarlo al percentil 50 (hoy ${Math.round(peor.percentil)}).`
@@ -786,6 +802,8 @@ export default function ComparativaCategoria() {
       /* 17/11/2026 (ronda 19): sólo quien tiene índice esta temporada (salía
          A. Pérez, sin índice, y la tarjeta decía 5 contra 4 del gráfico). */
       mejoran: filas.filter((f) => f.indice !== null && f.evolucion?.fiable && f.evolucion.salto > ESTABLE).length,
+      /* La base de «Mejoran» (27/11/2026, ronda 9): los que tienen muestra fiable del año pasado. */
+      conAnoPasado: filas.filter((f) => f.indice !== null && f.evolucion?.fiable).length,
       /* 16/11/2026 (jueces): quiénes son, con su cambio y su base. */
       quienesMejoran: conFicha
         .filter((x) => x.f.indice !== null && x.f.evolucion?.fiable && x.f.evolucion.salto > ESTABLE)
@@ -798,10 +816,13 @@ export default function ComparativaCategoria() {
           antes: x.f.evolucion?.minutosAntes ?? 0,
         })),
       /* Puestos con menos de 25 comparables: su ranking es tendencia. */
-      puestosCortos: PUESTOS.map((p) => ({
-        label: p.label,
-        de: Math.max(0, ...filas.filter((f) => f.puesto === p.key).map((f) => f.ranking?.de ?? 0)),
-      })).filter((x) => x.de > 0 && x.de < COMPARABLES_FIRMES),
+      /* 27/11/2026 (fútbol, ronda 9): con el tramo real de cada puesto. El aviso
+         decía «Delanteros (19)» y la fila de Rachad «de 18»: cada uno se
+         compara con los de su franja de minutos, y el número cambia. */
+      puestosCortos: PUESTOS.map((p) => {
+        const des = filas.filter((f) => f.puesto === p.key).map((f) => f.ranking?.de ?? 0).filter((d) => d > 0);
+        return { label: p.label, de: Math.max(0, ...des), desde: des.length ? Math.min(...des) : 0 };
+      }).filter((x) => x.de > 0 && x.de < COMPARABLES_FIRMES),
       /* Contra cuántos jugadores de su puesto se compara cada uno. */
       grupoMin: Math.min(...filas.map((f) => f.ranking?.de ?? Infinity)),
       grupoMax: Math.max(...filas.map((f) => f.ranking?.de ?? 0)),
@@ -987,7 +1008,7 @@ export default function ComparativaCategoria() {
                       {kpis.puestosCortos.length > 0 && (
                         <span className="mt-1 block text-amber-300">
                           Con menos de {COMPARABLES_FIRMES} comparables, el puesto se lee como tendencia:{" "}
-                          {kpis.puestosCortos.map((x) => `${x.label} (${x.de})`).join(", ")}.
+                          {kpis.puestosCortos.map((x) => `${x.label} (${x.desde < x.de ? `${x.desde} a ${x.de}` : x.de})`).join(", ")}.
                         </span>
                       )}
                     </p>
@@ -995,9 +1016,10 @@ export default function ComparativaCategoria() {
                     <div className="mt-2 grid grid-cols-2 gap-3 lg:grid-cols-4">
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
-                        { t: "Top 3 de su puesto", v: kpis.top3, h: "en el ranking de su puesto" },
+                        /* Con su base (27/11/2026, ronda 9, grupo «nuevo»): «8 de 19 jugadores». */
+                        { t: "Top 3 de su puesto", v: `${kpis.top3} de ${kpis.comparados}`, h: "jugadores comparados, entre los 3 primeros del ranking de su puesto" },
                         ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: `de los nuestros comparados · ${kpis.media >= 50 ? "+" : "−"}${Math.abs(Math.round(kpis.media - 50))} sobre 50, la media de su puesto en la categoría`.replace("+-", "−") }] : []),
-                        { t: "Mejoran respecto a 25/26", v: kpis.mejoran, h: `más de ${ESTABLE} pts de índice, con 450′ o más el año pasado; quiénes, debajo` },
+                        { t: "Mejoran respecto a 25/26", v: `${kpis.mejoran} de ${kpis.conAnoPasado}`, h: `con 450′ o más el año pasado, suben más de ${ESTABLE} pts de índice; quiénes, debajo` },
                       ].map((k) => (
                         <div key={k.t} className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                           <p className="text-xs text-white/50">{k.t}</p>
@@ -1173,7 +1195,7 @@ export default function ComparativaCategoria() {
                                   <div className="min-w-0">
                                     <span className="font-medium text-white/90">{nombreVisible(ficha?.nombre ?? f.jugador.jugador)}{f.jugador.minutos < MUESTRA_CORTA && <span className="text-[#C8A96B]" title={`Menos de ${MUESTRA_CORTA}′: muestra corta`}>*</span>}</span>
                                     {/* 30/10/2026: en el móvil, lo que en escritorio va en columnas. */}
-                                    <span className="block text-[10px] text-white/55 sm:hidden">
+                                    <span className="block text-[11px] text-white/55 sm:hidden">
                                       {[
                                         PUESTOS.find((p) => p.key === f.puesto)?.corto,
                                         `${f.jugador.minutos}′`,
@@ -1199,14 +1221,14 @@ export default function ComparativaCategoria() {
                                   </span>
                                   <Barra valor={f.indice ?? 0} color={f.jugador.minutos < MUESTRA_CORTA ? tinta(0.3) : colorIndice(f.indice)} />
                                 </div>
-                                {f.jugador.minutos < MUESTRA_CORTA && <span className="block text-[10px] not-italic text-white/45">tendencia · {f.jugador.minutos}′</span>}
+                                {f.jugador.minutos < MUESTRA_CORTA && <span className="block text-[11px] not-italic text-white/45">tendencia · {f.jugador.minutos}′</span>}
                               </td>
                               <td
                                 className="px-2 text-xs text-white/70"
                                 title={f.ranking?.fueraDeEdad ? "Pasa de la edad del grupo: se le coloca entre ellos contando como uno más" : undefined}
                               >
                                 {f.ranking ? textoRanking(f.ranking) : ""}
-                                {f.ranking?.fueraDeEdad && <span className="block text-[10px] text-white/45">mayor de {ref === "u21" ? 21 : 23}, contado como uno más</span>}
+                                {f.ranking?.fueraDeEdad && <span className="block text-[11px] text-white/45">mayor de {ref === "u21" ? 21 : 23}, contado como uno más</span>}
                               </td>
                               <td className="hidden sm:table-cell px-2 text-xs">
                                 {f.evolucion ? (
@@ -1217,7 +1239,7 @@ export default function ComparativaCategoria() {
                                   >
                                     {f.evolucion.salto > ESTABLE ? <ArrowUpRight size={13} /> : f.evolucion.salto < -ESTABLE ? <ArrowDownRight size={13} /> : <Minus size={13} />}
                                     {Math.abs(f.evolucion.salto) <= ESTABLE ? (
-                                      <>estable<span className="ml-1 text-[10px] opacity-70">({f.evolucion.salto > 0 ? "+" : ""}{f.evolucion.salto})</span></>
+                                      <>estable<span className="ml-1 text-[11px] opacity-70">({f.evolucion.salto > 0 ? "+" : ""}{f.evolucion.salto})</span></>
                                     ) : (
                                       <>{f.evolucion.salto > 0 ? "+" : ""}{f.evolucion.salto} pts</>
                                     )}
@@ -2129,7 +2151,7 @@ function Detalle({
                 )}
                 <span className={`min-w-0 flex-1 truncate ${nuestro ? "font-semibold text-[#C8A96B]" : "text-white/80"}`}>
                   {m.jugador.jugador}
-                  {verTodos && !nuestro ? <span className="ml-1.5 text-[10px] font-normal text-white/35">{m.jugador.equipo}</span> : null}
+                  {verTodos && !nuestro ? <span className="ml-1.5 text-[11px] font-normal text-white/35">{m.jugador.equipo}</span> : null}
                 </span>
                 {nuestro ? <span className="rounded bg-[#C8A96B]/20 px-1 text-[9px] font-semibold tracking-wider text-[#C8A96B]">RMC</span> : null}
                 <span className="text-white/40">{m.jugador.edad}</span>
@@ -2420,12 +2442,12 @@ function CaraACara({
                             <span className={`leading-tight ${i === 0 ? "font-semibold text-[#C8A96B]" : "text-white/80"}`}>
                               {i === 0 ? ficha?.nombre ?? j.jugador : j.jugador}
                             </span>
-                            <span className="text-[10px] text-white/35">
+                            <span className="text-[11px] text-white/35">
                               {j.edad} años · {j.minutos}′
                             </span>
                             {i > 0 && marcador[i - 1].de > 0 && (
                               <span
-                                className="rounded-full px-1.5 py-0.5 text-[10px]"
+                                className="rounded-full px-1.5 py-0.5 text-[11px]"
                                 style={{
                                   background: `${marcador[i - 1].gana * 2 >= marcador[i - 1].de ? MEJOR : PEOR}22`,
                                   color: marcador[i - 1].gana * 2 >= marcador[i - 1].de ? MEJOR : PEOR,
@@ -2460,7 +2482,7 @@ function CaraACara({
                       <Fragment key={m.columna}>
                         {nuevoGrupo && (
                           <tr>
-                            <td colSpan={columnas.length + 1} className="pb-1 pt-3 text-[10px] uppercase tracking-wider text-white/35">
+                            <td colSpan={columnas.length + 1} className="pb-1 pt-3 text-[11px] uppercase tracking-wider text-white/35">
                               {m.grupoRotulo}
                             </td>
                           </tr>
@@ -2480,7 +2502,7 @@ function CaraACara({
                                   >
                                     {formatea(c.valor)}
                                   </span>
-                                  <span className="text-[10px] text-white/35">{c.percentil === null ? "poca muestra" : `P${c.percentil}`}</span>
+                                  <span className="text-[11px] text-white/35">{c.percentil === null ? "poca muestra" : `P${c.percentil}`}</span>
                                 </div>
                               ) : (
                                 <span className="text-white/25">—</span>

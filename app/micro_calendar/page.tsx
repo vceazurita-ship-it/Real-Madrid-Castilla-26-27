@@ -584,7 +584,8 @@ export default function MicroCalendar() {
         if (entrenoTodo.length > 0 && conCarga) {
           hechos += 1;
           ultimoDia = Math.max(ultimoDia, date.getDate());
-        } else if (entrenoTodo.length > 0 && estadoDe(key, 0).hecha) {
+        } else if (entrenoTodo.length > 0 && estadoDe(key, 0, !dayTasks.every((t) => t._plan)).hecha) {
+          /* 27/11/2026 (jueces): con el mismo «apuntada» que la etiqueta «hecha» de la casilla; sin él, el día de la copia de lo hecho sin equipos salía «hecha» en el calendario y «planificado» en el titular. */
           hechosSinCarga += 1;
         }
 
@@ -877,11 +878,18 @@ export default function MicroCalendar() {
     */
     if (pctCarga !== null) {
       const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
-      const parte = (que: string, p: number) => (p === 0 ? `la misma carga ${que}` : `${p > 0 ? "más" : "menos"} carga ${que} (${signo(p)})`);
+      /*
+      | 27/11/2026 (jueces): con pocos entrenos por lado (menos de 10) el
+      | porcentaje no va de cifra principal: el titular dice la dirección y
+      | «tendencia» junto a él; el porcentaje queda en el gráfico de debajo.
+      */
+      const pocos = Math.min(monthStats.hechos, mesPrevio.stats.hechos) < 10;
+      const cifra = (p: number) => (pocos ? "" : ` (${signo(p)})`);
+      const parte = (que: string, p: number) => (p === 0 ? `la misma carga ${que}` : `${p > 0 ? "más" : "menos"} carga ${que}${cifra(p)}`);
       const fisica = parte("física", pctCarga);
-      const cognitiva = pctCog === null ? "" : pctCog === 0 ? " y la misma cognitiva" : ` y ${pctCog > 0 ? "más" : "menos"} cognitiva (${signo(pctCog)})`;
+      const cognitiva = pctCog === null ? "" : pctCog === 0 ? " y la misma cognitiva" : ` y ${pctCog > 0 ? "más" : "menos"} cognitiva${cifra(pctCog)}`;
 
-      return `${MONTHS[active.month]}: ${fisica}${cognitiva} que ${mesAntes}`;
+      return `${MONTHS[active.month]}: ${fisica}${cognitiva} que ${mesAntes}${pocos ? " · tendencia" : ""}`;
     }
     return [
       `${MONTHS[active.month]}: ${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}`,
@@ -896,7 +904,13 @@ export default function MicroCalendar() {
     if (monthStats.sesiones === 0) return "";
     const mesAntes = MONTHS[mesPrevio.month].toLowerCase();
     const mesAhora = MONTHS[active.month].toLowerCase();
-    const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${monthStats.planificados > 0 ? ` (${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"}, ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"})` : ""}`;
+    /* 27/11/2026 (jueces): la base real, también cuando hay entrenos hechos que la hoja aún no tiene con minutos («12 hechos, 8 con minutos»). */
+    const partesEntrenos = [
+      monthStats.planificados > 0 || monthStats.hechosVista > monthStats.hechos ? `${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"}` : "",
+      monthStats.hechosVista > monthStats.hechos ? `${monthStats.hechos} con minutos en la hoja` : "",
+      monthStats.planificados > 0 ? `${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"}` : "",
+    ].filter(Boolean);
+    const entrenos = `${monthStats.sesiones} ${monthStats.sesiones === 1 ? "entreno" : "entrenos"}${partesEntrenos.length ? ` (${partesEntrenos.join(", ")})` : ""}`;
     const volumen = monthStats.minutos > 0 ? `${formatMinutes(monthStats.minutos)} de entreno` : "";
     /* Ronda 7: la base que salía en el titular («8 entrenos con minutos frente a 6, días 1-12 · tendencia»). */
     const nMin = Math.min(monthStats.hechos, mesPrevio.stats.hechos);
@@ -1017,7 +1031,7 @@ export default function MicroCalendar() {
           <CalendarStat
             label="Entrenos"
             value={monthStats.sesiones}
-            hint={`${monthStats.planificados > 0 ? `${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"} y ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"} · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
+            hint={`${monthStats.planificados > 0 ? `${monthStats.hechosVista} ${monthStats.hechosVista === 1 ? "hecho" : "hechos"} y ${monthStats.planificados} ${monthStats.planificados === 1 ? "planificado" : "planificados"} · ` : ""}${monthStats.hechosVista > monthStats.hechos ? `${monthStats.hechos} con minutos en la hoja · ` : ""}${monthStats.partidos ? `+ ${monthStats.partidos} ${monthStats.partidos === 1 ? "partido" : "partidos"} · ` : ""}${monthStats.tareas} tareas de entreno en ${MONTHS[active.month].toLowerCase()}`}
           />
           <CalendarStat
             label="Volumen"
@@ -1099,8 +1113,31 @@ export default function MicroCalendar() {
           const enSemana = Boolean(mdVacio) && !trasPartido;
           const libre = !mdVacio && sessionDays.length > 1 && key > sessionDays[0] && key < sessionDays[sessionDays.length - 1];
 
+          /*
+          | 27/11/2026 (jueces): los días de la semana del partido que aún no
+          | tienen tareas no se quedan mudos: el primero de ellos (desde hoy)
+          | lleva «Planificar la semana →» al creador de microciclos.
+          */
+          const ayer = (() => {
+            const d = parseDateKey(key);
+            d.setDate(d.getDate() - 1);
+
+            return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+          })();
+          const ayerVacioEnSemana = !(tasksByDay.get(ayer)?.length) && ayer >= (hoyComun || "") && Boolean(mdALaVista(ayer, fechasPartido, hoyComun)) && mdALaVista(ayer, fechasPartido, hoyComun) !== "MD+1";
+          const planificar = enSemana && Boolean(hoyComun) && key >= (hoyComun || "") && !ayerVacioEnSemana;
+
           return libre || enSemana || trasPartido
             ? {
+                ...(planificar
+                  ? {
+                      children: (
+                        <Link href="/laboratorio/microciclo" onClick={sinAbrirElDia} className="block text-[11px] font-semibold text-sky-300 underline-offset-2 hover:underline">
+                          Planificar la semana →
+                        </Link>
+                      ),
+                    }
+                  : {}),
                 badges: (
                   <span className="flex items-center gap-1">
                     {trasPartido ? (
@@ -1564,18 +1601,14 @@ export default function MicroCalendar() {
   );
 }
 
-/* Un color por MD (17/11/2026): el mismo en las barras y en su leyenda. */
-const COLOR_MD: Record<string, string> = {
-  "MD-1": "#38BDF8",
-  "MD-2": "#A78BFA",
-  "MD-3": "#34D399",
-  "MD-4": "#C8A96B",
-  "MD-5": "#FB7185",
-  /* 20/11/2026 (jueces): los que faltaban; antes el MD+2 salía verde como un MD-3. */
-  "MD-6": "#F472B6",
-  "MD+1": "#94A3B8",
-  "MD+2": "#F97316",
-};
+/*
+| UN SOLO TONO PARA LA CARGA (27/11/2026, jueces). Un color por MD (17/11)
+| chocaba con los de las fases del calendario: verde era MD-3 y también
+| Ofensiva; morado, MD-2 y también ABP. Ahora todas las barras van en dorado
+| (las de fuera de micro, en gris) y el MD se lee en el rótulo de debajo y en
+| la raya de su media.
+*/
+const colorBarra = (md: string) => (md ? "var(--rmcf-gold-ink)" : "rgb(var(--rmcf-ink-rgb) / .35)");
 
 /**
  * LA CARGA DEL MES EN BARRAS (17/11/2026, jueces). Una barra por entreno
@@ -1628,7 +1661,7 @@ function BarrasCargaMes({
               <div key={d.key} className="flex min-w-[30px] flex-1 flex-col items-center gap-1" title={`${d.key.slice(8, 10)}/${d.key.slice(5, 7)} · ${d.md || "sin MD"} · ${d.ua} UA${m ? ` (media del ${d.md}: ${m})` : ""}`}>
                 <span className="text-[11px] font-semibold leading-none tabular-nums text-white/75">{d.ua}</span>
                 <div className="relative h-20 w-full">
-                  <span className="absolute inset-x-0 bottom-0 rounded-t-[3px]" style={{ height: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
+                  <span className="absolute inset-x-0 bottom-0 rounded-t-[3px]" style={{ height: `${(100 * d.ua) / max}%`, background: colorBarra(d.md) }} />
                   {m ? <span className="absolute inset-x-[-2px] h-0.5 rounded-full" style={{ bottom: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
                 </div>
                 <span className="whitespace-nowrap text-center text-[11px] leading-tight tabular-nums text-white/65">
@@ -1650,7 +1683,7 @@ function BarrasCargaMes({
                     {Number(d.key.slice(8, 10))}/{Number(d.key.slice(5, 7))} · {d.md || "sin MD"}
                   </span>
                   <span className="relative h-3 rounded-sm bg-white/5">
-                    <span className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${(100 * d.ua) / max}%`, background: COLOR_MD[d.md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} />
+                    <span className="absolute inset-y-0 left-0 rounded-sm" style={{ width: `${(100 * d.ua) / max}%`, background: colorBarra(d.md) }} />
                     {m ? <span className="absolute inset-y-[-2px] w-0.5 rounded-full" style={{ left: `${(100 * m) / max}%`, background: "rgb(var(--rmcf-ink-rgb) / .85)" }} /> : null}
                   </span>
                   <span className="text-right font-semibold tabular-nums text-white/80">{d.ua} UA</span>
@@ -1683,12 +1716,14 @@ function BarrasCargaMes({
             </div>
           ) : null}
           <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/60">
-            {mds.map((md) => (
-              <span key={md} className="inline-flex items-center gap-1">
-                <span className="h-2.5 w-2.5 rounded-sm" style={{ background: COLOR_MD[md] ?? "rgb(var(--rmcf-ink-rgb) / .35)" }} aria-hidden />
-                {md}
-              </span>
-            ))}
+            <span className="inline-flex items-center gap-1">
+              <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "var(--rmcf-gold-ink)" }} aria-hidden />
+              entreno{mds.length ? ` (${mds.join(", ")})` : ""}
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <span className="h-0.5 w-3 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .85)" }} aria-hidden />
+              media de su MD
+            </span>
             {dias.some((d) => !d.md) ? (
               <span className="inline-flex items-center gap-1">
                 <span className="h-2.5 w-2.5 rounded-sm" style={{ background: "rgb(var(--rmcf-ink-rgb) / .35)" }} aria-hidden />

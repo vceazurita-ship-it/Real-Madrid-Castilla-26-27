@@ -91,6 +91,8 @@ const PLURAL_PUESTO: Record<string, string> = {
 /* 17/11/2026 (guionista): un decimal como mucho, también en las cifras por 90′. */
 const cifraTexto = (v: number, porcentaje: boolean) =>
   porcentaje ? `${v.toFixed(1).replace(".", ",")} %` : v.toFixed(1).replace(".", ",");
+/* 27/11/2026 (fútbol, ronda 9): el objetivo, con la misma unidad que el dato («llegar a 6,7 por 90′»). */
+const objetivoTexto = (v: number, porcentaje: boolean) => (porcentaje ? cifraTexto(v, true) : `${cifraTexto(v, false)} por 90′`);
 
 /** Un jugador de la plantilla en el puesto: nombre corto (chip) y completo. */
 type Quien = { corto: string; nombre: string };
@@ -559,6 +561,24 @@ export default function IdentidadPosicionalPage() {
     () => new Set(cifrasPuesto.flatMap((x) => x.cifra.nuestros.map((j) => nombrePlantilla(j.nombre, quienes)))),
     [cifrasPuesto, quienes],
   );
+
+  /* 27/11/2026 (fútbol y guionista, ronda 9): al que no llega a los minutos,
+     sus minutos de liga en el chip («312′ · fuera de la comparación»), para
+     que no parezca un hueco. De su fila de Wyscout de esta temporada. */
+  const minutosFuera = useMemo(() => {
+    const m = new Map<string, number>();
+    if (!jugadoresWyscout) return m;
+
+    for (const uno of quienes) {
+      if (conCifra.has(uno.corto)) continue;
+      const fila = jugadoresWyscout.find(
+        (j) => j.temporada === "actual" && /castilla/i.test(j.equipo) && (mismaPersona(j.jugador, uno.nombre) || mismaPersona(j.jugador, uno.corto)),
+      );
+      if (fila && fila.minutos > 0) m.set(uno.corto, fila.minutos);
+    }
+
+    return m;
+  }, [jugadoresWyscout, quienes, conCifra]);
 
   /*
   | 13/11/2026: «¿Quién lo ejecuta mejor?»: toda la plantilla de campo contra
@@ -1227,7 +1247,11 @@ export default function IdentidadPosicionalPage() {
                           >
                             {uno.corto}
                             {cifrasPuesto.length > 0 && !conCifra.has(uno.corto) && (
-                              <span className="text-[12px] font-normal text-gray-400">· menos de {MINUTOS_CONTENIDO}′</span>
+                              <span className="text-[12px] font-normal text-gray-400">
+                                {minutosFuera.has(uno.corto)
+                                  ? `· ${(minutosFuera.get(uno.corto) ?? 0).toLocaleString("es-ES")}′ · fuera de la comparación (menos de ${MINUTOS_CONTENIDO}′)`
+                                  : `· menos de ${MINUTOS_CONTENIDO}′`}
+                              </span>
                             )}
                             <span aria-hidden className="text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
                           </Link>
@@ -1282,7 +1306,7 @@ export default function IdentidadPosicionalPage() {
                           </ul>
                           <p className="mt-2 break-words text-sm text-gray-300">
                             Objetivo: {prioridad.cifra.mejorAlto ? "llegar a" : "bajar de"}{" "}
-                            <b className="text-white">{cifraTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}</b>, la mediana de{" "}
+                            <b className="text-white">{objetivoTexto(prioridad.cifra.mediana, prioridad.cifra.porcentaje)}</b>, la mediana de{" "}
                             {prioridad.cifra.n} {(PLURAL_PUESTO[prioridad.cifra.puesto] ?? "jugadores").toLowerCase()} con{" "}
                             {MINUTOS_CONTENIDO}′ o más.
                             {/* 20/11/2026 (guionista, ronda 5): qué se cuenta en la tarea, como en el resto. */}
@@ -1855,7 +1879,7 @@ function FichaContenido({
               <span className="font-semibold text-white">Qué entrenamos · {yLista(debajo.map(nombre))}:</span> tarea de «
               {item.CONTENIDO.replace(/\bvs\.?(?=\s)/gi, "contra").replace(/\.$/, "")}»; contar{" "}
               {QUE_CONTAR[cifra.columna] ?? nombreColumna(cifra.columna).toLowerCase()}; objetivo de partido{" "}
-              {cifra.mejorAlto ? "llegar a" : "bajar de"} {cifraTexto(cifra.mediana, cifra.porcentaje)}.
+              {cifra.mejorAlto ? "llegar a" : "bajar de"} {objetivoTexto(cifra.mediana, cifra.porcentaje)}.
               {/* 20/11/2026 (fútbol y guionista, ronda 5): como en /game-model, la tarea acaba en el plan de la semana. */}
               <EnlacesTarea nombres={debajo.map((j) => ({ nombre: j.nombre, corto: nombre(j) }))} />
             </p>

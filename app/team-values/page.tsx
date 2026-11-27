@@ -4,7 +4,6 @@ import { olvidaCsv, traeCsv } from "@/lib/hojaCsv";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Papa from "papaparse";
 import { toast } from "sonner";
-import Link from "next/link";
 import { ChevronLeft, ChevronRight, SearchX } from "lucide-react";
 
 import { Sidebar } from "@/components/ui/sidebar";
@@ -30,7 +29,8 @@ import {
   useEditShortcuts,
 } from "@/components/ui/knowledge-kit";
 import { cn } from "@/lib/utils";
-import { VotosValores, hrefSeguimientoDe, valorNombradoEn } from "@/components/cultura/ValoresIndice";
+import { VALORES_INDICE, VotosValores } from "@/components/cultura/ValoresIndice";
+import { TOTAL_VOTOS_VALORES } from "@/components/cultura/ResumenValores";
 import { confirmar } from "@/lib/avisos";
 
 type CulturaItem = {
@@ -188,6 +188,8 @@ export default function TeamValuesPage() {
   const [recarga, setRecarga] = useState(0);
   /** La etapa en la que está hoy la plantilla, si la hoja trae fechas. */
   const [etapaHoy, setEtapaHoy] = useState("");
+  /** La última etapa que se sabe hecha cuando la hoja no trae fechas (la de la votación). */
+  const [hechaPorVotacion, setHechaPorVotacion] = useState("");
 
   /* Deja rescatar el texto de los cambios que el servidor no acepte. */
   const { reportarRechazo, dialogo: avisoGuardado } = useSaveGuard();
@@ -232,9 +234,21 @@ export default function TeamValuesPage() {
 
           return iso ? [{ s, iso }] : [];
         });
-        const deHoy = empiezan.filter((e) => e.iso <= hoyIso).sort((a, b) => a.iso.localeCompare(b.iso)).pop()?.s ?? "";
+        const porFecha = empiezan.filter((e) => e.iso <= hoyIso).sort((a, b) => a.iso.localeCompare(b.iso)).pop()?.s ?? "";
+
+        /* 27/11/2026 (jueces, ronda 9): la hoja no trae FECHA, pero la
+           votación de los valores ya está hecha (el documento de valores
+           tiene su recuento). La etapa que trae los VALOR y las de antes salen
+           hechas, y la siguiente es la que toca ahora. */
+        const ordenSecciones = [...new Set(rows.map((r) => r.SECCION))];
+        const iValores = ordenSecciones.findIndex((s) =>
+          rows.some((r) => r.SECCION === s && limpio(r.TIPO).toUpperCase() === "VALOR"),
+        );
+        const votada = !porFecha && VALORES_INDICE.length > 0 && iValores >= 0 ? ordenSecciones[iValores] : "";
+        const deHoy = porFecha || (votada ? (ordenSecciones[iValores + 1] ?? "") : "");
 
         setEtapaHoy(deHoy);
+        setHechaPorVotacion(votada);
 
         const inicial =
           rows.find((r) => r.SECCION.toUpperCase() === hash)?.SECCION ??
@@ -550,7 +564,7 @@ export default function TeamValuesPage() {
   | /identidad-cultura), con el más votado y su base; en todas las etapas.
   */
   const votacion = !editing ? (
-    <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 sm:p-5">
+    <div className="mt-6 rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/[0.07] p-4 max-sm:pr-12 sm:p-5">
       <VotosValores compacto />
     </div>
   ) : null;
@@ -595,6 +609,24 @@ export default function TeamValuesPage() {
               <div className="min-w-0">
                 {/* 10/11/2026: la etapa como antetítulo y un titular con la idea. */}
                 {/* 20/11/2026 (marketing): sin el antetítulo suelto («MARCO»): la etapa ya va en oro en la línea de pasos. */}
+                {/* 27/11/2026 (fútbol y guionista, ronda 9): en qué etapa está el
+                    proceso y qué toca ahora, antes del titular de la etapa que se ve. */}
+                {etapaHoy && !editing && (
+                  <p className="text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                    {seccion === etapaHoy
+                      ? `Toca ahora · ${rotuloSeccion(etapaHoy)} · etapa ${secciones.indexOf(etapaHoy) + 1} de ${secciones.length}`
+                      : `El proceso está en ${rotuloSeccion(etapaHoy)}: ${TITULARES[etapaHoy] ?? rotuloSeccion(etapaHoy)}`}
+                    {seccion !== etapaHoy && (
+                      <button
+                        type="button"
+                        onClick={() => irASeccion(etapaHoy)}
+                        className={cn("ml-2 rounded font-semibold underline-offset-2 hover:underline", focusRing)}
+                      >
+                        Ir a la etapa →
+                      </button>
+                    )}
+                  </p>
+                )}
                 <h1 className="mt-1 text-3xl font-bold leading-tight text-white sm:text-4xl lg:text-5xl">
                   {seccion ? TITULARES[seccion] ?? rotuloSeccion(seccion) : ""}
                 </h1>
@@ -609,6 +641,16 @@ export default function TeamValuesPage() {
                   {DESCRIPCIONES[seccion] ??
                     (seccion ? DESCRIPCION_POR_DEFECTO : "")}
                 </p>
+
+                {hechaPorVotacion && !editing && (
+                  <p className="mt-2 max-w-2xl text-sm text-gray-300">
+                    {seccion === etapaHoy
+                      ? `Hecho: hasta ${rotuloSeccion(hechaPorVotacion)}, con la votación de los valores (${TOTAL_VOTOS_VALORES} votos de la plantilla). Esta etapa trae ${totalSeccion} contenido${totalSeccion === 1 ? "" : "s"}, en orden, debajo.`
+                      : secciones.indexOf(seccion) <= secciones.indexOf(hechaPorVotacion)
+                        ? "Etapa hecha: la votación de los valores ya cerró."
+                        : "Etapa por hacer."}
+                  </p>
+                )}
               </div>
 
               {!editing && !loading && !error && toolbar}
@@ -633,7 +675,12 @@ export default function TeamValuesPage() {
                     .find(Boolean);
                   const n = visibles.filter((r) => r.SECCION === s).length;
                   /* El estado sólo cuando la hoja dice en qué etapa estamos (FECHA): sin fecha, no se nombra. */
-                  const estadoEtapa = etapaHoy ? (s === etapaHoy ? "En curso" : hecha ? "Hecha" : "Por hacer") : "";
+                  const estadoEtapa = etapaHoy ? (s === etapaHoy ? (hechaPorVotacion ? "Toca ahora" : "En curso") : hecha ? "Hecha" : "Por hacer") : "";
+                  /* 27/11/2026 (marketing, ronda 9): el primer contenido de la etapa, no sólo «2 contenidos». */
+                  const deLaEtapa = visibles
+                    .filter((r) => r.SECCION === s)
+                    .sort((a, b) => Number(a.ORDEN) - Number(b.ORDEN));
+                  const primero = deLaEtapa[0] ? tituloElemento(deLaEtapa[0].TITULO) : "";
 
                   return (
                     <li key={s} className="relative min-w-0 flex-1">
@@ -668,14 +715,21 @@ export default function TeamValuesPage() {
                           {rotuloSeccion(s)}
                         </span>
                         {fecha && <span className="text-[12px] text-gray-400">{fecha}</span>}
-                        <span className={cn("text-[12px] tabular-nums", filtrando && n === 0 ? "text-gray-500" : "text-gray-400")}>
-                          {n} contenido{n === 1 ? "" : "s"}
-                        </span>
+                        {primero ? (
+                          <span className="max-w-full break-words text-[12px] leading-snug text-gray-400">
+                            {primero}
+                            {n > 1 && <span className="tabular-nums text-gray-500"> · +{n - 1}</span>}
+                          </span>
+                        ) : (
+                          <span className={cn("text-[12px] tabular-nums", filtrando ? "text-gray-500" : "text-gray-400")}>
+                            {n} contenido{n === 1 ? "" : "s"}
+                          </span>
+                        )}
                         {estadoEtapa && (
                           <span
                             className={cn(
                               "rounded-full px-2 py-0.5 text-[11px] font-semibold ring-1",
-                              estadoEtapa === "En curso" ? "bg-sky-500/15 text-sky-300 ring-sky-500/30" : estadoEtapa === "Hecha" ? "text-[color:var(--rmcf-gold-ink,#C8A96B)] ring-[#C8A96B]/30" : "text-gray-400 ring-white/15",
+                              estadoEtapa === "En curso" || estadoEtapa === "Toca ahora" ? "bg-sky-500/15 text-sky-300 ring-sky-500/30" : estadoEtapa === "Hecha" ? "text-[color:var(--rmcf-gold-ink,#C8A96B)] ring-[#C8A96B]/30" : "text-gray-400 ring-white/15",
                             )}
                           >
                             {estadoEtapa}
@@ -853,34 +907,9 @@ export default function TeamValuesPage() {
                                   <Highlight text={p.CONTENIDO} query={query} />
                                 </p>
 
-                                {/* 16/11/2026: las conductas se vigilan en el día a
-                                    día: a un toque del seguimiento y del documento. */}
-                                {/conduct/i.test(`${p.TITULO} ${p.CONTENIDO}`) && (() => {
-                                  const valor = valorNombradoEn(`${p.TITULO} ${p.CONTENIDO}`);
-
-                                  return (
-                                  <div className="mt-3 flex flex-wrap gap-2">
-                                    <Link
-                                      href={valor ? hrefSeguimientoDe(valor.titulo) : "/individual_proc"}
-                                      className={cn(
-                                        "inline-flex items-center rounded-lg border border-[#C8A96B]/40 px-2.5 py-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition-colors hover:bg-[#C8A96B]/10",
-                                        focusRing,
-                                      )}
-                                    >
-                                      {valor ? `Seguimiento de ${valor.titulo.toLowerCase()} →` : "Seguimiento de los jugadores →"}
-                                    </Link>
-                                    <Link
-                                      href="/identidad-cultura#indice-valores"
-                                      className={cn(
-                                        "inline-flex items-center rounded-lg border border-white/15 px-2.5 py-1 text-xs font-semibold text-gray-200 transition-colors hover:bg-white/[0.06] hover:text-white",
-                                        focusRing,
-                                      )}
-                                    >
-                                      Conductas de cada valor →
-                                    </Link>
-                                  </div>
-                                  );
-                                })()}
+                                {/* 27/11/2026 (guionista, ronda 9): sin los enlaces al
+                                    seguimiento y a las conductas en la tarjeta
+                                    «Conductas reales»: ya están bajo la votación. */}
 
                                 {/* Ficha de la dinámica: sólo lo que la hoja traiga. */}
                                 {(limpio(p.DURACION) || limpio(p.MATERIAL) || limpio(p.ENTREGA)) && (

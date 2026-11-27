@@ -11,6 +11,13 @@
  * lectura, las tres cifras (el Castilla primero, como en Análisis de datos),
  * las tres claves, las ocasiones en vídeo y una frase con lo que dice el 3D;
  * el 3D se queda plegado tras «Ver en 3D» y se monta al pulsar.
+ *
+ * 27/11/2026 (los tres jueces): el partido lo decide el CALENDARIO (BeSoccer,
+ * el último jugado), no el último que tiene Opta. El día después de jugar con
+ * el Murcia (J13) salía el Gimnàstic (J12) porque Opta aún no tenía el J13.
+ * Si Opta todavía no tiene el último jugado, la tarjeta sale con su resultado,
+ * su jornada y sus enlaces (análisis e informe post), sin las cifras de Opta.
+ * La jornada va también en la cabecera cuando sí las hay.
  */
 
 import { useEffect, useMemo, useState } from "react";
@@ -25,17 +32,36 @@ import { retrato, territorioRetrato } from "@/lib/opta-retrato";
 import { DESDE_TRAMO_FINAL, fraseCampoPisado, nombreCorto, territorioEntre, titularPartido } from "@/lib/partido-frases";
 import { urlPostDelPartido } from "@/lib/post-partido";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
+import { useCalendario } from "@/hooks/useCalendario";
+import { alrededorDe } from "@/lib/castilla/calendario";
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 
 type Doc = { eventos?: TablaOpta; equipos?: TablaOpta; jugadores?: TablaOpta; fecha?: string };
 
 export function UltimoPartido3D() {
   const { opta } = useOptaLigero();
-  const ultimo = useMemo(() => {
+  const { ultimo, fechaOpta } = useMemo(() => {
     const nuestros = (opta?.partidos ?? []).filter((f) => f.teamId === CASTILLA_OPTA && String(f.partido ?? ""));
     nuestros.sort((x, y) => String(y.fecha ?? "").localeCompare(String(x.fecha ?? "")));
-    return nuestros[0] ? String(nuestros[0].partido) : "";
+    return { ultimo: nuestros[0] ? String(nuestros[0].partido) : "", fechaOpta: nuestros[0] ? String(nuestros[0].fecha ?? "").slice(0, 10) : "" };
   }, [opta]);
+  /* El último jugado según el calendario; `ahora` se apunta en un efecto (nada de Date.now() en el render). */
+  const { partidos: calendario } = useCalendario();
+  const [ahora, setAhora] = useState(0);
+  useEffect(() => {
+    const id = setTimeout(() => setAhora(Date.now()), 0);
+    return () => clearTimeout(id);
+  }, []);
+  const delCalendario = useMemo(() => {
+    if (!ahora || !calendario.length) return null;
+    const { anterior, todos } = alrededorDe(calendario, ahora);
+    return { anterior: anterior?.jugado ? anterior : null, todos };
+  }, [calendario, ahora]);
+  const anterior = delCalendario?.anterior ?? null;
+  const fechaAnterior = anterior ? anterior.cuando.slice(0, 10) : "";
+  /* Opta va por detrás si su último partido es anterior (más de un día) al último jugado. */
+  const optaAtrasado = Boolean(anterior && fechaOpta && fechaAnterior && Date.parse(`${fechaAnterior}T12:00:00Z`) - Date.parse(`${fechaOpta}T12:00:00Z`) > 36 * 3_600_000);
+  const jornadaDe = (fecha: string) => delCalendario?.todos.find((p) => p.cuando.slice(0, 10) === fecha)?.jornada ?? 0;
   const [doc, setDoc] = useState<Doc | null>(null);
   useEffect(() => {
     if (!ultimo) return;
@@ -92,6 +118,52 @@ export function UltimoPartido3D() {
           base,
         };
   }, [doc, idRival, nombreRival]);
+
+  if (anterior && (optaAtrasado || (!fechaOpta && opta))) {
+    const golesF = anterior.golesFavor ?? 0;
+    const golesC = anterior.golesContra ?? 0;
+    const marcadorCal =
+      anterior.lado === "casa" ? `Real Madrid Castilla ${golesF}-${golesC} ${anterior.rival}` : `${anterior.rival} ${golesC}-${golesF} Real Madrid Castilla`;
+    const hrefPostCal = urlPostDelPartido(fechaAnterior, anterior.rival);
+    const fechaCal = diaCorto(anterior.cuando);
+    const lecturaCal = `${golesF > golesC ? "Ganamos" : golesF < golesC ? "Perdimos" : "Empatamos"} ${golesF}-${golesC} ${anterior.lado === "casa" ? "con el" : "en el campo del"} ${nombreCorto(anterior.rival)}`;
+
+    return (
+      <section className="portada-tarjeta p-4 sm:p-6" aria-label="El último partido">
+        <CabeceraBloque
+          icono={Mountain}
+          titulo={anterior.jornada ? `El último partido · J${anterior.jornada}` : "El último partido"}
+          sub={
+            <>
+              <span className="font-semibold text-white/85">{marcadorCal}</span>
+              {fechaCal ? <span> · {fechaCal}</span> : null}
+            </>
+          }
+          accion={
+            <div className="flex flex-wrap gap-1.5">
+              <Link href={hrefPostCal} className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+                <BarChart3 className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+                Análisis del partido
+              </Link>
+              <Link href="/microcycles" className="portada-celda portada-viva inline-flex min-h-10 items-center gap-1.5 px-3.5 text-[13px] font-semibold text-white/85">
+                <FileText className="h-4 w-4" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
+                Informe post
+              </Link>
+            </div>
+          }
+        />
+        <Link
+          href={hrefPostCal}
+          className="group fuente-club mt-4 inline-block text-[22px] font-bold uppercase leading-tight underline-offset-4 hover:underline"
+          style={{ color: "var(--rmcf-gold-ink)" }}
+          title="El análisis de este partido en Análisis de datos"
+        >
+          {lecturaCal}
+          <ArrowRight size={16} className="ml-1 inline-block align-[-1px] transition-transform group-hover:translate-x-0.5" aria-hidden />
+        </Link>
+      </section>
+    );
+  }
 
   if (!doc?.eventos?.filas?.length || !x || !y) return null;
   const nom = (f: Record<string, unknown>) => (f.teamId === CASTILLA_OPTA ? "Real Madrid Castilla" : String(f.equipo ?? ""));
@@ -179,6 +251,7 @@ export function UltimoPartido3D() {
   ];
   const eq = (f: Record<string, unknown>) => ({ teamId: String(f.teamId ?? ""), nombre: f.teamId === CASTILLA_OPTA ? "Castilla" : nom(f), color: String(f.color ?? ""), campo: String(f.campo ?? "") });
   const fecha = doc.fecha ? diaCorto(String(doc.fecha)) : "";
+  const jornadaOpta = fechaIso ? jornadaDe(fechaIso) : 0;
   const marcador = `${nom(loc)} ${String(loc.Goal ?? "")}-${String(vis.Goal ?? "")} ${nom(vis)}`;
   /* Las tres ocasiones más claras del partido (de los dos), con su vídeo en Opta. */
   const ocasiones = fechaIso
@@ -194,7 +267,7 @@ export function UltimoPartido3D() {
     <section className="portada-tarjeta p-4 sm:p-6" aria-label="El último partido en 3D">
       <CabeceraBloque
         icono={Mountain}
-        titulo="El último partido"
+        titulo={jornadaOpta ? `El último partido · J${jornadaOpta}` : "El último partido"}
         sub={
           <>
             <span className="font-semibold text-white/85">{marcador}</span>

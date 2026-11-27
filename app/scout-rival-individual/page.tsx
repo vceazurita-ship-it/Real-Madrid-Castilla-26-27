@@ -22,7 +22,7 @@ import { RadiografiaDelOnce } from "@/components/rivals/RadiografiaDelOnce";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro } from "@/lib/castilla/calendario";
 import { nombreEquipo } from "@/lib/equipos";
-import { colocacionDelCampograma } from "@/lib/duelos-onces";
+import { dibujoDeWyscout, onceProbableDelRival } from "@/lib/duelos-onces";
 import { puestoDelRival } from "@/lib/rivals/colocacion-once";
 import { casaNombre } from "@/lib/data-analisis/once";
 import { bajaDe } from "@/lib/rivals/bajas";
@@ -440,6 +440,35 @@ export default function ScoutRivalIndividual() {
   | marcado en Plantillas si tiene siete o más; si no, su último once de
   | BeSoccer. Fuera los lesionados y sancionados de su ficha, y se dice.
   */
+  /*
+  | EL ONCE PROBABLE DE /rivals Y /duelos (27/11/2026, jueces de fútbol, ronda
+  | 9): sin once marcado, aquí salía su último once de BeSoccer (1-5-4-1 sin
+  | Manin, con Yoshimura de delantero) y en las otras dos pantallas, el que
+  | propone el motor. Ahora la misma función: `onceProbableDelRival`.
+  */
+  const filasDelEquipo = useMemo(
+    () =>
+      Object.entries(filasDe)
+        .filter(([k]) => k.startsWith(`${equipo}|`))
+        .map(([, f]) => f),
+    [filasDe, equipo],
+  );
+  const probable = useMemo(
+    () =>
+      onceProbableDelRival(
+        filasDelEquipo,
+        equipo,
+        findInforme(informes, equipo),
+        {
+          dibujo: onceDe.equipo === equipo ? onceDe.dibujo : undefined,
+          puestos: onceDe.equipo === equipo ? onceDe.puestos : undefined,
+          titulares: onceDe.equipo === equipo ? onceDe.claves : [],
+        },
+        dibujoDeWyscout(perfilesRival?.sistemas),
+      ),
+    [filasDelEquipo, equipo, informes, onceDe, perfilesRival],
+  );
+
   const once = useMemo(() => {
     const suyos = (squads.find((squad) => squad.equipo === equipo)?.players ?? []).map((j) => ({
       nombre: j.nombre,
@@ -451,9 +480,15 @@ export default function ScoutRivalIndividual() {
     let claves: string[] = [];
     let fuente = "";
 
+    const sugeridos = probable.sugerido ? probable.titulares.filter((c) => deLaPlantilla.has(c)) : [];
+
     if (marcados.length >= 7) {
       claves = marcados;
       fuente = "Once probable marcado en Plantillas rivales";
+    } else if (probable.sugerido && sugeridos.length >= 7) {
+      const n = probable.sugerido.alineaciones;
+      claves = sugeridos;
+      fuente = `Su once probable de Plantillas rivales en ${probable.dibujo}, propuesto con ${n === 1 ? "su último once" : `sus últimos ${n} onces`}: nadie lo ha marcado`;
     } else {
       const ultimo = findInforme(informes, equipo)?.onces?.find((o) => o.jugadores.length > 0);
       const casados = (ultimo?.jugadores ?? [])
@@ -473,22 +508,11 @@ export default function ScoutRivalIndividual() {
     }
 
     return { claves: new Set(claves.filter((c) => !fuera.some((j) => j.clave === c))), fuente };
-  }, [squads, equipo, clavesDe, filasDe, onceDe, informes]);
+  }, [squads, equipo, clavesDe, filasDe, onceDe, informes, probable]);
 
   /* Dónde cae cada titular en su once, con la cuenta del campograma de /rivals (la de Duelos). */
-  const colocacion = useMemo(
-    () =>
-      colocacionDelCampograma(
-        Object.entries(filasDe)
-          .filter(([k]) => k.startsWith(`${equipo}|`))
-          .map(([, f]) => f),
-        equipo,
-        findInforme(informes, equipo),
-        /* Con los titulares (18/11/2026): uno por hueco, el mismo once de /rivals (11 en 11, nunca dos laterales derechos). */
-        { dibujo: onceDe.equipo === equipo ? onceDe.dibujo : undefined, puestos: onceDe.equipo === equipo ? onceDe.puestos : undefined, titulares: [...once.claves] },
-      ),
-    [filasDe, equipo, informes, onceDe, once],
-  );
+  /* Con los titulares (18/11/2026): uno por hueco, el mismo once de /rivals (11 en 11, nunca dos laterales derechos). Desde el 27/11, el mismo cálculo. */
+  const colocacion = probable.colocacion;
 
   const plantilla = useMemo(
     () =>

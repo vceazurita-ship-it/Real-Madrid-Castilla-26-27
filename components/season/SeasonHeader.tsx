@@ -196,12 +196,19 @@ export default function SeasonHeader({
         */}
         {tiraSemanas.length > 1 ? (
           <p className="mt-4 flex max-w-3xl flex-wrap items-baseline gap-x-2 gap-y-1 text-[14px] leading-snug text-white/75">
-            {idxActual >= 0 ? (
+            {/* 27/11/2026 (jueces): en el repositorio general la línea es de la temporada («Temporada: 16 archivos…»); «Semana 21» se queda en la tarjeta de la semana. */}
+            {general ? (
+              <span className="font-semibold text-white/90">Temporada:</span>
+            ) : idxActual >= 0 ? (
               <span className="font-semibold text-white/90">{tiraSemanas[idxActual].nombre || `Semana ${idxActual + 1}`}</span>
             ) : null}
             {/* 20/11/2026 (ronda 5, fútbol): el «·» va con el recuento, para que no se quede colgando en 390 px. */}
             <span>
-              {idxActual >= 0 ? <span aria-hidden className="mr-2 text-white/35">·</span> : null}
+              {general && stats.images + stats.pdfs > 0 ? (
+                <span className="font-semibold tabular-nums text-white/90">{`${stats.images + stats.pdfs} ${stats.images + stats.pdfs === 1 ? "archivo" : "archivos"} `}</span>
+              ) : null}
+              {general && stats.images + stats.pdfs > 0 ? "(" : null}
+              {idxActual >= 0 && !general ? <span aria-hidden className="mr-2 text-white/35">·</span> : null}
               {stats.images > 0 ? (
                 <button
                   type="button"
@@ -226,6 +233,7 @@ export default function SeasonHeader({
                   {`${stats.pdfs} PDF`}
                 </button>
               ) : null}
+              {general && stats.images + stats.pdfs > 0 ? ")" : null}
               {stats.images + stats.pdfs > 0 ? " en " : null}
               <span className="font-semibold tabular-nums text-white/90">{conMaterial}</span> de {tiraSemanas.length} semanas
               {stats.images + stats.pdfs > 0 ? "" : " con material"}
@@ -234,7 +242,7 @@ export default function SeasonHeader({
             {general && actualVacia && ultimaConMaterial ? (
               <span>
                 <span aria-hidden className="mr-2 text-white/35">·</span>
-                último:{" "}
+                lo último, en la{" "}
                 <button
                   type="button"
                   onClick={() => onSelectWeek?.(ultimaConMaterial.id)}
@@ -295,17 +303,18 @@ export default function SeasonHeader({
               const faltan = checklist.filter((c) => !c.hecho);
               const lista = faltan.map((c) => `${c.texto === "Convocatoria" ? "la" : "el"} ${c.texto.toLowerCase()}`);
               const unidas = lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista[lista.length - 1]}` : lista[0];
-              const titular = actualVacia
-                ? `Esta semana no hay material: sube ${unidas}.`
-                : faltan.length
-                  ? `Esta semana falta subir ${unidas}.`
-                  : "Esta semana ya está todo lo de cada semana.";
+              /* 27/11/2026 (jueces): un solo bloque con la cuenta y el partido («Faltan 3 cosas para la J14 en Rayo Majadahonda»); la lista con los botones va debajo. */
+              const cuantas = faltan.length === 1 ? "1 cosa" : `${faltan.length} cosas`;
+              const semanaRotulo = currentWeek.week.toLowerCase();
+              const titular = faltan.length
+                ? `${semanaRotulo.charAt(0).toUpperCase()}${semanaRotulo.slice(1)} · ${faltan.length === 1 ? "falta" : "faltan"} ${cuantas}${partidoActual ? ` para la ${partidoActual}` : ""}`
+                : `${semanaRotulo.charAt(0).toUpperCase()}${semanaRotulo.slice(1)} · ya está todo lo de cada semana`;
 
               return (
                 <>
                   <p className="text-[15px] font-semibold leading-snug text-white/90">
                     {titular}
-                    {partidoActual ? <span className="font-normal text-white/70"> {partidoActual}.</span> : null}
+                    {faltan.length ? <span className="font-normal text-white/70">: {unidas}.</span> : "."}
                   </p>
 
                   {/*
@@ -331,7 +340,7 @@ export default function SeasonHeader({
                     {checklist.map((c) => (
                       <li
                         key={c.texto}
-                        className={`flex min-h-11 flex-wrap items-center gap-x-3 gap-y-1.5 rounded-lg border px-3 py-1.5 ${
+                        className={`flex min-h-11 flex-col items-stretch gap-x-3 gap-y-1.5 rounded-lg border px-3 py-1.5 sm:flex-row sm:flex-wrap sm:items-center ${
                           c.hecho ? "border-[#C8A96B]/50" : "border-white/20"
                         }`}
                       >
@@ -352,7 +361,7 @@ export default function SeasonHeader({
                         {c.texto === "Plan de partido" && c.href ? (
                           <Link
                             href={c.href}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg border border-white/15 px-2.5 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+                            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg border border-white/15 px-2.5 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
                           >
                             <ClipboardCheck size={14} className="text-[#C8A96B]" aria-hidden />
                             {partidoActual ? `Abrir el de la ${partidoActual.split(" ")[0]}` : "Abrir el plan"}
@@ -363,7 +372,7 @@ export default function SeasonHeader({
                             type="button"
                             disabled={subiendo}
                             onClick={() => pideArchivos(c.texto)}
-                            className="inline-flex min-h-9 items-center gap-1.5 rounded-lg bg-[#C8A96B] px-3 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-50"
+                            className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-lg bg-[#C8A96B] px-3 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110 disabled:opacity-50"
                           >
                             {subiendo ? <Loader2 size={14} className="animate-spin" aria-hidden /> : <UploadCloud size={14} aria-hidden />}
                             {`Subir ${c.texto === "Convocatoria" ? "la" : "el"} ${c.texto.toLowerCase()}`}
@@ -535,7 +544,7 @@ export default function SeasonHeader({
                       title={detalle.join(" · ")}
                       aria-label={detalle.join(", ")}
                       aria-current={semana.actual ? "true" : undefined}
-                      className={`relative flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-[8px] leading-none tabular-nums transition hover:scale-105 ${
+                      className={`relative flex h-12 shrink-0 flex-col items-center justify-center rounded-[8px] leading-none tabular-nums transition hover:scale-105 ${semana.conMaterial || semana.actual ? "w-12" : "w-9"} ${
                         semana.actual
                           ? "border-2 border-[#C8A96B] bg-[#C8A96B]/30 text-white"
                           : semana.conMaterial
@@ -544,9 +553,10 @@ export default function SeasonHeader({
                       }`}
                     >
                       <span className="text-[14px] font-semibold">{i + 1}</span>
-                      <span className={`mt-1 text-[11px] font-medium ${semana.conMaterial && !semana.actual ? "" : "text-white/65"}`}>
-                        {semana.conMaterial ? `${archivos || ""} arch.`.trim() : "vacía"}
-                      </span>
+                      {/* 27/11/2026 (jueces): «vacía» catorce veces seguidas parecía un fallo; la semana sin material lleva sólo su número (la leyenda dice «sin material»). */}
+                      {semana.conMaterial ? (
+                        <span className={`mt-1 text-[11px] font-medium ${semana.actual ? "text-white/65" : ""}`}>{`${archivos || ""} arch.`.trim()}</span>
+                      ) : null}
                       {semana.actual && (
                         <span
                           aria-hidden

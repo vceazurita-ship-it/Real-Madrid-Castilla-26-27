@@ -431,7 +431,8 @@ export function PanelEquipo({
               const c = (n: number) => n.toFixed(1).replace(".", ",");
               return (
                 <p className="mb-1 text-[15px] font-semibold text-white">
-                  {parecidos(suyo.ent, nuestro.ent) ? `${equipo} y el Castilla, parecidos en llegada al área` : suyo.ent > nuestro.ent ? `${equipo} llega más al área que nosotros` : `Llegamos más al área que ${equipo}`}: {c(suyo.ent)} entradas por partido frente a {c(nuestro.ent)}.
+                  {parecidos(suyo.ent, nuestro.ent) ? `${equipo} y el Castilla, parecidos en llegada al área` : suyo.ent > nuestro.ent ? `${equipo} llega más al área que nosotros` : `Llegamos más al área que ${equipo}`}: {c(suyo.ent)} entradas por partido (P{Math.round(suyo.y)}) frente a {c(nuestro.ent)} (P{Math.round(nuestro.y)}).
+                  {/* 27/11/2026 (marketing, ronda 9): con el percentil de los dos, para que «parecidos» no choque con lo que se ve en el mapa. */}
                 </p>
               );
             })()}

@@ -20,6 +20,7 @@ import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
 import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
+import { useEtiquetadoEnVideo } from "@/hooks/useEtiquetadoEnVideo";
 import { ProyeccionTabla } from "@/components/data/ProyeccionTabla";
 
 const coma1 = (v: number) => v.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 });
@@ -365,6 +366,8 @@ export default function CollectiveHistoryPage() {
 | marketing): queda un solo botón, a pestaña nueva.
 */
 const [tablaInforme, setTablaInforme] = useState<ClasificacionPortada | null>(null);
+/* 27/11/2026 (ronda 9, fútbol): qué partidos tienen ya robos y pérdidas, para no enlazar a uno que aún no está. */
+const delVideo = useEtiquetadoEnVideo();
 
 useEffect(() => {
   let vivo = true;
@@ -741,7 +744,8 @@ useEffect(() => {
                   {tabla.jugados === 1 ? "jornada" : "jornadas"}
                   {corte && tabla.deCalendario ? ` (${corte})` : ""}
                   {liga.mediaPuntos !== null
-                    ? `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de media en la liga.`
+                    ? /* 27/11/2026 (ronda 9, análisis): por partido y, al lado, el total frente a un equipo medio, como en Vídeo Análisis. */
+                      `: ${(tabla.puntos / tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} por partido frente a ${liga.mediaPuntos.toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} de media en la liga (${(liga.mediaPuntos * tabla.jugados).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} puntos un equipo medio).`
                     : "."}
                 </p>
               ) : null}
@@ -752,8 +756,16 @@ useEffect(() => {
                   titulo={`Último partido · J${ultimo.jornada}`}
                   enlaces={[
                     { href: urlPostDelPartido(ultimo.cuando, ultimo.rival), texto: `Post contra el ${nombreEquipo(ultimo.rival)}`, icono: BarChart3 },
-                    { href: enlaceConPartido("/laboratorio/transiciones", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }), texto: "Sus robos", icono: Crosshair },
-                    { href: enlaceConPartido("/laboratorio/perdidas", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }), texto: "Sus pérdidas", icono: ArrowLeftRight },
+                    {
+                      href: delVideo?.robos({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/transiciones", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
+                      texto: "Sus robos",
+                      icono: Crosshair,
+                    },
+                    {
+                      href: delVideo?.perdidas({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/perdidas", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
+                      texto: "Sus pérdidas",
+                      icono: ArrowLeftRight,
+                    },
                   ]}
                 />
               ) : null}

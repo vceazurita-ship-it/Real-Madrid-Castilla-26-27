@@ -247,7 +247,8 @@ export function CampoZonas({
         exactamente lo que había que quitar de aquí.
       */}
       <svg
-        viewBox={`-118 -34 ${ANCHO + 144} ${ALTO + 74}`}
+        /* 27/11/2026 (ronda 9): 10 de margen más arriba para que quepan los rótulos de tercio, más grandes en el móvil. */
+        viewBox={`-118 -44 ${ANCHO + 144} ${ALTO + 84}`}
         className="mx-auto block w-full"
         /* El ancho que da un alto que cabe: el campo es 1194 × 754 con sus márgenes. */
         style={{ maxWidth: completa ? "calc((100vh - 64px) * 1.583)" : "max(560px, calc((100vh - 300px) * 1.583))" }}
@@ -261,7 +262,7 @@ export function CampoZonas({
           </linearGradient>
         </defs>
 
-        <rect x={-118} y={-34} width={ANCHO + 144} height={ALTO + 74} fill="#0A1A12" />
+        <rect x={-118} y={-44} width={ANCHO + 144} height={ALTO + 84} fill="#0A1A12" />
 
         {/* El césped, sólo dentro de las líneas. */}
         <rect x={0} y={0} width={ANCHO} height={ALTO} fill={`url(#${idCesped})`} />
@@ -308,7 +309,8 @@ export function CampoZonas({
 
         {/* Cuántos hay en cada zona, en la esquina de abajo: se lee sin contar puntos. */}
         {/* 17/11/2026 (ronda 19, marketing): cifras de zona a 32 en el lienzo (unos 11 px a 390 de ancho; antes, 6). */}
-        <g fontSize={32} fontWeight={700} fill="rgba(255,255,255,0.85)" style={{ pointerEvents: "none" }}>
+        {/* 27/11/2026 (ronda 9, fútbol): en el móvil, a 42 (unos 11-12 px a 390). */}
+        <g fontSize={32} fontWeight={700} fill="rgba(255,255,255,0.85)" className="max-sm:text-[42px]" style={{ pointerEvents: "none" }}>
           {zonas.map((_, zi) =>
             carriles.map((__, ci) => {
               const lista = porCajon.get(`${zi}|${ci}`);
@@ -387,7 +389,8 @@ export function CampoZonas({
 
         {/* --------------------------- los rótulos -------------------- */}
 
-        <g fill="rgba(255,255,255,0.34)" fontSize={20} letterSpacing={3} textAnchor="middle" style={{ textTransform: "uppercase" }}>
+        {/* 27/11/2026 (ronda 9, fútbol): a 390 px los rótulos salían a 5-6 px; en el móvil van a 38 en el lienzo (unos 11 px). */}
+        <g fill="rgba(255,255,255,0.34)" fontSize={20} letterSpacing={3} textAnchor="middle" className="max-sm:text-[38px] max-sm:tracking-normal" style={{ textTransform: "uppercase" }}>
           {zonas.map((zona, zi) => {
             const suya = zonasMarcadas.includes(zona);
 
@@ -409,7 +412,7 @@ export function CampoZonas({
           })}
         </g>
 
-        <g fill="rgba(255,255,255,0.32)" fontSize={18} letterSpacing={1}>
+        <g fill="rgba(255,255,255,0.32)" fontSize={18} letterSpacing={1} className="max-sm:text-[36px] max-sm:tracking-normal">
           {carriles.map((carril, ci) => {
             const suyo = carrilesMarcados.includes(carril);
 
@@ -426,20 +429,22 @@ export function CampoZonas({
                 style={{ textTransform: "uppercase", cursor: onCarril ? "pointer" : undefined }}
               >
                 {onCarril && <title>{TITULO_FILTRO}</title>}
-                {carril}
+                {/* En el móvil, abreviado («IZQ.»): a tamaño legible no cabe en el margen. */}
+                <tspan className="max-sm:hidden">{carril}</tspan>
+                <tspan className="hidden max-sm:inline">{carril.length > 4 ? `${carril.slice(0, 3)}.` : carril}</tspan>
               </text>
             );
           })}
         </g>
 
         <g fill="rgba(255,255,255,0.45)" fontSize={18} letterSpacing={1.5}>
-          <text x={0} y={ALTO + 28} textAnchor="start">
+          <text x={0} y={ALTO + 28} textAnchor="start" className="max-sm:hidden">
             ← nuestra portería
           </text>
-          <text x={ANCHO / 2} y={ALTO + 28} textAnchor="middle" fill="rgba(200,169,107,0.75)">
+          <text x={ANCHO / 2} y={ALTO + 30} textAnchor="middle" fill="rgba(200,169,107,0.75)" className="max-sm:text-[34px] max-sm:tracking-normal">
             el Castilla ataca hacia la derecha →
           </text>
-          <text x={ANCHO} y={ALTO + 28} textAnchor="end">
+          <text x={ANCHO} y={ALTO + 28} textAnchor="end" className="max-sm:hidden">
             portería rival →
           </text>
         </g>

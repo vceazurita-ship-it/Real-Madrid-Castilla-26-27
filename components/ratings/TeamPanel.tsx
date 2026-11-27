@@ -500,10 +500,11 @@ export function TeamPanel({
         <StatCard
           label="Mejor media · de campo"
           value={best ? <NombreJugador jugador={{ id: best.player.id, nombre: best.player.nombre }}>{nombreVisible(best.player.nombre)}</NombreJugador> : ""}
-          etiqueta={best ? <ChapaBase texto={`${best.summary.played} PJ`} tendencia={best.summary.played < MIN_FIABLE} /> : undefined}
+          /* 27/11/2026 (fútbol y análisis, ronda 9): la pastilla «11 PJ» quedaba suelta
+             encima del nombre; la base va en la frase, con la media del equipo al lado. */
           hint={
             best
-              ? `${formatRating(best.summary.avg)} de media · el mejor de los ${bestCampo.length} de campo con ${MIN_FIABLE}+ PJ · nota del cuerpo técnico`
+              ? `${formatRating(best.summary.avg)} de media en ${best.summary.played} ${best.summary.played === 1 ? "partido" : "partidos"}${best.summary.played < MIN_FIABLE ? " (tendencia)" : ""} · el equipo, ${formatRating(teamAverage)}; más es mejor · el mejor de los ${bestCampo.length} de campo con ${MIN_FIABLE}+ PJ · nota del cuerpo técnico`
               : undefined
           }
           accent="var(--rmcf-gold-ink)"

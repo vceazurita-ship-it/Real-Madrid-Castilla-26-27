@@ -36,7 +36,8 @@ const COLOR = { G: "#34D399", E: "#C8A96B", P: "#F87171" } as const;
 const LETRA = { G: "V", E: "E", P: "D" } as const;
 const PALABRA = { G: "Ganó", E: "Empató", P: "Perdió" } as const;
 
-const coma = (n: number, d = 2) => n.toFixed(d).replace(".", ",");
+/* Un decimal como mucho (27/11/2026, jueces, ronda 9): 0,7 · 1,3, no 0,67 · 1,33. */
+const coma = (n: number, d = 1) => n.toFixed(d).replace(".", ",");
 
 /** «2026-09-12T18:00:00+02:00» → «12/09». */
 function diaMes(iso: string) {
@@ -154,7 +155,10 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
           ? [`encaja ${coma(contra)}${med(liga?.contra)} y marca ${coma(favor)} por partido${med(liga?.favor)}`, "sus partidos dan pocos goles: paciencia, y el balón parado pesa más"] /* 17/11/2026 (ronda 20, fútbol): «partido cerrado» chocaba con el tipo de partido del Plan, que proyecta el NUESTRO con Opta; aquí se habla de los suyos. */
           : encaja === "menos"
             ? [`encaja ${coma(contra)} por partido${med(liga?.contra)}, menos que la mayoría`, "paciencia con balón: el partido se abre con el balón parado y las transiciones"]
-            : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];
+            : marca === "menos"
+              ? /* 27/11/2026 (jueces de fútbol, ronda 9): marcaba 0,67 con la mediana en 1,36 y decía «como la media». A favor y en contra, por separado. */
+                [`marca ${coma(favor)} por partido${med(liga?.favor)}${liga && favor > 0 && favor <= liga.favor * 0.6 ? `, ${favor <= liga.favor * 0.55 ? "la mitad" : "poco más de la mitad"} que la mediana` : ", menos que la mayoría"}`, "cerrar su poco ataque y no regalarle transiciones: el partido se nos abre con paciencia"]
+              : [`marca ${coma(favor)} y encaja ${coma(contra)} por partido, como la media`, "lo deciden los detalles: balón parado y transiciones"];
 
   /* Las tres cifras grandes, cada una con su mediana de la liga. */
   const cifras = [

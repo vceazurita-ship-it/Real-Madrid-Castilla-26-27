@@ -474,6 +474,11 @@ export function PantallaGoles() {
 
   /* El calendario manda en cuántos partidos ha jugado el Castilla: si la lista no los tiene todos, se dice. */
   const { partidos: calendario } = useCalendario();
+  /* 27/11/2026 (ronda 9): la última jornada ya jugada por el Castilla, para el sello de la cabecera. */
+  const ultimaJugadaCalendario = useMemo(
+    () => calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada > 0).sort((x, y) => y.jornada - x.jornada)[0] ?? null,
+    [calendario],
+  );
   const jugadosCalendario = useMemo(
     () => (esNuestro ? calendario.map(comoNuestro).filter((u) => u.jugado && u.jornada >= jDesde && u.jornada <= jHasta && (lugar === "todos" || u.lado === lugar)).length : 0),
     [calendario, esNuestro, lugar, jDesde, jHasta],
@@ -1092,8 +1097,14 @@ export function PantallaGoles() {
         lead={
           <>
           <span className="block text-[12px] font-semibold text-white/70">
-            BeSoccer hasta la J{jHasta}
-            {optaHasta ? ` · Opta hasta el ${optaHasta}` : ""}
+            {/* 27/11/2026 (ronda 9, marketing y análisis): qué cifra sale de cuál, y si ya se jugó una jornada que aún no ha entrado. */}
+            Goles y minutos: BeSoccer, hasta la J{jHasta}
+            {optaHasta ? ` · remates, xG y vídeo: Opta, hasta el ${optaHasta}` : ""}
+            {esNuestro && ultimaJugadaCalendario && ultimaJugadaCalendario.jornada > jHasta && hasta == null ? (
+              <span className="block font-normal text-white/55">
+                La J{ultimaJugadaCalendario.jornada} ({nombreEquipo(ultimaJugadaCalendario.rival)}) ya se jugó y entra en la próxima actualización.
+              </span>
+            ) : null}
           </span>
           <Explicativo>
             Goles de {nombreEquipo(equipo)} y de toda la liga por franjas de minutos, como local y como visitante, con los remates de Wyscout y la tipología de los goles de nuestros

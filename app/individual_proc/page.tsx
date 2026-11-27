@@ -917,6 +917,12 @@ export default function DashboardSeguimiento() {
       ).toFixed(1)
     : 0;
 
+  /* 27/11/2026 (fútbol, ronda 9): la media de las 7 últimas semanas cerradas,
+     la ventana del gráfico de Calendario, para que las dos cifras se lean
+     juntas y no choquen (19,7 en la temporada frente a 16,3 en 7 semanas). */
+  const ultimas7 = semanasCerradas.slice(-7);
+  const mediaUltimas7 = ultimas7.length >= 2 ? +(ultimas7.reduce((a, b) => a + b.value, 0) / ultimas7.length).toFixed(1) : null;
+
   /* La semana pico, dicha con lo que la explica (16/11/2026). */
   const notaDelPico = (() => {
     if (weeklyData.length < 3 || !weeklyMean) return "";
@@ -1194,7 +1200,10 @@ export default function DashboardSeguimiento() {
            de arriba (sin seguimiento en 14 días): salían dos veces. */
         .filter((x) => x.falta && !(aCero.length > 0 && aCeroIds.has(x.p.id)))
         .map((x) => ({ id: x.p.id, nombre: nombreVisible(x.p.nombre), /* 17/11/2026 (ronda 20): la etiqueta dice su base: «0 de 1 · su único registro». */
-        detalle: x.ultimos.length === 1 ? "0 de 1 · su único registro" : `0 de ${x.ultimos.length}` }));
+        /* 27/11/2026 (fútbol y marketing, ronda 9): «Todos: 0 de 3» no se entendía; la etiqueta dice qué cuenta. */
+        detalle: x.ultimos.length === 1
+          ? `su único registro, sin objetivo ${menor.name.toLowerCase()}`
+          : `ninguno de sus ${x.ultimos.length} últimos registros con objetivo ${menor.name.toLowerCase()}` }));
 
       out.push({
         icon: Target,
@@ -1368,6 +1377,67 @@ export default function DashboardSeguimiento() {
               <div role="status" className="mt-6 rounded-2xl border border-[#C8A96B]/30 bg-[#C8A96B]/10 px-4 py-3">
                 <p className="text-sm font-semibold text-[#C8A96B]">{insights[0].text}</p>
                 <JugadoresDeLectura jugadores={insights[0].jugadores} />
+              </div>
+            )}
+
+            {/* 27/11/2026 (ronda 9): lo primero tras el aviso, el gráfico de la evolución semanal con su lectura (antes, bajo las tarjetas y los filtros). */}
+            {!loading && weeklyData.length > 0 && (
+              <div className="mt-6">
+                  <Panel
+                    title="Evolución semanal"
+                    subtitle={
+                      weeklyData.length < 3
+                        ? "Seguimientos por semana"
+                        : `Media de ${cm(weeklyMean)} seguimientos por semana completa (raya), de lunes a domingo · oro, individuales; gris, grupales${
+                            weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
+                              ? ` · la última va en curso, día ${diaDeSemana} de 7`
+                              : ""
+                          } · pulsa una barra para filtrar${notaDelPico ? `. ${notaDelPico}` : ""}`
+                    }
+                  >
+                    {/* 30/10/2026: con una o dos semanas, una barra por semana y la
+                        que va en curso dice a qué día está; sin frases sobre lo
+                        que falta. */}
+                    {weeklyData.length < 3 ? (
+                      <div className="space-y-3 py-4">
+                        {weeklyData.map((w) => {
+                          const maximo = Math.max(...weeklyData.map((x) => x.value), 1);
+                          const enCurso = w.week === semanaDeHoy && diaDeSemana < 7;
+
+                          return (
+                            <div key={w.week}>
+                              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                                <span className="text-white/75">
+                                  Semana {w.desde}
+                                  {enCurso ? ` · en curso, día ${diaDeSemana} de 7` : ""}
+                                </span>
+                                <span className="tabular-nums font-semibold text-[#C8A96B]">{w.value}</span>
+                              </div>
+                              <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                                <div
+                                  className="h-full rounded-full"
+                                  style={{ width: `${(w.value / maximo) * 100}%`, background: GOLD, opacity: enCurso ? 0.55 : 1 }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      /* 17/11/2026 (ronda 19): barras en HTML, sin recharts. En
+                         escritorio el gráfico salía como un recuadro vacío (el
+                         contenedor medía 0 al montar, el mismo fallo del anillo
+                         de estrategias); estas se pintan siempre y se pulsan
+                         igual en el móvil. */
+                      <BarrasSemanales
+                        datos={weeklyData}
+                        media={weeklyMean}
+                        semanaEnCurso={diaDeSemana < 7 ? semanaDeHoy : ""}
+                        activa={filters.week ? `S${filters.week}` : ""}
+                        onSelect={(w) => updateFilter("week", filters.week === w.replace("S", "") ? "" : w.replace("S", ""))}
+                      />
+                    )}
+                  </Panel>
               </div>
             )}
 
@@ -1601,7 +1671,11 @@ export default function DashboardSeguimiento() {
                   icon={CalendarDays}
                   title={semanasCerradas.length >= 1 && weeklyData.length > 1 ? `Media semanal · ${semanasCerradas.length} sem. completas` : "Esta semana"}
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
-                  base={semanasCerradas.length >= 1 && weeklyData.length > 1 ? "registros por semana, de lunes a domingo" : undefined}
+                  base={
+                    semanasCerradas.length >= 1 && weeklyData.length > 1
+                      ? `registros por semana, de lunes a domingo${mediaUltimas7 !== null && semanasCerradas.length > ultimas7.length ? ` · últimas ${ultimas7.length} cerradas: ${cm(mediaUltimas7)}` : ""}`
+                      : undefined
+                  }
                   hint={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
                       ? `registros por semana: media de ${semanasCerradas.length} ${semanasCerradas.length === 1 ? "semana completa" : "semanas completas"} (lunes a domingo)${semanasCerradas.length < weeklyData.length ? "; la primera (si empezó a media semana) y la actual van aparte" : ""}`
@@ -1730,63 +1804,8 @@ export default function DashboardSeguimiento() {
                   </div>
                 )}
 
-                <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
-                  <Panel
-                    title="Evolución semanal"
-                    subtitle={
-                      weeklyData.length < 3
-                        ? "Seguimientos por semana"
-                        : `Media de ${cm(weeklyMean)} seguimientos por semana completa (raya), de lunes a domingo · oro, individuales; gris, grupales${
-                            weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
-                              ? ` · la última va en curso, día ${diaDeSemana} de 7`
-                              : ""
-                          } · pulsa una barra para filtrar${notaDelPico ? `. ${notaDelPico}` : ""}`
-                    }
-                  >
-                    {/* 30/10/2026: con una o dos semanas, una barra por semana y la
-                        que va en curso dice a qué día está; sin frases sobre lo
-                        que falta. */}
-                    {weeklyData.length < 3 ? (
-                      <div className="space-y-3 py-4">
-                        {weeklyData.map((w) => {
-                          const maximo = Math.max(...weeklyData.map((x) => x.value), 1);
-                          const enCurso = w.week === semanaDeHoy && diaDeSemana < 7;
-
-                          return (
-                            <div key={w.week}>
-                              <div className="mb-1 flex items-baseline justify-between gap-3 text-sm">
-                                <span className="text-white/75">
-                                  Semana {w.desde}
-                                  {enCurso ? ` · en curso, día ${diaDeSemana} de 7` : ""}
-                                </span>
-                                <span className="tabular-nums font-semibold text-[#C8A96B]">{w.value}</span>
-                              </div>
-                              <div className="h-2.5 w-full overflow-hidden rounded-full bg-white/10">
-                                <div
-                                  className="h-full rounded-full"
-                                  style={{ width: `${(w.value / maximo) * 100}%`, background: GOLD, opacity: enCurso ? 0.55 : 1 }}
-                                />
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    ) : (
-                      /* 17/11/2026 (ronda 19): barras en HTML, sin recharts. En
-                         escritorio el gráfico salía como un recuadro vacío (el
-                         contenedor medía 0 al montar, el mismo fallo del anillo
-                         de estrategias); estas se pintan siempre y se pulsan
-                         igual en el móvil. */
-                      <BarrasSemanales
-                        datos={weeklyData}
-                        media={weeklyMean}
-                        semanaEnCurso={diaDeSemana < 7 ? semanaDeHoy : ""}
-                        activa={filters.week ? `S${filters.week}` : ""}
-                        onSelect={(w) => updateFilter("week", filters.week === w.replace("S", "") ? "" : w.replace("S", ""))}
-                      />
-                    )}
-                  </Panel>
-
+                {/* 27/11/2026 (fútbol y análisis, ronda 9): la evolución semanal sube arriba, junto al aviso. */}
+                <div className="grid grid-cols-1 gap-6">
                   <Panel
                     title="Foco de los objetivos"
                     subtitle={`De ${totalSessions} registros, cuántos llevan objetivo de cada tipo (uno puede llevar varios)`}
@@ -2677,14 +2696,19 @@ function JugadoresDeLectura({ jugadores }: { jugadores: { id: string; nombre: st
     >
       <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white" />
       {!comun && <span className="text-[11px] tabular-nums text-white/60">{j.detalle}</span>}
-      <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["calendario", "registrar"]} compacto />
+      {/* 27/11/2026 (marketing, ronda 9): también su ficha, a un toque. */}
+      <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["ficha", "calendario", "registrar"]} compacto />
     </li>
   );
   const TOPE = 6;
 
   return (
     <div className="mt-2 min-w-0">
-      {comun && <p className="mb-1.5 text-[11px] tabular-nums text-white/60">Todos: {comun}</p>}
+      {comun && (
+        <p className="mb-1.5 text-[12px] tabular-nums text-white/65">
+          {jugadores.length === 2 ? "Los dos" : `Los ${jugadores.length}`}: {comun}
+        </p>
+      )}
       <ul className="flex min-w-0 flex-wrap gap-2">{jugadores.slice(0, TOPE).map(chip)}</ul>
       {jugadores.length > TOPE && (
         <details className="mt-2">

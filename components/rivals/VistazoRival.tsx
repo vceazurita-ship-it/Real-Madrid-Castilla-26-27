@@ -701,13 +701,29 @@ export function VistazoRival({
                           el puesto del aspecto es la media de dos o tres cifras y, junto a la primera sola,
                           decía «17.º» de un 7,1 que en Su balón parado sale el peor de los 20.
                         */}
-                        {a.filas.map((f) => (
+                        {/*
+                          27/11/2026 (jueces de análisis y fútbol, ronda 9): «Córners rematados
+                          · 13.º de 20» salía bajo «Flojo en». Dentro de cada bloque sólo van
+                          las cifras de su tercio (los 6 primeros en «Fuerte en», los 6 últimos
+                          en «Flojo en»); si ninguna lo está, la primera, para no dejarlo vacío.
+                        */}
+                        {(() => {
+                          const de = (f: (typeof a.filas)[number]) => f.de ?? equipos;
+                          const punta = (f: (typeof a.filas)[number]) => Math.round(de(f) * 0.3);
+                          const enSuTercio = (f: (typeof a.filas)[number]) =>
+                            equipos <= 0 ||
+                            (grupo.titulo === "Fuerte en" ? puestoDeFila(f, equipos) <= punta(f) : puestoDeFila(f, equipos) > de(f) - punta(f));
+                          const filtradas = a.filas.filter(enSuTercio);
+                          return filtradas.length > 0 ? filtradas : a.filas.slice(0, 1);
+                        })().map((f) => (
                           <span key={f.nombre} className="text-[13px] leading-snug tabular-nums text-white/70">
                             {nombreDeFila(a.aspecto, f.nombre)}
-                            {/ppda/i.test(f.nombre) && f.proveedor === "Opta" ? " de Opta" : ""}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
+                            {/ppda/i.test(f.nombre) && f.proveedor === "Opta" ? " de Opta" : ""}
+                            {/* Dicho la vez que sale (27/11/2026, ronda 9, fútbol). */}
+                            {/ppda/i.test(f.nombre) ? " (pases que deja dar antes de presionar; menos es más presión)" : ""}: <b className="font-semibold text-white/85">{cifraAspecto(f.valor, f.unidad)}</b>
                             {porPartido(f.nombre, f.unidad)}
                             {/* El sentido, si menos es mejor (17/11/2026, jueces de análisis: «pérdidas 120,5» no decía hacia dónde). */}
-                            {(f.valor > f.mediana && f.percentil < 50) || (f.valor < f.mediana && f.percentil > 50) ? " (menos es mejor)" : ""} · mediana {cifraAspecto(f.mediana, f.unidad)}
+                            {!/ppda/i.test(f.nombre) && ((f.valor > f.mediana && f.percentil < 50) || (f.valor < f.mediana && f.percentil > 50)) ? " (menos es mejor)" : ""} · mediana {cifraAspecto(f.mediana, f.unidad)}
                             {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/* La base y el proveedor (16/11/2026, jueces de fútbol): «25 de 56 en 12 partidos», «Opta». */}
                             {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : partidosWyscout > 0 && porPartido(f.nombre, f.unidad) ? ` · ${partidosWyscout} partidos` : ""}

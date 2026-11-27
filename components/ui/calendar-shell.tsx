@@ -133,7 +133,11 @@ export function CalendarShell({
   keyboardEnabled = true,
   renderDay,
   children,
-}: CalendarShellProps) {
+  abreEnLaSemana = false,
+}: CalendarShellProps & {
+  /** 27/11/2026: en el móvil, la lista del mes en curso empieza en el lunes de esta semana; los días de antes, plegados. Sólo quien lo pide (Calendario de seguimiento). */
+  abreEnLaSemana?: boolean;
+}) {
   const [rejilla, setRejilla] = useState(false);
   const active = months[monthIndex] ?? months[0];
   const calendar = buildCalendar(active.month, active.year);
@@ -295,6 +299,7 @@ export function CalendarShell({
                 renderDay={renderDay}
                 rejilla={rejilla}
                 onToggle={() => setRejilla((v) => !v)}
+                abreEnLaSemana={abreEnLaSemana}
               />
 
               <p
@@ -367,6 +372,7 @@ function MobileDayList({
   renderDay,
   rejilla,
   onToggle,
+  abreEnLaSemana = false,
 }: {
   date: CalendarMonth;
   loading: boolean;
@@ -374,6 +380,7 @@ function MobileDayList({
   renderDay: (ctx: CalendarDayContext) => CalendarDayCell;
   rejilla: boolean;
   onToggle: () => void;
+  abreEnLaSemana?: boolean;
 }) {
   const diasDelMes = new Date(date.year, date.month + 1, 0).getDate();
 
@@ -392,25 +399,19 @@ function MobileDayList({
         }))
         .filter(({ d, cell }) => cell.hasContent && !isOutOfSeason(d));
 
-  return (
-    <div className="sm:hidden">
-      {loading && !rejilla && (
-        <div className="space-y-2">
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="h-20 animate-pulse rounded-xl border border-white/5 bg-white/[0.03]" />
-          ))}
-        </div>
-      )}
+  /* El lunes de esta semana, si el mes que se ve es el de hoy: lo de antes va plegado. */
+  const lunesClave = (() => {
+    if (!abreEnLaSemana || !hoyClave) return "";
+    const [a, m, dd] = hoyClave.split("-").map(Number);
+    if (a !== date.year || m - 1 !== date.month) return "";
+    const lunes = new Date(a, m - 1, dd);
+    lunes.setDate(lunes.getDate() - ((lunes.getDay() + 6) % 7));
+    return dateKey(lunes);
+  })();
+  const anteriores = lunesClave ? filas.filter(({ d }) => dateKey(d) < lunesClave) : [];
+  const desdeLunes = lunesClave ? filas.filter(({ d }) => dateKey(d) >= lunesClave) : filas;
 
-      {!loading && !rejilla && (
-        <div className="space-y-2">
-          {filas.length === 0 && (
-            <p className="rounded-xl border border-white/10 bg-[#10151C] px-4 py-5 text-center text-sm text-white/60">
-              Nada programado este mes.
-            </p>
-          )}
-
-          {filas.map(({ d, cell }) => (
+  const pintaFila = ({ d, cell }: (typeof filas)[number]) => (
             <div
               key={d.getTime()}
               role={cell.onClick ? "button" : undefined}
@@ -443,8 +444,36 @@ function MobileDayList({
                 {cell.badges && <div className="flex flex-wrap items-center gap-1">{cell.badges}</div>}
                 {cell.children}
               </div>
-            </div>
+            </div>);
+
+  return (
+    <div className="sm:hidden">
+      {loading && !rejilla && (
+        <div className="space-y-2">
+          {[0, 1, 2].map((i) => (
+            <div key={i} className="h-20 animate-pulse rounded-xl border border-white/5 bg-white/[0.03]" />
           ))}
+        </div>
+      )}
+
+      {!loading && !rejilla && (
+        <div className="space-y-2">
+          {filas.length === 0 && (
+            <p className="rounded-xl border border-white/10 bg-[#10151C] px-4 py-5 text-center text-sm text-white/60">
+              Nada programado este mes.
+            </p>
+          )}
+
+          {anteriores.length > 0 && (
+            <details className="rounded-xl border border-white/10 bg-[#10151C] px-3 py-2">
+              <summary className="cursor-pointer select-none text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                Días anteriores de este mes ({anteriores.length})
+              </summary>
+              <div className="mt-2 space-y-2">{anteriores.map(pintaFila)}</div>
+            </details>
+          )}
+
+          {desdeLunes.map(pintaFila)}
         </div>
       )}
 

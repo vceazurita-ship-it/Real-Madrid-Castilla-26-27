@@ -1830,8 +1830,9 @@ function InformeMicroDialogInterno({
 
               return (
                 <>
+                  {/* 27/11/2026 (jueces): «1 destinatar…» se cortaba a 390 px: «Para: 1». */}
                   <span className="sm:hidden">
-                    {n ? cuantos : whatsapp ? "WhatsApp" : "¿A quién?"} {verDestinatarios ? "▴" : "▾"}
+                    {n ? `Para: ${n}` : whatsapp ? "WhatsApp" : "¿A quién?"} {verDestinatarios ? "▴" : "▾"}
                   </span>
                   <span className="hidden sm:inline">{`${whatsapp ? "Por WhatsApp" : "Por correo"} · ${cuantos} · ${verDestinatarios ? "ocultar" : "cambiar"}`}</span>
                 </>
@@ -2028,9 +2029,12 @@ function InformeMicroDialogInterno({
 
           return (
             /* Siempre a la vista, también en el móvil (12/11/2026, marketing): fijo arriba y, si no cabe, se desliza de lado. */
+            /* 27/11/2026 (jueces): en el móvil no se veía que el índice se desliza («Tempora…»): degradado al borde derecho. */
+            <div className="sticky top-0 z-10 -mx-1 min-w-0">
+            <span aria-hidden className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-[#11161C] to-transparent sm:hidden" />
             <nav
               aria-label="Índice del informe"
-              className="sticky top-0 z-10 -mx-1 flex min-w-0 items-center gap-1.5 overflow-x-auto bg-[#11161C] px-1 py-1.5 [scrollbar-width:none]"
+              className="flex min-w-0 items-center gap-1.5 overflow-x-auto bg-[#11161C] px-1 py-1.5 pr-8 [scrollbar-width:none] sm:pr-1"
             >
               <span className="mr-1 shrink-0 text-[11px] font-semibold uppercase tracking-wider text-white/45">Ir a</span>
               {indice.map((una) => (
@@ -2044,6 +2048,7 @@ function InformeMicroDialogInterno({
                 </button>
               ))}
             </nav>
+            </div>
           );
         })()}
 

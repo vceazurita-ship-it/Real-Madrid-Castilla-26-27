@@ -317,8 +317,8 @@ export function PuertaLaboratorio() {
             <div className={`mt-6 grid min-w-0 max-w-6xl items-start gap-6 ${soloMuestra ? "" : "lg:grid-cols-[minmax(0,1fr)_minmax(0,22rem)]"}`}>
               <div id="lab-abp-acceso" className={`min-w-0 lg:sticky lg:top-6 lg:order-2 ${soloMuestra ? "hidden" : ""}`}>
                 <PuertaAdmin
-                  titulo="Entrar en el laboratorio"
-                  texto="Usuario y contraseña del administrador."
+                  titulo="Acceso del administrador"
+                  texto="Usuario y contraseña."
                   onEntra={entra}
                   onDentro={() => window.location.reload()}
                 />

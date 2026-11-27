@@ -1354,7 +1354,68 @@ function BoardEditor({
           </div>
       )}
 
+
+
+      <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
+        <TacticsBoard
+          doc={prueba ?? doc}
+          onChange={prueba ? setPrueba : setValue}
+          aPantallaCompleta={aPantallaCompleta}
+          roster={roster}
+          rivalSquads={rivalSquads}
+          partido={partido}
+          sentidoAtaque={deLaSemana ? "derecha" : undefined}
+          hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
+        />
+      </div>
+
+      {/*
+        En el móvil las fichas sólo llevan el dorsal (17/11/2026, ronda 20,
+        fútbol): debajo del campo, la leyenda «dorsal → nombre» de los dos
+        onces, para enseñarlo en la charla sin tocar ficha por ficha.
+      */}
+      {deLaSemana && (() => {
+        const fichas = (prueba ?? doc).scenes[0]?.tokens ?? [];
+        const lado = (kind: "home" | "away") =>
+          fichas
+            .filter((t) => t.kind === kind && (t.nombre ?? "").trim())
+            .sort((a, b) => (Number(a.label) || 99) - (Number(b.label) || 99));
+        const nuestro = lado("home");
+        const suyo = lado("away");
+
+        if (!nuestro.length && !suyo.length) return null;
+
+        return (
+          <div className="space-y-1 px-1 text-[12px] leading-snug text-white/70 sm:hidden" aria-label="Dorsal y nombre de cada ficha">
+            {nuestro.length > 0 && <p><b className="font-semibold text-white/85">Castilla:</b> {nuestro.map((t) => `${t.label} ${sinMayusculas(t.nombre ?? "")}`).join(" · ")}</p>}
+            {suyo.length > 0 && (
+              <p>
+                <b className="font-semibold text-white/85">{rivalDelTablero || "Rival"}:</b>{" "}
+                {/* Cada rival, a su ficha con el jugador ya elegido (27/11/2026, ronda 9). */}
+                {suyo.map((t, i) => (
+                  <span key={t.id}>
+                    {i > 0 && " · "}
+                    {rivalDelTablero ? (
+                      <Link
+                        href={`/scout-rival-individual?equipo=${encodeURIComponent(rivalDelTablero)}&jugador=${encodeURIComponent(t.nombre ?? "")}`}
+                        className="underline decoration-white/25 underline-offset-2 hover:text-white"
+                      >
+                        {t.label} {sinMayusculas(t.nombre ?? "")}
+                      </Link>
+                    ) : (
+                      `${t.label} ${sinMayusculas(t.nombre ?? "")}`
+                    )}
+                  </span>
+                ))}
+              </p>
+            )}
+          </div>
+        );
+      })()}
+
+
       {/* Cambiar el once en uno o dos toques, y la propuesta para el próximo partido (01/11/2026).
+          27/11/2026 (jueces, ronda 9): debajo del campo; en el móvil el tablero salía tras 600 px de texto.
           Plegado (16/11/2026, análisis): relleno, se abre a mano; en modo prueba, abierto. */}
       {deLaSemana && (
         <div className="rounded-2xl border border-white/10 bg-white/[0.02]">
@@ -1381,47 +1442,6 @@ function BoardEditor({
           )}
         </div>
       )}
-
-
-      <div ref={lienzo} data-lienzo-pizarra={lienzoALaVista ? "a-la-vista" : undefined}>
-        <TacticsBoard
-          doc={prueba ?? doc}
-          onChange={prueba ? setPrueba : setValue}
-          aPantallaCompleta={aPantallaCompleta}
-          roster={roster}
-          rivalSquads={rivalSquads}
-          partido={partido}
-          sentidoAtaque={deLaSemana ? "derecha" : undefined}
-          hint="Para animar: duplica la escena, mueve las fichas en la copia y pulsa ▶. Para presentar: pantalla completa y → (o el mando) avanza la jugada escena a escena."
-        />
-      </div>
-
-      {/*
-        En el móvil las fichas sólo llevan el dorsal (17/11/2026, ronda 20,
-        fútbol): debajo del campo, la leyenda «dorsal → nombre» de los dos
-        onces, para enseñarlo en la charla sin tocar ficha por ficha.
-      */}
-      {deLaSemana && (() => {
-        const fichas = (prueba ?? doc).scenes[0]?.tokens ?? [];
-        const lado = (kind: "home" | "away") =>
-          fichas
-            .filter((t) => t.kind === kind && (t.nombre ?? "").trim())
-            .sort((a, b) => (Number(a.label) || 99) - (Number(b.label) || 99))
-            .map((t) => `${t.label} ${sinMayusculas(t.nombre ?? "")}`)
-            .join(" · ");
-        const nuestro = lado("home");
-        const suyo = lado("away");
-
-        if (!nuestro && !suyo) return null;
-
-        return (
-          <div className="space-y-1 px-1 text-[12px] leading-snug text-white/70 sm:hidden" aria-label="Dorsal y nombre de cada ficha">
-            {nuestro && <p><b className="font-semibold text-white/85">Castilla:</b> {nuestro}</p>}
-            {suyo && <p><b className="font-semibold text-white/85">{rivalDelTablero || "Rival"}:</b> {suyo}</p>}
-          </div>
-        );
-      })()}
-
 
       {/*
         Los avisos del once rival, como pie del tablero y no encima (08/11/2026,

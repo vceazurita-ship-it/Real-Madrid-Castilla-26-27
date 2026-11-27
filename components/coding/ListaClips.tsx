@@ -76,6 +76,12 @@ function leeTags(texto: string) {
 /* 08/11/2026: la misma limpieza que los chips de vídeo (lib/coding/nombres). */
 const nombreLegible = nombreVideo;
 
+/** «J. Moreno · 1 contra 1 y dribling» → «J. Moreno»: el jugador del clip suelto, si el nombre del vídeo lo dice (27/11/2026). */
+function quienDelVideo(nombre: string) {
+  const partes = nombre.split(/\s+[·–-]\s+/);
+  return partes.length >= 2 ? partes[0] : "";
+}
+
 export function ListaClips({
   clips,
   categorias,
@@ -294,7 +300,15 @@ export function ListaClips({
       )}
 
       {/* 17/11/2026 (ronda 20, marketing): el jugador del corte, a un toque a su ficha. */}
-      {fichaDe && clip.sujeto !== "colectivo" && !esCompleto(clip) && fichaDe(clip) ? (
+      {/* 27/11/2026 (ronda 9, fútbol y marketing): el clip de jugador suelto («Vídeo
+          completo») no repite esas dos palabras en «Quién»: lleva el nombre de su
+          vídeo («J. Moreno · 1 contra 1 y dribling»), y la marca «vídeo entero» va
+          pequeña junto a la duración. */}
+      {esCompleto(clip) ? (
+        <span className="truncate text-[12px] font-medium text-white/80" title={videoDe ? videoDe(clip) : undefined}>
+          {videoDe ? quienDelVideo(nombreLegible(videoDe(clip))) : ""}
+        </span>
+      ) : fichaDe && clip.sujeto !== "colectivo" && fichaDe(clip) ? (
         <a
           href={fichaDe(clip)!}
           onClick={(evento) => evento.stopPropagation()}
@@ -400,6 +414,7 @@ export function ListaClips({
 
                 <span className="shrink-0 text-[11px] tabular-nums text-white/50">
                   {formateaDuracion(duracionClip(fila.clip))}
+                  {esCompleto(fila.clip) ? <span className="ml-1 rounded bg-white/[0.06] px-1 text-[9px] uppercase tracking-[0.1em] text-white/45">vídeo entero</span> : null}
                   {chapaPizarras(fila.pizarras)}
                 </span>
               </div>
@@ -621,6 +636,7 @@ export function ListaClips({
 
                   <td className="min-w-[4.5rem] whitespace-nowrap px-2 py-1.5 text-right text-[11px] tabular-nums text-white/40">
                     {formateaDuracion(duracionClip(clip))}
+                    {esCompleto(clip) ? <span className="ml-1 rounded bg-white/[0.06] px-1 text-[9px] uppercase tracking-[0.1em] text-white/45">vídeo entero</span> : null}
                     {chapaPizarras(fila.pizarras)}
                   </td>
 

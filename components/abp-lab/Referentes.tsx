@@ -331,7 +331,10 @@ function EstaSemana({ onAlTaller }: { onAlTaller: (rutina: RutinaReferente, refe
               ? "Lo defienden bien: en corto se evita el duelo en el área."
               : rematador
                 ? `Les cuesta: un bloqueo libera a ${rematador.nombre}, nuestro mejor rematador por arriba en el once (${rematador.base}; Wyscout).`
-                : "Les cuesta: un bloqueo deja libre al rematador."}
+                : /* 27/11/2026 (jueces): sin rematador no se habla de uno anónimo; la frase sólo con el dato de Wyscout de arriba (conceden más que la mediana). */
+                  concede?.percentil != null && concede.percentil <= 33
+                  ? "Les cuesta: a esta rutina de bloqueo le conceden remates por encima de la mediana."
+                  : ""}
         </p>
       ) : null}
       {x && r && (

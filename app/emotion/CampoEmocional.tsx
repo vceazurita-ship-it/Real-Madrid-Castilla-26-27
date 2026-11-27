@@ -34,7 +34,7 @@ import estilos from "./campo.module.css";
 import type { Player as Ficha } from "@/types/player";
 
 import { AXES, SCALE, SERIES_COLORS, TAREA_POR_EJE, average, bandFor, nombreLargo, type GroupKey, type MetricKey, type Player } from "./modelo";
-import { mejorCasado, onceDeLaPizarra, type OnceDeLaPizarra } from "@/lib/tactics/onceDeLaPizarra";
+import { mejorCasado, onceDeLaProximaJornada, type OnceDeLaJornada } from "@/lib/tactics/onceDeLaPizarra";
 
 /* ------------------------------------------------------------------ */
 /*  HISTORIA EN EL APARATO                                             */
@@ -196,16 +196,23 @@ export function CampoEmocional({
 }) {
   const { players: plantilla } = usePlayers();
 
-  const [once, setOnce] = useState<OnceDeLaPizarra | null | undefined>(undefined);
+  const [once, setOnce] = useState<OnceDeLaJornada | null | undefined>(undefined);
   const [historia, setHistoria] = useState<Foto[]>([]);
   const [elegido, setElegido] = useState<string | null>(null);
   const [vista, setVista] = useState<"radares" | "fichas">("radares");
 
-  /* El once se lee cada vez que se abre la pantalla: lo cambiado en la pizarra sale al recargar. */
+  /* El once se lee cada vez que se abre la pantalla: lo cambiado en la pizarra sale al recargar.
+     27/11/2026 (ronda 9): el de la PRÓXIMA jornada; si la pizarra sigue con
+     el del partido ya jugado, el que propone su mismo motor para el próximo
+     (sólo se lee). Espera a la plantilla, que es con la que se coloca. */
+  const hayPlantilla = plantilla.length > 0;
+
   useEffect(() => {
+    if (!hayPlantilla) return;
+
     let cancelado = false;
 
-    onceDeLaPizarra()
+    onceDeLaProximaJornada(plantilla)
       .then((o) => {
         if (!cancelado) setOnce(o);
       })
@@ -216,7 +223,8 @@ export function CampoEmocional({
     return () => {
       cancelado = true;
     };
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- se lee una vez, al llegar la plantilla
+  }, [hayPlantilla]);
 
   useEffect(() => {
     if (loading) return;
@@ -380,16 +388,23 @@ export function CampoEmocional({
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[11px] uppercase tracking-[.25em] text-white/40">
-            {once ? "Once de la pizarra táctica" : "Once por puesto"}
+            {once ? (once.delTablero ? "Once de la pizarra táctica" : "Once propuesto para el próximo partido") : "Once por puesto"}
           </p>
 
           <p className="mt-1 text-sm text-white/60">
             {once
-              ? once.escena || "Tablero «Once 4-2-3-1»"
+              ? once.partido
+                ? `${once.delTablero ? "Pizarra" : "Mismo motor que la pizarra"} · ${once.partido.rival} · ${diaCorto(once.partido.fecha)}`
+                : once.escena || "Tablero «Once 4-2-3-1»"
               : once === null
                 ? "Los mejor evaluados de cada puesto, en 4-2-3-1"
                 : "Leyendo la pizarra"}
           </p>
+          {once && !once.delTablero && (
+            <p className="mt-0.5 text-[12px] text-white/55">
+              {`La pizarra aún tiene el once${once.rivalDelTablero ? ` ante ${once.rivalDelTablero}` : " del partido anterior"}; se pone al día al abrirla.`}
+            </p>
+          )}
           {/* 20/11/2026 (ronda 5, juez de análisis): las notas del campo son
               de una fecha, no de hoy; se dice encima del campo y, pasados 14
               días, en ámbar. */}
@@ -435,7 +450,7 @@ export function CampoEmocional({
           href="/pizarra-tactica"
           className="inline-flex items-center gap-1.5 rounded-full border border-white/10 px-3.5 py-1.5 text-xs font-medium text-white/65 transition hover:border-white/25 hover:text-white"
         >
-          {once ? "Cambiar el once en la pizarra" : "Poner el once en la pizarra"}
+          {once ? (once.delTablero ? "Cambiar el once en la pizarra" : "Fijar este once en la pizarra") : "Poner el once en la pizarra"}
           <ArrowUpRight size={13} />
         </Link>
         </div>

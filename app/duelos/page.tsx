@@ -716,10 +716,14 @@ export default function DuelosPage() {
                 </span>
               </p>
             )}
-            <p className="mt-2 max-w-3xl text-xs text-white/45">
-              Cada cifra es un percentil: P73 es mejor que el 73 % de los jugadores de su puesto con al menos 90′. Un +45 son
-              45 puntos de percentil a favor nuestro; un −28, 28 a favor del rival. Con pocos minutos, la cifra es menos fiable.
-            </p>
+            {/* Plegado (27/11/2026, jueces, ronda 9): en el móvil la explicación del percentil ocupaba una pantalla antes del dato. */}
+            <details className="mt-2 max-w-3xl text-[12px] text-white/55">
+              <summary className="cursor-pointer select-none font-semibold text-[var(--rmcf-gold-ink,#C8A96B)]">Cómo se cuenta</summary>
+              <p className="mt-1">
+                Cada cifra es un percentil: P73 es mejor que el 73 % de los jugadores de su puesto con al menos 90′. Un +45 son
+                45 puntos de percentil a favor nuestro; un −28, 28 a favor del rival. Con pocos minutos, la cifra es menos fiable.
+              </p>
+            </details>
 
             {/* El Plan, sus goles en vídeo y el resto del rival, con él puesto (16/11/2026, ronda 18). */}
             {equipoVisto && <AccesosDelRival equipo={equipoVisto} aqui="/duelos" className="mt-4" />}
@@ -1870,11 +1874,21 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
   */
   /* Con menos de 450′, ni robador (17/11/2026, ronda 19, jueces de análisis: Olmedo, 376′, salía como robador): va plegado con los de pocos minutos. */
   const cuenta = (r: RoboJugador) => !r.tendencia && (r.robador || (r.percentil ?? 0) >= 50);
-  const lista = listaEntera.filter(cuenta).sort(porPercentil);
-  const resto = [...listaEntera.filter((r) => !cuenta(r) && !r.tendencia).sort(porPercentil), ...listaEntera.filter((r) => !cuenta(r) && r.tendencia)];
+  const todosLosQueCuentan = listaEntera.filter(cuenta).sort(porPercentil);
+  /* Tres a la vista (27/11/2026, jueces, ronda 9: siete casi iguales no se leían); el resto, plegado con los de poco robo. */
+  const lista = todosLosQueCuentan.slice(0, 3);
+  const resto = [
+    ...todosLosQueCuentan.slice(3),
+    ...listaEntera.filter((r) => !cuenta(r) && !r.tendencia).sort(porPercentil),
+    ...listaEntera.filter((r) => !cuenta(r) && r.tendencia),
+  ];
   const posesion = lista.find((r) => r.posesion != null)?.posesion ?? null;
   /* El bloque acaba en una orden: no conducir hacia el que más roba (16/11/2026, ronda 17). */
   const primero = lista.find((r) => r.robador && r.ajustado != null);
+  /* La segunda orden, del segundo robador (27/11/2026, ronda 9, fútbol). */
+  const segundo = todosLosQueCuentan.find((r) => r !== primero && r.robador && r.ajustado != null);
+  /* Dónde roba, de su zona de Opta; sin zona, sin lugar inventado (27/11/2026: «en nuestro tercio» a un central que roba en el medio). */
+  const donde = (r: RoboJugador) => (r.zona ? ` ${rotuloZona(r.zona)}` : "");
   return (
     <div id="x-idea-2121150280536306151-1" className="portada-tarjeta portada-entra min-w-0 p-4" style={{ borderLeftColor: PEOR, borderLeftWidth: 4 }}>
       <div className="min-w-0">
@@ -1903,7 +1917,7 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       {resto.length > 0 && (
         <details className="mt-3 border-t border-white/[0.06] pt-2">
           <summary className="cursor-pointer select-none text-xs text-white/60 hover:text-white">
-            El resto de su once, que roba poco o con pocos minutos ({resto.length})
+            {todosLosQueCuentan.length > 3 ? "El resto de su once" : "El resto de su once, que roba poco o con pocos minutos"} ({resto.length})
           </summary>
           <ol className="mt-2 grid grid-cols-1 gap-x-6 gap-y-2.5 md:grid-cols-2 xl:grid-cols-1 2xl:grid-cols-2">
             {resto.map((r) => (
@@ -1914,7 +1928,13 @@ function Robadores({ lista: listaEntera, equipo, huecoDe }: { lista: RoboJugador
       )}
       {primero && (
         <p className="mt-3 text-[13px] font-semibold leading-snug text-white/85">
-          Qué hacemos: no conducir hacia {apellidoDe(primero.jugador)} en nuestro tercio; corta {coma(primero.ajustado!)} por 90′ ajustado, P{primero.percentil} de su puesto.
+          Qué hacemos: no conducir hacia {apellidoDe(primero.jugador)}{donde(primero)}; corta {coma(primero.ajustado!)} por 90′ ajustado, P{primero.percentil} de su puesto.
+          {segundo && (
+            <>
+              {" "}
+              Y no recibir de espaldas cerca de {apellidoDe(segundo.jugador)}{donde(segundo)}: {coma(segundo.ajustado!)} por 90′ ajustado, P{segundo.percentil}.
+            </>
+          )}
         </p>
       )}
       <Explicativo>

@@ -24,6 +24,7 @@ import { OptaPortada } from "@/components/portada/OptaPortada"
 import { UltimoPartido3D } from "@/components/portada/UltimoPartido3D"
 import { CabeceraBloque } from "@/components/portada/CabeceraBloque"
 import { VideosDelRival } from "@/components/portada/VideosDelRival"
+import { enlacesDelRival, useJornadasRivales } from "@/components/rivals/EnlacesDelRival"
 import { EVENTO_ABRIR as EVENTO_ABRIR_TAREAS } from "@/lib/portada/mis-tareas"
 import { useAdmin } from "@/hooks/useAdmin"
 import { trackModuleVisit } from "@/lib/module-usage"
@@ -876,6 +877,25 @@ export default function Home() {
   const escudoPanel = nombrePanel ? escudoDe(nombrePanel) : undefined
 
   /*
+  | PREPARAR CONTRA ÉL (27/11/2026, jueces). La tarjeta del rival llevaba a sus
+  | vídeos y a Análisis de datos, pero no a lo que se prepara en la semana: su
+  | pizarra de ABP y el plan de partido, con el rival ya elegido (?rival=ID de
+  | la hoja RIVALES, la fila de la fecha del partido).
+  */
+  const jornadasRivales = useJornadasRivales()
+  const prepararContra = useMemo(() => {
+    if (!nombrePanel || sinCalendario || !ahora) return []
+    const proximo = alrededorDe(calendario, ahora)?.proximo
+    const enlaces = enlacesDelRival(jornadasRivales, nombrePanel, proximo && proximo.rival === nombrePanel ? proximo.cuando : undefined)
+    const plan = enlaces.find((e) => e.texto === "Plan de partido")
+    const id = plan ? new URLSearchParams(plan.href.split("?")[1] ?? "").get("rival") : null
+    return [
+      ...(id ? [{ href: `/abp-pizarra?rival=${encodeURIComponent(id)}`, texto: "Pizarra ABP" }] : []),
+      ...(plan ? [{ href: plan.href, texto: proximo?.jornada ? `Plan J${proximo.jornada}` : "Plan de partido" }] : []),
+    ]
+  }, [nombrePanel, sinCalendario, ahora, calendario, jornadasRivales])
+
+  /*
   | SUS ÚLTIMOS 5, CADA UNO A SU ANÁLISIS (20/11/2026, ronda 7, fútbol): el
   | partido de Opta de cada resultado de BeSoccer, buscado entre los partidos
   | del rival por el nombre del contrario (del más reciente al más antiguo y
@@ -1206,6 +1226,24 @@ export default function Home() {
                         <div className="pointer-events-auto">
                           <VideosDelRival key={nombrePanel} rival={nombrePanel} apilado />
                         </div>
+                        {prepararContra.length ? (
+                          <div className="pointer-events-auto mt-3 flex flex-wrap items-center gap-2">
+                            <span className="text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: "rgba(255,255,255,.7)" }}>
+                              Preparar contra él
+                            </span>
+                            {prepararContra.map((e) => (
+                              <Link
+                                key={e.href}
+                                href={e.href}
+                                className="inline-flex min-h-9 items-center gap-1 rounded-full border px-3 text-[13px] font-semibold transition hover:bg-white/10"
+                                style={{ color: "#F7D98B", borderColor: "rgba(247,217,139,.4)", backgroundColor: "rgba(2,6,13,.55)" }}
+                              >
+                                {e.texto}
+                                <ChevronRight className="h-3.5 w-3.5" aria-hidden />
+                              </Link>
+                            ))}
+                          </div>
+                        ) : null}
                       </div>
 
                       <p className="relative flex flex-wrap items-baseline justify-end gap-x-3 gap-y-1 px-5 pb-5 pt-3 sm:px-6 sm:pb-6">

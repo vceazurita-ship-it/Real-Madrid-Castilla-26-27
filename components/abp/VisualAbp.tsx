@@ -58,14 +58,14 @@ const pc = (n: number, de: number) => (de ? Math.round((n / de) * 100) : 0);
 const mayuscula = (t: string) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
 
 /** La conclusión del campo: dónde se concentra y si ahí nace lo que importa. */
-export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: ExitoVisual, ambito?: AmbitoMapa): string {
+export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: ExitoVisual, ambito?: AmbitoMapa, porPeligro = false): string {
   const conZona = filas.filter((f) => f.zona);
   if (conZona.length < 2) return "";
   const porZona = new Map<string, FilaVisualAbp[]>();
   for (const f of conZona) porZona.set(f.zona!, [...(porZona.get(f.zona!) ?? []), f]);
   const orden = [...porZona.entries()].sort((a, b) => b[1].length - a[1].length);
   const [zona, suyas] = orden[0];
-  if (orden[1] && orden[1][1].length === suyas.length) return "";
+  const empateVolumen = Boolean(orden[1] && orden[1][1].length === suyas.length);
   const total = filas.filter((f) => f.exito).length;
   const aqui = suyas.filter((f) => f.exito).length;
   const f = unidad.genero === "f";
@@ -84,6 +84,29 @@ export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: Ex
         ? `${f ? "las" : "los"} ${conZona.length} que ${ambito.dentro} (${sinSitio} ${ambito.fuera})`
         : `${conZona.length} con sitio (${sinSitio} sin zona de caída)`
       : `${conZona.length} ${unidad.varios}`;
+  /*
+  | 27/11/2026 (jueces, ronda 9): manda el PELIGRO, no el volumen. Si hay al
+  | menos 3 que acaban en gol u ocasión con sitio en el campo y una zona se
+  | lleva más de las que le tocan por volumen, el titular es esa zona y acaba
+  | en la orden («cargar» en ataque, «reforzar» en defensa). Si no, la frase
+  | de siempre (volumen y dónde nace lo que importa).
+  */
+  const exitosZona = conZona.filter((fila) => fila.exito).length;
+  if (porPeligro && exitosZona >= 3) {
+    const zonasPorPeligro = [...porZona.entries()]
+      .map(([nombre, lista]) => ({ nombre, n: lista.length, k: lista.filter((fila) => fila.exito).length }))
+      .sort((a, b) => b.k - a.k || a.n - b.n);
+    const lider = zonasPorPeligro[0];
+    const empate = zonasPorPeligro[1] && zonasPorPeligro[1].k === lider.k;
+    const cuotaPeligro = pc(lider.k, exitosZona);
+    const cuotaVolumen = pc(lider.n, conZona.length);
+    if (!empate && lider.k >= 2 && cuotaPeligro > cuotaVolumen) {
+      const orden = exito.mejorAlto ? "cargar esa zona" : "reforzar esa zona";
+      const tendencia = exitosZona < 15 ? " (tendencia)" : "";
+      return `${mayuscula(lider.nombre)}: ${lider.k} de ${f ? "las" : "los"} ${exitosZona} que ${exito.varios} (${cuotaPeligro} %) con el ${cuotaVolumen} % de ${deCuantas}${tendencia} → ${orden}`;
+    }
+  }
+  if (empateVolumen) return "";
   return `${mayuscula(zona)} concentra ${suyas.length} de ${deCuantas}, el ${pc(suyas.length, conZona.length)} %${nace}`;
 }
 
@@ -522,7 +545,8 @@ export function VisualAbp({
   exito: ExitoVisual;
   fuente: string;
   /** El campograma de la pantalla (si lo hay) con su pregunta. */
-  mapa?: { pregunta: string; nodo: ReactNode; ambito?: AmbitoMapa } | null;
+  /** `porPeligro` (27/11/2026): el titular del campo lo manda la zona de más peligro, no la de más volumen. */
+  mapa?: { pregunta: string; nodo: ReactNode; ambito?: AmbitoMapa; porPeligro?: boolean } | null;
   /** El bloque de la categoría (Opta). */
   liga?: ReactNode;
   ligaPregunta?: string;
@@ -551,7 +575,7 @@ export function VisualAbp({
   }
   const partidos = [...porJornada.values()].filter((p) => p.jornada.clave).sort((a, b) => comparaCronologico(a.jornada, b.jornada));
   const tituloJornadas = tituloTendencia(partidos, unidad, exito);
-  const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito, mapa.ambito) : "";
+  const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito, mapa.ambito, mapa.porPeligro) : "";
   const tituloTipos = tituloTipo(filas, exito);
 
   const filasComparadas = comparativa

@@ -129,7 +129,7 @@ import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
-import { aplicaPropuesta, aplicaTodasLasPropuestas, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
+import { aplicaPropuesta, aplicaTodasLasPropuestas, enlaza, planDeRegistro, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
 import {
   FASES_ABP,
   copiaDeTarea,
@@ -407,7 +407,7 @@ function TiraDias({
               {!uno.esPartido && uso ? (
                 <span className="tabular-nums" title={`Semanas de liga de la temporada con entreno en ${uno.md}`}>
                   {" "}
-                  · {uso.veces.get(normalizaMd(uno.md)) ?? 0} de {uso.base}
+                  · {uso.veces.get(normalizaMd(uno.md)) ?? 0} de {uso.base} semanas de liga
                 </span>
               ) : null}
             </p>
@@ -419,7 +419,8 @@ function TiraDias({
                 </div>
                 {/* 17/11/2026 (r20, jueces): contra qué se compara, en la propia tarjeta. */}
                 <p className="mt-0.5 text-[11px] tabular-nums text-white/55">
-                  ≈ {carga.ua} UA <span className="text-white/45">· media de {carga.n} {uno.md}</span>
+                  {/* 27/11/2026 (jueces): «19 de 19» y «media de 20 MD-1» no son la misma población; se dice cuál es cada una. */}
+                  ≈ {carga.ua} UA <span className="text-white/45">· media de {carga.n} {uno.md} con carga, de toda la temporada (también fuera de liga)</span>
                 </p>
               </div>
             ) : null}
@@ -1042,6 +1043,38 @@ function ResumenOrigen({
     };
   }, [micro, todas, mdSemana, microsHoja]);
 
+  /*
+  | 27/11/2026 (jueces): «Así empieza el paso 2» copiaba L-T1 Juego de
+  | Posesión, que en el micro de origen no se hizo. Con los equipos de
+  | Jugadores sesión de esos días, las tareas del plan que no se hicieron se
+  | marcan por MD antes de crear («no se hizo en el M22»).
+  */
+  const fechasOrigen = useMemo(
+    () => (micro ? [...new Set(todas.filter((t) => t.micro === micro).map((t) => fechaIsoDeHoja(t.fecha)).filter((f): f is string => Boolean(f)))].sort() : []),
+    [micro, todas],
+  );
+  const { almacen: almacenOrigen } = useDiasConectados(fechasOrigen, { entreno: false });
+  const noHechasPorMd = useMemo(() => {
+    const out = new Map<string, string[]>();
+
+    for (const f of fechasOrigen) {
+      const equipos = sesionDeFecha(almacenOrigen?.sesiones, f);
+
+      if (!equipos) continue;
+      const plan = planDeRegistro(todas, f);
+      const enlace = enlaza(equipos.tareas, plan);
+      const md = (todas.find((t) => t.micro === micro && fechaIsoDeHoja(t.fecha) === f)?.md ?? "").trim().toUpperCase().replace(/\s+/g, "");
+
+      if (!md) continue;
+      plan.forEach((p, k) => {
+        if (enlace.includes(k)) return;
+        out.set(md, [...(out.get(md) ?? []), `${p.codigo} ${(p.tipo || p.contenidoPrincipal).trim()}`.trim()]);
+      });
+    }
+
+    return out;
+  }, [fechasOrigen, almacenOrigen, todas, micro]);
+
   if (!datos) return null;
 
   const listaMd = (mds: string[]) => (mds.length === 1 ? mds[0] : `${mds.slice(0, -1).join(", ")} y ${mds[mds.length - 1]}`);
@@ -1238,6 +1271,11 @@ function ResumenOrigen({
                           : ""
                       : "Se rellena en el paso 2"}
                   </p>
+                  {copia && noHechasPorMd.get(md)?.length ? (
+                    <p className="mt-0.5 break-words text-[11px] text-white/50" title="Estaba en el plan de esa semana y no se hizo (según los equipos de Jugadores sesión): revísala en el paso 2 antes de dejarla">
+                      <span className="line-through decoration-white/40">{noHechasPorMd.get(md)!.join(", ")}</span> · no se hizo en el M{micro}
+                    </p>
+                  ) : null}
                 </li>
               );
             })}

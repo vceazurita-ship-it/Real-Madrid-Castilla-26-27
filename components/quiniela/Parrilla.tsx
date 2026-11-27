@@ -20,6 +20,7 @@
  *   se salió del guion y «el único» cuando alguien se la jugó solo.
  */
 
+import Link from "next/link";
 import { Lock, Trophy, Users } from "lucide-react";
 
 import { Panel } from "@/components/abp/ui";
@@ -169,7 +170,8 @@ export function Parrilla({
             <span className="rounded-full bg-[#C8A96B]/10 px-2 py-0.5 text-[12px] text-[#C8A96B]">
               Solo {ejemploSolo}
             </span>
-            : el único que puso ese signo en ese partido
+            {/* 27/11/2026 (guionista): con el hueco del flex, «Solo A. Isla :» llevaba un espacio antes de los dos puntos. */}
+            — el único que puso ese signo en ese partido
           </li>
         )}
 
@@ -198,8 +200,9 @@ export function Parrilla({
           <li key={fila.indice} className="rounded-xl border border-white/10 bg-white/[0.02] p-3">
             <div className="flex items-start justify-between gap-2 pr-10">
               <span className="min-w-0">
-                <span className="block text-[13px] text-white/85">{fila.partido.local}</span>
-                <span className="block text-[12px] text-white/50">{fila.partido.visitante}</span>
+                {/* 27/11/2026 (marketing): cada equipo, a su ficha de rival. */}
+                <Equipo nombre={fila.partido.local} className="block text-[13px] text-white/85" />
+                <Equipo nombre={fila.partido.visitante} className="block text-[12px] text-white/50" />
               </span>
               {fila.resultado && (
                 <span className="shrink-0 rounded-md border border-white/15 px-1.5 py-0.5 text-[12px] font-semibold text-white/75">{fila.resultado}</span>
@@ -312,13 +315,9 @@ export function Parrilla({
                 <td className="py-2 pr-3">
                   <span className="flex items-baseline gap-2">
                     <span className="min-w-0">
-                      <span className="block truncate text-white/85">
-                        {fila.partido.local}
-                      </span>
+                      <Equipo nombre={fila.partido.local} className="block truncate text-white/85" />
 
-                      <span className="block truncate text-[12px] text-white/55">
-                        {fila.partido.visitante}
-                      </span>
+                      <Equipo nombre={fila.partido.visitante} className="block truncate text-[12px] text-white/55" />
                     </span>
 
                     {fila.resultado && (
@@ -417,5 +416,14 @@ export function Parrilla({
         Casilla vacía: no apostó. La copa marca, en la fila de aciertos, al que más acertó de la jornada (si empatan, la llevan todos).
       </p>
     </Panel>
+  );
+}
+
+/** Un equipo de la parrilla, a su ficha de rival (27/11/2026, marketing). */
+function Equipo({ nombre, className }: { nombre: string; className: string }) {
+  return (
+    <Link href={`/rivals?equipo=${encodeURIComponent(nombre)}`} title={`Ficha de ${nombre}`} className={`${className} underline-offset-2 hover:underline`}>
+      {nombre}
+    </Link>
   );
 }

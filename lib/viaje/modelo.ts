@@ -1336,7 +1336,8 @@ const arriba = (minuto: number, paso: number) => Math.ceil(minuto / paso) * paso
  * Ahora:
  *
  * - **Sin distancia, sin hotel**: sólo lo que no depende del viaje (llegada
- *   al estadio, calentamiento y partido). Lo demás no se inventa.
+ *   al estadio, calentamiento, partido y, desde el 27/11/2026, la salida de
+ *   vuelta). Lo demás no se inventa.
  * - **Cerca** (menos de 150 km): se juega en el día. Se come en Valdebebas,
  *   la salida es la llegada al estadio menos lo que tarda el autobús y la
  *   vuelta, el final más el mismo trayecto.
@@ -1390,6 +1391,8 @@ export function diasPorDistancia(
           cita(partido - 90, "Llegada estadio", "viaje"),
           cita(partido - 30, "Calentamiento", "trabajo"),
           cita(partido, "Partido", "partido"),
+          /* 27/11/2026 (jueces): la vuelta tampoco depende de la distancia (el final del partido más la ducha, como en el viaje corto); la salida de ida sí, y sin trayecto no se inventa. */
+          cita(partido + 105, `Salida bus a ${origen}`, "viaje"),
         ]),
       ],
     };

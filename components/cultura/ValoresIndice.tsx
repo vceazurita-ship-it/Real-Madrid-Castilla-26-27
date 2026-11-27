@@ -107,24 +107,12 @@ function irA(n: number) {
 export function ValoresIndice() {
   if (!VALORES_INDICE.length) return null;
 
-  const primero = [...VALORES_INDICE].sort((a, b) => votosDe(b) - votosDe(a))[0];
-  const antiMax = VALORES_INDICE.flatMap((v) => antivaloresDelValor(v).conVotos).sort((a, b) => b.votos - a.votos)[0];
-  const afines = VALORES_INDICE.map(afinDe).filter(Boolean);
-  const propuestos = VALORES_INDICE.flatMap((v) => {
-    const t = antivaloresDelValor(v).tambien;
-
-    return t.length ? [`${t.join(", ")} (contra ${v.titulo.toLowerCase()})`] : [];
-  });
-
   return (
     <section aria-labelledby="indice-valores" className="min-w-0" lang="es">
       <h2 id="indice-valores" className="text-lg font-semibold leading-snug text-white sm:text-xl">
-        {primero.titulo} encabeza la votación ({votosDe(primero)} de {TOTAL_VOTOS_VALORES})
-        {antiMax ? (
-          <>
-            ; {antiMax.nombre} es lo que más se rechaza ({antiMax.votos} de {TOTAL_VOTOS_ANTIVALORES})
-          </>
-        ) : null}
+        {/* 27/11/2026 (guionista, ronda 9): la conclusión va en el titular de la
+            pantalla; aquí, qué enseña el gráfico. */}
+        Cada valor, frente a lo que lo destruye
       </h2>
       <p className="mt-1 text-xs text-gray-400">
         Votos de la plantilla: {TOTAL_VOTOS_VALORES} a los valores y {TOTAL_VOTOS_ANTIVALORES} a lo que los destruye, contados aparte.
@@ -178,8 +166,9 @@ export function ValoresIndice() {
                 </span>
               </div>
 
-              {/* Sus votos, a la derecha */}
-              <div className="min-w-0 md:order-3">
+              {/* Sus votos, a la derecha. 27/11/2026 (ronda 9): con margen a la
+                  derecha para que el ⋮ flotante no tape la cifra en escritorio. */}
+              <div className="min-w-0 md:order-3 lg:pr-14">
                 <span className="flex items-center gap-2">
                   <span className="h-3 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
                     <span className="block h-full rounded-full bg-[#C8A96B]" style={{ width: `${(n / MAX_VOTOS) * 100}%` }} />
@@ -189,7 +178,7 @@ export function ValoresIndice() {
                   </span>
                 </span>
                 {/* 20/11/2026 (ronda 5): el «+3 Amistad» se cortaba en el borde y bajo el ⋮; va debajo de la barra. */}
-                {afin ? <span className="mt-0.5 block text-xs text-gray-400">{afin.replace(" a ", " ")}, aparte</span> : null}
+                {afin ? <span className="mt-0.5 block text-xs text-gray-400">{afin.replace(/^\+(\d+) a (.+)$/, "+$1 votos a «$2» (no suman)")}</span> : null}
               </div>
 
               {/* Lo que lo destruye, a la izquierda y en espejo */}
@@ -204,25 +193,24 @@ export function ValoresIndice() {
                     </span>
                   </span>
                 ))}
+                {/* 27/11/2026 (fútbol, ronda 9): el antivalor que añade el documento
+                    va en su fila, con el rombo y sin barra de votos. */}
+                {anti.tambien.map((nombre) => (
+                  <span key={nombre} className="flex min-w-0 items-center gap-2 text-sm md:justify-end">
+                    <span className="text-gray-200">
+                      <span aria-hidden className="mr-1 text-red-400">◇</span>
+                      {nombre} <span className="text-xs text-gray-400">· lo añade el documento</span>
+                    </span>
+                  </span>
+                ))}
               </div>
             </li>
           );
         })}
       </ol>
 
-      {afines.length > 0 && (
-        <p className="mt-2 text-xs text-gray-400">
-          {afines.join(" · ")}: votos con otra palabra parecida; se enseñan aparte y no suman al valor.
-        </p>
-      )}
-      {/* 20/11/2026 (fútbol y marketing, ronda 5): lo que propone el documento sin
-          haberse votado no va en la columna de votos: nota aparte, con su marca. */}
-      {propuestos.length > 0 && (
-        <p className="mt-1 text-xs text-gray-400">
-          <span aria-hidden className="mr-1 text-red-400">◇</span>
-          Sin votación, lo añade el documento: {propuestos.join(" · ")}.
-        </p>
-      )}
+      {/* 27/11/2026 (guionista y fútbol, ronda 9): los votos afines y el antivalor
+          que añade el documento se rotulan en su propia fila; sin notas al pie. */}
     </section>
   );
 }
@@ -293,7 +281,7 @@ export function VotosValores({ compacto = false }: { compacto?: boolean } = {}) 
           <>
             Votos de la plantilla; pulsa un valor para ver sus conductas.{" "}
             <Link href="/identidad-cultura#indice-valores" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
-              Recuento con los antivalores →
+              Ver la votación y lo que la destruye →
             </Link>
           </>
         ) : (
@@ -327,7 +315,7 @@ export function VotosValores({ compacto = false }: { compacto?: boolean } = {}) 
                 </span>
                 <span className="whitespace-nowrap text-right tabular-nums text-gray-200">
                   {n} de {TOTAL_VOTOS_VALORES}
-                  <span aria-hidden className="ml-1.5 text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
+                  <span aria-hidden className="ml-1.5 text-base font-bold text-[color:var(--rmcf-gold-ink,#C8A96B)]">→</span>
                 </span>
               </Link>
             </li>
@@ -335,6 +323,10 @@ export function VotosValores({ compacto = false }: { compacto?: boolean } = {}) 
         })}
       </ol>
       )}
+      {/* 27/11/2026 (marketing, ronda 9): la base al pie del gráfico. */}
+      <p className="mt-2 text-xs text-gray-400">
+        Base: {TOTAL_VOTOS_VALORES} votos de la plantilla a los cinco valores; cada barra, contra el más votado ({MAX_VOTOS}).
+      </p>
 
       <div className="mt-4 flex flex-wrap gap-2">
         <Link

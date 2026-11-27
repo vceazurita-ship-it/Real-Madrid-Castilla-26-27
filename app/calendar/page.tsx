@@ -442,6 +442,8 @@ export default function Calendar() {
 
   return (
     <CalendarShell
+      /* 27/11/2026 (fútbol, ronda 9): en el móvil abre en la semana de hoy. */
+      abreEnLaSemana
       eyebrow="RMCF CASTILLA · INDIVIDUAL"
       title="Calendario de Seguimiento"
       months={months}
@@ -485,8 +487,9 @@ export default function Calendar() {
                   <span className="shrink-0 tabular-nums text-white/60">
                     {j.dias == null ? "ningún registro" : `${j.dias} días`}
                   </span>
-                  {/* 20/11/2026 (ronda 5, análisis): además de registrar, sus seguimientos (el último arriba) y su Dashboard ya filtrado. */}
-                  <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["seguimiento", "dashboard"]} soloIconos />
+                  {/* 27/11/2026 (ronda 9, análisis y fútbol): un solo botón por jugador,
+                      «Registrar», con él ya elegido; su seguimiento, en su nombre (abre su
+                      ficha) y el Dashboard, una vez arriba. Los iconos sin texto, fuera. */}
                   <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["registrar"]} />
                 </li>
               ))}
@@ -697,7 +700,11 @@ export default function Calendar() {
         const grupos: { session: (typeof daySessions)[number]; n: number }[] = [];
         const porClave = new Map<string, { session: (typeof daySessions)[number]; n: number }>();
         for (const session of daySessions) {
-          const clave = `${session.ID_JUGADOR}|${strategyKey(session.ESTRATEGIA)}|${(session.QUIEN ?? "").trim().toUpperCase()}`;
+          /* 27/11/2026 (fútbol, ronda 9): por lo que se VE en la tarjeta (el
+             nombre y el tipo): con el autor en la clave, dos de Á. Leiva el
+             18/11 de autores distintos salían sin «×2». Los autores, en el globo. */
+          const nombreClave = (playersMap[session.ID_JUGADOR]?.nombre || session.NOMBRE || session.ID_JUGADOR || "").trim().toUpperCase();
+          const clave = `${nombreClave}|${strategyKey(session.ESTRATEGIA)}`;
           const ya = porClave.get(clave);
           if (ya) ya.n += 1;
           else {
@@ -764,7 +771,7 @@ export default function Calendar() {
                         y al abrir el día. Todas las tarjetas, un renglón. */}
                     <p
                       className="flex min-w-0 items-baseline gap-1 text-[11px] font-semibold"
-                      title={`${style.label}${session.QUIEN?.trim() ? ` · ${session.QUIEN.trim()}` : ""}${n > 1 ? ` · ${n} registros iguales ese día (¿duplicado?)` : ""}`}
+                      title={`${style.label}${session.QUIEN?.trim() ? ` · ${session.QUIEN.trim()}` : ""}${n > 1 ? ` · ${n} registros de ${style.label.toLowerCase()} ese día` : ""}`}
                     >
                       <span className="truncate">{nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}</span>
                       {n > 1 && <span className="shrink-0 tabular-nums text-white/60">×{n}</span>}
@@ -803,7 +810,7 @@ export default function Calendar() {
         <div className="px-4 pb-4 md:px-8">
           <p className="text-xs leading-relaxed text-white/55">
             La franja de color de cada tarjeta dice el tipo (la leyenda está
-            sobre el calendario); quién lo hizo, al pasar el ratón o al abrir el día, y «×2» si el mismo registro sale dos veces. En azul, el
+            sobre el calendario); quién lo hizo, al pasar el ratón o al abrir el día, y «×2» si el mismo jugador tiene dos registros del mismo tipo ese día. En azul, el
             día de partido con su rival y su resultado. Pulsar un día abre todos
             sus registros; pulsar una tarjeta, la ficha del jugador.
           </p>

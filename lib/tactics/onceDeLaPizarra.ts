@@ -24,6 +24,7 @@
 
 import { mismoJugador } from "@/lib/fichajes";
 import { PITCH_HEIGHT, type TacticScene, type TacticToken, type TacticsDoc } from "@/lib/tactics/types";
+import type { Player } from "@/types/player";
 
 /** El nombre del tablero de los onces, el mismo que en `app/pizarra-tactica`. */
 export const TABLERO_DE_ONCES = "Once 4-2-3-1";
@@ -92,8 +93,11 @@ export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
   if (!tablero) return null;
 
   const { escena } = tablero;
-  const tokens = nuestros(escena.tokens);
 
+  return { escena: escena.nombre ?? "", fichas: fichasDe(nuestros(escena.tokens)) };
+}
+
+function fichasDe(tokens: TacticToken[]): FichaOnce[] {
   /*
   | En la pizarra nuestro equipo va comprimido en su mitad (x ≈ 10-45). Se
   | estira al campo entero con el mínimo y el máximo de las fichas, no con
@@ -104,17 +108,55 @@ export async function onceDeLaPizarra(): Promise<OnceDeLaPizarra | null> {
   const max = Math.max(...xs);
   const tramo = max - min;
 
-  return {
-    escena: escena.nombre ?? "",
-    fichas: tokens.map((t) => ({
-      id: t.id,
-      nombre: (t.nombre ?? "").trim(),
-      dorsal: t.label,
-      foto: t.foto,
-      largo: tramo > 0.5 ? 7 + ((t.x - min) / tramo) * 84 : 50,
-      ancho: Math.min(92, Math.max(8, (t.y / PITCH_HEIGHT) * 100)),
-    })),
-  };
+  return tokens.map((t) => ({
+    id: t.id,
+    nombre: (t.nombre ?? "").trim(),
+    dorsal: t.label,
+    foto: t.foto,
+    largo: tramo > 0.5 ? 7 + ((t.x - min) / tramo) * 84 : 50,
+    ancho: Math.min(92, Math.max(8, (t.y / PITCH_HEIGHT) * 100)),
+  }));
+}
+
+/*
+| EL ONCE DE LA PRÓXIMA JORNADA (27/11/2026, jueces, ronda 9)
+|
+| El tablero de los onces sólo se pone al día cuando alguien abre la pizarra
+| táctica: Emocional enseñaba «Onces · Real Murcia» una semana después de
+| jugarse. Si la marca del tablero (`semanaOnces`) no es la del próximo
+| partido del calendario, se calcula el once de esa semana con el mismo
+| motor que rellena la pizarra (`oncesDeLaSemana`), sólo para leerlo: no se
+| escribe nada. `delTablero` dice de dónde sale, para rotularlo.
+*/
+export type OnceDeLaJornada = OnceDeLaPizarra & {
+  /** El próximo partido del calendario, si se sabe. */
+  partido: { rival: string; fecha: string } | null;
+  /** true: es lo que hay en la pizarra; false: propuesto para el próximo partido (la pizarra aún tiene el anterior). */
+  delTablero: boolean;
+  /** El rival del once que sigue en la pizarra, cuando es de un partido ya jugado. */
+  rivalDelTablero: string;
+};
+
+export async function onceDeLaProximaJornada(plantilla: Player[]): Promise<OnceDeLaJornada | null> {
+  const { semanaActual, oncesDeLaSemana } = await import("./oncesSemana");
+  const [tablero, semana] = await Promise.all([leeTableroDeOnces(), semanaActual().catch(() => null)]);
+  const [diaTablero, rivalDelTablero = ""] = (tablero?.semanaOnces ?? "").split("|");
+  const partido = semana ? { rival: semana.rival, fecha: semana.fecha } : null;
+
+  if (tablero && (!semana || diaTablero === semana.fecha)) {
+    return { escena: tablero.escena.nombre ?? "", fichas: fichasDe(nuestros(tablero.escena.tokens)), partido, delTablero: true, rivalDelTablero: "" };
+  }
+
+  const onces = semana ? await oncesDeLaSemana(plantilla).catch(() => null) : null;
+  const propios = nuestros(onces?.tokens);
+
+  if (onces && propios.length >= 7) {
+    return { escena: `Onces · ${onces.rival}`, fichas: fichasDe(propios), partido, delTablero: false, rivalDelTablero: rivalDelTablero.trim() };
+  }
+
+  return tablero
+    ? { escena: tablero.escena.nombre ?? "", fichas: fichasDe(nuestros(tablero.escena.tokens)), partido, delTablero: true, rivalDelTablero: "" }
+    : null;
 }
 
 /* ------------------------------------------------------------------ */

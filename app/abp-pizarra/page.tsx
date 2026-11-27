@@ -665,8 +665,30 @@ export default function PizarraAbpPage() {
     () => (calendarioBs && calendarioBs.length && ahora ? alrededorDe(calendarioBs, ahora) : null),
     [calendarioBs, ahora],
   );
-  const jornadaProx = vecinas?.proximo?.jornada ?? 0;
-  const jornadaJugada = vecinas?.anterior?.jornada ?? 0;
+  /*
+  | 27/11/2026 (jueces, ronda 9): el próximo, además, SIN resultado. Si
+  | BeSoccer no ha movido la fecha de un partido ya jugado (o el CSV de
+  | jugados ya lo tiene), no puede seguir siendo «el próximo»: se salta al
+  | primero por delante que no tenga marcador ni esté en el CSV.
+  */
+  const jornadasJugadasCsv = useMemo(
+    () => new Set(jugados.map((item) => numeroDePartido(item)).filter((n) => n > 0)),
+    [jugados],
+  );
+  const { jornadaProx, jornadaJugada } = useMemo(() => {
+    if (!vecinas || !ahora) return { jornadaProx: 0, jornadaJugada: 0 };
+    const corte = ahora - 2.5 * 3_600_000;
+    const sinJugar = vecinas.todos.find(
+      (uno) => Date.parse(uno.cuando) > corte && !uno.jugado && !jornadasJugadasCsv.has(uno.jornada),
+    );
+    const prox = sinJugar ?? vecinas.proximo;
+    /* Lo saltado por tener resultado cuenta como jugado. */
+    const saltados = vecinas.todos.filter(
+      (uno) => Date.parse(uno.cuando) > corte && prox && Date.parse(uno.cuando) < Date.parse(prox.cuando),
+    );
+    const ultimaJugada = Math.max(vecinas.anterior?.jornada ?? 0, ...saltados.map((uno) => uno.jornada));
+    return { jornadaProx: prox?.jornada ?? 0, jornadaJugada: ultimaJugada };
+  }, [vecinas, ahora, jornadasJugadasCsv]);
 
   /* El desplegable abre con lo jugado, el próximo partido y el que esté
      abierto; el resto del calendario (hasta 38 jornadas) va plegado en un
@@ -674,9 +696,9 @@ export default function PizarraAbpPage() {
   const proximoId = useMemo(
     () =>
       (jornadaProx ? partidos.find((item) => numeroDePartido(item) === jornadaProx)?.id : undefined) ??
-      partidos.find((item) => item.date && item.date >= hoy)?.id ??
+      partidos.find((item) => item.date && item.date >= hoy && !jugados.some((uno) => uno.id === item.id))?.id ??
       "",
-    [partidos, hoy, jornadaProx],
+    [partidos, hoy, jornadaProx, jugados],
   );
 
   /*
@@ -4067,6 +4089,26 @@ export default function PizarraAbpPage() {
                       tablero={tablero}
                       players={porId}
                       onCambiar={(playerId) => setCambiando({ sale: playerId })}
+                      onUsarPanel={(slideId, cruce) => {
+                        const jugador = porId.get(cruce.playerId);
+                        const nombres = [
+                          cruce.nombre,
+                          jugador?.apodo ?? "",
+                          jugador?.nombre ?? "",
+                          ...(jugador?.nombre ?? "").split(/\s+/).filter((parte) => parte.length >= 4),
+                        ].filter(Boolean);
+
+                        mutaTablero((actual) => ({
+                          ...actual,
+                          slides: actual.slides.map((una) =>
+                            una.id === slideId
+                              ? { ...una, notas: una.notas.map((nota) => quitaDeConsigna(nota, cruce.consigna, nombres)).filter((nota) => nota.trim()) }
+                              : una,
+                          ),
+                        }));
+
+                        toast.success(`${cruce.nombre} sale de «${cruce.consigna}»: manda el panel (${cruce.panel.toLocaleLowerCase("es-ES")})`);
+                      }}
                       onIrA={(slideId) => {
                         const indice = tablero.slides.findIndex((una) => una.id === slideId);
 
@@ -4312,7 +4354,8 @@ function FichasSueltasPlegables({
         Poner fichas sueltas
         <span className="font-normal text-white/60">
           {enCampo > 0 ? `${enCampo} en esta diapositiva · ` : ""}
-          {plantilla} jugadores para poner fuera de un puesto
+          {/* 27/11/2026 (jueces): «45 jugadores para poner fuera de un puesto» no se entendía. */}
+          {plantilla} de la plantilla, para colocar sin puesto en la jugada
         </span>
         {/* 20/11/2026 (jueces, ronda 4): qué hace, en una frase. */}
         <span className="basis-full text-[11px] font-normal text-white/55">
@@ -4985,6 +5028,56 @@ function consignasSinPuesto(
   });
 }
 
+/** Un nombre como patrón que no distingue tildes ni mayúsculas. */
+function patronSinTildes(nombre: string) {
+  const grupos: Record<string, string> = { a: "[aá]", e: "[eé]", i: "[ií]", o: "[oó]", u: "[uúü]", n: "[nñ]" };
+
+  return nombre
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+    .replace(/[aeioun]/g, (letra) => grupos[letra] ?? letra);
+}
+
+/**
+ * «USAR EL PANEL» (27/11/2026, jueces ronda 9): saca a un jugador de una
+ * consigna («Rematadores: Sergio, Pol y Dani» → «Rematadores: Sergio y Dani»)
+ * porque el panel lo tiene en otro grupo. Si la consigna se queda sin nadie,
+ * se quita la línea entera (devuelve vacío).
+ */
+function quitaDeConsigna(nota: string, rotulo: string, nombres: string[]) {
+  const partes = /^(\s*([^:]{3,30}):\s*)(.+)$/.exec(nota);
+
+  if (!partes || partes[2].trim() !== rotulo.trim()) return nota;
+
+  let cuerpo = partes[3];
+
+  for (const nombre of nombres) {
+    const limpio = nombre.trim();
+
+    if (limpio.length < 3) continue;
+
+    const patron = new RegExp(`(^|[\\s,;/(])${patronSinTildes(limpio)}(?=$|[\\s,;/).])`, "i");
+
+    if (patron.test(cuerpo)) {
+      cuerpo = cuerpo.replace(patron, "$1");
+      break;
+    }
+  }
+
+  cuerpo = cuerpo
+    .replace(/\s*,\s*(,|\s+y\s)/g, "$1")
+    .replace(/,\s*y\s/g, " y ")
+    .replace(/\s+y\s*(?=,|$)/g, "")
+    .replace(/^\s*(,|y\s)\s*/i, "")
+    .replace(/\s*,\s*$/, "")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+
+  return cuerpo ? `${partes[1]}${cuerpo}` : "";
+}
+
 /** La consigna que da a alguien un papel («Rematadores: … Sergio») distinto del de su ficha (20/11/2026). */
 function cruzadosDe(slide: SlidePizarra, jugadores: { id: string; nombre?: string; apodo?: string }[]): PapelCruzado[] {
   if (!slide.fichas.length || !slide.notas.length) return [];
@@ -5006,11 +5099,14 @@ function ControlDeGazapos({
   players,
   onCambiar,
   onIrA,
+  onUsarPanel,
 }: {
   tablero: TableroPizarra;
   players: Map<string, Player>;
   /** Abre el cambio de jugador con éste como el que sale. */
   onCambiar: (playerId: string) => void;
+  /** Saca al jugador de la consigna que contradice el panel (27/11/2026). */
+  onUsarPanel?: (slideId: string, cruce: PapelCruzado) => void;
   /** Lleva a una diapositiva del tablero. */
   onIrA: (slideId: string) => void;
 }) {
@@ -5134,7 +5230,8 @@ function ControlDeGazapos({
       </summary>
     <Panel
       className="mt-3"
-      title="Control de la convocatoria"
+      /* 27/11/2026 (jueces): el mismo título salía dos veces (rótulo y panel). */
+      title="Desglose por diapositiva"
       subtitle={
         revision.slidesConGente < 2
           ? "Hace falta gente en al menos dos diapositivas para poder cotejarlas"
@@ -5218,11 +5315,24 @@ function ControlDeGazapos({
               {uno.cruzados.length > 0 && (
                 <ul className="mt-1 space-y-0.5 text-white/70">
                   {uno.cruzados.map((cruce) => (
-                    <li key={cruce.playerId}>
-                      <span className="font-semibold text-white/85">{cruce.nombre}</span>
-                      <span className="text-white/55">
-                        : las consignas lo ponen en «{cruce.consigna}» y el panel, en «{cruce.panel.toLocaleLowerCase("es-ES")}»
+                    <li key={cruce.playerId} className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                      <span className="min-w-0">
+                        <span className="font-semibold text-white/85">{cruce.nombre}</span>
+                        <span className="text-white/55">
+                          : las consignas lo ponen en «{cruce.consigna}» y el panel, en «{cruce.panel.toLocaleLowerCase("es-ES")}»
+                        </span>
                       </span>
+                      {/* 27/11/2026 (jueces): el arreglo en un toque; manda el panel (Ctrl+Z lo deshace). */}
+                      {onUsarPanel ? (
+                        <button
+                          type="button"
+                          onClick={() => onUsarPanel(uno.id, cruce)}
+                          title={`Quitar a ${cruce.nombre} de «${cruce.consigna}» y dejarlo donde dice el panel`}
+                          className="inline-flex min-h-[32px] items-center gap-1 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 text-[11px] font-semibold text-white/85 transition hover:bg-[#C8A96B]/20"
+                        >
+                          <CheckCircle2 size={11} aria-hidden /> Usar el panel
+                        </button>
+                      ) : null}
                     </li>
                   ))}
                 </ul>
@@ -5236,7 +5346,8 @@ function ControlDeGazapos({
         {revision.porSlide.map((slide) => (
           <span key={slide.id} className="text-[11px] text-white/35">
             {slide.titulo}{" "}
-            <span className="tabular-nums text-white/55">{slide.cuantos}</span>
+            {/* 27/11/2026 (jueces): «CÓRNER OFENSIVO 10» no decía qué era el 10. */}
+            <span className="tabular-nums text-white/55">· {slide.cuantos} {slide.cuantos === 1 ? "jugador" : "jugadores"}</span>
           </span>
         ))}
       </div>

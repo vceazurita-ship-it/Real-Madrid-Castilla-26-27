@@ -413,7 +413,8 @@ export default function DashboardPlantilla() {
     {
       title: "Han jugado",
       value: conMinutos,
-      base: `de ${filtrados.length}, al menos un minuto`,
+      /* 27/11/2026 (marketing, ronda 9): qué cuenta, para que no choque con los 0′ de «Juega poco». */
+      base: `de ${filtrados.length}: un minuto o más, o una aparición en Valoraciones (titular o con nota) aunque no lleve minutos anotados`,
     },
     ...(minutosConEdad > 0
       ? [
@@ -941,7 +942,7 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                             </span>
                           </span>
                           {j.titular + j.suplente > 0 && (
-                            <span className="block text-[11px] text-white/50">
+                            <span className="block text-[12px] text-white/60">
                               {j.titular} tit. · {j.suplente} sup.
                               {/* 08/11/2026: con un solo partido de titular, el % no es firme.
                                   20/11/2026 (ronda 5): la base en el propio dato («1 partido · tendencia»). */}
@@ -1241,7 +1242,8 @@ function BloqueSesiones({ resumen, jugadores }: { resumen: ResumenSesiones; juga
 
           return (
             <li key={j.ficha.id} className="grid min-w-0 grid-cols-[minmax(8rem,1fr)_4.5rem_auto] items-center gap-3 text-sm">
-              <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="min-w-0 break-words leading-tight text-white/75">
+              {/* 27/11/2026 (fútbol, ronda 9): que se vea que el nombre abre su ficha. */}
+              <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="min-w-0 break-words leading-tight text-white/80 underline decoration-dotted decoration-[#C8A96B]/60">
                 {nombreDe(j)}
               </NombreJugador>
               <Barra pct={pct} color={bajo ? PEOR : ORO} />

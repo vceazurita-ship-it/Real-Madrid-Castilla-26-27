@@ -149,15 +149,21 @@ export function PanelVisionados() {
 
   const rivales = useMemo(() => [...new Set((todos ?? []).map((v) => v.equipo).filter(Boolean))].sort(), [todos]);
   const clips = useMemo(() => {
-    const m = new Map<string, { v: Visionado; n: number; quien: Set<string> }>();
+    const m = new Map<string, { v: Visionado; n: number; quien: Set<string>; cuando: number }>();
     for (const v of lista) {
-      const e = m.get(v.video) ?? { v, n: 0, quien: new Set<string>() };
+      const e = m.get(v.video) ?? { v, n: 0, quien: new Set<string>(), cuando: 0 };
       e.n += 1;
       if (conNombre(v.quien)) e.quien.add(v.quien);
+      const t = new Date(v.cuando).getTime();
+      if (Number.isFinite(t) && t > e.cuando) e.cuando = t;
       m.set(v.video, e);
     }
-    return [...m.values()].sort((a, b) => b.n - a.n);
+    return [...m.values()]
+      .sort((a, b) => b.n - a.n)
+      .map((e) => ({ ...e, ultima: e.cuando ? new Date(e.cuando).toLocaleDateString("es-ES", { day: "2-digit", month: "2-digit" }) : "" }));
   }, [lista]);
+  const porRival = useMemo(() => cuenta(lista, (v) => v.equipo), [lista]);
+  const quienesHan = useMemo(() => [...new Set(lista.map((v) => v.quien).filter(conNombre))], [lista]);
 
   /* Todos a una vez: es un empate, no un ranking. */
   const empate = clips.length > 1 && clips.every((c) => c.n === clips[0].n);
@@ -207,12 +213,7 @@ export function PanelVisionados() {
 
   return (
     <div className="space-y-5">
-      {/* Mientras nadie se identifique, un aviso único arriba y el campo a la vista (09/11/2026). */}
-      {!guardado && !editando && (
-        <p className="rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-2 text-sm text-white/85">
-          Para saber quién ve cada clip, escribe tu nombre aquí abajo.
-        </p>
-      )}
+      {/* 27/11/2026 (ronda 9): el aviso y el campo, en una sola línea; sin caja doble. */}
       {/* Quién mira en este aparato: una línea, no un bloque. */}
       {guardado && !editando ? (
         <p className="flex flex-wrap items-center gap-1.5 text-[13px] text-white/65">
@@ -229,9 +230,9 @@ export function PanelVisionados() {
         >
           <UserRound size={14} className="text-[#C8A96B]" />
           <label htmlFor="quien-ve">Viendo como</label>
-          <input id="quien-ve" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="tu nombre" className="w-36 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/60" />
-          <button type="submit" disabled={!nombre.trim()} className="rounded-lg border border-[#C8A96B]/50 px-2.5 py-1 text-[12px] font-semibold text-[#C8A96B] disabled:opacity-40">Guardar</button>
-          <span className="text-xs text-white/55">se guarda sólo en este aparato</span>
+          <input id="quien-ve" value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="tu nombre" title="Se guarda sólo en este aparato" className="w-36 rounded-lg border border-white/10 bg-white/[0.04] px-2 py-1 text-[13px] text-white outline-none focus:border-[#C8A96B]/60" />
+          {nombre.trim() && <button type="submit" className="rounded-lg border border-[#C8A96B]/50 px-2.5 py-1 text-[12px] font-semibold text-[var(--rmcf-gold-ink,#C8A96B)]">Guardar</button>}
+          <span className="text-xs text-white/55">para saber quién ve cada clip</span>
         </form>
       )}
 
@@ -240,7 +241,7 @@ export function PanelVisionados() {
       ) : nada ? (
         <div className="flex flex-wrap items-center gap-4 rounded-2xl border border-white/10 bg-white/[0.03] p-5">
           <div className="min-w-0 flex-1">
-            <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90"><Eye size={16} className="text-[#C8A96B]" /> {fallo ? "No se han podido leer los visionados." : "Aún no hay visionados."}</p>
+            <p className="flex items-center gap-2 text-[15px] font-semibold text-white/90"><Eye size={16} className="text-[#C8A96B]" /> {fallo ? "No se han podido leer los visionados." : app.length > 0 ? `En YouTube todavía no hay vistas contadas; desde la app, ${app.length} ${app.length === 1 ? "apertura" : "aperturas"} (abajo).` : "Aún no hay visionados."}</p>
             {yt.resp?.aviso && <p className="mt-1 text-[13px] text-white/60">{yt.resp.aviso}</p>}
             {falloApp && <p className="mt-1 text-[13px] text-white/60">Las aperturas desde la app no han llegado.</p>}
           </div>
@@ -268,7 +269,7 @@ export function PanelVisionados() {
       <BloqueYoutube {...yt} />
 
       {!cargando && app.length > 0 && (
-        <details className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+        <details open={nada} className="rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
           <summary className="cursor-pointer select-none text-[14px] font-semibold text-white/75 hover:text-white">
             Aperturas desde la app <span className="font-normal text-white/50">· aparte: no cuentan en las cifras de YouTube</span>
           </summary>
@@ -299,26 +300,55 @@ export function PanelVisionados() {
             </div>
           ) : (
             <>
-              <p className="text-sm text-white/70">
-                {lista.length} {lista.length === 1 ? "apertura" : "aperturas"} de {clips.length} {clips.length === 1 ? "clip distinto" : "clips distintos"}
-                {clips.length === lista.length ? ", ninguno repetido" : ""}.
+              {/*
+              | 27/11/2026 (ronda 9): una cifra y su base en el titular («8
+              | aperturas desde el 06/11, todas de Hércules»); las barras, sólo
+              | con 15 o más (antes, dos paneles de «tendencia» que repetían la
+              | lista), y la de rivales sólo si hay más de uno.
+              */}
+              <p className="text-base font-semibold text-white">
+                {lista.length} {lista.length === 1 ? "apertura" : "aperturas"}
+                {periodo === "todo" || periodosUtiles.length <= 1 ? ` desde el ${DESDE.slice(0, 5)}` : ""}
+                {` de ${clips.length} ${clips.length === 1 ? "clip distinto" : "clips distintos"}`}
+                {porRival.length === 1 ? `, ${lista.length === 1 ? "de" : "todas de"} ${porRival[0][0]}` : ""}
+                {quienesHan.length > 0 ? ` · ${quienesHan.length === 1 ? "las ha hecho" : "las han hecho"} ${quienesHan.join(", ")}` : ""}.
               </p>
 
-              <div className="grid gap-4 lg:grid-cols-3">
-                <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => (conNombre(v.quien) ? v.quien : ""))} total={lista.length} />
-                <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto)} total={lista.length} />
-                <Barras titulo="De qué rivales" filas={cuenta(lista, (v) => v.equipo)} total={lista.length} />
-              </div>
+              {lista.length >= 15 && (
+                <div className={`grid gap-4 ${porRival.length > 1 ? "lg:grid-cols-3" : "lg:grid-cols-2"}`}>
+                  <Barras titulo="Quién los ve" filas={cuenta(lista, (v) => (conNombre(v.quien) ? v.quien : ""))} total={lista.length} />
+                  <Barras titulo="De qué puestos" filas={cuenta(lista, (v) => v.puesto)} total={lista.length} />
+                  {porRival.length > 1 && <Barras titulo="De qué rivales" filas={porRival} total={lista.length} />}
+                </div>
+              )}
 
               <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
                 <h3 className="mb-3 text-sm font-bold uppercase tracking-[0.14em] text-[#C8A96B]">{empate ? "Los clips abiertos" : "Los clips más abiertos"}</h3>
                 <ol className="space-y-1.5 text-[13px]">
-                  {clips.slice(0, 25).map(({ v, n, quien }, i) => (
-                    <li key={v.video} className="flex flex-wrap items-baseline gap-x-2 border-b border-white/[0.06] pb-1.5">
-                      {!empate && <span className="w-7 tabular-nums text-white/50">{i + 1}º</span>}
-                      <span className="min-w-0 flex-1 text-white/85">{v.jugador || v.titulo} <span className="text-white/50">{[v.puesto, v.equipo].filter(Boolean).map((x) => ` · ${x}`).join("")}</span></span>
-                      <span className="tabular-nums text-white/80">{n} {n === 1 ? "vez" : "veces"}</span>
-                      {quien.size > 0 && <span className="w-full pl-9 text-[12px] text-white/50">Lo han visto: {[...quien].join(", ")}</span>}
+                  {clips.slice(0, 25).map(({ v, n, quien, ultima }, i) => (
+                    <li key={v.video} className="grid grid-cols-[minmax(0,1fr)_auto] items-baseline gap-x-3 gap-y-0.5 border-b border-white/[0.06] pb-1.5 sm:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_minmax(0,1fr)_auto]">
+                      <span className="min-w-0 truncate text-white/85">
+                        {!empate && <span className="mr-1.5 tabular-nums text-white/50">{i + 1}º</span>}
+                        {v.jugador && v.equipo ? (
+                          <a href={`/scout-rival-individual?equipo=${encodeURIComponent(v.equipo)}&jugador=${encodeURIComponent(v.jugador)}`} className="hover:underline" title="Su ficha y sus clips">
+                            {v.jugador}
+                          </a>
+                        ) : (
+                          v.jugador || v.titulo
+                        )}
+                      </span>
+                      <span className="hidden min-w-0 truncate text-[12px] text-white/55 sm:block">{v.puesto}</span>
+                      <span className="hidden min-w-0 truncate text-[12px] text-white/55 sm:block">{v.equipo}</span>
+                      <span className="text-right tabular-nums text-white/80">{n} {n === 1 ? "vez" : "veces"}</span>
+                      {/* En el móvil, puesto y rival bajo el nombre; en escritorio van en su columna. */}
+                      <span className="col-span-2 text-[12px] text-white/55 sm:col-span-4">
+                        <span className="sm:hidden">
+                          {[[v.puesto, v.equipo].filter(Boolean).join(" · "), quien.size > 0 ? `lo han visto: ${[...quien].join(", ")}` : "", ultima ? `última vez el ${ultima}` : ""].filter(Boolean).join(" · ")}
+                        </span>
+                        <span className="hidden sm:inline">
+                          {[quien.size > 0 ? `Lo han visto: ${[...quien].join(", ")}` : "", ultima ? `última vez el ${ultima}` : ""].filter(Boolean).join(" · ")}
+                        </span>
+                      </span>
                     </li>
                   ))}
                 </ol>

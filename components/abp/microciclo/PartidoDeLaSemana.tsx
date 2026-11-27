@@ -190,14 +190,17 @@ export function PartidoDeLaSemana({
           )}
 
           {anterior && (
-            <p className="mt-1 inline-flex flex-wrap items-center gap-1 text-[11px] text-white/60">
-              <Flag size={10} aria-hidden />
-              {/* 20/11/2026 (jueces, ronda 4): «Viene de…» parecía el partido anterior del rival; es el nuestro. */}
-              Nuestro último partido: {anterior.rival} · {anterior.cuando}
-              {/* 17/11/2026 (jueces, ronda 20): el análisis de aquel partido, a un toque (las pantallas abren en el último partido). */}
-              <Link href="/setpieces" className="ml-1 font-semibold underline underline-offset-2" style={{ color: "var(--rmcf-gold-ink)" }}>
-                Nuestro ABP en aquel partido
-              </Link>
+            /* 27/11/2026 (jueces): en el móvil la bandera se quedaba sola en una línea; ahora va pegada al texto. */
+            <p className="mt-1 flex min-w-0 items-start gap-1 text-[11px] text-white/60">
+              <Flag size={10} aria-hidden className="mt-[3px] shrink-0" />
+              <span className="min-w-0">
+                {/* 20/11/2026 (jueces, ronda 4): «Viene de…» parecía el partido anterior del rival; es el nuestro. */}
+                Venimos de jugar con {anterior.rival} · {anterior.cuando}
+                {/* 17/11/2026 (jueces, ronda 20): el análisis de aquel partido, a un toque (las pantallas abren en el último partido). */}
+                <Link href="/setpieces" className="ml-1 font-semibold underline underline-offset-2" style={{ color: "var(--rmcf-gold-ink)" }}>
+                  Nuestro ABP en aquel partido
+                </Link>
+              </span>
             </p>
           )}
         </div>
@@ -231,26 +234,35 @@ export function PartidoDeLaSemana({
         {/* 29/10/2026: una sola línea con la cifra, el objetivo y cómo va
             (antes «72′ de más (139′ − 67′ máximo)» repetía lo de debajo), y
             de dónde sale el objetivo, para que no parezca un número suelto. */}
+        {/*
+        | 27/11/2026 (jueces, ronda 9): una sola frase con la base («65′ en 4
+        | días: dentro de 60-67′») y la fórmula del objetivo, plegada debajo.
+        */}
         <p className="mt-1 flex flex-wrap items-baseline gap-x-1.5 text-sm text-white/80">
-          {/* La misma unidad que «Carga» (07/11/2026): «1 h 50′», no «110′» en un sitio y «1 h 50′» en otro. */}
-          {/* 17/11/2026 (jueces, ronda 20): la misma unidad que el objetivo: «61′ · objetivo 60-67′», no «1 h». */}
           <span className="text-xl font-semibold tabular-nums text-white">{Math.round(minutos)}′</span>
-          <span className="text-white/45">· objetivo {objetivo.minimo}-{objetivo.maximo}′</span>
+          {objetivo.diasEntreno ? (
+            <span className="text-white/60">
+              en {objetivo.diasEntreno} {objetivo.diasEntreno === 1 ? "día" : "días"}:
+            </span>
+          ) : null}
           {estadoMinutos && (
-            <span className={`text-[12px] font-medium ${estadoMinutos.clase}`}>· {estadoMinutos.texto}</span>
+            <span className={`text-[13px] font-medium ${estadoMinutos.clase}`}>
+              {estadoMinutos.texto === "dentro del objetivo"
+                ? `dentro de ${objetivo.minimo}-${objetivo.maximo}′`
+                : `${estadoMinutos.texto} (objetivo ${objetivo.minimo}-${objetivo.maximo}′)`}
+            </span>
           )}
         </p>
 
         {objetivo.diasEntreno ? (
-          /* La cuenta a la vista, para que se pueda comprobar (30/10/2026, expertos). */
-          <p className="mt-0.5 text-[11px] text-white/50">
-            {/* De dónde sale, en la propia línea (07/11/2026, jueces): la fija el cuerpo técnico y se prorratea con «Días entrenados». */}
-            {/* 17/11/2026 (jueces, ronda 20): en una nota corta. */}
-            Objetivo del cuerpo técnico: 90-100′ por 6 días de sesión
-            {objetivo.diasEntreno < 6 ? ` · ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"} → ${objetivo.minimo}-${objetivo.maximo}′` : ""}
-            {/* 20/11/2026 (jueces, ronda 4): la referencia de las semanas ya planificadas, con cuántas son. */}
-            {mediaMinutos ? ` · media de ${mediaMinutos.n} ${mediaMinutos.n === 1 ? "micro anterior" : "micros anteriores"}: ${mediaMinutos.valor}′` : ""}
-          </p>
+          <details className="mt-0.5 text-[11px] text-white/50">
+            <summary className="cursor-pointer select-none underline-offset-2 hover:underline">De dónde sale el objetivo</summary>
+            <p className="mt-1 leading-snug">
+              Lo fija el cuerpo técnico: 90-100′ de balón parado en una semana de 6 días de sesión
+              {objetivo.diasEntreno < 6 ? `; con ${objetivo.diasEntreno} ${objetivo.diasEntreno === 1 ? "día" : "días"}, su parte: ${objetivo.minimo}-${objetivo.maximo}′` : ""}.
+              {mediaMinutos ? ` Media de ${mediaMinutos.n} ${mediaMinutos.n === 1 ? "micro anterior" : "micros anteriores"}: ${mediaMinutos.valor}′.` : ""}
+            </p>
+          </details>
         ) : null}
 
         <div

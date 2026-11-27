@@ -140,6 +140,7 @@ export function SelloDeFechas({
   sinCompleta = false,
   cuantos,
   compacto = false,
+  pendiente,
 }: {
   fuente: string;
   fechas: string[];
@@ -156,6 +157,14 @@ export function SelloDeFechas({
    * un pendiente para el analista y no se nombra en pantalla.
    */
   compacto?: boolean;
+  /**
+   * 27/11/2026 (ronda 9, expertos): en el sello compacto, si ya se jugó una
+   * jornada que la fuente aún no tiene, se dice cuál y por qué no está, para
+   * que «hasta la J12» no parezca un error al lado de una pantalla que ya
+   * va por la J13. El texto es la causa («llega al etiquetar el vídeo o
+   * cuando Opta lo publique»). Sin la prop, el sello sigue como estaba.
+   */
+  pendiente?: string;
 }) {
   const calendario = useCalendarioCastilla();
   const alcance = useMemo(
@@ -177,6 +186,11 @@ export function SelloDeFechas({
           {alcance.rival ? ` · ${alcance.rival}` : ""}
           {alcance.fecha ? ` · ${fecha(alcance.fecha)}` : ""} · {n} {n === 1 ? "partido" : "partidos"}
         </span>
+        {pendiente && alcance.pendientes.length ? (
+          <span className="text-white/60">
+            · la {alcance.pendientes[alcance.pendientes.length - 1]} ya se jugó: {pendiente}
+          </span>
+        ) : null}
       </p>
     );
   }

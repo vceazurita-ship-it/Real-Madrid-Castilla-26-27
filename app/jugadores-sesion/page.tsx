@@ -853,6 +853,7 @@ function EstructuraEquipo({
   const cuadran = ESTRUCTURAS.filter((e) => e.jugadores === jugadores.length);
   const soloLosQueCuadran = !verTodos && cuadran.length > 0;
   const grupos = soloLosQueCuadran ? [{ rotulo: `Para ${jugadores.length} (los que tiene)`, opciones: cuadran }] : gruposDeEstructuras(jugadores.length);
+  const miasVisibles = soloLosQueCuadran ? mias.filter((m) => m === actual || jugadoresDe(m) === jugadores.length) : mias;
   const enLista = grupos.some((g) => g.opciones.some((e) => e.valor === actual)) || mias.includes(actual);
   const conocida = ESTRUCTURAS.some((e) => e.valor === actual);
   const tocado = Boolean(equipo.orden?.length || equipo.posiciones?.some(Boolean));
@@ -901,11 +902,12 @@ function EstructuraEquipo({
               {actual ? `${actual} (a mano)` : "Elige una…"}
             </option>
           )}
-          {mias.length > 0 && (
+          {/* 27/11/2026 (jueces): «★ 1-2-3-1 (7)» salía para un equipo de 10. Con la lista corta, sólo las mías que cuadran (y la de ahora); el número dice para cuántos es. */}
+          {miasVisibles.length > 0 && (
             <optgroup label="Mis estructuras" className="bg-[#11161C]">
-              {mias.map((m) => (
+              {miasVisibles.map((m) => (
                 <option key={`mia-${m}`} value={m} className="bg-[#11161C]">
-                  ★ {m} ({jugadoresDe(m)})
+                  ★ {m} · para {jugadoresDe(m)}
                 </option>
               ))}
             </optgroup>
@@ -3606,6 +3608,17 @@ export default function JugadoresSesionPage() {
                         return corto ? `${corto.charAt(0).toLowerCase()}${corto.slice(1)}` : "";
                       })();
                       const masFaltan = estadoTareas.filter((a) => !(tareaLista(a) && !a.some((x) => x.nivel === "aviso"))).length - 1;
+                      /* 27/11/2026 (jueces): las otras que faltan, por su código (antes «y 2 más»). */
+                      const otrasQueFaltan = estadoTareas
+                        .map((a, i) => ({ a, i }))
+                        .filter(({ a, i }) => i !== falta && !(tareaLista(a) && !a.some((x) => x.nivel === "aviso")))
+                        .map(({ i }) => ({ i, codigo: (enlacePlan[i] != null && planSesion[enlacePlan[i] as number]?.codigo) || `Tarea ${i + 1}` }));
+                      /*
+                      | 27/11/2026 (jueces): Microciclos decía «4 tareas con equipos» y aquí
+                      | «1/4 tareas listas»: son dos reglas. Se dicen las dos, con su nombre:
+                      | con equipos (la de Microciclos) y listas (sin nada que corregir).
+                      */
+                      const conEquipos = sesion.tareas.filter((t) => Object.values(t.sitio).some((d) => d !== FUERA)).length;
 
                       return (
                         <span className="flex flex-col gap-1">
@@ -3615,6 +3628,9 @@ export default function JugadoresSesionPage() {
                               {listas}/{sesion.tareas.length}
                             </b>
                             <span className="text-[10px] uppercase tracking-[0.14em] text-white/50">tareas listas</span>
+                          </span>
+                          <span className="text-[10px] leading-tight text-white/55">
+                            {conEquipos} de {sesion.tareas.length} con equipos · lista = sin nada que corregir
                           </span>
                           <span className="block h-1 w-full overflow-hidden rounded-full bg-white/10">
                             <span className="js-barra block h-full rounded-full bg-[#C8A96B]" style={{ width: `${pct}%` }} />
@@ -3632,8 +3648,27 @@ export default function JugadoresSesionPage() {
                           >
                             Falta {codigoFalta} · {sesion.tareas[falta].nombre}
                             {queFalta ? <span className="font-normal text-white/65">: {queFalta}</span> : null}
-                            {masFaltan > 0 ? <span className="font-normal text-white/55"> · y {masFaltan} más</span> : null} →
+                            {masFaltan > 0 && !otrasQueFaltan.length ? <span className="font-normal text-white/55"> · y {masFaltan} más</span> : null} →
                           </button>
+                        ) : null}
+                        {otrasQueFaltan.length ? (
+                          <span className="flex max-w-[280px] flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-white/55">
+                            <span>También faltan:</span>
+                            {otrasQueFaltan.map((o) => (
+                              <button
+                                key={o.i}
+                                type="button"
+                                onClick={() => {
+                                  setVista("equipos");
+                                  irATarea(o.i);
+                                }}
+                                className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                                title={`Abrir ${o.codigo} · ${sesion.tareas[o.i]?.nombre ?? ""}`}
+                              >
+                                {o.codigo}
+                              </button>
+                            ))}
+                          </span>
                         ) : null}
                         </span>
                       );
@@ -4143,7 +4178,7 @@ export default function JugadoresSesionPage() {
                         <input
                           value={tarea.reglas ?? ""}
                           onChange={(e) => cambiaTarea((t) => ({ ...t, reglas: e.target.value || undefined }), `reglas:${tarea.id}`)}
-                          placeholder="Máx. 3 toques; gol = 8 pases seguidos"
+                          placeholder="Escribe las reglas de la tarea"
                           className="w-full rounded-xl border border-white/10 bg-white/[0.04] px-3 py-2 text-[13px] text-white outline-none placeholder:text-white/30 focus:border-[#C8A96B]/50"
                         />
                         {detalleDe(activa) && <span className="mt-1 block truncate text-[12px] text-white/50" title="Lo que trae la hoja de registro para esta tarea">De la hoja: {detalleDe(activa)}</span>}

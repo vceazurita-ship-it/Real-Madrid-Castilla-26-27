@@ -173,7 +173,7 @@ type Textos = {
     zona: (zona: string, n: number, total: number, adelante: number, juegan: number) => string;
     acaba: (llegan: number, pierden: number, de: number) => string;
     /** `media`: la de los otros partidos etiquetados (16/11/2026, ronda 18), para leer la cifra. */
-    dura: (s: string, media?: { s: string; n: number } | null) => string;
+    dura: (s: string, media?: { s: string; n: number; opta?: number } | null) => string;
   };
   dudosos: string;
   vacio: string;
@@ -235,7 +235,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
         `De ${de} con desenlace, ${pct(llegan, de)} % acaba en remate o área (${llegan} de ${de}) y ${pct(pierden, de)} % en pérdida (${pierden} de ${de}).`,
       dura: (s, media) =>
         media
-          ? `La transición dura ${s} s de media; en los otros ${media.n} partidos etiquetados, ${media.s} s (es estilo: ni mejor ni peor).`
+          ? `La transición dura ${s} s de media; en los otros ${media.n} partidos${media.opta ? ` (${baseDeAnteriores(media.n, media.opta).slice(2)})` : " etiquetados"}, ${media.s} s (es estilo: ni mejor ni peor).`
           : `La transición dura ${s} s de media.`,
     },
     dudosos:
@@ -302,7 +302,7 @@ const TEXTOS: Record<ModoTransiciones, Textos> = {
         `De ${de} con desenlace, ${pct(llegan, de)} % nos llegan al área o al remate (${llegan} de ${de}) y ${pct(pierden, de)} % las recuperamos al momento, en esa misma transición (${pierden} de ${de}).`,
       dura: (s, media) =>
         media
-          ? `Su transición dura ${s} s de media; en los otros ${media.n} partidos etiquetados, ${media.s} s (cuanto más corta, antes la cortamos).`
+          ? `Su transición dura ${s} s de media; en los otros ${media.n} partidos${media.opta ? ` (${baseDeAnteriores(media.n, media.opta).slice(2)})` : " etiquetados"}, ${media.s} s (cuanto más corta, antes la cortamos).`
           : `Su transición dura ${s} s de media.`,
     },
     dudosos:
@@ -1056,6 +1056,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         nombre: robosMode ? "Acaban en remate o en el área" : "Acaban en remate o en nuestra área",
         actual: porcentajeDe(actuales, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
         media: porcentajeAgregado(anteriores, (f) => llegan(seguidas(f)), (f) => seguidas(f).length),
+        /* 27/11/2026 (ronda 9, fútbol): con su franja, como «Salen hacia delante». */
+        rango: rangoDe(anteriores, (f) => porcentajeDe(f, (x) => llegan(seguidas(x)), (x) => seguidas(x).length)),
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? true : false,
@@ -1066,6 +1068,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         nombre: robosMode ? "La perdemos al momento" : "La recuperamos al momento",
         actual: porcentajeDe(actuales, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
         media: porcentajeAgregado(anteriores, (f) => cortas(seguidas(f)), (f) => seguidas(f).length),
+        rango: rangoDe(anteriores, (f) => porcentajeDe(f, (x) => cortas(seguidas(x)), (x) => seguidas(x).length)),
         formato: formatoPorcentaje,
         formatoDiferencia: formatoPuntos,
         mejorAlto: robosMode ? false : true,
@@ -1094,6 +1097,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               nombre: "Duración media de su posesión",
               actual: duracion(actuales),
               media: duracionMediaDe(anteriores),
+              rango: rangoDe(anteriores, duracion),
               formato: segundos,
               mejorAlto: false,
               pie: "cuanto menos dure su posesión, mejor",
@@ -1249,15 +1253,18 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       if (tiempos.length) {
         /* 16/11/2026 (expertos, ronda 18): con un partido, la duración con la
            media de los otros partidos etiquetados (cada partido pesa igual). */
-        let media: { s: string; n: number } | null = null;
+        let media: { s: string; n: number; opta?: number } | null = null;
         if (partidosVistos === 1) {
           const este = robos[0].partido;
-          const porPartido = partidos
+          /* 27/11/2026 (ronda 9): se dice de dónde sale cada partido de la media
+             («10 del vídeo y 1 de Opta»), no «etiquetados» de todos. */
+          const conTiempos = partidos
             .filter((p) => p.id !== este && !esPretemporada(p.jornada))
-            .map((p) => p.robos.filter((r) => r.desenlace && typeof r.duracion === "number").map((r) => r.duracion as number))
-            .filter((t) => t.length > 0)
-            .map((t) => t.reduce((a, b) => a + b, 0) / t.length);
-          if (porPartido.length >= 2) media = { s: decimal(porPartido.reduce((a, b) => a + b, 0) / porPartido.length), n: porPartido.length };
+            .map((p) => ({ opta: p.robos.some(esDeOpta), t: p.robos.filter((r) => r.desenlace && typeof r.duracion === "number").map((r) => r.duracion as number) }))
+            .filter((x) => x.t.length > 0);
+          const porPartido = conTiempos.map((x) => x.t.reduce((a, b) => a + b, 0) / x.t.length);
+          if (porPartido.length >= 2)
+            media = { s: decimal(porPartido.reduce((a, b) => a + b, 0) / porPartido.length), n: porPartido.length, opta: conTiempos.filter((x) => x.opta).length };
         }
         frases.push(T.conclusiones.dura(decimal(tiempos.reduce((a, b) => a + b, 0) / tiempos.length), media));
       }
@@ -1429,9 +1436,31 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       return `El rival sale hacia delante en el ${f(m.actual)} de las pérdidas que juega, igual que la media (${f(m.media)}): la contrapresión rinde como siempre. ${tarea} Criterio de éxito, bajar del ${f(m.media)}${franja}.`;
     }
 
+    /*
+    | 27/11/2026 (ronda 9, fútbol): la conclusión sigue a la etiqueta de la fila.
+    | Dentro de la franja de los anteriores es «lo normal»: ni «funcionó» ni
+    | tarea nueva. Fuera de ella, sí se lee. El criterio, con la franja (no con
+    | la media y la franja mezcladas).
+    */
+    const lo = m.rango ? Math.min(m.rango[0], m.rango[1]) : null;
+    const hi = m.rango ? Math.max(m.rango[0], m.rango[1]) : null;
+    const dentro = lo !== null && hi !== null && lo !== hi && m.actual >= lo && m.actual <= hi;
+    const base = m.pie?.match(/^\d+ de \d+/)?.[0];
+    const cifra = `${f(m.actual)}${base ? ` (${base})` : ""}`;
+
+    if (dentro) {
+      return `El rival sale hacia delante en el ${cifra}, ${d > 0 ? "algo por encima" : "algo por debajo"} de la media (${f(m.media)}), dentro de lo normal${franja}. Sin tarea nueva: se mantiene la contrapresión de los 5 segundos y se sigue contando.`;
+    }
+
+    if (lo === null || hi === null || lo === hi) {
+      return d > 0
+        ? `El rival sale hacia delante en el ${cifra}, por encima de la media (${f(m.media)}): nos sorprende tras perder. ${tarea} Criterio de éxito, volver por debajo del ${f(m.media)}.`
+        : `El rival sale hacia delante en el ${cifra}, por debajo de la media (${f(m.media)}). Sin tarea nueva: se mantiene la contrapresión de los 5 segundos y se sigue contando.`;
+    }
+
     return d > 0
-      ? `El rival sale hacia delante en el ${f(m.actual)}, por encima de la media (${f(m.media)}): nos sorprende tras perder. ${tarea} Criterio de éxito, volver por debajo del ${f(m.media)}${franja}.`
-      : `El rival sale hacia delante en el ${f(m.actual)}, por debajo de la media (${f(m.media)}): la contrapresión funcionó. Sin tarea nueva: se repite la contrapresión de los 5 segundos y se cuenta igual. Criterio, seguir por debajo de la media${franja}.`;
+      ? `El rival sale hacia delante en el ${cifra}, por encima de lo normal${franja}: nos sorprende tras perder. ${tarea} Criterio de éxito, volver por debajo del ${f(hi ?? m.media)}.`
+      : `El rival sale hacia delante en el ${cifra}, por debajo de lo normal${franja}: la contrapresión funcionó. Sin tarea nueva: se repite la contrapresión de los 5 segundos y se cuenta igual. Criterio, seguir por debajo del ${f(lo ?? m.media)}.`;
   }, [modo, comparativa]);
 
   /* ------------------------------------------------------------------ */
@@ -1465,8 +1494,14 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     const porTotal = [...lista].sort((a, b) => b.filas.length - a.filas.length);
     const [primero, segundo] = porTotal;
 
+    /* 27/11/2026 (ronda 9, análisis): con su base, contra qué se compara
+       (la mediana de los que aparecen) y «tendencia» con menos de 15. */
+    const totalJug = lista.reduce((a, l) => a + l.filas.length, 0);
+    const cuantos = porTotal.map((l) => l.filas.length).sort((a, b) => a - b);
+    const mitad = Math.floor(cuantos.length / 2);
+    const mediana = cuantos.length % 2 ? cuantos[mitad] : (cuantos[mitad - 1] + cuantos[mitad]) / 2;
     frases.push(
-      `${primero.jugador} es el que más ${modo === "robos" ? "roba" : "pierde"}: ${primero.filas.length}${segundo ? `, por delante de ${segundo.jugador} (${segundo.filas.length})` : ""}.`,
+      `${primero.jugador} es el que más ${modo === "robos" ? "roba" : "pierde"}: ${primero.filas.length} de ${totalJug}${lista.length >= 3 ? ` (la mediana del equipo, ${decimal(mediana)} por jugador)` : ""}${segundo ? `, por delante de ${segundo.jugador} (${segundo.filas.length})` : ""}${primero.filas.length < 15 ? "; con menos de 15, tendencia" : ""}.`,
     );
 
     const llegan = [...lista]
@@ -1640,7 +1675,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
                   </button>
                 ))}
                 <span className="inline-flex items-center gap-1.5">
-                  <span className="h-3 w-3 rounded-full border-2 border-white/80" /> acaba en remate o en el área
+                  {/* 27/11/2026 (ronda 9, marketing): el anillo dibujado igual que en el campo; con la clase, en modo día no se veía. */}
+                  <svg aria-hidden width="16" height="16" viewBox="0 0 16 16" className="shrink-0"><circle cx="8" cy="8" r="6.5" fill="none" stroke="#FFFFFF" strokeWidth="1.8" strokeOpacity="0.9" /><circle cx="8" cy="8" r="3.6" fill="rgba(255,255,255,0.55)" stroke="rgba(8,11,15,0.8)" strokeWidth="1" /></svg> {modo === "robos" ? "acaba en remate o en el área" : "acaba en remate o en nuestra área"}
                 </span>
                 {/* 20/11/2026 (ronda 4, marketing): como en faltas, que se sepa que cada punto abre su vídeo. */}
                 <span className="font-semibold">Toca un punto: su vídeo, Hudl y su fila</span>
@@ -1701,7 +1737,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
 
             {/* 16/11/2026 (expertos, ronda 17): un solo sello, con el mismo
                 recuento que la línea de debajo y sin la franja «incompleta». */}
-            <SelloDeFechas fuente={algunoOpta ? "Vídeo etiquetado y Opta" : "Vídeo etiquetado"} fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto />
+            <SelloDeFechas fuente={algunoOpta ? "Vídeo etiquetado y Opta" : "Vídeo etiquetado"} fechas={fechasConDato} queEs={T.unidad} cuantos={partidosLiga} compacto pendiente="entra en cuanto su vídeo esté etiquetado o Opta publique su evento a evento" />
 
             {/* 17/11/2026: los partidos de lo que se ve que salen de Opta (aún sin etiquetar en Hudl). */}
             <SelloOpta className="mt-2" partidos={elegidos.filter((p) => p.robos.some(esDeOpta)).map((p) => ({ jornada: p.jornada, rival: p.rival }))} />

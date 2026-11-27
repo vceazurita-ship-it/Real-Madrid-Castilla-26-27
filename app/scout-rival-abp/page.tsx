@@ -828,7 +828,8 @@ export default function ScoutRivalAbpPage() {
                 />
               ) : undefined
             }
-            lead={vista === "coding" ? "Criba los clips de la jornada, etiquétalos y pásalos a apuntes." : "Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea."}
+            /* 27/11/2026 (ronda 9): los saques de banda sólo se prometen si hay filas de banda suyas. */
+            lead={vista === "coding" ? "Criba los clips de la jornada, etiquétalos y pásalos a apuntes." : delEquipo.some((e) => e.family === "banda") ? "Córners, faltas, penaltis y saques de banda del rival: lanzadores, rematadores y amenaza aérea." : "Córners, faltas y penaltis del rival: lanzadores, rematadores y amenaza aérea."}
             aside={
               equipo && (hayScout || hayDerivado) ? (
                 <SourceBadge tone={hayScout ? "scout" : "derivado"}>
@@ -935,6 +936,15 @@ export default function ScoutRivalAbpPage() {
                     />
                   )}
 
+                  {/* Qué cambia al tocarlo (27/11/2026, ronda 9). */}
+                  {delEquipo.length === 0 && (
+                    <span className="text-[12px] text-white/55">
+                      {side === "ofensivo"
+                        ? "Su balón parado a favor: cuánto genera, quién lo lanza y quién remata"
+                        : "Lo que concede a balón parado y qué hacemos con nuestro córner"}
+                    </span>
+                  )}
+
                   {delEquipo.length > 0 && (
                     <span className="text-[11px] text-white/35">
                       {filtered.length} acciones ·{" "}
@@ -968,15 +978,15 @@ export default function ScoutRivalAbpPage() {
                 | sólo con la sesión de administrador, al final.
                 */
                 opciones={[
-                  { clave: "resumen", label: "¿Cuánto peligro tiene?", icono: LayoutDashboard },
+                  { clave: "resumen", label: "¿Cuánto peligro tiene?", corto: "Peligro", icono: LayoutDashboard },
                   /* La proyección es de un partido de liga: con Opta y el calendario. */
-                  ...(grupo === "liga" && equipo ? [{ clave: "proyeccion" as const, label: "Proyección de la jornada", icono: TrendingUp }] : []),
+                  ...(grupo === "liga" && equipo ? [{ clave: "proyeccion" as const, label: "Proyección de la jornada", corto: "Proyección", icono: TrendingUp }] : []),
                   /* Sin acciones, las tres vistas que viven de ellas no salen. */
                   ...(delEquipo.length > 0
                     ? [
-                        { clave: "quien" as const, label: "¿Quién lo lanza y remata?", icono: Users },
-                        { clave: "patrones" as const, label: "¿Qué repite?", icono: Shapes },
-                        { clave: "banda" as const, label: "Saques de banda", icono: Flag },
+                        { clave: "quien" as const, label: "¿Quién lo lanza y remata?", corto: "Quién", icono: Users },
+                        { clave: "patrones" as const, label: "¿Qué repite?", corto: "Repite", icono: Shapes },
+                        { clave: "banda" as const, label: "Saques de banda", corto: "Banda", icono: Flag },
                       ]
                     : []),
                 ]}
@@ -1080,7 +1090,18 @@ export default function ScoutRivalAbpPage() {
                 /* Sin acciones registradas: lo que ya se sabe de él (Wyscout,
                    goles y etiquetas), en la vista de resumen. */
                 vista === "resumen" && equipo && grupo === "liga" ? (
-                  <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
+                  <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} lado={side} onCambiaLado={setSide} />
+                ) : vista === "resumen" && equipo ? (
+                  /* 27/11/2026 (ronda 9): en Pretemporada sin acciones, un estado con salida y no un hueco. */
+                  <EmptyState
+                    title={`De ${equipo} no hay amistosos de pretemporada registrados`}
+                    description="Lo de liga está en «Liga», con Wyscout y sus goles a balón parado."
+                    action={
+                      <button type="button" onClick={() => setGrupo("liga")} className="font-semibold text-[var(--rmcf-gold-ink,#C8A96B)] underline">
+                        Ver su balón parado de liga
+                      </button>
+                    }
+                  />
                 ) : null
               ) : (
                 <>
@@ -1111,7 +1132,7 @@ export default function ScoutRivalAbpPage() {
                           : { uno: "acaba en gol u ocasión de su rival", varios: "acaban en gol u ocasión de su rival", mejorAlto: true }
                       }
                       fuente={`${side === "ofensivo" ? "Su ataque" : "Su defensa"} · ${origenActivo === "derivado" ? "deducido de nuestros partidos contra él" : origenActivo === "scout" ? "scouting propio" : "scouting propio y nuestras hojas"}`}
-                      liga={grupo === "liga" && equipo ? <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} /> : null}
+                      liga={grupo === "liga" && equipo ? <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} lado={side} onCambiaLado={setSide} /> : null}
                       ligaPregunta="¿Y en la liga, según Wyscout?"
                     />
                   )}
@@ -1284,7 +1305,7 @@ export default function ScoutRivalAbpPage() {
                   | población (sus partidos de liga frente a los 20 del grupo).
                   */}
                   {vista === "resumen" && vistaResumen === "detalle" && grupo === "liga" && equipo && (
-                    <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} />
+                    <AbpWyscoutRival equipo={equipo} plantilla={aereos} acciones={acciones} lado={side} onCambiaLado={setSide} />
                   )}
 
                   {/* --------------- saque de banda por zona ------------ */}

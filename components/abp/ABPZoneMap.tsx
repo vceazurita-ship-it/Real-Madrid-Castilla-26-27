@@ -171,7 +171,14 @@ function esGol(v: string | undefined, def: boolean) {
  */
 function heatColor(t: number, def: boolean, claro = false) {
   /* 20/11/2026 (ronda 7, ABP ofensivo): rampa sobre césped claro en modo día. */
-  const stops: { p: number; c: [number, number, number] }[] = claro
+  const stops: { p: number; c: [number, number, number] }[] = claro && def
+    ? /* 27/11/2026: el defensivo en día, rampa roja sobre el mismo césped claro. */
+      [
+        { p: 0, c: [214, 228, 206] },
+        { p: 0.5, c: [214, 140, 120] },
+        { p: 1, c: [150, 48, 40] },
+      ]
+    : claro
     ? [
         { p: 0, c: [214, 228, 206] },
         { p: 0.5, c: [200, 169, 107] },

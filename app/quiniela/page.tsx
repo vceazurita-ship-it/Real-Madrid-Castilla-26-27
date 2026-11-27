@@ -2006,9 +2006,36 @@ function Quiniela() {
                 </p>
                 {base > 0 && invitados.length > 0 ? (
                   <p className="mb-3 text-[15px] font-semibold leading-snug text-white">
-                    {invitados.map((fila) => corto(fila.slug)).join(" y ")}{" "}
-                    {cerrado ? (invitados.length === 1 ? "come gratis" : "comen gratis") : invitados.length === 1 ? "come gratis por ahora" : "comen gratis por ahora"}
-                    {`: ${invitados[invitados.length - 1].aciertos} de ${base} · ${invitados[invitados.length - 1].porcentaje.toFixed(0)} %`}
+                    {/*
+                      27/11/2026 (guionista): «X y Y y Z y W comen gratis: 8 de 20» le daba
+                      un 8 al primero, que llevaba 9, y contradecía «los dos primeros».
+                      Ahora cada grupo con su cifra y los nombres con comas y un solo «y»:
+                      «Comen invitados D. Crespo (9 de 20) y, empatados en el segundo
+                      puesto a 8, M. Barrio, M. Zárraga y V. Cea».
+                    */}
+                    {(() => {
+                      const lista = (n: string[]) => (n.length <= 1 ? n.join("") : `${n.slice(0, -1).join(", ")} y ${n[n.length - 1]}`);
+                      const grupos: { aciertos: number; nombres: string[] }[] = [];
+                      for (const fila of invitados) {
+                        const ultimo = grupos[grupos.length - 1];
+                        if (ultimo && ultimo.aciertos === fila.aciertos) ultimo.nombres.push(corto(fila.slug));
+                        else grupos.push({ aciertos: fila.aciertos, nombres: [corto(fila.slug)] });
+                      }
+                      const verbo = `${invitados.length === 1 ? "Come invitado" : "Comen invitados"}${cerrado ? "" : ", por ahora,"}`;
+                      const pieza = (g: { aciertos: number; nombres: string[] }, i: number) =>
+                        g.nombres.length === 1
+                          ? `${g.nombres[0]} (${g.aciertos} de ${base})`
+                          : i === 0
+                            ? `${lista(g.nombres)}, empatados a ${g.aciertos} de ${base}`
+                            : `empatados en el ${i === 1 && grupos[0].nombres.length === 1 ? "segundo" : "siguiente"} puesto a ${g.aciertos}, ${lista(g.nombres)}`;
+
+                      return grupos.length === 1
+                        ? `${verbo} ${pieza(grupos[0], 0)}`
+                        : `${verbo} ${pieza(grupos[0], 0)}${grupos
+                            .slice(1)
+                            .map((g, k) => (g.nombres.length > 1 ? ` y, ${pieza(g, k + 1)}` : ` y ${pieza(g, k + 1)}`))
+                            .join("")}`;
+                    })()}
                     {tercero && aTercero !== null ? (
                       <span className="block text-[13px] font-normal text-white/70">
                         {aTercero > 0

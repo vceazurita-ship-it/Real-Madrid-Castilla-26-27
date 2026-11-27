@@ -133,6 +133,34 @@ export function aparicionDe(entrada: PlayerRating | undefined): Aparicion {
   };
 }
 
+/*
+| UNA SOLA CUENTA DE MINUTOS DE VALORACIONES (27/11/2026, jueces, ronda 9):
+| /individual sumaba con `summarizeAll` (todos los partidos, también los
+| ocultos y los de fecha futura, y por el ID tal cual) y el Dashboard de
+| plantilla con `partidosDeLiga` (sin ocultos, hasta hoy y por el ID
+| vigente): a Thiago Pitarch le salían 243′ en una y 186′ en otra. Las dos
+| pantallas usan ya esta función: los mismos partidos, los mismos minutos y
+| las notas en orden, por ID vigente.
+*/
+export function minutosDeValoraciones(partidos: PartidoLiga[]) {
+  const porJugador = new Map<string, { minutos: number; jugados: number; notas: number[] }>();
+
+  partidos.forEach((p) =>
+    p.jugadores.forEach((entrada, id) => {
+      const a = aparicionDe(entrada);
+      if (!a.jugo) return;
+
+      const actual = porJugador.get(id) ?? { minutos: 0, jugados: 0, notas: [] };
+      actual.minutos += a.minutos ?? 0;
+      actual.jugados += 1;
+      if (a.nota > 0) actual.notas.push(a.nota);
+      porJugador.set(id, actual);
+    }),
+  );
+
+  return { posibles: partidos.length * 90, porJugador };
+}
+
 /** Partidos del Castilla en la descarga de Wyscout de esta temporada. */
 export function partidosWyscout(partidos: FilaPartido[], hoy: string) {
   const actual = temporadaDe(hoy);
@@ -209,6 +237,7 @@ export function construyeJugadores<F extends FichaPlantilla>(
   partidosDeWyscout = 0,
 ): JugadorDash<F>[] {
   const atadas = atarWyscout(fichas, filasWyscout);
+  const cuentaValoraciones = minutosDeValoraciones(partidos);
   const posiblesValoraciones = partidos.length * 90 || partidosEquipo * 90;
   const posiblesWyscout = partidosDeWyscout * 90 || partidosEquipo * 90;
 
@@ -216,7 +245,8 @@ export function construyeJugadores<F extends FichaPlantilla>(
     const wy = atadas.get(ficha.id) ?? null;
     const apariciones = partidos.map((p) => aparicionDe(p.jugadores.get(ficha.id)));
     const jugadas = apariciones.filter((a) => a.jugo);
-    const minutosValoraciones = jugadas.reduce((acc, a) => acc + (a.minutos ?? 0), 0);
+    /* La misma cuenta que /individual (`minutosDeValoraciones`). */
+    const minutosValoraciones = cuentaValoraciones.porJugador.get(ficha.id)?.minutos ?? 0;
 
     const minutos = wy ? wy.minutos : minutosValoraciones;
     const posibles = wy ? posiblesWyscout : posiblesValoraciones;
@@ -330,9 +360,11 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
     const deCampo = j.puesto !== "POR";
 
     if (deCampo && partidosEquipo >= 3 && j.pct !== null) {
-      if (j.pct < 25) avisos.push({ tipo: "pocos", jugador: j, cifra: `${j.minutos}′ de ${posibles} (${j.pct} %)` });
+      /* 27/11/2026 (marketing, ronda 9): la fuente de los minutos en el propio aviso. */
+      const fuente = j.fuenteMinutos === "wyscout" ? "Wyscout" : "Valoraciones";
+      if (j.pct < 25) avisos.push({ tipo: "pocos", jugador: j, cifra: `${j.minutos}′ de ${posibles} (${j.pct} %) · ${fuente}` });
       /* 10/11/2026: «999′ de 990 (100 %)» no se sostenía: el añadido se dice. */
-      if (j.pct >= 90) avisos.push({ tipo: "carga", jugador: j, cifra: j.minutos > posibles ? `${j.minutos}′ (con el añadido; ${posibles}′ a 90 por partido)` : `${j.minutos}′ de ${posibles} (${j.pct} %)` });
+      if (j.pct >= 90) avisos.push({ tipo: "carga", jugador: j, cifra: j.minutos > posibles ? `${j.minutos}′ (con el añadido; ${posibles}′ a 90 por partido) · ${fuente}` : `${j.minutos}′ de ${posibles} (${j.pct} %) · ${fuente}` });
     }
 
     const ultimas = j.apariciones.slice(-3);

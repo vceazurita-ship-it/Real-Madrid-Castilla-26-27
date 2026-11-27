@@ -182,6 +182,7 @@ import {
   tagsDeClips,
   totalCodificadoMs,
   type AmbitoCoding,
+  type CategoriaCoding,
   type FiltroClips,
   type ClipCoding,
   type ConfigCoding,
@@ -263,6 +264,55 @@ function parteNombreVideo(
     titulo: nombre.slice(0, corte).trim(),
     chips: chips.sort((a, b) => a.en - b.en).map((uno) => uno.texto),
   };
+}
+
+/*
+| LO CODIFICADO, DE UN VISTAZO (27/11/2026, ronda 9). Dos columnas de barras
+| —por categoría y por jugador— con su base y una frase de lectura. Los clips
+| de jugador sueltos («Vídeo completo») no son una acción: se cuentan aparte,
+| en la frase. Con menos de 2 cortes de partido no sale (no hay reparto).
+*/
+function ResumenCortes({ clips, categorias }: { clips: ClipCoding[]; categorias: CategoriaCoding[] }) {
+  const cortes = clips.filter((c) => c.jugadorId !== SUJETO_VIDEO_COMPLETO.id);
+  if (cortes.length < 2) return null;
+  const sueltos = clips.length - cortes.length;
+  const porCat = porCategoria(cortes, categorias).filter((f) => f.clave !== "sin-categoria").slice(0, 5);
+  const porJug = porJugador(cortes).slice(0, 5);
+  const columnas = [
+    { titulo: "Por categoría", filas: porCat.map((f) => ({ clave: f.clave, nombre: f.etiqueta, n: f.clips, color: categorias.find((c) => c.id === f.clave)?.color })) },
+    { titulo: "Por jugador", filas: porJug.map((f) => ({ clave: f.clave, nombre: f.etiqueta, n: f.clips, color: undefined as string | undefined })) },
+  ].filter((c) => c.filas.length > 0);
+  if (!columnas.length) return null;
+  const top = porCat[0] ?? null;
+  const frase = `${cortes.length} cortes de partido${sueltos ? ` y ${sueltos} ${sueltos === 1 ? "clip" : "clips"} de jugador suelto${sueltos === 1 ? "" : "s"}` : ""}${
+    top ? `; lo más cortado, ${top.etiqueta.toLowerCase()} (${top.clips} de ${cortes.length})` : ""
+  }${cortes.length < 15 ? " · con menos de 15, tendencia" : ""}.`;
+  return (
+    <section className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3" aria-label="Lo codificado de un vistazo">
+      <p className="text-[13px] font-semibold leading-snug text-white">{frase}</p>
+      <div className={`mt-2.5 grid min-w-0 gap-4 ${columnas.length > 1 ? "sm:grid-cols-2" : ""}`}>
+        {columnas.map((col) => {
+          const tope = Math.max(1, ...col.filas.map((f) => f.n));
+          return (
+            <div key={col.titulo} className="min-w-0">
+              <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">{col.titulo}</p>
+              <ul className="space-y-1.5">
+                {col.filas.map((f) => (
+                  <li key={f.clave} className="grid min-w-0 grid-cols-[minmax(0,8.5rem)_minmax(0,1fr)_2rem] items-center gap-2 text-[12px]">
+                    <span className="truncate text-white/80" title={f.nombre}>{f.nombre}</span>
+                    <span className="block h-2 rounded-full bg-white/[0.06]">
+                      <span className="block h-2 rounded-full" style={{ width: `${(f.n / tope) * 100}%`, background: f.color || "#C8A96B" }} />
+                    </span>
+                    <span className="text-right font-semibold tabular-nums text-white/85">{f.n}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
+      </div>
+    </section>
+  );
 }
 
 /**
@@ -4210,9 +4260,16 @@ function Coding() {
                       localOnly={sesion.localOnly}
                       savedAt={sesion.lastSavedAt}
                       /* 16/11/2026 (marketing): con cuántos cortes; la hora la pone SaveState. */
+                      /* 27/11/2026 (ronda 9, análisis): con su reparto, la misma base que la línea junto al rival. */
                       rotulo={
                         sesion.sesion.clips.length > 0
-                          ? `${sesion.sesion.clips.length} ${sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}`
+                          ? `${sesion.sesion.clips.length} ${sesion.sesion.clips.length === 1 ? "corte guardado" : "cortes guardados"}${
+                              recuento.deJugador > 0 && recuento.enPartido > 0
+                                ? `: ${recuento.enPartido} de partido, ${recuento.deJugador} de jugador`
+                                : recuento.deJugador > 0
+                                  ? `, ${recuento.deJugador === 1 ? "de jugador" : "todos de jugador"}`
+                                  : ""
+                            }`
                           : "Guardado"
                       }
                       sinGuardar={sesion.sinGuardar}
@@ -4504,7 +4561,7 @@ function Coding() {
                     ? `${recuento.enVideo} ${recuento.enVideo === 1 ? "corte" : "cortes"} en este vídeo · ${formateaTotal(recuento.msPartido)} cortados`
                     : `${formateaTotal(recuento.msPartido)} cortados`}
                   {recuento.deJugador > 0
-                    ? ` · ${recuento.deJugador} ${recuento.deJugador === 1 ? "clip" : "clips"} de jugador aparte`
+                    ? ` de partido · ${recuento.deJugador} ${recuento.deJugador === 1 ? "clip" : "clips"} de jugador, con su vídeo entero`
                     : ""}
                 </span>
               </div>
@@ -4564,6 +4621,10 @@ function Coding() {
                 </div>
               </div>
             )}
+
+            {/* 27/11/2026 (ronda 9, los tres jueces): lo codificado de un vistazo,
+                antes del vídeo y de la tabla: cortes por categoría y por jugador. */}
+            <ResumenCortes clips={sesion.sesion.clips} categorias={config.categorias} />
 
             {/* ========================= EL TABLERO ===================== */}
 
@@ -6028,9 +6089,12 @@ function Coding() {
 
               {/* 16/11/2026 (fútbol): en el móvil, sin vídeo abierto, «El vídeo» va
                   lo primero, encima del reproductor vacío. */}
-              <div className={`min-w-0 space-y-4 ${!src ? "max-xl:order-first" : ""}`}>
+              {/* 27/11/2026 (ronda 9, fútbol): sólo «El vídeo» sube en el móvil;
+                  «Jugadores, categorías…» y «Por jugador» quedan detrás del
+                  reproductor y de los cortes (la columna se deshace en la rejilla). */}
+              <div className={`min-w-0 space-y-4 ${!src ? "max-xl:contents max-xl:space-y-0" : ""}`}>
                 {(!src || cambiandoVideo) && (
-                  <div id="coding-el-video" className="scroll-mt-24">
+                  <div id="coding-el-video" className={`scroll-mt-24 ${!src ? "max-xl:order-first" : ""}`}>
                     <Panel title="El vídeo" icon={Video}>
                       <SelectorFuente
                         fuente={sesion.sesion.fuente}

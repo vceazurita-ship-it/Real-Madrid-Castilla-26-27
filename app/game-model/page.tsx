@@ -1240,16 +1240,19 @@ function GraficoCifra({ c, principio }: { c: CifraDelPrincipio; principio: strin
           {" "}
           → {mayoria ? "se sostiene" : "toca entrenarlo"}
         </span>
+        {/* 27/11/2026 (guionista, ronda 9): «últimos 3», etiqueta aparte, no en la frase. */}
         {ultimos3.length === 3 && (
-          <span className="font-normal text-gray-300"> · últimos 3: {buenos3} de 3</span>
+          <span className="ml-2 inline-flex rounded-full border border-white/15 px-2 py-0.5 align-middle text-[11px] font-normal text-gray-300">
+            últimos 3: {buenos3} de 3
+          </span>
         )}
       </figcaption>
+      {/* 27/11/2026 (guionista, ronda 9): el pie en dos líneas cortas y sin «eje desde 0». */}
       <p className="mt-0.5 text-xs text-gray-400">
-        {/* 17/11/2026 (marketing): las dos poblaciones con su base, en una línea. */}
-        {c.mejorAlto ? "Más es mejor" : "Menos es mejor"} · raya azul: mediana de la temporada de los {c.equipos} equipos del
-        grupo ({formatea(c.mediana, c.unidad)}) · Castilla en sus {c.partidos} partidos: {formatea(c.temporada, c.unidad)} · eje
-        desde 0 · toca una barra para ver su partido
+        {c.mejorAlto ? "Más es mejor" : "Menos es mejor"}. Raya azul: mediana de los {c.equipos} equipos del grupo ({formatea(c.mediana, c.unidad)}). Nuestra
+        media: {formatea(c.temporada, c.unidad)} en {c.partidos} partidos.
       </p>
+      <p className="text-xs text-gray-400">Toca una barra para ver su partido.</p>
       {/* 20/11/2026 (guionista, ronda 5): la leyenda de los dos tonos. */}
       <p className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-400">
         <span className="inline-flex items-center gap-1.5">

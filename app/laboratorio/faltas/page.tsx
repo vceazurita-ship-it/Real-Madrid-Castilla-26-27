@@ -711,11 +711,12 @@ export default function FaltasPage() {
     if (enContra.length) {
       const atras = enContra.filter((f) => sitioEnCampo(f).zona === "nuestro campo").length;
       /* 17/11/2026 (ronda 20, análisis): con menos de 15 faltas en esa zona, la cifra es tendencia. */
-      partes.push(`De las ${enContra.length} que cometemos, ${atras} (${pc(atras, enContra.length)} %${atras < 15 ? ", tendencia" : ""}) en nuestro tercio`);
+      /* 27/11/2026 (ronda 9, análisis): la base como cifra principal («2 de 17»), el porcentaje detrás. */
+      partes.push(`De las que cometemos, ${atras} de ${enContra.length} en nuestro tercio (${pc(atras, enContra.length)} %${atras < 15 ? ", tendencia" : ""})`);
     }
     if (aFavor.length) {
       const arriba = aFavor.filter((f) => sitioEnCampo(f).zona === "campo rival").length;
-      partes.push(`de las ${aFavor.length} que nos hacen, ${arriba} (${pc(arriba, aFavor.length)} %${arriba < 15 ? ", tendencia" : ""}) en su tercio`);
+      partes.push(`de las que nos hacen, ${arriba} de ${aFavor.length} en su tercio (${pc(arriba, aFavor.length)} %${arriba < 15 ? ", tendencia" : ""})`);
     }
     const t = partes.join("; ");
     return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
@@ -837,6 +838,7 @@ export default function FaltasPage() {
               queEs="faltas"
               cuantos={partidosVisibles.length}
               compacto
+              pendiente="entra en cuanto sus faltas estén etiquetadas o Opta publique su evento a evento"
             />
 
             {/* 17/11/2026: el partido elegido sale de Opta (aún sin etiquetar en Hudl). */}
@@ -1082,7 +1084,8 @@ export default function FaltasPage() {
                   {queHacemos.alarma ? (
                   <Link
                     href="/microcycles"
-                    className="mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                    /* 27/11/2026 (ronda 9, marketing): más aire con la nota de criterio. */
+                    className="mt-3 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
                   >
                     Llevarla al microciclo
                   </Link>

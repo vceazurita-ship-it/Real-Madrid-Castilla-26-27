@@ -2058,6 +2058,46 @@ export default function Page() {
     return out;
   }, [diasDelMicro, almacenEquipos]);
 
+  /* 27/11/2026 (jueces): las tareas del plan que no se hicieron (con equipos en Jugadores sesión), para contarlas aparte de las hechas. */
+  const noHechasDelMicro = useMemo(() => {
+    let n = 0;
+
+    for (const d of diasDelMicro) {
+      const equipos = sesionDeFecha(almacenEquipos?.sesiones, d.fecha);
+
+      if (!equipos) continue;
+      const enlace = enlaza(equipos.tareas, d.plan);
+
+      d.plan.forEach((_, k) => {
+        if (!enlace.includes(k)) n += 1;
+      });
+    }
+
+    return n;
+  }, [diasDelMicro, almacenEquipos]);
+
+  /*
+  | EL TITULAR CON LA CONCLUSIÓN (27/11/2026, jueces). «Micro 22: 15 tareas de
+  | entreno, 4 valoradas» era un recuento. Si a la semana le falta una fase de
+  | juego entera, eso es la lectura: «Micro 22: sin defensa ni transiciones
+  | (0 de 15 tareas; un micro tiene de media 3,2)» y, si ya se jugó, cómo
+  | acabó el partido. El recuento baja a la línea de debajo.
+  */
+  const titularConclusion = (() => {
+    if (!selectedMicroStat || !titular || partidoPorJugar || !repartoFases.faltan.length) return "";
+    const corto = faltanCorto(repartoFases.faltan);
+
+    if (!corto) return "";
+    const base = `0 de ${repartoFases.total} tareas${repartoFases.baseFaltan ? `; un micro tiene de media ${fmt1(repartoFases.baseFaltan.media)}` : ""}`;
+    const nuestro = partidoDelMicro ? comoNuestro(partidoDelMicro.p) : null;
+    const resultado =
+      nuestro?.jugado && nuestro.golesFavor !== null && nuestro.golesContra !== null
+        ? `, antes de ${nuestro.golesFavor > nuestro.golesContra ? "ganar" : nuestro.golesFavor < nuestro.golesContra ? "perder" : "empatar"} ${nuestro.golesFavor}-${nuestro.golesContra} ${nuestro.lado === "casa" ? "con el" : "en el campo del"} ${nombreEquipo(nuestro.rival)}`
+        : "";
+
+    return `Micro ${etiquetaMicro(selectedMicroStat.micro)}: sin ${corto} (${base})${resultado}`;
+  })();
+
   const yAxisWidth = isMobile ? 120 : isNarrow ? 160 : 220;
 
   const tipoAxisWidth = isMobile ? 140 : isNarrow ? 170 : 220;
@@ -2130,9 +2170,14 @@ export default function Page() {
                     cuenta de tareas pasa a la línea de debajo. */}
                 <div className="min-w-0">
                   <h1 className={`min-w-0 font-semibold tracking-tight ${titular ? "text-2xl sm:text-3xl" : "text-3xl sm:text-4xl"}`}>
-                    {titularSemana || titular || "Microciclos"}
+                    {titularSemana || titularConclusion || titular || "Microciclos"}
                   </h1>
-                  {titularSemana && titular ? <p className="mt-1 text-sm text-white/60">{titular.replace(/^Micro [^:]+: /, "")}</p> : null}
+                  {(titularSemana || titularConclusion) && titular ? (
+                    <p className="mt-1 text-sm text-white/60">
+                      {titular.replace(/^Micro [^:]+: /, "")}
+                      {noHechasDelMicro > 0 ? ` · ${noHechasDelMicro} ${noHechasDelMicro === 1 ? "no se hizo" : "no se hicieron"}` : ""}
+                    </p>
+                  ) : null}
                 </div>
 
                 {selectedMicroStat && (
@@ -2561,7 +2606,12 @@ export default function Page() {
                      el partido). El número es el de entreno y la base va debajo, en una
                      línea: «13 de entreno + 1 partido · 4 entrenos». */
                   value={fmtInt(metrics.tareasEntreno)}
-                  hint={`${metrics.tareasEntreno} de entreno${metrics.partidos ? ` + ${metrics.partidos} partido${metrics.partidos === 1 ? "" : "s"}` : ""} · ${metrics.entrenos} entreno${metrics.entrenos === 1 ? "" : "s"}`}
+                  /* 27/11/2026 (jueces): las que no se hicieron, aparte («14 hechas + 1 no hecha»). */
+                  hint={`${
+                    noHechasDelMicro > 0 && micro !== "ALL"
+                      ? `${Math.max(0, metrics.tareasEntreno - noHechasDelMicro)} hechas + ${noHechasDelMicro} no ${noHechasDelMicro === 1 ? "hecha" : "hechas"}`
+                      : `${metrics.tareasEntreno} de entreno`
+                  }${metrics.partidos ? ` + ${metrics.partidos} partido${metrics.partidos === 1 ? "" : "s"}` : ""} · ${metrics.entrenos} entreno${metrics.entrenos === 1 ? "" : "s"}`}
                   delta={microDelta?.tareas}
                   deltaTono="neutro"
                   deltaQue="tareas"
@@ -2727,7 +2777,12 @@ export default function Page() {
                   <Panel
                     className="order-3"
                     title="La semana en sesión"
-                    subtitle="Los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento, junto a cada tarea"
+                    /* 27/11/2026 (jueces): el análisis de entrenamiento sólo se promete si algún día de la semana lo tiene. */
+                    subtitle={
+                      diasDelMicro.some((d) => entrenos[d.fecha]?.analisis)
+                        ? "Los equipos de Jugadores sesión y lo que midió el análisis de entrenamiento, junto a cada tarea"
+                        : "Los equipos de Jugadores sesión, junto a cada tarea"
+                    }
                   >
                     {/* Una lista de días, de arriba abajo (10/11/2026): en dos columnas quedaba el martes a un lado y el miércoles suelto. */}
                     <div className="grid min-w-0 grid-cols-1 gap-4">
@@ -3170,13 +3225,18 @@ export default function Page() {
                   <Panel
                     className="order-3"
                     title={
+                      /* 27/11/2026 (jueces): título corto («Sin defensa ni transiciones esta semana»); la cuenta y la media, al subtítulo. */
                       repartoFases.faltan.length
-                        ? `Sin ${repartoFases.faltan.join(" ni ")} ${micro !== "ALL" ? "esta semana" : "en el periodo"}: 0 de ${repartoFases.total}${repartoFases.baseFaltan ? ` · un micro tiene de media ${fmt1(repartoFases.baseFaltan.media)} (${repartoFases.baseFaltan.micros} micros)` : ""}`
+                        ? `Sin ${faltanCorto(repartoFases.faltan)} ${micro !== "ALL" ? "esta semana" : "en el periodo"}`
                         : repartoFases.principal
                           ? `Más peso: ${repartoFases.principal[0]} (${fmt1(repartoFases.principal[1])} de ${repartoFases.total} tareas)`
                           : "Reparto por fase de juego"
                     }
                     subtitle={`${
+                      repartoFases.faltan.length
+                        ? `0 de ${repartoFases.total} tareas en ${repartoFases.faltan.join(", ")}${repartoFases.baseFaltan ? ` (un micro tiene de media ${fmt1(repartoFases.baseFaltan.media)}, en ${repartoFases.baseFaltan.micros} micros)` : ""} · `
+                        : ""
+                    }${
                       repartoFases.global > 0
                         ? `Fuera de Global (${fmt1(repartoFases.global)} de ${repartoFases.total}), ${repartoFases.conFase} tarea${repartoFases.conFase === 1 ? "" : "s"}${excludeComp ? " de entreno" : ""}: ${repartoFases.datos
                             .map((f) => `${f.nombre} ${fmt1(f.valor)}`)
@@ -3242,10 +3302,14 @@ export default function Page() {
                           diferido y animado, y en la captura de los jueces quedaba medio
                           panel en blanco. */}
                       <div className="flex w-full justify-center lg:w-1/2">
+                        {/* 27/11/2026 (jueces): Global entra en el anillo como sector gris, para que la base del gráfico sea la del titular (las 15, no las 7 con fase). */}
                         <AnilloFases
-                          datos={repartoFases.datos.map((f, i) => ({ nombre: f.nombre, valor: f.valor, color: colorDeFase(f.nombre, i) }))}
+                          datos={[
+                            ...repartoFases.datos.map((f, i) => ({ nombre: f.nombre, valor: f.valor, color: colorDeFase(f.nombre, i) })),
+                            ...(repartoFases.global > 0 ? [{ nombre: "Global", valor: repartoFases.global, color: "rgb(var(--rmcf-ink-rgb) / .22)" }] : []),
+                          ]}
                           activo={faseFilter}
-                          total={Math.round(repartoFases.enAnillo * 10) / 10}
+                          total={Math.round((repartoFases.enAnillo + repartoFases.global) * 10) / 10}
                           onElige={(n) => {
                             const fil = repartoFases.datos.find((d) => d.nombre === n)?.filtro;
 
@@ -3281,10 +3345,18 @@ export default function Page() {
                             </span>
 
                             <span className="w-12 text-right text-xs text-white/45">
-                              {repartoFases.enAnillo > 0 ? fmt1((100 * f.valor) / repartoFases.enAnillo) : "0"} %
+                              {repartoFases.enAnillo + repartoFases.global > 0 ? fmt1((100 * f.valor) / (repartoFases.enAnillo + repartoFases.global)) : "0"} %
                             </span>
                           </button>
                         ))}
+                        {repartoFases.global > 0 ? (
+                          <div className="flex w-full items-center gap-3 rounded-xl px-2 py-1.5 text-left">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: "rgb(var(--rmcf-ink-rgb) / .22)" }} />
+                            <span className="min-w-0 flex-1 text-sm text-white/70">Global (sin fase concreta)</span>
+                            <span className="text-sm font-semibold tabular-nums">{fmt1(repartoFases.global)}</span>
+                            <span className="w-12 text-right text-xs text-white/45">{fmt1((100 * repartoFases.global) / (repartoFases.enAnillo + repartoFases.global))} %</span>
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                     )}
@@ -4810,6 +4882,25 @@ function Panel({
  * cuanto hay datos, sin esperar a medir el contenedor ni a una animación. Cada
  * tramo se pulsa para filtrar, como la lista de al lado; en el centro, el total.
  */
+/**
+ * Las fases que faltan, dichas cortas para un título (27/11/2026, jueces):
+ * «organización defensiva, transición ofensiva y defensiva» → «defensa ni
+ * transiciones». La lista entera va en el subtítulo.
+ */
+function faltanCorto(faltan: string[]) {
+  const piezas: string[] = [];
+  const tro = faltan.includes("transición ofensiva");
+  const trd = faltan.includes("transición defensiva");
+
+  if (faltan.includes("organización defensiva")) piezas.push("defensa");
+  if (faltan.includes("organización ofensiva")) piezas.push("ataque organizado");
+  if (tro && trd) piezas.push("transiciones");
+  else if (tro) piezas.push("transición ofensiva");
+  else if (trd) piezas.push("transición defensiva");
+
+  return piezas.join(" ni ");
+}
+
 function AnilloFases({
   datos,
   activo,

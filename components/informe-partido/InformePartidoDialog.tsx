@@ -164,6 +164,9 @@ const nombreDeArchivo = (base: string, ext: string) => `${base.replace(/[\\/:*?"
 /* Lo que se espera al informe de ABP antes de darlo por perdido. */
 const ESPERA_ABP = 120_000;
 
+/* Lo que Descargar y Enviar esperan al ABP antes de salir sin él (27/11/2026). */
+const ESPERA_ABP_BOTONES = 20_000;
+
 /* De dónde salen las descargas del informe (para «Ver» en el aviso al terminar). */
 const VUELTA_INFORME = "/microcycles";
 
@@ -502,7 +505,30 @@ export function InformePartidoDialog({
 
   const abpActual = abp && abp.clave === abpClave ? abp : null;
 
-  const abpCargando = Boolean(abpClave) && !abpActual;
+  /*
+  | TOPE DE 20 s PARA LOS BOTONES (27/11/2026, jueces ronda 9): «Preparando
+  | ABP…» dejaba Enviar y el completo parados hasta dos minutos. Pasados 20 s,
+  | Descargar y Enviar se sueltan y el informe sale sin el anexo de ABP; la
+  | pantalla de ABP sigue trabajando escondida hasta ESPERA_ABP y, si contesta,
+  | su informe entra solo (cambia `claveDiapos` y se vuelve a preparar).
+  */
+  const [abpTardeEn, setAbpTardeEn] = useState("");
+
+  useEffect(() => {
+    if (!abpClave) return;
+
+    const llave = `${abpClave}|${testigo}`;
+    const t = window.setTimeout(() => setAbpTardeEn(llave), ESPERA_ABP_BOTONES);
+
+    return () => window.clearTimeout(t);
+  }, [abpClave, testigo]);
+
+  /* Aún sin respuesta de la pantalla de ABP (el iframe sigue montado). */
+  const abpEsperando = Boolean(abpClave) && !abpActual;
+  /* Pasado el tope: ya no bloquea nada. */
+  const abpTarde = abpEsperando && abpTardeEn === `${abpClave}|${testigo}`;
+
+  const abpCargando = abpEsperando && !abpTarde;
 
   /*
   | EL VÍDEO POST DE ABP (02/11/2026, lo pidió el analista): en el post, el
@@ -2225,6 +2251,8 @@ export function InformePartidoDialog({
               */}
               {(micros ?? []).map((m) => (
                 <option key={`${m.temporada}|${m.micro}`} value={`${m.temporada}|${m.micro}`} className="bg-[#11161C]">
+                  {/* 27/11/2026 (jueces): la jornada delante del micro elegido, «J12 · Micro 21». */}
+                  {elegido && elegido.temporada === m.temporada && elegido.micro === m.micro && informe?.partido.jornada ? `J${informe.partido.jornada} · ` : ""}
                   Micro {m.micro} · {m.rival || "sin rival"}
                 </option>
               ))}
@@ -2233,11 +2261,13 @@ export function InformePartidoDialog({
               /* Sin hueco en la lista que no se explique: «Micro 12: semana sin competición». */
               const deEsta = sinCompeticion.filter((m) => !elegido || m.temporada === elegido.temporada).map((m) => m.micro).sort((a, b) => b - a);
 
-              return deEsta.length ? (
+              /* 27/11/2026 (jueces): qué es el micro frente a la jornada, en una línea. */
+              return (
                 <span className="mt-1 block text-[11px] text-white/45">
-                  {deEsta.length === 1 ? `Micro ${deEsta[0]}: semana sin competición, sin informe` : `Micros ${deEsta.slice(0, -1).join(", ")} y ${deEsta[deEsta.length - 1]}: semanas sin competición, sin informe`}
+                  El micro es la semana del curso; la J, la jornada de liga
+                  {deEsta.length === 1 ? ` · el micro ${deEsta[0]} no tuvo partido` : deEsta.length > 1 ? ` · los micros ${deEsta.slice(0, -1).join(", ")} y ${deEsta[deEsta.length - 1]} no tuvieron partido` : ""}
                 </span>
-              ) : null;
+              );
             })()}
           </label>
 
@@ -2315,6 +2345,21 @@ export function InformePartidoDialog({
                     title="Mandar o descargar ya, sin el informe de balón parado de la semana"
                   >
                     Seguir sin él
+                  </button>
+                </span>
+              ) : abpTarde ? (
+                /* 27/11/2026: pasado el tope, sale sin él; si llega, entra solo. */
+                <span className="inline-flex flex-wrap items-center gap-1.5">
+                  <Check size={11} className="shrink-0 text-emerald-300" /> Listo para descargar y enviar sin el anexo de balón parado: si llega, se mete solo.
+                  <button
+                    type="button"
+                    className="underline underline-offset-2"
+                    onClick={() => {
+                      setAbp(null);
+                      setTestigo((n) => n + 1);
+                    }}
+                  >
+                    Reintentar el ABP
                   </button>
                 </span>
               ) : abpActual?.ok ? (
@@ -2694,7 +2739,7 @@ export function InformePartidoDialog({
       )}
 
       {/* La pantalla de ABP, oculta y en sólo lectura, hasta que devuelve su informe. */}
-      {abpCargando && temporadaAbp && microAbp && (
+      {abpEsperando && temporadaAbp && microAbp && (
         <iframe
           key={`${abpClave}|${testigo}`}
           title="Informe de balón parado"

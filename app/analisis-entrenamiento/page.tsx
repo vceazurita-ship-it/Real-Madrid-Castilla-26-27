@@ -353,8 +353,9 @@ export default function AnalisisEntrenamientoPage() {
 
   /* Elegir un día a mano manda: el salto automático al último día con sesión ya no lo pisa. */
   const [saltoHecho, setSaltoHecho] = useState(() => (deLaDireccion("fecha") ?? deLaDireccion("dia")) !== null);
-  /* Se abrió en otro día porque hoy no tiene objetivos: se dice junto a la tira. */
+  /* Se abrió en otro día porque hoy no tiene objetivos: se dice junto a la tira, con el porqué de ese día. */
   const [saltoDesdeHoy, setSaltoDesdeHoy] = useState(false);
+  const [motivoSalto, setMotivoSalto] = useState<"validado" | "pendiente" | "analizado" | "objetivos">("analizado");
   const setFecha = (f: string) => {
     if (f === fecha) return;
 
@@ -416,36 +417,6 @@ export default function AnalisisEntrenamientoPage() {
     return [...vistas.values()];
   }, [registro, fecha]);
 
-  /*
-  | ABRE EN EL ÚLTIMO DÍA CON TRABAJO (26/10/2026; 30/10/2026). Si no se pidió
-  | un día en la dirección y hoy no tiene objetivos, se abría un día vacío:
-  | ahora salta al último día analizado (con su resultado y su evolución) o, si
-  | no hay ninguno, al último con objetivos, sin pasar de hoy. Hoy queda en la
-  | tira, con la nota «hoy aún sin objetivos». Una sola vez, y nunca encima de
-  | un día elegido a mano.
-  */
-  useEffect(() => {
-    if (saltoHecho || historial === null) return;
-
-    const id = setTimeout(() => {
-      setSaltoHecho(true);
-
-      const conObjetivos = (d: DiaEntreno) => d.sesion.objetivos.some((o) => o.objetivo.trim());
-      const pasados = historial.dias.filter((d) => d.fecha <= hoyDia);
-
-      if (pasados.some((d) => d.fecha === hoyDia && (conObjetivos(d) || d.analisis))) return;
-
-      const ultimo = (lista: DiaEntreno[]) => lista.reduce<string | null>((a, d) => (!a || d.fecha > a ? d.fecha : a), null);
-      const destino = ultimo(pasados.filter((d) => d.analisis)) ?? ultimo(pasados.filter(conObjetivos));
-
-      if (!destino || destino === hoyDia) return;
-
-      setFechaEstado(destino);
-      setSaltoDesdeHoy(true);
-    }, 0);
-
-    return () => clearTimeout(id);
-  }, [historial, saltoHecho, hoyDia]);
 
   /*
   | ENTRENOS SIN ANALIZAR (20/11/2026, jueces). Se abría en el último día
@@ -473,6 +444,55 @@ export default function AnalisisEntrenamientoPage() {
   const pendientesTira = useMemo(() => new Set(sinAnalizar), [sinAnalizar]);
   const masReciente = sinAnalizar.at(-1) ?? null;
 
+  /*
+  | ABRE EN EL ÚLTIMO DÍA CON TRABAJO (26/10/2026; 30/10/2026; 27/11/2026).
+  | Si no se pidió un día en la dirección y hoy no tiene objetivos, salta, sin
+  | pasar de hoy y por este orden: al último día con acciones VALIDADAS (sus
+  | cifras ya cuentan); si no hay ninguno, al entreno más reciente sin
+  | analizar (con su botón para pedirlo: los jueces, 21/11, no querían abrir en
+  | una pantalla de propuestas rayadas que no cuentan); si tampoco, al último
+  | analizado o al último con objetivos. Una sola vez, y nunca encima de un día
+  | elegido a mano. Espera al registro para saber qué hay sin analizar.
+  */
+  useEffect(() => {
+    if (saltoHecho || historial === null || registro === null) return;
+
+    const id = setTimeout(() => {
+      setSaltoHecho(true);
+
+      const conObjetivos = (d: DiaEntreno) => d.sesion.objetivos.some((o) => o.objetivo.trim());
+      const conValidadas = (d: DiaEntreno) => {
+        if (!d.analisis) return false;
+        const v = sesionVigente(d.sesion, d.analisis);
+
+        return accionesQueCuentan(v, d.analisis).some((a) => v.validaciones?.[a.id]);
+      };
+      const pasados = historial.dias.filter((d) => d.fecha <= hoyDia);
+
+      if (pasados.some((d) => d.fecha === hoyDia && (conObjetivos(d) || d.analisis))) return;
+
+      const ultimo = (lista: DiaEntreno[]) => lista.reduce<string | null>((a, d) => (!a || d.fecha > a ? d.fecha : a), null);
+      const validado = ultimo(pasados.filter(conValidadas));
+      const pendiente = sinAnalizar.at(-1) ?? null;
+      const analizado = ultimo(pasados.filter((d) => d.analisis));
+      const [destino, motivo] = validado
+        ? [validado, "validado" as const]
+        : pendiente
+          ? [pendiente, "pendiente" as const]
+          : analizado
+            ? [analizado, "analizado" as const]
+            : [ultimo(pasados.filter(conObjetivos)), "objetivos" as const];
+
+      if (!destino || destino === hoyDia) return;
+
+      setFechaEstado(destino);
+      setMotivoSalto(motivo);
+      setSaltoDesdeHoy(true);
+    }, 0);
+
+    return () => clearTimeout(id);
+  }, [historial, registro, saltoHecho, hoyDia, sinAnalizar]);
+
   /* Los días con objetivos o análisis, para el punto de la tira. */
   const diasConObjetivos = useMemo(() => new Set(dias.filter((d) => d.analisis || d.sesion.objetivos.some((o) => o.objetivo.trim())).map((d) => d.fecha)), [dias]);
 
@@ -481,6 +501,8 @@ export default function AnalisisEntrenamientoPage() {
   const fechasDelDia = useMemo(() => [fecha], [fecha]);
   const { almacen: almacenEquipos } = useDiasConectados(fechasDelDia, { entreno: false });
   const equiposDelDia = sesionDeFecha(almacenEquipos?.sesiones, fecha);
+  /* 27/11/2026 (jueces): el apodo del objetivo («Meso») con el nombre de la plantilla, para la vista y para el enlace a su ficha. */
+  const nombreCompleto = useCallback((id: string, apodo: string) => players.find((p) => p.id === id)?.nombre?.trim() || apodo, [players]);
   const plantillaCastilla = useMemo(() => players.filter((p) => p.esCastilla && p.activo !== false).map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo })), [players]);
 
   const anteriorConObjetivos = ultimoDiaConObjetivos(dias, fecha);
@@ -766,7 +788,12 @@ export default function AnalisisEntrenamientoPage() {
                       ) : (
                         <span className="text-white/60"> · {listaDias(sinAnalizar)}</span>
                       )}
-                      {saltoDesdeHoy ? <span className="text-white/55"> · ahora se ve el {ddmm(fecha)}, último analizado</span> : null}
+                      {saltoDesdeHoy ? (
+                        <span className="text-white/55">
+                          {" "}
+                          · ahora se ve el {ddmm(fecha)}, {motivoSalto === "validado" ? "el último con acciones validadas" : "el último analizado"}
+                        </span>
+                      ) : null}
                     </summary>
                     {sinAnalizar.length > 1 && (
                       <p className="mt-1 tabular-nums text-white/70">{listaDias(sinAnalizar)}</p>
@@ -779,7 +806,13 @@ export default function AnalisisEntrenamientoPage() {
               </div>
             ) : saltoDesdeHoy && fecha !== hoyDia ? (
               <p className="-mt-2 text-xs text-white/55">
-                Último día analizado: {ddmm(fecha)}.{" "}
+                {motivoSalto === "validado"
+                  ? `Último día con acciones validadas: ${ddmm(fecha)}.`
+                  : motivoSalto === "pendiente"
+                    ? `${ddmm(fecha)}: el entrenamiento más reciente, aún sin analizar; ningún día tiene todavía acciones validadas.`
+                    : motivoSalto === "objetivos"
+                      ? `Último día con objetivos: ${ddmm(fecha)}.`
+                      : `Último día analizado: ${ddmm(fecha)}.`}{" "}
                 <button type="button" onClick={() => setFecha(hoyDia)} className="font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
                   Ir a hoy
                 </button>
@@ -1038,7 +1071,7 @@ export default function AnalisisEntrenamientoPage() {
                     </button>
                   </div>
                 ) : null}
-                <PanelVisual dias={dias} fecha={fecha} onAbre={setVisor} onIrAlDia={(f) => setFecha(f)} />
+                <PanelVisual dias={dias} fecha={fecha} onAbre={setVisor} onIrAlDia={(f) => setFecha(f)} nombreCompleto={nombreCompleto} />
               </div>
             ) : (
               <ResumenSinAnalisis

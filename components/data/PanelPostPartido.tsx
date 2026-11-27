@@ -55,7 +55,7 @@ import { DOCS_OPTA, aObjetos, traeOpta, type TablaOpta } from "@/lib/opta";
 import { useCalendarioCastilla } from "@/components/data/SelloJornada";
 import { Hueso } from "@/components/ui/estados";
 import { SelloFuente } from "@/components/ui/SelloFuente";
-import { partidoDeFecha } from "@/lib/data-analisis/alcance";
+import { alcanceDeFechas, partidoDeFecha } from "@/lib/data-analisis/alcance";
 import type { FilaPartido } from "@/lib/data-analisis/leer";
 import { temporadaDe } from "@/lib/data-analisis/metricas";
 import { CASTILLA_OPTA } from "@/lib/opta";
@@ -243,8 +243,23 @@ export function PanelPostPartido({
   const etiqueta = (p: PartidoPost) => {
     const j = jornadaDe(p);
     const m = marcadorLocal(p, "Castilla");
-    return `${j ? `J${j} · ` : ""}${cortoRival(p.rival)}${m.marcador ? ` ${m.marcador}` : ""}`;
+    /* 27/11/2026 (ronda 9, fútbol): V, E o D al final, como en la racha del histórico. */
+    const r = p.gf == null || p.gc == null ? "" : p.gf > p.gc ? " · V" : p.gf < p.gc ? " · D" : " · E";
+    return `${j ? `J${j} · ` : ""}${cortoRival(p.rival)}${m.marcador ? ` ${m.marcador}` : ""}${r}`;
   };
+  /*
+  | 27/11/2026 (ronda 9, análisis): si ya se jugó una jornada posterior al
+  | último partido con datos, se dice cuál y por qué no está, para que la J12
+  | no parezca un error al lado de pantallas que ya van por la J13.
+  */
+  const pendiente = (() => {
+    if (!calendario || !lista.length) return "";
+    const ultima = [...lista].sort((a, b) => b.fecha.localeCompare(a.fecha))[0];
+    const alc = alcanceDeFechas("Opta", [ultima.fecha], calendario.partidos, calendario.hoy, "partidos");
+    if (!alc.pendientes.length) return "";
+    const j = jornadaDe(ultima);
+    return `Datos hasta la ${j ? `J${j}` : fechaCorta(ultima.fecha)}: la ${alc.pendientes[alc.pendientes.length - 1]} ya se jugó y entra en cuanto Opta y Wyscout la publiquen.`;
+  })();
 
   if (cargando) {
     return (
@@ -303,6 +318,11 @@ export function PanelPostPartido({
             opciones={lista.map((p) => ({ clave: p.clave, nombre: etiqueta(p) }))}
           />
         )}
+        {pendiente ? (
+          <p className="basis-full text-[11px] leading-snug text-white/55">
+            {pendiente}
+          </p>
+        ) : null}
       </div>
 
       {/* 17/11/2026 (ronda 19, análisis y marketing): desde el partido, a un
@@ -797,7 +817,8 @@ function RematesDelPartido({ delPartido, remates, lados, partido, rivalApp }: { 
 | al asomar. Sin goles, no sale.
 */
 function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
-  const { caja, abierto } = useAsoma<HTMLDivElement>();
+  /* 27/11/2026 (ronda 9, fútbol): la petición sale al montar el panel (100 ms), sin esperar a que el bloque asome. */
+  const { caja, abierto } = useAsoma<HTMLDivElement>(100);
   const lista = useMemo(() => [...goles].sort((a, b) => a.minuto - b.minuto), [goles]);
   if (!lista.length) return null;
   /*
@@ -810,10 +831,22 @@ function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
   const cargandoVideo = (
     <>
       {titulo}
-      <p className="flex min-h-[36px] items-center gap-2 text-[12px] text-white/55" role="status">
-        <Loader2 size={14} className="animate-spin" aria-hidden />
-        Cargando el vídeo {lista.length === 1 ? "del gol" : `de los ${lista.length} goles`}…
-      </p>
+      {/* 27/11/2026 (ronda 9, fútbol): mientras llega el vídeo, el hueco ya
+          guardado con el póster de cada gol (minuto y goleador) y su ▶, en
+          lugar de una línea de «Cargando…». */}
+      <ul className="grid min-w-0 gap-2 sm:grid-cols-2" role="status" aria-label="Preparando el vídeo de los goles">
+        {lista.map((g, i) => (
+          <li key={`${g.partido}-${g.minuto}-${i}`} className="flex min-h-[56px] min-w-0 items-center gap-3 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2">
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/40 text-[#C8A96B]" aria-hidden>
+              <Loader2 size={14} className="animate-spin" />
+            </span>
+            <span className="min-w-0 text-[13px] leading-snug text-white/80">
+              <b className="tabular-nums">{g.minuto}′</b> · {g.tirador || nombreDe(g.teamId, g.equipo)}
+              <span className="block text-[11px] text-white/55">▶ preparando el vídeo</span>
+            </span>
+          </li>
+        ))}
+      </ul>
     </>
   );
   return (

@@ -225,8 +225,13 @@ export function RelacionadoAbp({
         <p className="flex min-w-0 items-start gap-2 rounded-xl border border-[#C8A96B]/25 bg-[#C8A96B]/[0.07] px-3 py-2 text-[12px] leading-snug text-white/80">
           <CalendarClock size={14} className="mt-0.5 shrink-0" style={{ color: "var(--rmcf-gold-ink)" }} aria-hidden />
           <span className="min-w-0">
-            La jornada {pendiente.jornada} ({nombreCorto(pendiente.rival)}, {fechaCorta(pendiente.cuando)}) ya se jugó y aún no está etiquetada en la hoja: lo último de liga que hay es
-            la jornada {numeroEnHoja}.
+            {/*
+            | 27/11/2026 (jueces, ronda 9): `numeroEnHoja` ya cuenta las jornadas
+            | que trae el respaldo de Opta, así que este aviso sólo sale cuando
+            | NI la hoja NI Opta tienen el partido. Se dice qué se ve mientras
+            | tanto y por dónde llega.
+            */}
+            Jornada {pendiente.jornada} · {nombreCorto(pendiente.rival)} ({fechaCorta(pendiente.cuando)}): llega con la próxima descarga de Opta, o antes si se etiqueta en la hoja. Mientras tanto, lo último de liga es la jornada {numeroEnHoja}.
           </span>
         </p>
       ) : null}

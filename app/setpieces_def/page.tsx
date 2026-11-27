@@ -2,6 +2,7 @@
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { ResponsiveConVistas } from "@/components/data/visual/ResponsiveConVistas";
 import { traeCsv } from "@/lib/hojaCsv";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { descargaEnMarcha, encargaDescarga } from "@/lib/trabajos/descargas";
 import { EsqueletoPantalla, EstadoError, EstadoVacio } from "@/components/ui/estados";
 import { chipInk } from "@/lib/theme";
@@ -1058,7 +1059,7 @@ const comparativa = (() => {
   ];
 
   return {
-    partido: rivalDe ? `${elegida.etiqueta} · ${rivalDe}` : elegida.etiqueta,
+    partido: rivalDe ? `${elegida.etiqueta} · ${nombreCorto(rivalDe)}` : elegida.etiqueta,
     anteriores: anteriores.length,
     /* Las filas de esas jornadas: la lectura de cabecera se compara con ellas (30/10/2026). */
     filasAnteriores: anteriores.flat(),
@@ -3220,10 +3221,13 @@ const categoriasVisual: CategoriaVisual[] = [
                 fuente="Hoja de ABP defensivo · con los filtros de arriba"
                 mapa={{
                   pregunta: "¿Dónde nos cae?",
+                  porPeligro: true,
                   ambito: { dentro: "caen en el área", fuera: "fuera de las cuatro zonas" },
                   nodo: (
                     <ABPZoneMap
                       mode="defensive"
+                      /* 27/11/2026 (jueces): el mismo césped claro que en ABP ofensivo; en modo día era un pozo negro. */
+                      claroEnDia
                       zonaFiltro={zonaAreaFilter === "ALL" ? null : zonaAreaFilter}
                       onZonaFiltro={(zona) => setZonaAreaFilter(zona ?? "ALL")}
                       rows={sin("zonaArea").map((r) => ({
@@ -3243,7 +3247,7 @@ const categoriasVisual: CategoriaVisual[] = [
                 acciones={
                   accionesLista.length
                     ? {
-                        titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${rivalAnalizado}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} del rival con su vídeo`,
+                        titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${nombreCorto(rivalAnalizado)}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} del rival con su vídeo`,
                         nodo: (
                           <>
                             <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={() => fichaRival(rivalAnalizado)} />

@@ -1974,23 +1974,32 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
   if (ordenados.length === 0) return null;
 
 
+  /*
+  | 27/11/2026 (jueces, ronda 9): con once probable, el resto de la plantilla
+  | va plegado en una fila (lo que se ve al abrir es el once), y sin «todavía
+  | sin cortes»: lo que no tiene dato no se nombra.
+  */
   return (
-    <section className="mt-4 min-w-0">
-      <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
+    <details open={!hayOnce} className="group mt-4 min-w-0">
+      <summary className="mb-3 flex cursor-pointer list-none flex-wrap items-baseline gap-2 border-b border-white/10 pb-2 [&::-webkit-details-marker]:hidden">
         <h2 className="text-sm font-semibold text-white">
           {hayOnce ? `El resto de la plantilla: ${ordenados.length} jugadores` : `Su plantilla: ${ordenados.length} jugadores`}
         </h2>
-        <span className="text-[12px] text-white/45">Todavía sin cortes en el canal · cada ficha abre la del jugador</span>
-      </header>
+        <span className="text-[12px] text-white/55">
+          {hayOnce ? <span className="text-[var(--rmcf-gold-ink,#C8A96B)] group-open:hidden">Ver ▾ · </span> : null}
+          cada ficha abre su ficha y sus clips
+        </span>
+      </summary>
 
       <div className="grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-3">
         {ordenados.map((jugador) => {
           const resumen = resumenDeTemporada(jugador);
 
           return (
-            <Link
+            /* Con <a>: la misma pantalla con otro ?jugador= se carga entera y abre su ficha. */
+            <a
               key={jugador.hoja ?? jugador.nombre}
-              href={`/rivals?equipo=${encodeURIComponent(equipo)}`}
+              href={`/scout-rival-individual?equipo=${encodeURIComponent(equipo)}&jugador=${encodeURIComponent(jugador.hoja ?? jugador.nombre)}`}
               className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2.5 transition hover:border-[#C8A96B]/40"
             >
               <p className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-white">
@@ -2017,11 +2026,11 @@ function PlantillaSinVideos({ equipo, plantilla }: { equipo: string; plantilla: 
                   ))}
                 </p>
               )}
-            </Link>
+            </a>
           );
         })}
       </div>
-    </section>
+    </details>
   );
 }
 
@@ -2204,7 +2213,8 @@ function RestoDelOnce({
       <header className="mb-3 flex flex-wrap items-baseline gap-2 border-b border-white/10 pb-2">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{hayCortes ? "El resto de su once probable" : "Su once probable"}</h2>
         <span className="text-[12px] text-white/55">
-          {resto.length} sin corte en el canal{conHudl > 0 ? ` · ${conHudl} con sus clips de Hudl para ver o bajar` : ""}
+          {/* Sin «sin corte en el canal» (27/11/2026, ronda 9): se dice lo que hay. */}
+          {resto.length} {resto.length === 1 ? "jugador" : "jugadores"}{conHudl > 0 ? ` · ${conHudl} con sus clips de Hudl para ver o bajar` : ""}
         </span>
       </header>
       <div className="grid min-w-0 grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-3">

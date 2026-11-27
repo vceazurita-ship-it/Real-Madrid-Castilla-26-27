@@ -205,6 +205,38 @@ export default function EmotionPage() {
     return Number.isFinite(d) ? Math.max(0, Math.round(d)) : null;
   }, [fechaValoracion, hoy]);
   const fechaCorta = fechaValoracion ? `${fechaValoracion.slice(8, 10)}/${fechaValoracion.slice(5, 7)}` : "";
+  /* 27/11/2026 (jueces, ronda 9): pasados 14 días la valoración caduca: banner
+     arriba con el día límite (MD-2 del próximo partido) y las cifras atenuadas. */
+  const caducada = diasDesdeValoracion !== null && diasDesdeValoracion >= 14;
+  const [proximo, setProximo] = useState<{ rival: string; fecha: string } | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    import("@/lib/tactics/oncesSemana")
+      .then(({ semanaActual }) => semanaActual())
+      .then((s) => {
+        if (!cancelado && s) setProximo({ rival: s.rival, fecha: s.fecha });
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
+
+  /* El MD-2 del próximo partido, «27/11»; si ya ha pasado, el día del partido. */
+  const limiteValorar = useMemo(() => {
+    if (!proximo || !/^\d{4}-\d{2}-\d{2}$/.test(proximo.fecha)) return null;
+    const d = new Date(`${proximo.fecha}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() - 2);
+    const md2 = d.toISOString().slice(0, 10);
+    const corto = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
+
+    return hoy && hoy > md2
+      ? `antes del partido ante ${proximo.rival} (${corto(proximo.fecha)})`
+      : `antes del MD-2 del partido ante ${proximo.rival}: el ${corto(md2)}`;
+  }, [proximo, hoy]);
 
   const [editando, setEditando] = useState(false);
   /* 17/11/2026 (ronda 20): «Valorar» de un jugador abre el editor con él ya elegido. */
@@ -361,8 +393,11 @@ export default function EmotionPage() {
     const lista = peores.map((p) => `${nombreDe(p)} ${coma(average(p))}`);
     const ejes = AXES.map((axis) => ({ axis, v: todos.reduce((acc, p) => acc + p[axis.key], 0) / todos.length })).sort((x, y) => x.v - y.v);
     const flojo = ejes[0];
+    /* 27/11/2026 (fútbol, ronda 9): las dos medias con su nombre; «6,6 de
+       media» parecía contradecir el 7,1 del once. */
+    const mediaOnce = todos.reduce((acc, p) => acc + average(p), 0) / todos.length;
 
-    return `Más bajos del once: ${lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista.at(-1)}` : lista[0]} · a trabajar: ${flojo.axis.corto.toLowerCase()} (${coma(flojo.v)} de media en los ${todos.length} titulares valorados).`;
+    return `Más bajos del once: ${lista.length > 1 ? `${lista.slice(0, -1).join(", ")} y ${lista.at(-1)}` : lista[0]} · a trabajar: ${flojo.axis.corto.toLowerCase()} (${coma(flojo.v)} de media en ${flojo.axis.corto.toLowerCase()}; la media del once, ${coma(mediaOnce)}, con los ${todos.length} titulares valorados).`;
   }, [groups, getPlayer, plantilla]);
 
   const setGroup = useCallback((key: GroupKey, value: string[]) => {
@@ -525,25 +560,37 @@ export default function EmotionPage() {
                   {/* 16/11/2026 (jueces): la fecha de la valoración en el
                       titular, con aviso «a revisar» pasados 14 días, y la base
                       (una valoración por jugador: menos de 25, tendencia). */}
-                  {fechaCorta && (
+                  {/* 27/11/2026 (ronda 9, los tres jueces): con la valoración
+                      caducada, un banner arriba con el día límite y «Valorar
+                      ahora» como acción principal. */}
+                  {caducada && (
+                    <div className="mt-3 flex max-w-2xl flex-col gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                      <p className="min-w-0 text-sm leading-snug text-amber-200 [:root[data-theme=light]_&]:text-amber-900">
+                        <span className="font-semibold">A revisar: la valoración es del {fechaCorta}, hace {diasDesdeValoracion} días.</span>{" "}
+                        {limiteValorar ? `Valorar de nuevo ${limiteValorar}.` : "Valorar de nuevo antes del próximo partido."} Hasta entonces, las cifras de abajo van atenuadas.
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setEditando(true)}
+                        disabled={loading || estadoDoc === "loading"}
+                        data-export-hide
+                        className="inline-flex shrink-0 items-center justify-center gap-1.5 rounded-full bg-[#C8A96B] px-4 py-2 text-xs font-bold text-black transition hover:bg-[#d8bc82] disabled:opacity-50"
+                      >
+                        <Pencil size={13} />
+                        Valorar ahora →
+                      </button>
+                    </div>
+                  )}
+                  {fechaCorta && !caducada && (
                     <p className="mt-3 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[.14em] text-white/60">
                       Estado del once según la valoración del {fechaCorta}
-                      {diasDesdeValoracion !== null && diasDesdeValoracion >= 14 && (
-                        /* 17/11/2026 (ronda 19): el aviso lleva a valorar de nuevo, antes del próximo partido. */
-                        <button
-                          type="button"
-                          onClick={() => setEditando(true)}
-                          data-export-hide
-                          className="inline-flex items-center gap-1.5 rounded-full border border-amber-500/50 bg-amber-500/10 px-2.5 py-0.5 normal-case tracking-normal text-amber-300 transition hover:bg-amber-500/20"
-                        >
-                          a revisar · hace {diasDesdeValoracion} días
-                          <span className="font-bold">· Valorar de nuevo antes del partido →</span>
-                        </button>
-                      )}
                     </p>
                   )}
                   {conclusion && (
-                    <p className="mt-1.5 max-w-2xl text-base font-medium leading-snug text-white">{conclusion}</p>
+                    <p className={`mt-1.5 max-w-2xl text-base font-medium leading-snug ${caducada ? "text-white/70" : "text-white"}`}>
+                      {caducada && <span className="mr-1 text-[11px] font-semibold uppercase tracking-[.14em] text-white/55">Al {fechaCorta}:</span>}
+                      {conclusion}
+                    </p>
                   )}
                   {rows.length > 0 && rows.length < VALORACIONES_FIRMES && (
                     <p className="mt-1 max-w-2xl text-[11px] text-white/55">
@@ -571,7 +618,11 @@ export default function EmotionPage() {
                     type="button"
                     onClick={() => setEditando(true)}
                     disabled={loading || estadoDoc === "loading"}
-                    className="inline-flex items-center gap-2 rounded-full border border-[#C8A96B] bg-[#C8A96B] px-4 py-2 text-xs font-semibold text-black transition hover:bg-[#d8bc82] disabled:opacity-50"
+                    className={`inline-flex items-center gap-2 rounded-full border px-4 py-2 text-xs font-semibold transition disabled:opacity-50 ${
+                      caducada
+                        ? "border-[#C8A96B]/60 text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:bg-[#C8A96B]/10"
+                        : "border-[#C8A96B] bg-[#C8A96B] text-black hover:bg-[#d8bc82]"
+                    }`}
                   >
                     <Pencil size={13} />
                     Editar valoraciones
@@ -633,7 +684,7 @@ export default function EmotionPage() {
             )}
 
             {/* ---------------------------------------------- Resumen */}
-            <div className="mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4">
+            <div className={`mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4 ${caducada ? "opacity-60" : ""}`} title={caducada ? `Valoración del ${fechaCorta}: hace ${diasDesdeValoracion} días` : undefined}>
               <SummaryTile
                 label="Jugadores analizados"
                 value={loading ? null : String(rows.length)}

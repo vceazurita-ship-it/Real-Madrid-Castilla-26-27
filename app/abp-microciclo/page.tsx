@@ -151,6 +151,7 @@ import {
 import { PartidoDeLaSemana } from "@/components/abp/microciclo/PartidoDeLaSemana";
 import { LecturaDelPartido, RevisionSemana } from "@/components/abp/microciclo/RevisionSemana";
 import {
+  alrededorDe,
   soloDia,
   type PartidoCastilla,
 } from "@/lib/castilla/calendario";
@@ -180,6 +181,9 @@ type MicroOpcion = {
 };
 
 const VER_TODOS_MICROS = "__todos__";
+
+/* Sin tildes y en minúscula, para casar el rival del calendario con el del micro. */
+const llaveRival = (nombre: string) => nombre.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
 
 /* «REAL MADRID C» → «Real Madrid C»: el rival de la hoja va en mayúsculas. */
 function nombreMicro(rival: string) {
@@ -501,14 +505,35 @@ export default function AbpMicrocicloPage() {
   /* Por defecto, el micro del PRÓXIMO partido del calendario (06/11/2026): abría
      el último de la lista, que podía ser ya el de la jornada siguiente. */
   const [abiertaEn] = useState(() => new Date().toISOString());
+  /*
+  | 27/11/2026 (jueces, ronda 9): el próximo es el de la portada (`alrededorDe`:
+  | hora de Madrid con 2,5 h de gracia) y, además, SIN resultado. Antes bastaba
+  | «fecha de hoy en adelante»; y si el micro de ese rival aún no existía se
+  | abría el último de la lista, el del partido ya perdido. Ahora se dice
+  | arriba y se crea con un toque (`proximoSinMicro`).
+  */
+  const proximoPartidoCal = useMemo(() => {
+    const ahora = Date.parse(abiertaEn);
+    if (!calendario.length || !Number.isFinite(ahora)) return null;
+    const { todos, proximo } = alrededorDe(calendario, ahora);
+    const corte = ahora - 2.5 * 3_600_000;
+    return todos.find((uno) => Date.parse(uno.cuando) > corte && !uno.jugado) ?? proximo;
+  }, [calendario, abiertaEn]);
   const delProximo = useMemo(() => {
-    const sig = [...calendario].sort((a, b) => a.cuando.localeCompare(b.cuando)).find((p) => p.cuando && p.cuando >= abiertaEn.slice(0, 10));
-    if (!sig) return "";
-    const rival = (/castilla/i.test(sig.local) ? sig.visitante : sig.local).normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    if (!proximoPartidoCal) return "";
+    const rival = llaveRival(proximoPartidoCal.rival);
     const llave = rival.split(/\s+/).filter((w) => w.length > 3)[0] ?? rival;
-    const candidatos = micros.filter((m) => m.rival.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().includes(llave));
-    return candidatos[candidatos.length - 1]?.clave ?? "";
-  }, [calendario, micros, abiertaEn]);
+    /* Con jornada conocida, la misma: contra un rival se juega dos veces y el micro de la ida no vale para la vuelta. */
+    const delRival = micros.filter((m) => llaveRival(m.rival).includes(llave));
+    const mismaJornada = delRival.filter((m) => {
+      const j = jornadaDeMicro.get(m.clave);
+      return j === undefined || j === proximoPartidoCal.jornada;
+    });
+    return mismaJornada[mismaJornada.length - 1]?.clave ?? "";
+  }, [proximoPartidoCal, micros, jornadaDeMicro]);
+
+  /* El próximo partido aún no tiene micro: arriba, «Crear micro N · rival con el boceto». */
+  const proximoSinMicro = proximoPartidoCal && !delProximo && micros.length > 0 ? proximoPartidoCal : null;
 
   const claveActiva = pedidoIncrustado
     ? (microIncrustado?.clave ?? "")
@@ -1384,14 +1409,22 @@ export default function AbpMicrocicloPage() {
       | (100 %)» era una fortaleza. Carencia = a favor, peligro por debajo de la
       | media de los aspectos de ese lado; en contra, por encima. Si no, «Mantiene».
       */
-      const delLado = filas.filter((otra) => otra.lado === fila.lado && otra.stats.acciones >= 3);
-      const media = delLado.length ? delLado.reduce((suma, otra) => suma + otra.stats.peligroPct, 0) / delLado.length : peligroPct;
+      /*
+      | 27/11/2026 (jueces, ronda 9): la referencia es el RESTO de acciones del
+      | mismo lado (sin ésta), y se dice así; y con menos de 15 casos no es ni
+      | fortaleza ni carencia: «Tendencia, N casos».
+      */
+      const resto = filas.filter((otra) => otra.lado === fila.lado && otra !== fila && otra.stats.acciones >= 3);
+      const media = resto.length ? resto.reduce((suma, otra) => suma + otra.stats.peligroPct, 0) / resto.length : peligroPct;
       const carencia = fila.lado === "ofensivo" ? peligroPct < media : peligroPct > media;
+      const pocos = acciones < 15;
       return {
-        rotulo: carencia ? "Ataca" : "Mantiene",
+        rotulo: pocos ? "Tendencia" : carencia ? "Ataca" : "Mantiene",
         texto: `${aspectoLabelLado(fila.aspecto, fila.lado)} ${fila.lado === "ofensivo" ? "a favor" : "en contra"}: ${
           fila.lado === "ofensivo" ? "peligro en" : "nos crean peligro en"
-        } ${peligro} de ${acciones} (${Math.round(peligroPct)} %)${acciones < 15 ? ", tendencia" : ""}; media de su lado, ${Math.round(media)} %`,
+        } ${peligro} de ${acciones} (${Math.round(peligroPct)} %)${pocos ? `, ${acciones} casos` : ""}${
+          resto.length ? `; media de las demás acciones ${fila.lado === "ofensivo" ? "a favor" : "en contra"}, ${Math.round(media)} %` : ""
+        }`,
       };
     },
     [filas],
@@ -1472,7 +1505,8 @@ export default function AbpMicrocicloPage() {
 
   /* --------------------------- NUEVO MICROCICLO ------------------------ */
 
-  const creaMicro = useCallback(() => {
+  /* 27/11/2026: con `rival`, el micro nace ya atado al próximo partido. */
+  const creaMicro = useCallback((rival = "") => {
     const ultimo = micros[micros.length - 1];
 
     const temporada = ultimo?.temporada || "2026 - 2027";
@@ -1483,14 +1517,20 @@ export default function AbpMicrocicloPage() {
       ...actual,
       micros: {
         ...(actual.micros ?? {}),
-        [clave]: planVacio(temporada, numero, ""),
+        [clave]: planVacio(temporada, numero, rival),
       },
     }));
 
     setSeleccion(clave);
   }, [micros, setStore]);
 
+  /* El número que tendría el micro nuevo, para el botón de arriba. */
+  const numeroMicroNuevo = (micros[micros.length - 1]?.micro ?? 0) + 1;
+
   /* ------------------------------ RENDER ------------------------------- */
+
+  /* El partido de esta semana ya se jugó: modo «cierre de la semana» (27/11/2026). */
+  const semanaCerrada = Boolean(ventana.partido?.jugado);
 
   const sinMicros = !cargando && !micros.length;
 
@@ -1764,7 +1804,8 @@ export default function AbpMicrocicloPage() {
             <div className="flex min-w-0 flex-wrap gap-2 2xl:justify-end 2xl:pb-[18px]">
               {/* «Proponer boceto» sale una sola vez (10/11/2026, jueces): con la semana
                   sin minutos ya lo lleva la tarjeta del partido; aquí, sólo si no. */}
-              {totales.minutos > 0 && (
+              {/* 27/11/2026 (jueces): con el partido ya jugado la semana está cerrada: sin boceto. */}
+              {totales.minutos > 0 && !semanaCerrada && (
                 <Button
                   icon={Sparkles}
                   onClick={() => setBocetoAbierto(true)}
@@ -1825,7 +1866,7 @@ export default function AbpMicrocicloPage() {
                 Copiar de otro micro
               </Button>
 
-              <Button icon={Plus} onClick={creaMicro}>
+              <Button icon={Plus} onClick={() => creaMicro()}>
                 Nuevo microciclo
               </Button>
               </span>
@@ -1835,6 +1876,32 @@ export default function AbpMicrocicloPage() {
               </Button>
             </div>
           </div>
+
+          {/*
+          | 27/11/2026 (jueces, ronda 9): el próximo partido sin micro se dice
+          | arriba y se crea con su boceto en un toque, en vez de abrir la
+          | semana de un partido ya jugado como si fuera la de ahora.
+          */}
+          {!cargando && !pedidoIncrustado && proximoSinMicro && (
+            <div className="mt-5 flex min-w-0 flex-col gap-2 rounded-2xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="min-w-0 text-[13px] leading-snug text-white/85">
+                <span className="font-semibold text-white">
+                  Próximo partido: J{proximoSinMicro.jornada} · {nombreMicro(proximoSinMicro.rival)}
+                </span>{" "}
+                · {etiquetaDia(soloDia(proximoSinMicro.cuando))}. Aún no tiene microciclo de balón parado.
+              </p>
+              <Button
+                tone="primary"
+                icon={Sparkles}
+                onClick={() => {
+                  creaMicro(proximoSinMicro.rival);
+                  setBocetoAbierto(true);
+                }}
+              >
+                {`Crear micro ${numeroMicroNuevo} · ${nombreMicro(proximoSinMicro.rival)} con el boceto`}
+              </Button>
+            </div>
+          )}
 
           {/* =================== EL PARTIDO DE LA SEMANA =================== */}
 
@@ -1855,7 +1922,7 @@ export default function AbpMicrocicloPage() {
               porLado={totales.porLado}
               enlaces={enlaces}
               onVerPost={ventana.partido?.jugado ? () => setInformeAbierto(true) : undefined}
-              onProponer={claveActiva ? () => setBocetoAbierto(true) : undefined}
+              onProponer={claveActiva && !semanaCerrada ? () => setBocetoAbierto(true) : undefined}
               pieza={pieza}
             />
           )}
@@ -1954,24 +2021,18 @@ export default function AbpMicrocicloPage() {
                   {/* 07/11/2026 (jueces): siempre a la vista y corta; las fichas ya
                       dicen «ofensivo» y «defensivo» en palabras en todos los días. */}
                   {/* 20/11/2026 (jueces, ronda 4): en el móvil iba antes del primer día y medía siete renglones: plegada en «Leyenda». */}
-                  <details className="mb-2 md:hidden">
+                  {/* 27/11/2026 (jueces, ronda 9): plegada también en el ordenador; la semana, lo primero. */}
+                  <details className="mb-2">
                     <summary className="inline-flex min-h-9 cursor-pointer list-none items-center rounded-full border border-white/12 px-3 py-1 text-[12px] font-semibold text-white/75">
-                      Leyenda
+                      Leyenda · siglas y carga
                     </summary>
                     <p className="mt-2 text-[12px] leading-relaxed text-white/60">
-                      PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea (Mantiene, si es una fortaleza) · borde ámbar = le falta intensidad o criterio de éxito
+                      PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea (Mantiene, si es una fortaleza; Tendencia, con menos de 15 casos) · borde ámbar = le falta intensidad o criterio de éxito
                       <br />
-                      Al pie de cada día, carga = minutos × intensidad (1-10) y mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo.
+                      <span className="font-semibold text-white/75">Al pie de cada día · </span>
+                      carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo. Intensidad y exigencia de cada ficha son lo planificado.
                     </p>
                   </details>
-                  <p className="mb-2 hidden text-[12px] leading-relaxed text-white/60 md:block">
-                    <span className="font-semibold text-white/75">Leyenda · </span>
-                    PRE y POST = vídeo antes o después del campo · INTRA = vídeo durante la tarea · VÍDEO = sesión de vídeo · CAMPO = en el campo · HOJA = viene del registro de tareas · Ataca = la carencia de la temporada que trabaja la tarea (Mantiene, si es una fortaleza) · borde ámbar = le falta intensidad o criterio de éxito
-                    {/* 16/11/2026 (jueces): la fórmula de la carga, una sola vez y aquí, no en cada día. */}
-                    <br />
-                    <span className="font-semibold text-white/75">Al pie de cada día · </span>
-                    carga = minutos × intensidad (1-10) · mental = minutos × exigencia cognitiva (1-10). Más carga es más trabajo, no mejor. La barrita: oro atacando, azul defendiendo. Intensidad y exigencia de cada ficha son lo planificado.
-                  </p>
 
                   <SemanaGrid
                     dias={planVisto.dias}
@@ -2001,6 +2062,7 @@ export default function AbpMicrocicloPage() {
               <div className="mt-6">
                 <RevisionSemana
                   puntos={puntosRevision}
+                  cerrada={semanaCerrada}
                   onAbrir={(dia, trabajo) => setEditor({ trabajo, dia, origen: dia })}
                   onPlanificar={(falta) => planificaAspecto(falta.aspecto, falta.lado)}
                 />

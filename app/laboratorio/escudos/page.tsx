@@ -793,7 +793,8 @@ export default function EscudosPage() {
                                     title={`Jornada ${jornada.numero} de la quiniela`}
                                     style={{ color: "#9CC3E6", borderColor: "rgba(156,195,230,0.35)" }}
                                     /* 20/11/2026 (ronda 4, marketing): una sola línea con elipsis; el rival largo partía la píldora y descuadraba la fila. */
-                                    className="-mt-1 block max-w-full truncate whitespace-nowrap rounded-full border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
+                                    /* 27/11/2026 (guionista): «vs Juventud de Torre…» se cortaba en escritorio: hasta dos líneas, sin elipsis a media palabra. */
+                                    className="-mt-1 line-clamp-2 block max-w-full break-words rounded-2xl border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
                                   >
                                     J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {jornada.partidos.get(uno.equipo)?.rival}
                                   </Link>
@@ -803,6 +804,15 @@ export default function EscudosPage() {
                                 {/* 20/11/2026 (ronda 5, marketing): el mismo menú en todo equipo de nuestro grupo (también el próximo rival, que no sale en la quiniela); los del otro grupo, sólo su ficha: no tenemos sus goles ni su ABP. */}
                                 {!esNuestro(uno.equipo) && (jornada.partidos.get(uno.equipo) || uno.equipo === proximoRival || planDe(uno.equipo)) ? (
                                   <div className="flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1">
+                                    {/* 27/11/2026 (marketing): «Ficha» también en el menú, como en las apuestas. */}
+                                    <Link
+                                      href={`/rivals?equipo=${encodeURIComponent(uno.equipo)}`}
+                                      title={`Ficha de ${uno.equipo}`}
+                                      style={{ color: "#F7D98B" }}
+                                      className="inline-flex min-h-8 items-center text-[12px] font-bold underline underline-offset-2"
+                                    >
+                                      Ficha
+                                    </Link>
                                     <BotonGolesEnVideo
                                       equipo={uno.equipo}
                                       title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}

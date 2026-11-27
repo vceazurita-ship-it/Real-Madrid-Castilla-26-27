@@ -834,7 +834,8 @@ export default function ApuestasPage() {
                               {g.apuestas.length === 1 ? "1 apuesta" : `${g.apuestas.length} apuestas`}
                               {dias > 0 ? ` · la primera, en ${dias === 1 ? "1 día" : `${dias} días`}` : ""}
                             </span>
-                            {primera && (
+                            {/* 27/11/2026 (guionista): abierto, el título ya sale en su fila; el avance sólo con el bloque plegado. */}
+                            {primera && !abierto && (
                               <span className="mt-1 line-clamp-2 block text-[13px] font-semibold leading-snug text-white/85">«{primera.prediccion}»</span>
                             )}
                           </span>
@@ -1110,14 +1111,8 @@ function BalancePorPersona({ apuestas, hoy, juegan }: { apuestas: Apuesta[]; hoy
   | 20/11/2026 (ronda 7, marketing): sin ningún veredicto, las barras eran
   | todas grises («0 · 0 · 19»). Hasta que haya uno, una línea.
   */
-  if (decididasAntes === 0) {
-    return (
-      <p className="mt-6 text-[13px] text-white/75">
-        <span className="font-semibold text-white/90">Balance por persona:</span> aún no se ha decidido ninguna;{" "}
-        {filas.length} {filas.length === 1 ? "persona tiene" : "personas tienen"} apuestas en juego.
-      </p>
-    );
-  }
+  /* 27/11/2026 (guionista): lo que no tiene dato no se nombra; el balance sale cuando haya una apuesta decidida. */
+  if (decididasAntes === 0) return null;
 
   const tope = Math.max(...filas.map((f) => f.ganadas + f.perdidas + f.pendientes));
   const decididas = filas.reduce((s, f) => s + f.ganadas + f.perdidas, 0);
@@ -1366,7 +1361,8 @@ function Tarjeta({
       {/* 20/11/2026 (ronda 4, marketing): el veredicto esperado, por nombres: quién gana si ocurre y quién si no. */}
       {estado === "abierta" ? (
         <p className="text-[12.5px] leading-snug text-white/70">
-          <span className="font-semibold text-emerald-300">Si se cumple</span>, aciertan {enLista(ladoFavor.map(cortoDe))}
+          {/* 27/11/2026 (guionista): «acierta» con uno, «aciertan» con dos o más. */}
+          <span className="font-semibold text-emerald-300">Si se cumple</span>, {ladoFavor.length === 1 ? "acierta" : "aciertan"} {enLista(ladoFavor.map(cortoDe))}
           {contra.length > 0 ? (
             <>
               {"; "}

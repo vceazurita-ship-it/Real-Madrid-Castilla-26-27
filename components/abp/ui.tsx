@@ -151,9 +151,12 @@ export function Panel({
 export function EmptyState({
   title,
   description,
+  action,
 }: {
   title: string;
   description?: string;
+  /** 27/11/2026: una salida (botón o enlace) bajo el texto; opcional. */
+  action?: ReactNode;
 }) {
   return (
     <div className="rounded-xl border border-dashed border-white/10 px-5 py-10 text-center">
@@ -164,6 +167,8 @@ export function EmptyState({
           {description}
         </p>
       )}
+
+      {action && <div className="mt-3 text-sm">{action}</div>}
     </div>
   );
 }

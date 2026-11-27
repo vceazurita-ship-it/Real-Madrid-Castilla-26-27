@@ -17,7 +17,7 @@
 | «Detalle».
 */
 
-import type { MetricaComparada } from "@/components/abp/ComparativaPartido";
+import { formatoPorcentaje, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 
 const ORO = "#C8A96B";
 
@@ -81,7 +81,10 @@ export function BarrasFrenteAMedia({
         {filas.map((m) => {
           const f = m.formato ?? ((n: number) => (Number.isInteger(n) ? String(n) : n.toFixed(1).replace(".", ",")));
           const rango = m.rango && m.rango[0] !== m.rango[1] ? [Math.min(m.rango[0], m.rango[1]), Math.max(m.rango[0], m.rango[1])] : null;
-          const tope = Math.max(m.actual!, m.media!, rango?.[1] ?? 0, 0.0001) * 1.1;
+          /* 27/11/2026 (ronda 9, fútbol): un porcentaje, en su escala de 0 a 100 %
+             (con el tope en la propia cifra la barra salía siempre entera). */
+          const esPct = m.formato === formatoPorcentaje;
+          const tope = esPct ? 100 : Math.max(m.actual!, m.media!, rango?.[1] ?? 0, 0.0001) * 1.1;
           const pos = (v: number) => `${Math.max(0, Math.min(100, (v / tope) * 100))}%`;
           const j = juicio(m);
           const b = baseDe(m);
@@ -92,7 +95,7 @@ export function BarrasFrenteAMedia({
           const sentido = m.mejorAlto === true ? "▲ más es mejor" : m.mejorAlto === false ? "▼ menos es mejor" : "estilo, sin veredicto";
 
           return (
-            <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,13rem)_minmax(0,1fr)_6.5rem_9.5rem] sm:items-center sm:gap-3">
+            <li key={m.clave} className="grid min-w-0 grid-cols-1 gap-1 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_8rem_12.5rem] sm:items-center sm:gap-3">
               <span className="min-w-0 text-[13px] font-medium leading-tight text-white/85">
                 {m.nombre}
                 {sentido ? <span className="ml-1.5 text-[11px] font-normal text-white/55">{sentido}</span> : null}
@@ -100,7 +103,9 @@ export function BarrasFrenteAMedia({
               <span className="relative block h-3 rounded-full bg-white/[0.06]" role="img" aria-label={`${m.nombre}: ${f(m.actual!)} frente a ${f(m.media!)} de media${rango ? `, rango de ${f(rango[0])} a ${f(rango[1])}` : ""}`}>
                 {rango ? <span className="absolute inset-y-0 rounded-full bg-white/[0.12]" style={{ left: pos(rango[0]), width: `calc(${pos(rango[1])} - ${pos(rango[0])})` }} /> : null}
                 <span className="absolute inset-y-[3px] left-0 rounded-full" style={{ width: pos(m.actual!), background: j.color }} />
-                <span className="absolute -inset-y-1 w-[2px] rounded bg-white/80" style={{ left: pos(m.media!) }} />
+                {/* 27/11/2026 (ronda 9): la raya de la media, en el color del texto
+                    (la blanca no se veía en modo día), 2 px y más alta que la pista. */}
+                <span className="absolute -inset-y-1.5 w-[2px] -translate-x-1/2 rounded" style={{ left: pos(m.media!), background: "rgb(var(--rmcf-ink-rgb) / .9)" }} />
               </span>
               <span className="flex items-baseline gap-2 whitespace-nowrap text-[12px] sm:justify-end">
                 <span className="font-semibold tabular-nums text-white">{f(m.actual!)}</span>
@@ -124,9 +129,22 @@ export function BarrasFrenteAMedia({
           );
         })}
       </ul>
-      <p className="mt-2.5 text-[11px] leading-snug text-white/60">
-        Barra: este partido · raya blanca: media de los {anteriores === 1 ? "un partido anterior" : `${anteriores} anteriores`} · franja gris: del mínimo al máximo de esos partidos. Dentro de la franja es lo normal.
-        {anteriores < 10 ? " Con menos de 10 partidos, tendencia." : ""} Con menos de {UMBRAL_MUESTRA} acciones en el partido, también.
+      {/* 27/11/2026 (ronda 9, análisis): leyenda corta de tres piezas, con su
+          muestra dibujada; el detalle (tendencia, fuentes) en una línea aparte. */}
+      <p className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] leading-snug text-white/70">
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-1.5 w-5 rounded-full" style={{ background: ORO }} />este partido
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-3 w-[2px] rounded" style={{ background: "rgb(var(--rmcf-ink-rgb) / .9)" }} />
+          raya: media de {anteriores === 1 ? "el partido anterior" : `los ${anteriores} anteriores`}
+        </span>
+        <span className="inline-flex items-center gap-1.5">
+          <span aria-hidden className="inline-block h-2.5 w-5 rounded-full bg-white/[0.12]" />franja: lo normal (mínimo a máximo)
+        </span>
+      </p>
+      <p className="mt-1 text-[11px] leading-snug text-white/55">
+        {anteriores < 10 ? "Con menos de 10 partidos, tendencia. " : ""}Con menos de {UMBRAL_MUESTRA} acciones en el partido, también.
         {pie ? ` ${pie}` : ""}
       </p>
     </div>

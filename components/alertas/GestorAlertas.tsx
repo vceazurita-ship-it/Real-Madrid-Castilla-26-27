@@ -390,6 +390,9 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
             const salenHoy = alertas.filter((a) => a.activa && a.proximoEnvio && !Number.isNaN(new Date(a.proximoEnvio).getTime()) && clave(new Date(a.proximoEnvio)) === clave(hoy)).length;
             const fecha = hoy.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "");
 
+            /* 27/11/2026 (jueces): sin partido hoy y sin nada que salga, el panel de estado de debajo ya lo dice con «Hoy»: una franja, no dos. */
+            if (salenHoy === 0 && !nuestro && !resumen && alertas.length > 0) return null;
+
             return (
               <p className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[13.5px] leading-snug text-white/75">
                 <CalendarCheck className="h-4 w-4 shrink-0 text-[#C8A96B]" aria-hidden />
@@ -431,7 +434,9 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
           <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px] font-bold text-white/90">
             <BellOff className="h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
             {/* 20/11/2026 (ronda 5, análisis): el estado claro, arriba: con todo apagado no sale ningún correo. */}
-            No sale ningún correo
+            {pantalla && ahora > 0
+              ? `Hoy, ${new Date(ahora).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "")}: no sale ningún correo`
+              : "No sale ningún correo"}
             <span className="font-semibold text-white/80">
               {" · "}
               {nSilenciadas > 0
@@ -492,6 +497,12 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
           </button>
           ) : null}
           {/* 20/11/2026 (ronda 5, análisis): un solo botón principal; «Nueva tarea con alerta» baja al pie de la lista. */}
+          {pantalla ? (
+            <Link href="/" className="inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
+              Tu día, en la portada
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
+          ) : null}
           </div>
         </div>
       )}
@@ -858,7 +869,8 @@ function SemanaDeAlertas({
       {/* 20/11/2026 (ronda 7, análisis y marketing): los días con avisos, el doble de anchos (las horas se partían, «06:1 / 5»). */}
       <ol
         className="grid grid-cols-1 gap-1.5 @3xl:[grid-template-columns:var(--columnas)]"
-        style={{ "--columnas": semana.map((d) => (delPartido.some((a) => diasDe(a) === d) ? "minmax(0,2.4fr)" : "minmax(0,1fr)")).join(" ") } as React.CSSProperties}
+        /* 27/11/2026 (jueces): los días sin alertas, franja estrecha con la fecha; el ancho, para los que tienen. */
+        style={{ "--columnas": semana.map((d) => (delPartido.some((a) => diasDe(a) === d) || d === 0 ? "minmax(0,2.4fr)" : "minmax(0,0.6fr)")).join(" ") } as React.CSSProperties}
       >
         {semana.map((d) => {
           const del = delPartido

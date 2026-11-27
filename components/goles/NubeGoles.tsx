@@ -144,8 +144,8 @@ export function NubeGoles({
           /* 17/11/2026 (ronda 20, fútbol): a 390 px los rótulos se pisaban; en estrecho sólo lleva rótulo el elegido, sacado del grupo con una línea guía, y el comparado va al pie. */
           const rotulo = estrecho ? esYo : esYo || esOtro || extremos.has(p.equipo);
           const ancla = cx < M.izquierda + 70 ? "start" : cx > W - M.derecha - 70 ? "end" : "middle";
-          const fueraX = estrecho && esYo ? Math.max(M.izquierda + 4, Math.min(W - M.derecha - 4, cx + (cx < W / 2 ? 46 : -46))) : cx;
-          const fueraY = estrecho && esYo ? Math.max(M.arriba + 24, cy - l / 2 - 34) : cy - l / 2 - 6;
+          const fueraX = estrecho && esYo ? Math.max(M.izquierda + 4, Math.min(W - M.derecha - 4, cx + (cx < W / 2 ? 56 : -56))) : cx;
+          const fueraY = estrecho && esYo ? Math.max(M.arriba + 14, cy - l / 2 - 44) : cy - l / 2 - 6;
           const anclaFuera = estrecho && esYo ? (cx < W / 2 ? "start" : "end") : ancla;
 
           return (
@@ -183,6 +183,11 @@ export function NubeGoles({
                   fontWeight={esYo || esOtro ? 700 : 500}
                   style={{ fill: esYo ? "var(--rmcf-gold-ink, #8a6d2f)" : esOtro ? AZUL : "currentColor" }}
                   fillOpacity={esYo || esOtro ? 1 : 0.7}
+                  /* 27/11/2026 (ronda 9, fútbol): con un halo del color del fondo, el rótulo no se mezcla con el escudo que tenga debajo. */
+                  stroke="var(--rmcf-surface, #11161C)"
+                  strokeWidth={esYo ? 4 : 3}
+                  strokeLinejoin="round"
+                  paintOrder="stroke"
                   pointerEvents="none"
                 >
                   {p.equipo}

@@ -411,6 +411,13 @@ function BarrasEquiposBase({
   }, [filas, mejorAlto]);
 
   const tope = Math.max(...orden.map((f) => Math.abs(f.valor)), 1);
+  /*
+  | Una sola precisión por gráfico (27/11/2026, jueces, ronda 9): «0,70» de
+  | Teruel con dos decimales entre cifras de uno. Si alguna barra pasa de 1,
+  | todas a un decimal; si todas quedan por debajo, se respeta el formato común.
+  */
+  const unDecimal = unidad === "decimal" && orden.some((f) => Math.abs(f.valor) >= 1);
+  const cifra = (v: number) => (unDecimal ? v.toFixed(1).replace(".", ",").replace(/^-/, "−") : formatea(v, unidad));
 
   /* La mediana y el sitio del destacado, encima (06/11/2026): la lista sola no lo decía. */
   const n = orden.length;
@@ -423,7 +430,7 @@ function BarrasEquiposBase({
     <div className="min-w-0 space-y-1">
       {n > 0 && (
         <p className="mb-2 flex flex-wrap gap-x-3 text-[12px] text-white/60">
-          <span>Mediana de los {n}: <b className="text-white/85">{formatea(med, unidad)}</b></span>
+          <span>Mediana de los {n}: <b className="text-white/85">{cifra(med)}</b></span>
           {mejorAlto !== null && <span className="font-semibold text-white/75">{mejorAlto ? "Más es mejor" : "Menos es mejor"}</span>}
           {iNuestro >= 0 && <span><b style={{ color: ORO }}>{destacado}</b>: {iNuestro + 1}º de {n}{mejorAlto === null ? "" : ` (P${pDe(iNuestro)})`}</span>}
           {mejorAlto !== null && <span>Color: <span style={{ color: MEJOR }}>P60 o más</span> · en la media · <span style={{ color: PEOR }}>P40 o menos</span></span>}
@@ -491,7 +498,7 @@ function BarrasEquiposBase({
                 esNuestro || esOtro ? "font-semibold text-white" : "text-white/55"
               }`}
             >
-              {formatea(fila.valor, unidad)}
+              {cifra(fila.valor)}
             </span>
           </button>
         );

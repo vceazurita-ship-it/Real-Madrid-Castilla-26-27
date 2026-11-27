@@ -460,7 +460,8 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
   const media = totalN ? (totalK / totalN) * 100 : 0;
   const tope = Math.max(media, ...conAcciones.map((p) => (p.k / p.n) * 100), 1);
   const alto = (v: number) => `${(v / tope) * 100}%`;
-  const pcTxt = (v: number) => `${Math.round(v)} %`;
+  /* 27/11/2026 (jueces, ronda 9): un decimal, como la conclusión (26,6 %, no 27 % en la raya). */
+  const pcTxt = (v: number) => `${(Math.round(v * 10) / 10).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`;
   return (
     <figure className="mt-3 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
       <figcaption className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
@@ -3510,6 +3511,7 @@ const categoriasVisual: CategoriaVisual[] = [
                 fuente="Hoja de ABP ofensivo · con los filtros de arriba"
                 mapa={{
                   pregunta: "¿Dónde cae?",
+                  porPeligro: true,
                   ambito: { dentro: "caen en el área", fuera: "fuera de las cuatro zonas" },
                   nodo: (
                     <ABPZoneMap

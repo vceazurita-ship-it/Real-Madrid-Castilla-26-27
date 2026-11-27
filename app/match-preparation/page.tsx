@@ -1753,7 +1753,10 @@ export default function MatchPreparation() {
     if (!perfilesRival) return null;
     const fila = (perfilesRival.aspectos ?? []).flatMap((a) => a.filas).find((f) => /c[óo]rners con remate/i.test(f.nombre));
     if (!fila || !fila.puesto || !fila.de) return null;
-    return { valor: `${fila.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`, puesto: fila.puesto, de: fila.de };
+    /* La base en bruto (27/11/2026, jueces, ronda 9): «44,6 % · 25 de 56 córners», con «tendencia» por debajo de 15 remates. */
+    const base = fila.base ? `${Math.round(fila.base.arriba)} de ${Math.round(fila.base.abajo)} córners${fila.partidos ? ` en ${fila.partidos} partidos` : ""}` : "";
+    const tendencia = !!fila.base && (fila.base.arriba < 15 || fila.base.abajo < 25);
+    return { valor: `${fila.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`, puesto: fila.puesto, de: fila.de, base, tendencia };
   })();
   /*
   | Nuestro córner, en la misma unidad que el suyo (17/11/2026, ronda 19, jueces
@@ -1803,11 +1806,10 @@ export default function MatchPreparation() {
     if (nuestro) ideas.push({ titulo: "Con balón · lo nuestro", texto: VERBO[nuestro.clave] ?? "Explotar lo nuestro", base: nuestro.frase });
     const partidosW = perfilesRival?.partidos ? `Wyscout, ${perfilesRival.partidos} partidos` : "Wyscout";
     if (cornerEnContra) {
-      const decimas = Number(cornerEnContra.valor.replace(/[^\d,]/g, "").replace(",", ".")) / 10;
       ideas.push({
         titulo: "Su punto débil",
         texto: "El córner a favor: atacar el primer palo con bloqueo",
-        base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate (${cornerEnContra.puesto}.º de ${cornerEnContra.de}; ${partidosW}): unos ${decimas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} de cada 10.${
+        base: `De los córners que le sacan, el ${cornerEnContra.valor} acaba en remate${cornerEnContra.base ? ` · ${cornerEnContra.base}` : ""} (${cornerEnContra.puesto}.º de ${cornerEnContra.de}${cornerEnContra.puesto === cornerEnContra.de ? ", el que más remates concede" : ""}; ${partidosW})${cornerEnContra.tendencia ? ", tendencia" : ""}.${
           nuestroCorner
             ? ` Nosotros rematamos el ${nuestroCorner.valor.toLocaleString("es-ES", { maximumFractionDigits: 1 })} %${nuestroCorner.base ? ` (${Math.round(nuestroCorner.base.arriba)} de ${Math.round(nuestroCorner.base.abajo)})` : ""}; objetivo, ${
                 nuestroCorner.valor < nuestroCorner.mediana ? "subir a" : "sostenerlo por encima de"

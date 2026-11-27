@@ -703,7 +703,8 @@ function SlideEstadio({ viaje }: { viaje: Desplazamiento }) {
             {/* Con su fuente (12/11/2026): «102 × 67 · BeSoccer», para saber de dónde sale la medida. */}
             <Renglon
               rotulo="Dimensiones"
-              dato={hay(viaje.estadio.dimensiones) ? [valor(viaje.estadio.dimensiones), valor(viaje.estadio.dimensionesFuente)].filter(Boolean).join(" · ") : ""}
+              /* 27/11/2026 (jueces): la fuente de las medidas («Hoja RIVALES») no va en un papel de vestuario; queda en la pantalla y en su ayuda. */
+              dato={hay(viaje.estadio.dimensiones) ? valor(viaje.estadio.dimensiones) : ""}
             />
             <Renglon rotulo="Capacidad" dato={valor(viaje.estadio.capacidad)} />
             <Renglon rotulo="Ciudad" dato={valor(viaje.estadio.ciudad)} />

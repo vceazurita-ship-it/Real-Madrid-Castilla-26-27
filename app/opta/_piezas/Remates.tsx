@@ -12,9 +12,11 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 
 import { CampoOpta, SOBRE_CESPED } from "@/components/campo/CampoOpta";
 import { CASTILLA_OPTA, num } from "@/lib/opta";
+import { nombreEquipo } from "@/lib/equipos";
 import { fechaCorta, type Fila } from "@/lib/opta-analisis";
 import { urlVideoOpta } from "@/lib/opta-video";
 import { VideoOpta } from "@/components/opta/VideoOpta";
@@ -157,7 +159,7 @@ function textoRemate(r: Remate, conTirador = true) {
     r.presion ? `presión ${(PRESION[r.presion] ?? r.presion).toLowerCase()}` : "",
     r.asistente ? `pase de ${r.asistente}` : "",
     MARCADOR[r.marcador] ? MARCADOR[r.marcador].toLowerCase() : "",
-    `${fechaCorta(r.fecha)} contra ${nombreDe(r.rivalId, r.rival)}`,
+    `${fechaCorta(r.fecha)} contra ${nombreEquipo(nombreDe(r.rivalId, r.rival))}`,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -214,7 +216,8 @@ export function MapaRemates({
     const m = new Map<string, { clave: string; fecha: string; nombre: string }>();
     for (const x of remates) {
       if (m.has(x.partido)) continue;
-      const otro = enContra ? nombreDe(x.teamId, x.equipo) : nombreDe(x.rivalId, x.rival);
+      /* 27/11/2026 (ronda 9, fútbol): el nombre de la app («Villarreal B»), no el de Opta («Villarreal II»). */
+      const otro = nombreEquipo(enContra ? nombreDe(x.teamId, x.equipo) : nombreDe(x.rivalId, x.rival));
       m.set(x.partido, { clave: x.partido, fecha: x.fecha, nombre: `${fechaCorta(x.fecha)} · ${enContra ? "de" : "contra"} ${otro}` });
     }
     return [...m.values()].sort((a, b) => b.fecha.localeCompare(a.fecha));
@@ -269,9 +272,18 @@ export function MapaRemates({
       <div className="grid gap-2 sm:grid-cols-4">
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
-        <Cifra rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")} valor={String(r.goles)} detalle={`xG ${dec(r.xG, 1)} · ${conSigno(r.golesMenosXG, 1)}`} />
+        {/* 27/11/2026 (ronda 9, fútbol): la jerga, explicada la primera vez y con su sentido. */}
         <Cifra
-          rotulo="xG por remate"
+          rotulo={rotuloGoles ?? (enContra ? "Goles encajados" : "Goles")}
+          valor={String(r.goles)}
+          detalle={`goles esperados (xG) ${dec(r.xG, 1)} · ${
+            Math.abs(r.golesMenosXG) < 0.05
+              ? "lo esperado"
+              : `${enContra ? "encaja" : "marca"} ${dec(Math.abs(r.golesMenosXG), 1)} ${r.golesMenosXG < 0 ? "menos" : "más"} de lo esperado`
+          }`}
+        />
+        <Cifra
+          rotulo="Goles esperados por remate"
           valor={dec(r.xGPorRemate)}
           detalle={[
             r.pctPuerta != null ? `${pct(r.pctPuerta)} a puerta` : "",
@@ -295,10 +307,11 @@ export function MapaRemates({
                sus tiros a puerta y que el portero los paró. */
             detalle={[
               enContra && r.goles === 0 && r.xGOTmenosXG >= 0.3 && r.aPuerta
-                ? `sus ${r.aPuerta} ${r.aPuerta === 1 ? "tiro" : "tiros"} a puerta valían ${dec(visibles.filter((x) => x.aPuerta).reduce((s, x) => s + x.xGOT, 0), 1)} de xG tras el golpeo y el portero ${r.aPuerta === 1 ? "lo paró" : "los paró"}`
+                ? /* 27/11/2026 (ronda 9, fútbol): de dónde sale la cifra: lo que valían esos tiros a puerta antes y después del golpeo. */
+                  `sus ${r.aPuerta} ${r.aPuerta === 1 ? "tiro" : "tiros"} a puerta valían ${dec(base.filter((x) => x.aPuerta).reduce((s, x) => s + x.xG, 0), 1)} de goles esperados antes del golpeo y ${dec(base.filter((x) => x.aPuerta).reduce((s, x) => s + x.xGOT, 0), 1)} después; el portero ${r.aPuerta === 1 ? "lo paró" : "los paró"}`
                 : enContra
                   ? "xG de sus remates a puerta menos xG de sus remates: + es que remataron mejor de lo que valía la ocasión"
-                  : "xG del remate a puerta menos xG del remate: + es buen golpeo",
+                  : "lo que valen sus remates a puerta frente a lo que valían al salir: + es que golpea bien",
               r.pctPuerta != null && r.remates ? `${r.aPuerta} a puerta de ${r.remates}` : "",
               r.partidos === 1 ? "un solo partido: tendencia" : "",
             ]
@@ -371,11 +384,20 @@ export function MapaRemates({
                 <span className="font-semibold tabular-nums text-[#C8A96B]">{g.minuto}′</span>
                 {conTirador && <span className="font-semibold text-white/85">{g.tirador}</span>}
                 <span className="text-white/55">
-                  {[TIPO_REMATE[g.tipo] ?? g.tipo, SITUACION[g.situacion] ?? "", `xG ${dec(g.xG)}`, `${fechaCorta(g.fecha)} ${enContra ? "de" : "contra"} ${enContra ? nombreDe(g.teamId, g.equipo) : nombreDe(g.rivalId, g.rival)}`]
+                  {[TIPO_REMATE[g.tipo] ?? g.tipo, SITUACION[g.situacion] ?? "", `xG ${dec(g.xG)}`, `${fechaCorta(g.fecha)} ${enContra ? "de" : "contra"} ${nombreEquipo(enContra ? nombreDe(g.teamId, g.equipo) : nombreDe(g.rivalId, g.rival))}`]
                     .filter(Boolean)
                     .join(" · ")}
                 </span>
               </button>
+              {/* 27/11/2026 (ronda 9, fútbol): el goleador rival, a su ficha en Plantillas con el rival y el jugador ya elegidos. */}
+              {conTirador && g.tirador && g.teamId !== CASTILLA_OPTA ? (
+                <Link
+                  href={`/rivals?equipo=${encodeURIComponent(nombreEquipo(nombreDe(g.teamId, g.equipo)))}&jugador=${encodeURIComponent(g.tirador)}`}
+                  className="ml-2 text-[11px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                >
+                  Ficha de {g.tirador}
+                </Link>
+              ) : null}
             </li>
           ))}
         </ol>

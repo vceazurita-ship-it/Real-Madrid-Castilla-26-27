@@ -948,9 +948,11 @@ function MetricsPanel({
             const d = Math.round((totalPuntos - medio) * 10) / 10;
             /* 20/11/2026 (jueces, ronda 5): con menos de 20 partidos, «tendencia», junto a la comparación. */
             const base = `${coma1(medio)}, media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? `, J1–J${ligaBase.jornadas}` : ""}${metrics.played < 20 ? ` · ${metrics.played} ${metrics.played === 1 ? "partido" : "partidos"}, tendencia` : ""}`;
+            /* 27/11/2026 (ronda 9, análisis): la misma unidad que el Histórico (por partido) junto al total, para que las dos pantallas se lean igual. */
+            const pp = `${coma1(totalPuntos / Math.max(1, metrics.played))} por partido frente a ${coma1(medio / Math.max(1, metrics.played))}`;
             return Math.abs(d) < 0.5
-              ? `${totalPuntos} puntos, lo que suma un equipo medio de la liga (${base})`
-              : `${totalPuntos} puntos, ${coma1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio de la liga (${base})`;
+              ? `${totalPuntos} puntos (${pp}), lo que suma un equipo medio de la liga (${base})`
+              : `${totalPuntos} puntos (${pp}), ${coma1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio de la liga (${base})`;
           })()}
         </TituloConclusion>
         <ConmutadorVista vista={vista} onCambia={setVista} />
@@ -1075,7 +1077,7 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { pu
   const marcas = Array.from({ length: max / paso + 1 }, (_, k) => k * paso);
   const x = (i: number) => m.izq + (i / Math.max(1, puntos.length - 1)) * (ancho - m.izq - m.der);
   const y = (v: number) => alto - m.abj - (v / max) * (alto - m.arr - m.abj);
-  const color = (o: Outcome | null) => (o === "W" ? "#34D399" : o === "D" ? "#FBBF24" : "#FB7185");
+  const color = (o: Outcome | null) => (o === "W" ? "#34D399" : o === "D" ? "#FDE68A" : "#FB7185");
   return (
     <figure id="partido-a-partido" className="mb-3 min-w-0 scroll-mt-28 rounded-2xl border border-white/[0.08] bg-white/[0.03] p-3">
       <svg viewBox={`0 0 ${ancho} ${alto}`} className="h-auto w-full" role="img" aria-label={`Puntos acumulados: ${puntos[puntos.length - 1]} en ${puntos.length} partidos`}>
@@ -1097,9 +1099,22 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { pu
               {/* 17/11/2026 (ronda 19): cada punto lleva a la tarjeta de su partido. */}
               <a href={p ? `#partido-${p.id}` : undefined}>
                 <circle cx={x(i)} cy={y(v)} r={12} fill="transparent" />
-                <circle cx={x(i)} cy={y(v)} r={4.5} fill={color(p?.outcome ?? null)} stroke="#0B0F14" strokeWidth={1}>
+                {/* 27/11/2026 (ronda 9, fútbol): el empate, en el ámbar claro de la chapa «Empate» con su borde ámbar (de día salía marrón y se confundía con la derrota), y la letra V/E/D dentro del punto, como en la racha del Histórico. */}
+                <circle
+                  cx={x(i)}
+                  cy={y(v)}
+                  r={7.5}
+                  fill={color(p?.outcome ?? null)}
+                  stroke={p?.outcome === "D" ? "#B45309" : "#0B0F14"}
+                  strokeWidth={p?.outcome === "D" ? 1.5 : 1}
+                >
                   <title>{`${j ? `J${j} · ` : ""}${p?.opponent ?? ""} ${p ? marcadorNuestro(p) : ""} · ${v} puntos. Ir a su tarjeta`}</title>
                 </circle>
+                {p ? (
+                  <text x={x(i)} y={y(v) + 3.5} textAnchor="middle" fontSize={9.5} fontWeight={700} fill="#0B0F14" style={{ pointerEvents: "none" }}>
+                    {OUTCOME[p.outcome as Outcome]?.short ?? ""}
+                  </text>
+                ) : null}
               </a>
               {j && (i % Math.ceil(puntos.length / 12) === 0 || i === puntos.length - 1) ? (
                 <text x={x(i)} y={alto - 6} textAnchor="middle" fontSize={11} fill="currentColor" fillOpacity={0.6}>
@@ -1122,7 +1137,7 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { pu
           </span>
         ) : null}
       </p>
-      <figcaption className="mt-1 text-[12px] text-white/60">Puntos acumulados tras cada partido de liga; el punto, verde si ganamos, ámbar si empatamos y rojo si perdimos. Toca uno para ir a su tarjeta.</figcaption>
+      <figcaption className="mt-1 text-[12px] text-white/60">Puntos acumulados tras cada partido de liga; el punto lleva la letra (V, E, D): verde si ganamos, ámbar si empatamos y rojo si perdimos. Toca uno para ir a su tarjeta.</figcaption>
     </figure>
   );
 }
