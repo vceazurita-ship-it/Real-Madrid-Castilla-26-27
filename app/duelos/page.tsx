@@ -47,6 +47,8 @@ import { PlanoRegate, ROJO_ALERTA } from "@/components/duelos/plano-regate";
 import { CarrilExtremo } from "@/components/duelos/carril-extremo";
 import { SegundaJugada } from "@/components/duelos/segunda-jugada";
 import { ConSinSociedad } from "@/components/duelos/con-sin-sociedad";
+import { PlanoCentrales } from "@/components/duelos/plano-centrales";
+import { centralesDelDuelo, type PlanoCentrales as PlanoDeCentrales } from "@/lib/duelos-centrales";
 import { lecturaDelAjuste, robadoresDelOnce, rotuloZona, UMBRAL_ROBADOR, type RoboJugador } from "@/lib/duelos-robador";
 import { baseSuyaDe, dibujoDeWyscout, huecosDeBloques, onceProbableDelRival, puestoDelSuyo, nuestrosDe, onceNuestroDe, onceSuyoDe, separaSinPareja, sinChoqueDeNombres, suyosDe } from "@/lib/duelos-onces";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
@@ -257,6 +259,9 @@ const leeEquipoEnlazado = () => new URLSearchParams(window.location.search).get(
 const sinEquipoEnlazado = () => "";
 
 const leeJugadorEnlazado = () => new URLSearchParams(window.location.search).get("jugador") ?? "";
+
+/* `?duelo=del-cen` (27/11/2026): abre las tarjetas con ese duelo elegido. */
+const leeDueloEnlazado = () => new URLSearchParams(window.location.search).get("duelo") ?? "";
 
 const sinTildes = (s: string) => s.normalize("NFD").replace(/\p{M}/gu, "").toLowerCase().trim();
 
@@ -547,14 +552,15 @@ export default function DuelosPage() {
   | pinche otro; la pantalla baja a él una vez.
   */
   const jugadorEnlazado = useSyncExternalStore(seSabraAlLlegar, leeJugadorEnlazado, sinEquipoEnlazado);
+  const dueloEnlazado = useSyncExternalStore(seSabraAlLlegar, leeDueloEnlazado, sinEquipoEnlazado);
   const claveEnlazada = useMemo(() => {
     const buscado = sinTildes(jugadorEnlazado);
-    if (!buscado) return null;
+    if (!buscado) return dueloEnlazado && duelos.some((d) => d.def.clave === dueloEnlazado) ? dueloEnlazado : null;
     const igual = duelos.find((d) => d.suyos.some((j) => sinTildes(j.nombre) === buscado));
     /* Si el nombre viene escrito de otra forma («J. Mier» / «Javi Mier»), un solo duelo cuyo jugador lo contenga. */
     const parecidos = igual ? [] : duelos.filter((d) => d.suyos.some((j) => sinTildes(j.nombre).includes(buscado) || buscado.includes(sinTildes(j.nombre))));
     return (igual ?? (parecidos.length === 1 ? parecidos[0] : null))?.def.clave ?? null;
-  }, [duelos, jugadorEnlazado]);
+  }, [duelos, jugadorEnlazado, dueloEnlazado]);
   const elegido = elegidoAMano ?? claveEnlazada;
   const verTarjetas = verTarjetasAMano ?? Boolean(claveEnlazada);
   const yaBajado = useRef(false);
@@ -987,7 +993,7 @@ export default function DuelosPage() {
                       {duelosVistos
                         .filter((d) => d.def.zona === z.key && d.veredicto !== "sin-datos" && !tendencias.has(d.def.clave))
                         .map((d) => (
-                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} {...anclasDe(d)} />
+                          <Tarjeta key={`${d.def.clave}|${d.nuestros.map((j) => j.clave).join(",")}|${d.suyos.map((j) => j.clave).join(",")}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} centrales={centralesDelDuelo(d, equipoVisto, jugadores ?? [])} {...anclasDe(d)} />
                         ))}
                     </div>
                   </div>
@@ -1005,7 +1011,7 @@ export default function DuelosPage() {
                       </summary>
                       <div className="mt-4 grid gap-4 lg:grid-cols-2 2xl:grid-cols-3">
                         {pocos.map((d) => (
-                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} {...anclasDe(d)} />
+                          <Tarjeta key={`poco-${d.def.clave}`} d={d} activo={elegido === d.def.clave} onElige={() => setElegido(d.def.clave)} equipo={equipoVisto} modo={modo} roboDe={roboDe} huecoDe={huecoDe} regate={regateDelDuelo(d, planoRegate, jugadores ?? [])} delLado={pivoteDelLado(d)} centrales={centralesDelDuelo(d, equipoVisto, jugadores ?? [])} {...anclasDe(d)} />
                         ))}
                       </div>
                     </details>
@@ -1970,6 +1976,7 @@ function Tarjeta({
   delLado,
   anclaRegate,
   anclaCarril,
+  centrales,
 }: {
   d: ResultadoDuelo;
   activo: boolean;
@@ -1985,6 +1992,8 @@ function Tarjeta({
   /** El id de «Ver lo nuevo» (ideas de X), sólo en la primera tarjeta que lleva cada bloque. */
   anclaRegate?: string;
   anclaCarril?: string;
+  /** Sólo en el duelo de nuestro delantero: sus centrales, duelos/90 contra % ganados (27/11/2026). */
+  centrales?: PlanoDeCentrales | null;
 }) {
   const [verParejas, setVerParejas] = useState(false);
   /* Lo que dice la franja del carril de su extremo: null hasta que hay dato. */
@@ -2140,6 +2149,16 @@ function Tarjeta({
       <div className="mt-4">{bloquesDe(d, modo, equipo, roboDe)}</div>
 
       {regate && modo !== "nuestro" && (anclaRegate ? <div id={anclaRegate}><PlanoRegate r={regate} /></div> : <PlanoRegate r={regate} />)}
+
+      {/* A qué central atacar (27/11/2026, idea de X): al pinchar el duelo de nuestro delantero. */}
+      {centrales && modo !== "suyo" &&
+        (activo ? (
+          <PlanoCentrales p={centrales} delantero={d.nuestros[0] ? apellidoDe(d.nuestros[0]) : "nuestro 9"} id="x-idea-2125928719009325436-1" />
+        ) : (
+          <p className="mt-3 rounded-lg border border-dashed border-white/15 px-2.5 py-1.5 text-xs text-white/55">
+            Pincha este duelo para ver a qué central atacar: sus {centrales.puntos.length} centrales en duelos por 90 contra % ganados.
+          </p>
+        ))}
 
       {/* ¿Extremo de banda o falso extremo? (18/11/2026): el carril de sus toques en campo rival, de Opta. */}
       {d.def.tipo === "lateral-extremo" && d.suyos[0] && (
