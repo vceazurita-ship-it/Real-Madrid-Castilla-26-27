@@ -96,6 +96,7 @@ import { TerciosRival } from "@/components/rivals/TerciosRival";
 import { SociedadesRival } from "@/components/rivals/SociedadesRival";
 import { SalidaPivote } from "@/components/rivals/SalidaPivote";
 import { JuegoDirecto } from "@/components/rivals/JuegoDirecto";
+import { VelocidadProgresion } from "@/components/rivals/VelocidadProgresion";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2127,6 +2128,9 @@ export default function ScoutRivalCollective() {
 
           {/* ¿Le va mejor cuando juega directo? (27/11/2026, idea de X): sus partidos partidos por su mediana de % de pases largos, con puntos, xG y remates de cada mitad y la media de la liga (Opta). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <JuegoDirecto equipo={rivalActivo.EQUIPO} />}
+
+          {/* Velocidad de progresión (27/11/2026, idea de X): metros hacia portería por segundo en sus posesiones que llegan al último tercio, por origen (robo, portero, saque), con el % que acaba en remate y la media de la liga (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <VelocidadProgresion equipo={rivalActivo.EQUIPO} />}
 
           {/* Amplitud por banda (18/11/2026): de sus toques por fuera en el último tercio, cuántos son del extremo y cuántos del lateral. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <AmplitudBanda equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
