@@ -93,6 +93,7 @@ import { MarcoGrafico, useTipoGrafico } from "@/components/data/visual/MarcoGraf
 import { ComparativaOpta } from "./ComparativaOpta";
 import { PerfilExtremo } from "./PerfilExtremo";
 import { PorMinutos } from "./PorMinutos";
+import { PerfilPivote } from "./PerfilPivote";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { EnlacesJugador } from "@/components/individual/EnlacesJugador";
 import { mismoJugador } from "@/lib/fichajes";
@@ -1708,6 +1709,11 @@ function Graficos({
       {/* Extremo conector o regateador (18/11/2026): con balón y con las bandas (o todos) arriba. */}
       {fase === "con" && (puesto === "BAN" || puesto === "todos") && (
         <PerfilExtremo jugadores={jugadores} refe={refe} refLabel={refLabel} elegido={elegido} nombreDe={nombreDe} />
+      )}
+
+      {/* Plano del pivote (27/11/2026, idea de X): con los medios (o todos) arriba, en cualquier fase. */}
+      {(puesto === "MED" || puesto === "todos") && (
+        <PerfilPivote jugadores={jugadores} refe={refe} refLabel={refLabel} elegido={elegido} nombreDe={nombreDe} />
       )}
     </div>
   );
