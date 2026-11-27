@@ -3,7 +3,7 @@
  *
  *   node scripts/opta-acciones-video.mjs               los que faltan, del último partido hacia atrás
  *   node scripts/opta-acciones-video.mjs --max 40      como mucho 40 en esta pasada
- *   node scripts/opta-acciones-video.mjs --partidos 2  sólo los dos últimos partidos
+ *   node scripts/opta-acciones-video.mjs --partidos 2  sólo los dos últimos partidos (por defecto, 4)
  *   node scripts/opta-acciones-video.mjs --tope-gb 3   para cuando el documento pase de 3 GB (por defecto)
  *   node scripts/opta-acciones-video.mjs --ver         lista lo que bajaría, sin bajar nada
  *
@@ -57,7 +57,13 @@ const arg = (n) => {
   return i > 0 ? process.argv[i + 1] : null;
 };
 const MAX = Number(arg("max") ?? 250);
-const PARTIDOS = Number(arg("partidos") ?? 0);
+/*
+ * Sólo los últimos 4 partidos por defecto (27/11/2026, decisión del analista):
+ * B2 llegó al 75 % de los 10 GB rellenando partidos viejos. scripts/b2-espacio.mjs
+ * borra cada noche los cortes de los anteriores (el mismo 4), que siguen con
+ * «Vídeo en Opta». Con --partidos 0, todos (sólo a mano y mirando el espacio).
+ */
+const PARTIDOS = Number(arg("partidos") ?? 4);
 const TOPE = Number(arg("tope-gb") ?? 3) * 1e9;
 const VER = process.argv.includes("--ver");
 

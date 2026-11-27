@@ -137,9 +137,58 @@ async function oculta(ruta) {
 
 let subida = null;
 
+/*
+| EL TOPE DEL BUCKET (27/11/2026). Backblaze avisó del 75 % de los 10 GB
+| gratis (7,6 GB: 1,5 GB en un solo día rellenando el vídeo de acciones de
+| partidos viejos). Ninguna subida puede pasar de TOPE_B2 (9 GB, con 1 GB de
+| margen): lo que no cabe falla con «B2 lleno» y cada script lo cuenta como un
+| corte sin vídeo, sin tumbar la pasada. Lo imprescindible (la copia diaria de
+| la base y el vídeo de los informes) puede usar el margen hasta TOPE_DURO.
+| La ocupación se mide una vez por proceso (todas las versiones, también las
+| ocultas, que ocupan hasta que la regla del bucket las borra) y se suma lo que
+| se va subiendo. El espacio lo libera scripts/b2-espacio.mjs cada noche.
+*/
+const TOPE_B2 = 9e9;
+const TOPE_DURO = 9.8e9;
+const IMPRESCINDIBLE = /^(copias\/|2026\/informes\/video\/)/;
+let ocupado = null;
+let medidoEn = 0;
+
+/** Lo que ocupa el bucket de verdad: todas las versiones de todos los ficheros. */
+async function ocupacion({ fresca = false } = {}) {
+  /* El servidor vive días: se vuelve a medir cada hora (una llamada de lista, de las 2.500 gratis al día). */
+  if (ocupado != null && !fresca && Date.now() - medidoEn < 3600e3) return ocupado;
+
+  const s = await autoriza();
+  let total = 0;
+  let nombre = null;
+  let id = null;
+
+  do {
+    const j = await llama(s, "b2_list_file_versions", { bucketId: s.bucketId, maxFileCount: 10000, ...(nombre ? { startFileName: nombre, startFileId: id } : {}) });
+
+    for (const f of j.files ?? []) total += f.contentLength ?? 0;
+    nombre = j.nextFileName;
+    id = j.nextFileId;
+  } while (nombre);
+
+  ocupado = total;
+  medidoEn = Date.now();
+
+  return total;
+}
+
 /** Sube `datos` (Buffer) a `ruta`; devuelve la URL pública. Reintenta con otra dirección de subida. */
 async function sube(ruta, datos, tipo = "video/mp4") {
   const s = await autoriza();
+  const usado = await ocupacion();
+  const tope = IMPRESCINDIBLE.test(ruta) ? TOPE_DURO : TOPE_B2;
+
+  if (usado + datos.length > tope) {
+    throw new Error(`B2 lleno: ${(usado / 1e9).toFixed(2)} GB de ${(tope / 1e9).toFixed(1)} permitidos; no se sube ${ruta} (libera con node scripts/b2-espacio.mjs)`);
+  }
+
+  ocupado = usado + datos.length;
   const sha1 = crypto.createHash("sha1").update(datos).digest("hex");
 
   for (let intento = 0; intento < 4; intento += 1) {
@@ -219,4 +268,4 @@ async function borraVersiones(ruta, { todas = false } = {}) {
   return { borradas, bytes };
 }
 
-module.exports = { configurado, esVideo, sube, urlPublica, urlPublicaYa, comprueba, lista, oculta, autoriza, borraVersiones };
+module.exports = { configurado, esVideo, sube, urlPublica, urlPublicaYa, comprueba, lista, oculta, autoriza, borraVersiones, ocupacion, TOPE_B2 };

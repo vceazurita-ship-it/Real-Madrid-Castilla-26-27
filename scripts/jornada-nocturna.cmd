@@ -363,6 +363,11 @@ rem  sube a B2 (doc opta:acciones-video). Con tope de gigas para no llenar el
 rem  bucket. Sin el Chrome o sin sesion (codigo 8) sigue la noche siguiente;
 rem  nunca cuenta como fallo de la jornada.
 echo. >> "%LOG%"
+echo --- Espacio de Backblaze: fuera el video de acciones de partidos viejos --- >> "%LOG%"
+rem  27/11/2026 (decision del analista): B2 llego al 75 %% de los 10 GB gratis.
+rem  Se quedan los cortes de los ultimos 4 partidos; los anteriores siguen con
+rem  el boton Video en Opta. Nunca cuenta como fallo de la jornada.
+call node scripts\b2-espacio.mjs --hacer >> "%LOG%" 2>&1
 echo --- Video de las acciones desde Opta --- >> "%LOG%"
 call node scripts\opta-acciones-video.mjs --max 250 >> "%LOG%" 2>&1
 if errorlevel 1 (
