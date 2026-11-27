@@ -63,6 +63,7 @@ import { fechaCorta, NOMBRE_CASTILLA } from "@/lib/opta-analisis";
 import { CASTILLA_WYSCOUT, castillaWyscout, emparejaPartidos, enlaceConPartido, temporadaVigente, type PartidoPost } from "@/lib/post-partido";
 import { partidoEnlazado, usePartidoDeLaUrl } from "@/lib/partido-enlazado";
 import { useEtiquetadoEnVideo } from "@/hooks/useEtiquetadoEnVideo";
+import { ZonasRemateRival } from "@/components/data/ZonasRemateRival";
 
 /**
  * QUÉ TOCA EN EL MICROCICLO (16/11/2026, expertos, ronda 17): una o dos
@@ -665,6 +666,8 @@ function BloqueOpta({ datos, partido, hasta }: { datos: DatosOpta; partido: Part
         <CampoOpta datos={datos} partido={id} rival={lados[1].n} marcador={partido.gf != null && partido.gc != null ? `${partido.gf}-${partido.gc}` : undefined} fecha={partido.fecha} />
       </div>
       {!cargando && <GolesDelPartidoEnVideo goles={delPartido.filter((r) => r.gol)} />}
+      {/* 27/11/2026 (idea de X): los remates del rival por zona, por partes y contra lo que concedemos. */}
+      {!cargando && delPartido.length > 0 && <ZonasRemateRival delPartido={delPartido} remates={remates} partido={id} rival={lados[1].n} />}
 
       {/*
       | 20/11/2026 (ronda 4, marketing): «El partido» pasaba de tres pantallas.
