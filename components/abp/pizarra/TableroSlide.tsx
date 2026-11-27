@@ -1922,6 +1922,8 @@ export function TableroSlide({
   const [cabeLeyenda, setCabeLeyenda] = useState(true);
   const claveNotas = `${franja}|${lineas.map((l) => ("rotulo" in l ? l.rotulo : "") + l.texto).join("\n")}|${datoPie}`;
   const [pasoNotas, setPasoNotas] = useState({ clave: "", paso: 0, encoge: 1 });
+  /* 27/11/2026 (ronda 11): sube cuando el alto de las consignas cambia sin cambiar el texto. */
+  const [testigoNotas, setTestigoNotas] = useState(0);
   const paso = pasoNotas.clave === claveNotas ? pasoNotas.paso : 0;
   const encogeNotas = pasoNotas.clave === claveNotas ? pasoNotas.encoge : 1;
   const factorNotas = PASOS_LETRA_NOTAS[paso];
@@ -2485,15 +2487,39 @@ export function TableroSlide({
 
     if (!caja || !dentro) return;
 
-    const sobra = dentro.offsetHeight > caja.clientHeight + 1;
+    /*
+    | 27/11/2026 (jueces, ronda 11): la última consigna salía cortada («…junto
+    | con pol»). Se medía sólo el bloque de las líneas, sin la chapa de origen
+    | («Copiado de…») que va encima dentro de la misma caja: ese alto no se
+    | contaba y lo de abajo quedaba fuera. Ahora cuenta desde el borde de la
+    | caja, y se vuelve a medir cuando cambia el alto (la letra que llega tarde).
+    */
+    const encima = Math.max(0, dentro.offsetTop - caja.offsetTop);
+    const libre = caja.clientHeight - encima;
+    const sobra = dentro.offsetHeight > libre + 1;
 
     if (sobra && paso < PASOS_LETRA_NOTAS.length - 1) {
       setPasoNotas({ clave: claveNotas, paso: paso + 1, encoge: 1 });
     } else if (sobra && encogeNotas === 1) {
       /* Ni a la letra más pequeña: la columna entera se encoge hasta caber. */
-      setPasoNotas({ clave: claveNotas, paso, encoge: caja.clientHeight / dentro.offsetHeight });
+      setPasoNotas({ clave: claveNotas, paso, encoge: Math.max(0.3, libre / dentro.offsetHeight) });
     }
-  }, [paso, encogeNotas, claveNotas, conNotas]);
+  }, [paso, encogeNotas, claveNotas, conNotas, testigoNotas]);
+
+  /* El alto de las consignas cambia sin cambiar el texto (la fuente que llega tarde): se vuelve a medir. */
+  useEffect(() => {
+    const dentro = notasDentroRef.current;
+    if (!dentro || typeof ResizeObserver === "undefined") return;
+    let alto = dentro.offsetHeight;
+    const observer = new ResizeObserver(() => {
+      if (dentro.offsetHeight !== alto) {
+        alto = dentro.offsetHeight;
+        setTestigoNotas((n) => n + 1);
+      }
+    });
+    observer.observe(dentro);
+    return () => observer.disconnect();
+  }, [conNotas]);
 
   useEffect(() => {
     const el = tituloRef.current;

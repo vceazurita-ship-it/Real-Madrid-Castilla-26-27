@@ -210,7 +210,8 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
   | partido» (unos 19) no cuadraba con «Córners que acaban en remate 8,6 % de
   | 58» (unos 5). Cuentan cosas distintas: se dice con las dos cifras.
   */
-  const lineaRematesCrnr = area === "abp" && lado === "favor" ? ctx.lineas.find((l) => l.m.clave === "ShotCrnrs") : undefined;
+  /* 27/11/2026 (jueces, ronda 11): «remates tras córner», con las mismas columnas que «¿Y frente al rival?» (antes ShotCrnrs, que sumaba también los bloqueados). */
+  const lineaRematesCrnr = area === "abp" && lado === "favor" ? ctx.lineas.find((l) => l.m.clave === "RematesCrnr") : undefined;
   const lineaCrnrRemate = area === "abp" && lado === "favor" ? ctx.lineas.find((l) => l.m.clave === "CrnrRemate%") : undefined;
   const cuadreCorner =
     lineaRematesCrnr && lineaCrnrRemate && lineaCrnrRemate.casos != null && ctx.partidos > 0
@@ -218,7 +219,23 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
           const remates = Math.round(lineaRematesCrnr.valor * ctx.partidos);
           const corners = Math.round(lineaCrnrRemate.casos);
           const conRemate = Math.round(((lineaCrnrRemate.valor <= 1 ? lineaCrnrRemate.valor * 100 : lineaCrnrRemate.valor) / 100) * corners);
-          return `Córners: «remates de córner» cuenta todos los remates de la jugada, también los del rechace y la segunda jugada (unos ${remates} en ${ctx.partidos} partidos); «córners que acaban en remate» cuenta los córners con al menos un remate en la primera jugada (${conRemate} de ${corners}). Por eso la primera cifra es mayor.`;
+          return `Córners: «remates tras córner» cuenta cada remate de la jugada, también el del rechace (unos ${remates} en ${ctx.partidos} partidos, la misma cifra que «¿Y frente al rival?»); «córners que acaban en remate» cuenta los córners con al menos un remate en la primera jugada (${conRemate} de ${corners}). Un córner puede dar varios remates: por eso la primera es mayor.`;
+        })()
+      : "";
+  /*
+  | 27/11/2026 (jueces, ronda 11, banda defensivo): «saques del rival que
+  | llegan» y «saques del rival (volumen)» daban el mismo puesto (17º/20 y
+  | 37º/40). Comprobado con las copias: cada una sale de su columna (ThrowInSc
+  | ÷ ThrowIn frente a ThrowIn) y el puesto coincide de verdad. Se dice.
+  */
+  const mismoPuesto =
+    area === "banda" && ctx.lineas.length === 2
+      ? (() => {
+          const [a, b] = ctx.lineas;
+          const igual = (x: PosicionDia | null, y: PosicionDia | null) => !!x && !!y && x.puesto === y.puesto && x.de === y.de;
+          return igual(a.grupo, b.grupo) && igual(a.categoria, b.categoria)
+            ? `Las dos cifras dan el mismo puesto (${a.grupo ? `${a.grupo.puesto}º de ${a.grupo.de} en el grupo y ` : ""}${a.categoria.puesto}º de ${a.categoria.de} en la categoría) por casualidad: cada una sale de su propia cuenta de Opta (los saques, y de ellos los que llegan a ${lado === "favor" ? "un compañero" : "uno de los suyos"}).`
+            : "";
         })()
       : "";
   const mejor = orden[0];
@@ -296,6 +313,7 @@ function ContextoOpta({ area, lado, hoja }: { area: AreaDia; lado: LadoDia; hoja
           );
         })}
       </ul>
+      {mismoPuesto && <p className="mt-2 text-[12px] leading-snug text-white/60">{mismoPuesto}</p>}
       <Fuente>
         Fuente: Opta{hasta ? ` · ${hasta}` : ""}.{area === "abp" ? " Goles en la temporada; el resto, por partido o en porcentaje." : ""}
       </Fuente>
@@ -703,6 +721,29 @@ export function OptaAbpDia({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | n
 }
 
 /** La pestaña «Categoría · Opta» de saque de banda ofensivo (favor) y defensivo (contra). */
+/*
+| 27/11/2026 (jueces, ronda 11, saque de banda): las dos bases de la pantalla
+| (la hoja y Opta) dichas en una línea ARRIBA, junto a la conclusión, y no
+| sólo en el bloque de la categoría. Usa los mismos documentos ligeros que ese
+| bloque (opta:equipos y opta:partidos, compartidos: no se bajan dos veces).
+| Si Opta no ha llegado o cuenta lo mismo, no sale nada.
+*/
+export function NotaBasesBanda({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | null }) {
+  const { docs } = useDocsOpta<[TablaOpta, TablaOpta]>(DOCS_OPTA.equipos, DOCS_OPTA.partidos);
+  const [equiposT, partidosT] = docs;
+  const ctx = useMemo(() => contextoDia(equiposT, partidosT, "banda", lado), [equiposT, partidosT, lado]);
+  const linea = ctx?.lineas.find((l) => l.m.modo === "pct" && l.casos != null);
+  if (!hoja || !linea || linea.casos == null) return null;
+  const saquesOpta = Math.round(linea.casos);
+  const llegan = `${coma(linea.valor * 100, 0)} %`;
+  return (
+    <p className="mt-2 text-[12px] leading-snug text-white/65">
+      <b className="font-semibold text-white/85">Dos bases:</b> esta parte usa la hoja, {hoja.acciones} saques {lado === "favor" ? "" : "del rival "}etiquetados en el vídeo, y cuenta cómo acaba la jugada;
+      {" "}Opta registra {saquesOpta} en {ctx?.partidos ?? hoja.jornadas} partidos y sólo mira el primer toque («llegan a {lado === "favor" ? "un compañero" : "uno de los suyos"}», {llegan}). Por eso no coinciden; las cifras de Opta sólo salen en «¿Y frente al rival?» y «¿Y frente a la categoría?».
+    </p>
+  );
+}
+
 export function OptaBandaDia({ lado, hoja }: { lado: LadoDia; hoja?: GolesHoja | null }) {
   return (
     <div className="space-y-5">

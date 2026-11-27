@@ -30,6 +30,7 @@ import {
 import { STAFF } from "@/lib/quiniela/staff";
 import { comoNuestro, type PartidoCastilla } from "@/lib/castilla/calendario";
 import { buscaJornada, type JornadaRival } from "@/lib/abp/jornada";
+import { confirmar } from "@/lib/avisos";
 
 /** El día del partido al que va un aviso, «AAAA-MM-DD» (el aviso más sus días). */
 function diaDelPartido(aviso: Date, dias: number) {
@@ -293,8 +294,16 @@ export default function ListaAlertas({
 }: Props) {
   /* El reloj se apunta en un efecto: mirarlo en el render es impuro. */
   const [ahora, setAhora] = useState(0);
-  /* La tarjeta que está pidiendo confirmación para borrarse. */
-  const [borrando, setBorrando] = useState<string | null>(null);
+  /* Borrar pregunta antes, con el diálogo propio: la tarea y a quién deja de avisar (27/11/2026, ronda 11). */
+  const pideBorrar = async (alerta: Alerta) => {
+    const sigue = await confirmar({
+      titulo: `¿Borrar «${tituloLegible(sinPrefijo(alerta.titulo))}»?`,
+      texto: `Dejará de avisar a ${nombresDestino(alerta.destinatarios, agenda, true)} y desaparece de la hoja. No se puede deshacer.`,
+      aceptar: "Borrar",
+      peligro: true,
+    });
+    if (sigue) onBorrar(alerta);
+  };
   /* La tarjeta con el menú «⋯» abierto y la que enseña todos sus destinatarios. */
   const [menu, setMenu] = useState<string | null>(null);
   const [destinosAbiertos, setDestinosAbiertos] = useState<string | null>(null);
@@ -357,6 +366,10 @@ export default function ListaAlertas({
   const caducada = (a: Alerta) => ahora > 0 && cuandoSaldria(a) === Infinity;
   const silenciadas = todasSilenciadas.filter((a) => !caducada(a));
   const caducadas = todasSilenciadas.filter(caducada);
+  const archivoCaducadas =
+    ahora > 0 &&
+    caducadas.length > 0 &&
+    caducadas.every((a) => fechaValida(a.ultimoEnvio) && ahora - new Date(a.ultimoEnvio ?? "").getTime() > 30 * 86_400_000);
 
   const gruposSilenciadas = silenciadas.reduce<{ clave: string; partido: string; fecha: string; alertas: Alerta[] }[]>((grupos, a) => {
     const s = a.repeticion === "partido" && ahora > 0 ? saldriaSiSeReactiva(a, partidos, new Date(ahora)) : null;
@@ -448,20 +461,28 @@ export default function ListaAlertas({
                 const saldria =
                   ahora > 0 ? saldriaSiSeReactiva(alerta, partidos, new Date(ahora)) : null;
 
+                /*
+                  27/11/2026 (análisis, ronda 11): el desenlace en una sola
+                  línea —«Saldría el vie 4 dic · 09:00 · 2 días antes del
+                  partido»—, sin el «Si la reactivas…» ni la regla repetida en
+                  otro renglón (el partido y su rival ya van en la cabecera del
+                  grupo; si el grupo dice la regla, tampoco se repite).
+                */
                 if (saldria) {
+                  const corta = alerta.repeticion === "partido" && !sinRegla ? reglaDelPartido(alerta, "").toLowerCase() : "";
                   principal = (
                     <>
-                      Si la reactivas, sale{" "}
+                      Saldría{" "}
                       <b className="font-semibold text-white/90">{cuandoRelativo(saldria.cuando, ahora)}</b>
+                      {corta ? ` · ${corta}` : ""}
                     </>
                   );
 
-                  if (alerta.repeticion === "partido")
-                    regla = reglaDelPartido(alerta, partidoDelAviso(partidos, saldria.cuando, saldria.dias));
+                  if (alerta.repeticion === "partido") regla = null;
                 } else if (futura) {
                   principal = (
                     <>
-                      Si la reactivas, sale{" "}
+                      Saldría{" "}
                       <b className="font-semibold text-white/90">{cuandoRelativo(new Date(alerta.proximoEnvio), ahora)}</b>
                     </>
                   );
@@ -616,34 +637,8 @@ export default function ListaAlertas({
 
             {/* ------------------ ACCIONES ----------------- */}
 
-            {borrando === alerta.id ? (
-              <div className="mt-auto flex flex-wrap items-center gap-2 border-t border-red-400/20 pt-3">
-                <p className="min-w-0 flex-1 basis-full text-[13px] leading-relaxed text-red-300">
-                  ¿Borrar «{titulo}»? Dejará de avisar a {nombresDestino(alerta.destinatarios, agenda, true)} y desaparece de la hoja.
-                </p>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBorrando(null);
-                    onBorrar(alerta);
-                  }}
-                  disabled={bloqueada}
-                  className="inline-flex items-center gap-1.5 rounded-full bg-red-500/20 px-3 py-1.5 text-[13px] font-medium text-red-300 transition hover:bg-red-500/30 disabled:opacity-40"
-                >
-                  <Trash2 className="h-3.5 w-3.5" aria-hidden />
-                  Sí, borrar
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => setBorrando(null)}
-                  className="rounded-full px-3 py-1.5 text-[13px] text-white/60 transition hover:bg-white/[0.06] hover:text-white"
-                >
-                  Cancelar
-                </button>
-              </div>
-            ) : (
+            {/* 27/11/2026 (análisis y marketing, ronda 11): «Borrar» pregunta con el diálogo propio (lib/avisos), con la tarea y a quién deja de avisar. */}
+            {(
             /*
             | 10/11/2026 (análisis y marketing): una acción principal por tarjeta
             | —«Reactivar» en la silenciada, «Editar y ponerle fecha» en la
@@ -683,7 +678,7 @@ export default function ListaAlertas({
                 {caducada(alerta) ? (
                   <button
                     type="button"
-                    onClick={() => setBorrando(alerta.id)}
+                    onClick={() => void pideBorrar(alerta)}
                     disabled={bloqueada}
                     className="inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] font-medium text-red-300 transition hover:bg-red-500/10 disabled:opacity-40"
                   >
@@ -716,6 +711,33 @@ export default function ListaAlertas({
                   <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
                 </Link>
               )}
+
+              {/* 27/11/2026 (análisis y marketing, ronda 11): la tarea atada al partido, también con el ABP del rival ya elegido y su día del microciclo. */}
+              {rivalDeLaTarea ? (
+                <div className="mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 px-2.5">
+                  <Link
+                    href={`/scout-rival-abp?equipo=${encodeURIComponent(rivalDeLaTarea)}`}
+                    className="inline-flex min-h-9 items-center gap-0.5 text-[12.5px] font-medium underline-offset-2 hover:underline"
+                    style={{ color: "var(--rmcf-gold-ink)" }}
+                  >
+                    {`ABP de ${rivalDeLaTarea}`}
+                    <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  </Link>
+                  {destinoTarea?.href !== "/microcycles" ? (
+                    <Link
+                      href="/microcycles"
+                      className="inline-flex min-h-9 items-center gap-0.5 text-[12.5px] font-medium underline-offset-2 hover:underline"
+                      style={{ color: "var(--rmcf-gold-ink)" }}
+                    >
+                      {(() => {
+                        const dias = Math.max(0, Math.round(alerta.diasAntesDelPartido ?? 2));
+                        return `Microciclo · ${dias === 0 ? "MD" : `MD-${dias}`}`;
+                      })()}
+                      <ChevronRight className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                    </Link>
+                  ) : null}
+                </div>
+              ) : null}
 
               {menu === alerta.id && (
                 <div className="mt-1 flex flex-wrap items-center gap-x-1 gap-y-1 rounded-2xl bg-white/[0.03] p-1">
@@ -766,7 +788,7 @@ export default function ListaAlertas({
                     type="button"
                     onClick={() => {
                       setMenu(null);
-                      setBorrando(alerta.id);
+                      void pideBorrar(alerta);
                     }}
                     disabled={bloqueada}
                     className="ml-auto inline-flex min-h-10 items-center gap-1.5 whitespace-nowrap rounded-full px-3 py-1.5 text-[13px] text-red-300/80 transition hover:bg-red-500/10 hover:text-red-300 disabled:opacity-40"
@@ -805,7 +827,8 @@ export default function ListaAlertas({
               {gruposSilenciadas.length > 1 || g.partido ? (
                 <p className="mb-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-2 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/55">
                   {g.partido ? `Partido ${g.partido}` : "Sin partido"}
-                  {reglaComun ? <span className="font-medium normal-case tracking-normal text-white/60">· salen {reglaComun.charAt(0).toLowerCase()}{reglaComun.slice(1)}</span> : null}
+                  {/* 27/11/2026 (marketing, ronda 11): sin el «·» inicial, que quedaba suelto al partir la línea. */}
+                  {reglaComun ? <span className="text-[12.5px] font-medium normal-case tracking-normal text-white/65">Salen {reglaComun.charAt(0).toLowerCase()}{reglaComun.slice(1)}</span> : null}
                   {/* 16/11/2026 (fútbol y marketing): a un toque, lo que la tarea prepara, con el rival ya elegido. */}
                   {(() => {
                     const rival = /^vs (.+?)(?: \(|$)/.exec(g.partido)?.[1];
@@ -848,19 +871,26 @@ export default function ListaAlertas({
         /* 20/11/2026 (ronda 4, marketing): plegadas fuera de la vista principal; el
            resumen ya dice cuáles, por qué y desde cuándo, y el aviso de arriba las cuenta. */
         /* 20/11/2026 (ronda 7, marketing; y la ronda 5, análisis: «que no quede plegada»): abierta, con «Darle nueva fecha» y «Borrar» en su tarjeta. */
-        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open>
+        /* 27/11/2026 (marketing, ronda 11): si todas caducaron hace más de 30 días, van a un cajón «Archivo» plegado, con su fecha y «no volverá a salir»: en la primera pantalla parecían un error. */
+        <details className="group pt-1 @3xl:col-span-2 @6xl:col-span-3" open={!archivoCaducadas}>
 
           {/* 30/10/2026: el porqué y cuáles, en el propio título plegado; sin
               abrirlo, «Caducadas (1)» parecía un error. */}
           {/* 10/11/2026: «Caducadas (1)» y, en cada tarjeta, su fecha y «Editar y ponerle fecha»; la explicación larga sobraba. */}
           <summary className="cursor-pointer select-none rounded-xl px-2 py-2 text-[13px] leading-relaxed text-white/60 transition hover:text-white">
-            <b className="font-semibold text-white/80">Caducadas ({caducadas.length})</b>
+            <b className="font-semibold text-white/80">{archivoCaducadas ? `Archivo (${caducadas.length})` : `Caducadas (${caducadas.length})`}</b>
             {" · "}
             {caducadas
               .map((a) => `«${tituloLegible(sinPrefijo(a.titulo))}»${fechaValida(a.ultimoEnvio) ? ` (salió el ${fechaDeSalida(a.ultimoEnvio)})` : ""}`)
               .join(", ")}
             {" · "}
-            {caducadas.length === 1 ? "su fecha ya pasó: necesita una nueva" : "sus fechas ya pasaron: necesitan una nueva"}
+            {archivoCaducadas
+              ? caducadas.length === 1
+                ? "caducó hace más de 30 días y no volverá a salir si no le das fecha nueva"
+                : "caducaron hace más de 30 días y no volverán a salir si no les das fecha nueva"
+              : caducadas.length === 1
+                ? "su fecha ya pasó: necesita una nueva"
+                : "sus fechas ya pasaron: necesitan una nueva"}
           </summary>
 
           <div className="mt-2 space-y-2.5 @3xl:grid @3xl:grid-cols-2 @6xl:grid-cols-3 @3xl:items-stretch @3xl:gap-2.5 @3xl:space-y-0">

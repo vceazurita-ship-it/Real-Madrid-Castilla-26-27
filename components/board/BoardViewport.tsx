@@ -78,6 +78,8 @@ interface Props {
   maxZoom?: number;
   /** Nombre del tablero para los lectores de pantalla. */
   label?: string;
+  /** 27/11/2026 (ronda 11): clases de los mandos de zoom (p. ej. «hidden sm:flex» para quitarlos en el móvil). Sin él, como siempre. */
+  mandosClassName?: string;
 }
 
 const IDENTITY: View = { scale: 1, x: 0, y: 0 };
@@ -96,6 +98,7 @@ export default function BoardViewport({
   minZoom = 1,
   maxZoom = 6,
   label = "Tablero",
+  mandosClassName,
 }: Props) {
   const frameRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
@@ -559,7 +562,7 @@ export default function BoardViewport({
 
       <div
         data-export-hide
-        className="absolute bottom-2 right-2 z-20 flex flex-col items-center gap-1 opacity-60 transition-opacity focus-within:opacity-100 hover:opacity-100"
+        className={cn("absolute bottom-2 right-2 z-20 flex flex-col items-center gap-1 opacity-60 transition-opacity focus-within:opacity-100 hover:opacity-100", mandosClassName)}
       >
         {/* El nivel de zoom va con los mandos: suelto por las esquinas se
             chocaba con las leyendas que algunos tableros llevan encima. */}

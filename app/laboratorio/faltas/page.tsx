@@ -707,19 +707,22 @@ export default function FaltasPage() {
     const enContra = paraCampo.filter((f) => f.lado !== "ofensivo");
     const aFavor = paraCampo.filter((f) => f.lado === "ofensivo");
     const pc = (n: number, de: number) => Math.round((n / de) * 100);
+    /*
+      27/11/2026 (análisis y marketing, ronda 11): dos poblaciones, dos cifras,
+      cada una en su renglón y con su base. La tendencia se decide por la base
+      (menos de 15 faltas de ese lado), no por cuántas caen en la zona: con 24
+      a favor la cifra ya se lee; con 11 en contra, no.
+    */
     const partes: string[] = [];
     if (enContra.length) {
       const atras = enContra.filter((f) => sitioEnCampo(f).zona === "nuestro campo").length;
-      /* 17/11/2026 (ronda 20, análisis): con menos de 15 faltas en esa zona, la cifra es tendencia. */
-      /* 27/11/2026 (ronda 9, análisis): la base como cifra principal («2 de 17»), el porcentaje detrás. */
-      partes.push(`De las que cometemos, ${atras} de ${enContra.length} en nuestro tercio (${pc(atras, enContra.length)} %${atras < 15 ? ", tendencia" : ""})`);
+      partes.push(`Cometidas: ${atras} de ${enContra.length} en nuestro tercio (${pc(atras, enContra.length)} %${enContra.length < 15 ? ", tendencia" : ""})`);
     }
     if (aFavor.length) {
       const arriba = aFavor.filter((f) => sitioEnCampo(f).zona === "campo rival").length;
-      partes.push(`de las que nos hacen, ${arriba} de ${aFavor.length} en su tercio (${pc(arriba, aFavor.length)} %${arriba < 15 ? ", tendencia" : ""})`);
+      partes.push(`Recibidas: ${arriba} de ${aFavor.length} en su tercio (${pc(arriba, aFavor.length)} %${aFavor.length < 15 ? ", tendencia" : ""})`);
     }
-    const t = partes.join("; ");
-    return t ? t.charAt(0).toUpperCase() + t.slice(1) : "";
+    return partes;
   })();
 
   /*
@@ -729,12 +732,16 @@ export default function FaltasPage() {
   */
   const bloqueCampo = (
     <div className="mt-5">
-      {enVisual && tituloCampoFaltas ? (
+      {enVisual && tituloCampoFaltas.length ? (
         <TituloConclusion
           pregunta="¿Dónde se cometen?"
           fuente={`${partidoDeOpta ? "Opta" : "Vídeo etiquetado"} · ${paraCampo.length} ${paraCampo.length === 1 ? "falta" : "faltas"}${partido ? ` en la ${jornadaCorta(partido.jornada)}` : ""}`}
         >
-          {tituloCampoFaltas}
+          {tituloCampoFaltas.map((t) => (
+            <span key={t} className="block">
+              {t}
+            </span>
+          ))}
         </TituloConclusion>
       ) : null}
       <Panel
@@ -818,7 +825,8 @@ export default function FaltasPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          {/* 27/11/2026 (análisis y marketing, ronda 11): `laminas-quietas`, sin el fundido de entrada; «¿Y frente al rival?» salía atenuado sin hacer scroll. */}
+          <div className="laminas-quietas min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Análisis del partido"
               title="Análisis de faltas"
@@ -858,23 +866,40 @@ export default function FaltasPage() {
             ) : null}
 
             {/* 16/11/2026 (expertos, ronda 18): a un toque, lo que completa el partido elegido. */}
+            {/*
+              27/11/2026 (análisis y marketing, ronda 11): dos filas, la de
+              nuestro partido y la del próximo rival, cada una con su rótulo; en
+              el móvil, tres a la vista y el resto en «Más». El que más comete
+              sólo sale con 15 faltas en contra o más en el partido (con 2 de
+              11 no es un dato, es una anécdota).
+            */}
             {partido ? (
               <EnlacesRapidos
                 className="mt-3"
+                titulo={`Nuestro partido · ${jornadaCorta(partido.jornada)}`}
+                aLaVista={3}
                 enlaces={[
                   { href: enlaceConPartido("/laboratorio/transiciones", partido), texto: "Robos de este partido", icono: Crosshair },
                   { href: enlaceConPartido("/laboratorio/perdidas", partido), texto: "Pérdidas de este partido", icono: Swords },
                   { href: urlPostDelPartido(partido.fecha, partido.rival), texto: `Post del partido · ${jornadaCorta(partido.jornada)}`, icono: BarChart3 },
                   /* 17/11/2026 (ronda 20, análisis y marketing): el que más faltas comete, a su ficha y su seguimiento. */
-                  masFaltas
+                  masFaltas && porLado.defensivo >= 15
                     ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}`, texto: `${masFaltas[0]}, el que más comete (${masFaltas[1]} de ${porLado.defensivo})`, icono: Users }
                     : { texto: "" },
-                  masFaltas ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
+                  masFaltas && porLado.defensivo >= 15 ? { href: `/individual?nombre=${encodeURIComponent(masFaltas[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
+                  { href: "/setpieces", texto: "Nuestro ABP ofensivo", icono: Zap },
+                ]}
+              />
+            ) : null}
+            {proximoRivalFaltas ? (
+              <EnlacesRapidos
+                className="mt-2"
+                titulo={`Próximo rival · ${proximoRivalFaltas}`}
+                enlaces={[
                   /* 17/11/2026 (ronda 19): el balón parado del próximo rival (sus faltas a favor y en contra). */
-                  proximoRivalFaltas ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `ABP del ${proximoRivalFaltas}`, icono: Shield } : { texto: "" },
+                  { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: "Su ABP", icono: Shield },
                   /* 20/11/2026 (ronda 4): y su plan, en el mismo orden que en robos y pérdidas. */
-                  proximoRivalFaltas ? { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: `Plan contra el ${proximoRivalFaltas}`, icono: FileText } : { texto: "" },
-                  { href: "/setpieces", texto: "ABP ofensivo", icono: Zap },
+                  { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalFaltas)}`, texto: "Su plan de partido", icono: FileText },
                 ]}
               />
             ) : null}
@@ -980,6 +1005,24 @@ export default function FaltasPage() {
 
             {(vista === "resumen" || enVisual) && (
             <>
+            {/*
+              27/11/2026 (análisis, ronda 11): la temporada primero, con su
+              base en partidos, y luego el partido elegido. Mismas faltas que
+              el resto de la pantalla (vídeo etiquetado y, donde falta, Opta).
+            */}
+            {partido && partidosEnOrden.length >= 2 ? (() => {
+              const n = partidosEnOrden.length;
+              const cometidas = partidosEnOrden.reduce((s, p) => s + p.faltas.filter((f) => f.lado !== "ofensivo").length, 0) / n;
+              const recibidas = partidosEnOrden.reduce((s, p) => s + p.faltas.filter((f) => f.lado === "ofensivo").length, 0) / n;
+              return (
+                <p className="mt-4 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-2.5 text-[14px] leading-snug text-white/80">
+                  <b className="font-semibold text-white/90">{`Temporada, ${n} partidos:`}</b>{" "}
+                  {`${decimal(cometidas)} faltas cometidas y ${decimal(recibidas)} recibidas por partido`}
+                  <span className="text-white/65">{` · en la ${jornadaCorta(partido.jornada)}, ${partido.faltas.filter((f) => f.lado !== "ofensivo").length} y ${partido.faltas.filter((f) => f.lado === "ofensivo").length}`}</span>
+                </p>
+              );
+            })() : null}
+
             {/* ---------------- el partido ---------------- */}
 
             {partido && (
@@ -1055,7 +1098,8 @@ export default function FaltasPage() {
               <>
               {/* 16/11/2026 (experto de fútbol): la orden de la semana, arriba y con
                   la misma forma que en Robos y Pérdidas (antes era la última conclusión). */}
-              {queHacemos ? (
+              {/* 27/11/2026 (marketing, ronda 11): sin alarma, la conclusión va dentro del bloque de barras (abajo), no en una caja aparte que decía lo mismo. */}
+              {queHacemos && !(enVisual && !queHacemos.alarma) ? (
                 <div className={cn("mt-4 rounded-2xl border px-4 py-3", queHacemos.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]")}>
                   <p className={cn("text-[11px] font-semibold uppercase tracking-[0.16em]", queHacemos.alarma ? "text-amber-300" : "text-white/60")}>{queHacemos.rotulo}</p>
                   <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queHacemos.titular}</p>
@@ -1147,6 +1191,19 @@ export default function FaltasPage() {
                   anteriores={comparativa.anteriores}
                   titulo={`${partido ? jornadaCorta(partido.jornada) : "Este partido"}${partidoDeOpta ? " (Opta)" : ""} frente a los anteriores`}
                   tendencia={partidoDeOpta}
+                  cabecera={
+                    queHacemos && !queHacemos.alarma ? (
+                      <>
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">{queHacemos.rotulo}</p>
+                        <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queHacemos.titular}</p>
+                        {queHacemos.lineas.map((l, i) => (
+                          <p key={i} className="mt-1 text-sm leading-relaxed text-white/80">
+                            {l}
+                          </p>
+                        ))}
+                      </>
+                    ) : undefined
+                  }
                   /* 17/11/2026 (ronda 20, marketing): los casos escasos, dentro del gráfico al que afectan; y de qué fuente es cada partido. */
                   pie={[
                     anterioresOpta ? `De los ${comparativa.anteriores} anteriores, ${comparativa.anteriores - anterioresOpta} del vídeo etiquetado y ${anterioresOpta} de Opta.` : "",

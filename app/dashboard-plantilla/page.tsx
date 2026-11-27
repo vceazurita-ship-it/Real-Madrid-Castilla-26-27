@@ -388,6 +388,8 @@ export default function DashboardPlantilla() {
   const posiblesWy = partidosWy * 90;
   const delCastilla = filtrados.filter((j) => j.ficha.delCastilla).length;
   const conMinutos = filtrados.filter((j) => j.minutos > 0 || j.apariciones.some((a) => a.jugo)).length;
+  /* 27/11/2026 (análisis, ronda 11): las tarjetas, sobre la misma cohorte (licencia del Castilla). */
+  const conMinutosCastilla = filtrados.filter((j) => j.ficha.delCastilla && (j.minutos > 0 || j.apariciones.some((a) => a.jugo))).length;
   const conEdad = filtrados.filter((j) => j.edad !== null && j.fuenteMinutos === "wyscout");
   const minutosConEdad = conEdad.reduce((a, j) => a + j.minutos, 0);
   const minutosSub21 = conEdad.filter((j) => (j.edad ?? 99) <= EDAD_SUB21).reduce((a, j) => a + j.minutos, 0);
@@ -406,10 +408,14 @@ export default function DashboardPlantilla() {
        pasa a la línea de fuentes de la cabecera y a «Quién cuenta». */
     {
       title: "Han jugado",
-      value: conMinutos,
+      value: delCastilla > 0 ? conMinutosCastilla : conMinutos,
       /* 27/11/2026 (marketing, ronda 9): qué cuenta, para que no choque con los 0′ de «Juega poco».
-         Ronda 10: corta; la regla entera, en «Quién cuenta». */
-      base: `de los ${filtrados.length} del grupo: un minuto o más, o una aparición en Valoraciones`,
+         Ronda 10: corta; la regla entera, en «Quién cuenta».
+         Ronda 11 (análisis): sobre los mismos de licencia que la primera tarjeta y los avisos. */
+      base:
+        delCastilla > 0
+          ? `de los ${delCastilla} con licencia del Castilla: un minuto o más, o una aparición en Valoraciones`
+          : `de los ${filtrados.length} del grupo: un minuto o más, o una aparición en Valoraciones`,
     },
     ...(minutosConEdad > 0
       ? [
@@ -418,7 +424,8 @@ export default function DashboardPlantilla() {
             value: `${Math.round((minutosSub21 / minutosConEdad) * 100)} %`,
             /* 08/11/2026 (jueces): un porcentaje solo no dice si es mucho; se da la base en minutos. */
             /* 27/11/2026 (ronda 10): la regla de edad, en «Quién cuenta». */
-            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′, de los ${conEdad.length} del grupo con edad en Wyscout`,
+            /* 27/11/2026 (análisis, ronda 11): son minutos del equipo, también los de los de fuera; se dice. */
+            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′ del equipo (con los de fuera), de los que tienen edad en Wyscout`,
           },
         ]
       : []),
@@ -632,7 +639,7 @@ export default function DashboardPlantilla() {
                   <p>
                     {filtrados.length} jugadores
                     {filtrados.length > delCastilla ? ` = ${delCastilla} con licencia del Castilla + ${filtrados.length - delCastilla} de fuera que han jugado con nosotros` : " con licencia del Castilla"}
-                    {` · ${conMinutos} han jugado al menos un minuto o salen en Valoraciones (titular o con nota) aunque no lleven minutos anotados`}
+                    {` · ${conMinutos} han jugado al menos un minuto o salen en Valoraciones (titular o con nota) aunque no lleven minutos anotados${filtrados.length > delCastilla && delCastilla > 0 ? ` (${conMinutosCastilla} de ellos con licencia del Castilla: la cifra de la tarjeta)` : ""}`}
                     {conEdad.length > 0 && conEdad.length < filtrados.length ? ` · Wyscout publica la edad de ${conEdad.length}` : ""}
                     {" · los avisos son sólo de licencia del Castilla."}
                   </p>
@@ -918,18 +925,24 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
             {poco > 0 && <span>{poco} por debajo del 25 %</span>}
           </p>
           {poco > 0 && (
-            <p className="mt-2 rounded-lg border px-2.5 py-1.5 text-xs leading-snug text-white/80" style={{ borderColor: `color-mix(in srgb, ${PEOR} 45%, transparent)` }}>
-              <span className="font-semibold">Juegan menos del 25 %:</span>{" "}
+            /* 27/11/2026 (marketing, ronda 11): los que juegan menos del 25 %, en
+               chips que abren su ficha, sin frase encima. */
+            <ul aria-label="Juegan menos del 25 %" className="mt-2 flex min-w-0 flex-wrap gap-1.5">
               {conMinutos
                 .filter((j) => (j.pct ?? 0) < 25)
-                .map((j, i) => (
-                  <span key={j.ficha.id}>
-                    {i > 0 && ", "}
-                    <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}>{nombreDe(j)}</NombreJugador>
-                    <span className="tabular-nums text-white/55"> {Math.min(100, j.pct ?? 0)} %</span>
-                  </span>
+                .map((j) => (
+                  <li key={j.ficha.id} className="min-w-0">
+                    <NombreJugador
+                      jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}
+                      className="inline-flex min-h-[28px] max-w-full items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-2.5 py-0.5 text-xs text-white/85"
+                    >
+                      <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: PEOR }} />
+                      <span className="min-w-0 break-words">{nombreDe(j)}</span>
+                      <span className="tabular-nums text-white/55">{Math.min(100, j.pct ?? 0)} %</span>
+                    </NombreJugador>
+                  </li>
                 ))}
-            </p>
+            </ul>
           )}
         </div>
       )}
@@ -964,6 +977,8 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                 <h3 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">{p.label}</h3>
                 <span className="text-[11px] text-white/50">
                   {suyos.length} {suyos.length === 1 ? "jugador" : "jugadores"} · {fijos} con la mitad de los minutos o más
+                  {/* 27/11/2026 (marketing, ronda 11): la base de los porteros, dicha. */}
+                  {p.key === "POR" ? ` · % sobre los mismos ${suyos[0]?.posibles ?? 0}′ que el resto del grupo` : ""}
                 </span>
               </div>
 
@@ -979,6 +994,7 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                         {/* 07/11/2026: en el móvil la etiqueta del equipo
                             (JUV A, RMC) va debajo y el nombre no se corta.
                             16/11/2026: el nombre abre su ficha en Plantilla. */}
+                        <div className="min-w-0">
                         <span className="flex min-w-0 flex-col items-start text-sm leading-tight text-white/85 sm:flex-row sm:items-center">
                           <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }} className="max-w-full break-words sm:truncate">
                             {nombreDe(j)}
@@ -987,6 +1003,14 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
                             <DeFuera jugador={j} />
                           </span>
                         </span>
+                        {/* 27/11/2026 (marketing, ronda 11): su Comparativa y sus vídeos, con él ya elegido. */}
+                        <EnlacesJugador
+                          compacto
+                          className="mt-0.5"
+                          jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}
+                          destinos={["comparativa", "videos"]}
+                        />
+                        </div>
 
                       <button
                         type="button"
@@ -1054,6 +1078,15 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
 
 const ORDEN_AVISOS: TipoAviso[] = ["sinJugar", "pocos", "amarillas", "carga", "nota"];
 
+/* 27/11/2026 (ronda 11): el motivo de cada aviso en dos o tres palabras, para la fila por jugador. */
+const MOTIVO_CORTO: Record<TipoAviso, string> = {
+  pocos: "juega poco",
+  sinJugar: "3 sin jugar",
+  carga: "carga alta",
+  amarillas: "a una amarilla",
+  nota: "nota a la baja",
+};
+
 /* 16/11/2026 (jueces): el «qué hacer» de cada aviso, a un toque y con el
    jugador ya elegido. */
 const ACCION_AVISO: Record<TipoAviso, { destino: DestinoJugador; label: string }> = {
@@ -1080,10 +1113,13 @@ function BloqueAvisos({
   const visibles = avisos.filter((a) => !(a.tipo === "sinJugar" && juegaPoco.has(a.jugador.ficha.id)));
 
   /* Semáforo: un punto por jugador, naranja con dos avisos o más, oro con uno. */
-  const porJugador = new Map<string, { jugador: Jugador; n: number }>();
+  /* 27/11/2026 (marketing, ronda 11): una fila por jugador con todos sus motivos. */
+  const porJugador = new Map<string, { jugador: Jugador; n: number; motivos: string[] }>();
   for (const a of visibles) {
     const previo = porJugador.get(a.jugador.ficha.id);
-    porJugador.set(a.jugador.ficha.id, { jugador: a.jugador, n: (previo?.n ?? 0) + 1 + (a.tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id) ? 1 : 0) });
+    const conSinJugar = a.tipo === "pocos" && tambienSinJugar.has(a.jugador.ficha.id);
+    const motivos = [...(previo?.motivos ?? []), MOTIVO_CORTO[a.tipo], ...(conSinJugar ? [MOTIVO_CORTO.sinJugar] : [])];
+    porJugador.set(a.jugador.ficha.id, { jugador: a.jugador, n: (previo?.n ?? 0) + 1 + (conSinJugar ? 1 : 0), motivos });
   }
   const semaforo = [...porJugador.values()].sort((a, b) => b.n - a.n || nombreDe(a.jugador).localeCompare(nombreDe(b.jugador), "es"));
 
@@ -1107,7 +1143,7 @@ function BloqueAvisos({
       ) : (
         <div className="space-y-4">
           <ul aria-label="Semáforo de avisos por jugador" className="flex flex-wrap gap-1.5">
-            {semaforo.map(({ jugador, n }) => (
+            {semaforo.map(({ jugador, n, motivos }) => (
               <li key={jugador.ficha.id}>
                 <NombreJugador
                   jugador={{ id: jugador.ficha.id, nombre: jugador.ficha.nombre }}
@@ -1115,7 +1151,7 @@ function BloqueAvisos({
                 >
                   <span aria-hidden className="h-2.5 w-2.5 rounded-full" style={{ background: n >= 2 ? PEOR : ORO }} />
                   {nombreDe(jugador)}
-                  <span className="text-white/50">{n === 1 ? "1 aviso" : `${n} avisos`}</span>
+                  <span className="text-white/55">{motivos.join(" · ")}</span>
                 </NombreJugador>
               </li>
             ))}
@@ -1155,7 +1191,10 @@ function BloqueAvisos({
                         jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }}
                         /* 20/11/2026 (ronda 5, análisis): también su Comparativa, ya elegido. */
                         /* 27/11/2026 (marketing, ronda 10): «Vídeos» en todos los avisos, no sólo en la nota. */
-                        destinos={accion.destino === "videos" ? ["ficha", "videos", "comparativa"] : ["ficha", accion.destino, "videos", "comparativa"]}
+                        /* 27/11/2026 (análisis y marketing, ronda 11): en todas las filas,
+                           Valoraciones y Comparativa; a la vista, Ficha y lo que hay que hacer, el resto en «Más». */
+                        destinos={["ficha", accion.destino]}
+                        mas={(["valoraciones", "comparativa", "videos"] as DestinoJugador[]).filter((d) => d !== accion.destino)}
                       />
                     </li>
                   ))}
@@ -1204,7 +1243,8 @@ function BloqueEdad({ jugadores }: { jugadores: Jugador[] }) {
 
   return (
     <Bloque
-      pregunta="¿Qué edad tiene quien juega?"
+      /* 27/11/2026 (marketing, ronda 11): la base en el título. */
+      pregunta={`¿Qué edad tiene quien juega? · ${conEdad.length} de ${jugadores.length} con edad`}
       base={`Edad de Wyscout de los ${conEdad.length} con fila${conEdad.length < jugadores.length ? ` (de ${jugadores.length})` : ""}. La barra es su parte de los minutos jugados.`}
     >
       {edadMedia !== null && (
@@ -1237,7 +1277,7 @@ function BloqueContratos({ jugadores }: { jugadores: Jugador[] }) {
 
   return (
     <Bloque
-      pregunta="¿Cuándo acaban los contratos?"
+      pregunta={`¿Cuándo acaban los contratos? · ${conFecha.length} de ${jugadores.length} con fecha`}
       base={`Fecha de fin de contrato que publica Wyscout, de ${conFecha.length} de ${jugadores.length} jugadores.`}
     >
       <ul className="space-y-2">

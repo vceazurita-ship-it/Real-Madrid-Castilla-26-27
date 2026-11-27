@@ -433,50 +433,48 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
         | está en su tarjeta.
         */
         <div className="rounded-2xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-4 py-3.5 text-[14px] leading-relaxed text-white/80">
-          <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px] font-bold text-white/90">
-            <BellOff className="h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
-            {/* 20/11/2026 (ronda 5, análisis): el estado claro, arriba: con todo apagado no sale ningún correo. */}
-            {/* 27/11/2026 (marketing, ronda 9): el titular es la acción («3 recordatorios de la J15 silenciados: hay que reactivarlos»), y «hoy no sale ningún correo» va detrás. */}
-            {pantalla && nSilenciadas > 0
-              ? `${nSilenciadas === 1 ? "1 recordatorio" : `${nSilenciadas} recordatorios`}${jornadaSilenciadas ? ` de la ${jornadaSilenciadas}` : ""} ${nSilenciadas === 1 ? "está silenciado" : "están silenciados"}`
-              : pantalla && ahora > 0
-                ? `Hoy, ${new Date(ahora).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "")}: no sale ningún correo`
-                : "No sale ningún correo"}
-            <span className="font-semibold text-white/80">
-              {" · "}
+          {/*
+            27/11/2026 (marketing, ronda 11): una sola frase, sin el «·» que
+            quedaba colgando al partir la línea: «3 correos de la J15
+            silenciados · hoy no sale ninguno». El texto fluye (no es flex) y
+            el punto va pegado con un espacio duro.
+          */}
+          <p className="flex items-start gap-2 text-[15px] font-bold text-white/90">
+            <BellOff className="mt-0.5 h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
+            <span className="min-w-0">
               {pantalla && nSilenciadas > 0
-                ? "hoy no sale ningún correo"
-                : nSilenciadas > 0
-                  ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
-                  : nCaducadas === 1
-                    ? "1 caducada"
-                    : `${nCaducadas} caducadas`}
+                ? `${nSilenciadas === 1 ? "1 correo" : `${nSilenciadas} correos`}${jornadaSilenciadas ? ` de la ${jornadaSilenciadas}` : ""} ${nSilenciadas === 1 ? "silenciado" : "silenciados"}`
+                : pantalla && ahora > 0
+                  ? `Hoy, ${new Date(ahora).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "")}: no sale ningún correo`
+                  : "No sale ningún correo"}
+              <span className="font-semibold text-white/80">
+                {" · "}
+                {pantalla && nSilenciadas > 0
+                  ? "hoy no sale ninguno"
+                  : nSilenciadas > 0
+                    ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
+                    : nCaducadas === 1
+                      ? "1 caducada"
+                      : `${nCaducadas} caducadas`}
+              </span>
             </span>
           </p>
           <p className="mt-1">
             {nSilenciadas > 0 ? (
               <>
+                {/* 27/11/2026 (fútbol, ronda 11): «3 correos a 4 personas» va sólo dentro del botón. */}
                 {primeraAlReactivar ? (
                   <>
-                    La primera saldría{" "}
-                    <b className="font-semibold text-white/90">{cuandoRelativo(primeraAlReactivar.cuando, ahora)}</b>.{" "}
+                    Si las reactivas, la primera sale{" "}
+                    <b className="font-semibold text-white/90">{cuandoRelativo(primeraAlReactivar.cuando, ahora)}</b>.
                   </>
                 ) : null}
-                Si las reactivas saldrían{" "}
-                <b className="font-semibold text-white/90">
-                  {nSilenciadas === 1 ? "1 correo" : `${nSilenciadas} correos`}
-                </b>{" "}
-                a{" "}
-                <b className="font-semibold text-white/90">
-                  {personasAlReactivar === 1 ? "1 persona" : `${personasAlReactivar} personas`}
-                </b>
-                .
               </>
             ) : (
               "Necesitan fecha nueva para volver a salir."
             )}
             {nCaducadas > 0 && nSilenciadas > 0 ? (
-              <span>{nCaducadas === 1 ? " 1 caducada, plegada al pie." : ` ${nCaducadas} caducadas, plegadas al pie.`}</span>
+              <span>{nCaducadas === 1 ? " 1 caducada, al pie." : ` ${nCaducadas} caducadas, al pie.`}</span>
             ) : null}
           </p>
 
@@ -515,12 +513,7 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
               Nueva tarea con alerta
             </button>
           ) : null}
-          {pantalla ? (
-            <Link href="/" className="inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
-              Tu día, en la portada
-              <ChevronRight className="h-4 w-4" aria-hidden />
-            </Link>
-          ) : null}
+          {/* 27/11/2026 (fútbol, ronda 11): fuera «Tu día, en la portada»; ya está bajo el título de la página. */}
           </div>
         </div>
       )}
@@ -878,6 +871,15 @@ function SemanaDeAlertas({
     return d;
   };
 
+  /* Los días agrupados: cada día con avisos (y el del partido) va solo; los vacíos seguidos, juntos. */
+  const tramos = semana.reduce<{ vacios: boolean; dias: number[] }[]>((acc, d) => {
+    const vacio = d !== 0 && !delPartido.some((a) => diasDe(a) === d);
+    const ultimo = acc[acc.length - 1];
+    if (vacio && ultimo?.vacios) ultimo.dias.push(d);
+    else acc.push({ vacios: vacio, dias: [d] });
+    return acc;
+  }, []);
+
   /* Lleva a la tarjeta, abriendo su grupo plegado si hace falta. */
   const abrir = (a: Alerta) => {
     const el = document.getElementById(`alerta-${a.id}`);
@@ -912,11 +914,30 @@ function SemanaDeAlertas({
       </p>
       {/* 20/11/2026 (ronda 7, análisis y marketing): los días con avisos, el doble de anchos (las horas se partían, «06:1 / 5»). */}
       <ol
-        className="grid grid-cols-1 gap-1.5 @3xl:[grid-template-columns:var(--columnas)]"
+        className="grid grid-cols-1 items-start gap-1.5 @3xl:[grid-template-columns:var(--columnas)]"
         /* 27/11/2026 (jueces): los días sin alertas, franja estrecha con la fecha; el ancho, para los que tienen. */
-        style={{ "--columnas": semana.map((d) => (delPartido.some((a) => diasDe(a) === d) || d === 0 ? "minmax(0,2.4fr)" : "minmax(0,0.6fr)")).join(" ") } as React.CSSProperties}
+        /* 27/11/2026 (fútbol, ronda 11): y los días seguidos sin avisos, juntos en UNA franja baja («MD-6 a MD-3»), sin estirarse al alto del día con avisos. */
+        style={{ "--columnas": tramos.map((t) => (t.vacios ? "minmax(0,0.9fr)" : "minmax(0,2.4fr)")).join(" ") } as React.CSSProperties}
       >
-        {semana.map((d) => {
+        {tramos.map((t) => {
+          if (t.vacios) {
+            const desde = t.dias[0];
+            const hasta = t.dias[t.dias.length - 1];
+            const f1 = dia(fechaDe(desde));
+            const f2 = dia(fechaDe(hasta));
+            return (
+              <li key={`v${desde}`} className="hidden min-w-0 rounded-2xl border border-dashed border-white/[0.12] px-2.5 py-2 @3xl:block">
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-white/55">
+                  {desde === hasta ? `MD-${desde}` : `MD-${desde} a MD-${hasta}`}
+                </p>
+                {f1 ? (
+                  <p className="mt-0.5 text-[12px] leading-snug text-white/60">{desde === hasta ? f1 : `${f1} – ${f2}`}</p>
+                ) : null}
+                <p className="mt-0.5 text-[12px] text-white/55">sin avisos</p>
+              </li>
+            );
+          }
+          const d = t.dias[0];
           const del = delPartido
             .filter((a) => diasDe(a) === d)
             .sort((x, y) => (salida(x)?.getTime() ?? Infinity) - (salida(y)?.getTime() ?? Infinity));
@@ -960,12 +981,13 @@ function SemanaDeAlertas({
                         {(() => {
                           const d = listaDestino(a.destinatarios, agenda);
                           /* 27/11/2026 (marketing, ronda 9): las iniciales no se entendían; el nombre de pila, y el completo al pasar o tocar. */
-                          const quienes = [...d.nombres.map((n) => n.split(/\s+/).filter(Boolean)[0] ?? ""), ...(d.externos ? [`+${d.externos}`] : [])];
+                          /* 27/11/2026 (marketing, ronda 11): «+1» no decía nada; «1 externo», y la letra a 12 px. */
+                          const quienes = [...d.nombres.map((n) => n.split(/\s+/).filter(Boolean)[0] ?? ""), ...(d.externos ? [d.externos === 1 ? "1 externo" : `${d.externos} externos`] : [])];
 
                           return quienes.length ? (
                             <span className="mt-0.5 flex flex-wrap gap-1" aria-label={`A ${[...d.nombres, d.externo].filter(Boolean).join(", ")}`}>
                               {quienes.map((q, i) => (
-                                <span key={i} className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-current px-1 text-[10.5px] font-bold opacity-80" title={d.nombres[i] ?? d.externo}>
+                                <span key={i} className="inline-flex h-5 min-w-5 items-center justify-center rounded-full border border-current px-1.5 text-[12px] font-semibold opacity-85" title={d.nombres[i] ?? d.externo}>
                                   {q}
                                 </span>
                               ))}

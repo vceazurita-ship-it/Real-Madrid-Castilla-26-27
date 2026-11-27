@@ -20,7 +20,7 @@ import {
   YAxis,
 } from "recharts";
 import { Database, FileDown, LayoutDashboard, Map as MapaIcono, Workflow, ListOrdered } from "lucide-react";
-import { OptaBandaDia } from "@/components/abp/OptaDia";
+import { NotaBasesBanda, OptaBandaDia } from "@/components/abp/OptaDia";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
@@ -349,8 +349,8 @@ const mayuscula = (texto: string) => texto.charAt(0).toUpperCase() + texto.slice
 | delante en palabras y el número de la hoja entre paréntesis.
 */
 const LUGAR_ZONA: Record<Mode, Record<string, string>> = {
-  offensive: { "1": "nuestro tercio", "2": "el medio", "3": "su tercio" },
-  defensive: { "1": "su tercio", "2": "el medio", "3": "nuestro tercio" },
+  offensive: { "1": "nuestro tercio", "2": "el medio", "3": "el tercio del rival" },
+  defensive: { "1": "el tercio del rival", "2": "el medio", "3": "nuestro tercio" },
 };
 
 /* Cómo se nombra un valor dentro de una frase. */
@@ -432,7 +432,8 @@ function extremo(grupos: Grupo[], tasa: (g: Grupo) => number, mayor: boolean) {
 const retencionDe = (g: Grupo) => g.favorables / g.n;
 const produccionTasa = (g: Grupo) => g.produccion / g.n;
 
-type ConclusionesBanda = { titular?: string; items: string[] };
+/* 27/11/2026 (jueces, ronda 11): `zona`, el número de la hoja de la zona que cita la conclusión, para marcarla en el mapa. */
+type ConclusionesBanda = { titular?: string; items: string[]; zona?: number | null };
 
 /*
 | 20/11/2026 (jueces, ronda 4): el objetivo de «Qué entrenamos» salía igual
@@ -442,7 +443,8 @@ type ConclusionesBanda = { titular?: string; items: string[] };
 | alcanza en uno de cada tres partidos (percentil 67; en defensa, el 33). Si
 | no se separa al menos 3 puntos de hoy en el buen sentido, no vale de meta.
 */
-type MetaBanda = { pct: number; logrados: number; partidos: number };
+/* 27/11/2026 (jueces, ronda 11): `minimo`, los saques que tiene que tener un partido para contar; con menos de 4 la meta es tendencia. */
+type MetaBanda = { pct: number; logrados: number; partidos: number; minimo: number };
 
 function partidosDe(filas: RecordRow[]) {
   const mapa = new Map<string, { jornada: JornadaAbp; filas: RecordRow[] }>();
@@ -463,9 +465,10 @@ function metaDePartidos(
   exito: (row: RecordRow) => boolean,
   mejorAlto: boolean,
   hoyPct: number,
+  minimo = 4,
 ): MetaBanda | null {
   const tasas = partidosDe(filas)
-    .filter((p) => p.filas.length >= 2)
+    .filter((p) => p.filas.length >= minimo)
     .map((p) => (p.filas.filter(exito).length / p.filas.length) * 100)
     .sort((a, b) => a - b);
 
@@ -483,12 +486,18 @@ function metaDePartidos(
     pct,
     logrados: tasas.filter((t) => (mejorAlto ? t >= pct : t <= pct)).length,
     partidos: tasas.length,
+    minimo,
   };
+}
+
+/** 27/11/2026 (jueces, ronda 11): la meta con partidos de 4 saques o más; si no hay bastantes, con 2 y dicha como tendencia. */
+function metaFirmeOTendencia(filas: RecordRow[], exito: (row: RecordRow) => boolean, mejorAlto: boolean, hoyPct: number): MetaBanda | null {
+  return metaDePartidos(filas, exito, mejorAlto, hoyPct, 4) ?? metaDePartidos(filas, exito, mejorAlto, hoyPct, 2);
 }
 
 /* 27/11/2026 (jueces, ronda 10): el objetivo dice de dónde sale en la misma frase: el nivel de nuestro mejor tercio de partidos. */
 const textoMeta = (meta: MetaBanda, que = "") =>
-  `${meta.pct} %${que ? ` ${que}` : ""}, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo ${meta.logrados === 1 ? "logramos en 1" : `logramos en ${meta.logrados}`} de ${meta.partidos} partidos con 2 saques o más)`;
+  `${meta.pct} %${que ? ` ${que}` : ""}, el nivel de nuestros mejores partidos (uno de cada tres; lo ${meta.logrados === 1 ? "logramos en 1" : `logramos en ${meta.logrados}`} de ${meta.partidos} partidos con ${meta.minimo} saques o más${meta.minimo < 4 ? "; tendencia, pocos saques por partido" : ""})`;
 
 /**
  * Las conclusiones de la pantalla de banda.
@@ -514,7 +523,6 @@ function conclusionesDe(
   if (!rows.length) return { items: [] };
 
   const cuando = conJornada ? "en esta jornada" : "en la temporada";
-  const Cuando = conJornada ? "En esta jornada" : "En la temporada";
 
   const ofensivo = mode === "offensive";
   /* Con menos de MUESTRA_FIRME saques en el grupo, la línea lo dice al final. */
@@ -574,6 +582,10 @@ function conclusionesDe(
     ...gruposDe(rows, "Perfil", mode),
   ];
   const envios = gruposDe(rows, "Tipo_Envio", mode);
+  /* 27/11/2026 (jueces, ronda 11): la zona donde menos recuperamos (la del titular defensivo): de ella salen el objetivo y la marca del mapa. */
+  let zonaDebilDef: Grupo | null = null;
+  /* La tendencia de los 3 últimos partidos, como segunda línea de la conclusión defensiva cuando no es el titular. */
+  let lineaTendencia = "";
 
   if (ofensivo) {
     const productivas = zonas.filter((g) => g.produccion > 0);
@@ -603,7 +615,9 @@ function conclusionesDe(
     if (zonasSaque.length >= 2) {
       const peorRobo = extremo(zonasSaque, retencionDe, false);
       if (retencionDe(peorRobo) < favorables / total) {
-        titular = `${mayuscula(nombre(peorRobo.key, peorRobo.valor))}: sólo recuperamos ${peorRobo.favorables} de ${peorRobo.n} (${pctTexto(peorRobo.favorables, peorRobo.n)}), frente al ${pctTexto(favorables, total)} de todos sus saques → salto al receptor y vigilancia a la espalda del lateral${
+        zonaDebilDef = peorRobo;
+        /* 27/11/2026 (jueces, ronda 11): la base de la zona, dicha («una zona de 49 saques»). */
+        titular = `${mayuscula(nombre(peorRobo.key, peorRobo.valor))}, ${peorRobo.n} saques del rival: sólo recuperamos ${peorRobo.favorables} (${pctTexto(peorRobo.favorables, peorRobo.n)}), frente al ${pctTexto(favorables, total)} de todos sus saques → salto al receptor y vigilancia a la espalda del lateral${
           peorRobo.n < MUESTRA_BANDA ? " · tendencia" : ""
         }`;
       }
@@ -764,19 +778,20 @@ function conclusionesDe(
     const mismoAntes = anteriores ? gruposDe(anteriores, debil.key, mode).find((g) => g.valor === debil!.valor) : undefined;
     const pctAntes = mismoAntes && mismoAntes.n ? (mismoAntes.favorables / mismoAntes.n) * 100 : null;
     const enDebil = (row: RecordRow) => valorDe(row, debil!.key) === debil!.valor;
-    const meta = metaDePartidos(serieMeta.filter(enDebil), filaFavorable, true, hoyDebil);
+    const meta = metaFirmeOTendencia(serieMeta.filter(enDebil), filaFavorable, true, hoyDebil);
     const camino = Math.round((hoyDebil + (favorables / total) * 100) / 2);
     const objetivoMismo =
       pctAntes !== null && pctAntes >= hoyDebil + 3
-        ? ` · objetivo: ${pctUno(pctAntes)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes!.favorables} de ${mismoAntes!.n})`
+        ? `${pctUno(pctAntes)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes!.favorables} de ${mismoAntes!.n})`
         : meta
-          ? ` · objetivo: ${textoMeta(meta, "conservados ahí")}`
+          ? textoMeta(meta, "conservados ahí")
           : camino >= hoyDebil + 3
-            ? ` · objetivo: ${camino} % conservados ahí, la mitad del camino hasta el ${pctTexto(favorables, total)} de todos los saques`
+            ? `${camino} % conservados ahí, la mitad del camino hasta el ${pctTexto(favorables, total)} de todos los saques`
             : "";
 
+    /* 27/11/2026 (jueces, ronda 11): en tres líneas, como en defensa: la tarea, qué se cuenta y el objetivo con su base. */
     frases.push(
-      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}. ${Cuando} conservamos ${debil.favorables} de ${debil.n} en ${nombre(debil.key, debil.valor)} (${pctTexto(debil.favorables, debil.n)}); se cuenta el balón conservado${objetivoMismo}.`,
+      `Qué entrenamos${debil.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: ${tarea}.\nSe cuenta: el balón conservado en ${nombre(debil.key, debil.valor)}; ${cuando}, ${debil.favorables} de ${debil.n} (${pctTexto(debil.favorables, debil.n)}).${objetivoMismo ? `\nObjetivo: ${objetivoMismo}.` : ""}`,
     );
   }
 
@@ -836,6 +851,9 @@ function conclusionesDe(
         titular = `Va a peor: en los 3 últimos partidos le llegan a último tercio, ocasión o gol ${ultimos.filter(filaProduce).length} de ${ultimos.length} saques (${Math.round(pu)} %); antes, ${Math.round(pa)} %${
           ultimos.length < MUESTRA_BANDA ? " · tendencia" : ""
         }`;
+      } else if (ultimos.length && antes.length && Math.abs(pu - pa) >= 5) {
+        /* 27/11/2026 (jueces, ronda 11): la tendencia de la semana no se queda enterrada en «¿Va a mejor?»: segunda línea de la conclusión. */
+        lineaTendencia = `Tendencia ${pu > pa ? "a peor" : "a mejor"} en los 3 últimos partidos: le llegan a último tercio, ocasión o gol ${ultimos.filter(filaProduce).length} de ${ultimos.length} (${Math.round(pu)} %), frente al ${Math.round(pa)} % de antes${pu > pa ? "; vigilarlo esta semana" : ""}.`;
       }
     }
 
@@ -845,25 +863,55 @@ function conclusionesDe(
     | se cuenta y el objetivo, la media de las jornadas anteriores.
     */
     const mediaLlegan = anteriores && anteriores.length ? (resumenDe(anteriores, mode).produccion / anteriores.length) * 100 : null;
-    if (resumen.produccion > 0) {
+    /*
+    | 27/11/2026 (jueces, ronda 11, fútbol): la carencia del titular es lo que
+    | recuperamos en una zona; el objetivo medía otra cosa (lo que le llega en
+    | global). Ahora mide lo mismo que la carencia —recuperados en esa zona, en
+    | %— con el nivel de nuestro mejor tercio de partidos en esa cifra. Y en
+    | tres líneas: la tarea, qué se cuenta y el objetivo con su base.
+    */
+    const debilDef = zonaDebilDef as Grupo | null;
+    if (debilDef) {
+      const lugar = nombre(debilDef.key, debilDef.valor);
+      const hoyZona = (debilDef.favorables / debilDef.n) * 100;
+      const enZona = (row: RecordRow) => valorDe(row, debilDef.key) === debilDef.valor;
+      const metaZona = metaFirmeOTendencia(serieMeta.filter(enZona), filaFavorable, true, hoyZona);
+      const camino = Math.round((hoyZona + (favorables / total) * 100) / 2);
+      const objetivo = metaZona
+        ? `al menos ${textoMeta(metaZona, `recuperados en ${lugar}`)}`
+        : camino >= hoyZona + 3
+          ? `al menos ${camino} % recuperados en ${lugar}, la mitad del camino hasta el ${pctTexto(favorables, total)} de todos sus saques`
+          : "";
+      frases.push(
+        `Qué entrenamos${debilDef.n < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral, en ${lugar}.\nSe cuenta: los saques del rival en ${lugar} que recuperamos; ${cuando}, ${debilDef.favorables} de ${debilDef.n} (${pctTexto(debilDef.favorables, debilDef.n)}).${objetivo ? `\nObjetivo: ${objetivo}.` : ""}`,
+      );
+    } else if (resumen.produccion > 0) {
       const hoyLlegan = (resumen.produccion / total) * 100;
       const metaLlegan = metaDePartidos(serieMeta, filaProduce, false, hoyLlegan);
       const objetivoLlegan =
         mediaLlegan !== null && mediaLlegan <= hoyLlegan - 3
-          ? ` · objetivo: como mucho ${pctUno(mediaLlegan)} (${fuenteMedia})`
+          ? `como mucho ${pctUno(mediaLlegan)} (${fuenteMedia})`
           : metaLlegan
-            ? ` · objetivo: como mucho ${textoMeta(metaLlegan)}`
+            ? `como mucho ${textoMeta(metaLlegan)}`
             : "";
       frases.push(
-        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral. ${Cuando} le llegan ${resumen.produccion} de ${total} a último tercio, ocasión o gol (${pctTexto(resumen.produccion, total)}); se cuentan los saques del rival que llegan a último tercio o más${objetivoLlegan}.`,
+        `Qué entrenamos${total < MUESTRA_BANDA ? " (tendencia que vigilar)" : ""}: salto al receptor del saque rival con el más cercano y vigilancia a la espalda del lateral.\nSe cuenta: los saques del rival que llegan a último tercio o más; ${cuando}, ${resumen.produccion} de ${total} (${pctTexto(resumen.produccion, total)}).${objetivoLlegan ? `\nObjetivo: ${objetivoLlegan}.` : ""}`,
       );
     }
   }
 
   /* «Qué entrenamos» nunca se queda fuera del recorte; el recuento abre las lecturas. */
   const ordenQue = frases.find((f) => f.startsWith("Qué entrenamos"));
-  const restoFrases = [recuento, ...frases.filter((f) => f !== ordenQue)];
-  return { titular, items: ordenQue ? [...restoFrases.slice(0, 5), ordenQue] : restoFrases.slice(0, 6) };
+  /* 27/11/2026 (jueces, ronda 11): la tendencia de la semana, la primera de las lecturas (a la vista). */
+  const restoFrases = [...(lineaTendencia ? [lineaTendencia] : []), recuento, ...frases.filter((f) => f !== ordenQue)];
+  const zonaConclusion = ofensivo
+    ? debil && debil.key === "Zona_Saque"
+      ? Number(/(\d)/.exec(debil.valor)?.[1] ?? 0) || null
+      : null
+    : zonaDebilDef
+      ? Number(/(\d)/.exec((zonaDebilDef as Grupo).valor)?.[1] ?? 0) || null
+      : null;
+  return { titular, zona: zonaConclusion, items: ordenQue ? [...restoFrases.slice(0, 5), ordenQue] : restoFrases.slice(0, 6) };
 }
 
 /*
@@ -1442,7 +1490,10 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     /* 17/11/2026: el respaldo de Opta; sin él, la página carga igual. */
     const opta = traeRespaldoOpta<FilaHojaOpta>(mode === "offensive" ? "banda-favor" : "banda-contra");
 
-    Promise.all([traeCsv(csvUrl, { forzar: intento > 0 }), opta])
+    /* 27/11/2026: Opta espera como mucho 8 s; sin él, la página carga con la hoja (antes, si no contestaba, el esqueleto se quedaba para siempre). */
+    const optaConTope = Promise.race([opta, new Promise<Awaited<typeof opta>>((resolver) => setTimeout(() => resolver({ partidos: [], filas: [] } as Awaited<typeof opta>), 8000))]);
+
+    Promise.all([traeCsv(csvUrl, { forzar: intento > 0 }), optaConTope])
       .then(([csv, respaldo]) => {
         const leida = Papa.parse<RecordRow>(csv, { header: true, skipEmptyLines: true });
         /* Detrás de la hoja, los saques de Opta de las jornadas que aún no tiene (lo etiquetado manda). */
@@ -2034,7 +2085,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
       jornada: parseJornada(read(row, "JORNADA")),
       cat: res.owner === sujeto && res.rank >= 3 ? "prod" : res.owner === sujeto && res.rank > 0 ? "conserva" : res.owner !== "neutro" && res.owner !== sujeto ? "otro" : "nada",
       exito: isOffensive ? esFavorable(res) : esProduccion(res, "defensive"),
-      zona: zona ? (zona === 2 ? "el medio" : (zona === 1) === isOffensive ? "nuestro tercio" : "su tercio") : "",
+      zona: zona ? (zona === 2 ? "el medio" : (zona === 1) === isOffensive ? "nuestro tercio" : "el tercio del rival") : "",
     };
   });
   const categoriasVisual: CategoriaVisual[] =
@@ -2146,6 +2197,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                           </>
                         )}
                       </p>
+                      {/* 27/11/2026 (jueces, ronda 11): la hoja y Opta, dichas aquí arriba en una línea (antes sólo al final). */}
+                      {!filters.JORNADA ? <NotaBasesBanda lado={isOffensive ? "favor" : "contra"} hoja={saquesHoja} /> : null}
                       {!filters.JORNADA && jornadaPorDefecto ? (
                         <button
                           type="button"
@@ -2347,7 +2400,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                       fuente={`Hoja de saque de banda ${isOffensive ? "ofensivo" : "defensivo"} · con los filtros de arriba`}
                       mapa={{
                         pregunta: isOffensive ? "¿Dónde sacamos?" : "¿Dónde saca el rival?",
-                        nodo: <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />,
+                        nodo: <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} zonaConclusion={conclusiones.zona ?? null} />,
                       }}
                       comparativa={
                         comparativa
@@ -2529,7 +2582,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                   })}
                 </div>
 
-                <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} />
+                <ThrowInField rows={filasCampo} mode={mode} filtros={filters} onFiltrar={alternar} zonaConclusion={conclusiones.zona ?? null} />
 
                 <div className="mb-7 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
                   {pie({

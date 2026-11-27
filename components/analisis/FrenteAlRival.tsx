@@ -152,6 +152,28 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
   const nNuestros = recorta(base.porEquipo.get(CASTILLA_OPTA) ?? [], periodo).length;
   const nSuyos = rivales.reduce((s, r) => s + recorta(base.porEquipo.get(r) ?? [], periodo).length, 0);
 
+  /*
+  | 27/11/2026 (jueces, ronda 11, ABP defensivo): «0,15 frente a 0,08» goles
+  | por partido no se lee. En balón parado, una cifra por partido menor que 1
+  | (goles, tiros de falta) se da en total: «2 en 13». Sólo en ABP: faltas,
+  | robos y pérdidas siguen igual.
+  */
+  const enTotales = area === "abp-of" || area === "abp-def";
+  const cifraDe = (f: FilaFrente, lado: "nuestro" | "rival") => {
+    const v = lado === "nuestro" ? f.nuestro : f.rival;
+    const n = lado === "nuestro" ? nNuestros : nSuyos;
+    return enTotales && f.m.modo === "pp" && v != null && v < 1 && n > 0 ? `${Math.round(v * n)} en ${n}` : textoFrente(f.m, v);
+  };
+  /*
+  | 27/11/2026 (jueces, ronda 11): Castilla y el rival con las mismas cifras
+  | (5,2 / 1,2 / 2,2) parecían copiadas. Comprobado: cada uno sale de sus
+  | propios partidos y coinciden de verdad. Se dice.
+  */
+  const empatadas = rivales.length === 1 ? filas.filter((f) => f.nuestro != null && f.rival != null && cifraDe(f, "nuestro") === cifraDe(f, "rival")) : [];
+  const notaEmpate = empatadas.length
+    ? `${empatadas.length === 1 ? "La cifra igual" : "Las cifras iguales"} (${empatadas.map((f) => f.m.nombre.toLowerCase()).join(", ")}) no ${empatadas.length === 1 ? "es una copia" : "son una copia"}: cada equipo sale de sus propios partidos y, redondeado, ${empatadas.length === 1 ? "coincide" : "coinciden"}.`
+    : "";
+
   /* La diferencia más grande, medida en percentil para comparar cifras distintas. */
   const brecha = (f: FilaFrente) => (f.pNuestro ?? 50) - (f.pRival ?? 50);
   const masNuestra = [...ganamos].sort((a, b) => brecha(b) - brecha(a))[0];
@@ -163,11 +185,14 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
       ? `Castilla frente a ${nombreRival}`
       : juzgadas.length === 1
         ? /* 27/11/2026 (jueces, ronda 10, saque de banda): con UNA sola cifra que se juzga, «0 de 1 cifras» con un marcador enorme no sostiene nada. */
-          `Sin diferencia clara con ${nombreRival}: sólo una cifra comparable, ${juzgadas[0].m.nombre.toLowerCase()} (${textoFrente(juzgadas[0].m, juzgadas[0].nuestro)} frente a ${textoFrente(juzgadas[0].m, juzgadas[0].rival)}; ${nNuestros} partidos del Castilla y ${nSuyos} ${rivales.length > 1 ? "de esos rivales" : "del rival"})`
+          /* 27/11/2026 (ronda 11): con el puesto de cada uno en el grupo, para que el bloque diga algo más que «sin diferencia». */
+          `${juzgadas[0].gana === "nuestro" ? `Mejor que ${nombreRival}` : juzgadas[0].gana === "rival" ? `Peor que ${nombreRival}` : `Igual que ${nombreRival}`} en la única cifra que se juzga, ${juzgadas[0].m.nombre.toLowerCase()}: ${cifraDe(juzgadas[0], "nuestro")} frente a ${cifraDe(juzgadas[0], "rival")}${
+            juzgadas[0].puestoNuestro != null && juzgadas[0].puestoRival != null ? ` (${juzgadas[0].puestoNuestro}.º y ${juzgadas[0].puestoRival}.º de los ${base.grupo.size} del grupo${juzgadas[0].m.mejorAlto === false ? "; aquí, menos es mejor" : ""})` : ""
+          }`
         : `${ganamos.length > pierde.length ? "Salimos mejor" : ganamos.length < pierde.length ? "Sale mejor el rival" : "Igualados"} frente a ${nombreRival}: ${ganamos.length} de ${juzgadas.length} cifras a nuestro favor`;
   const matiz = [
-    masNuestra ? `lo más claro, ${masNuestra.m.nombre.toLowerCase()} (${textoFrente(masNuestra.m, masNuestra.nuestro)} frente a ${textoFrente(masNuestra.m, masNuestra.rival)})` : "",
-    masSuya ? `donde más nos saca, ${masSuya.m.nombre.toLowerCase()} (${textoFrente(masSuya.m, masSuya.nuestro)} frente a ${textoFrente(masSuya.m, masSuya.rival)})` : "",
+    masNuestra ? `lo más claro, ${masNuestra.m.nombre.toLowerCase()} (${cifraDe(masNuestra, "nuestro")} frente a ${cifraDe(masNuestra, "rival")})` : "",
+    masSuya ? `donde más nos saca, ${masSuya.m.nombre.toLowerCase()} (${cifraDe(masSuya, "nuestro")} frente a ${cifraDe(masSuya, "rival")})` : "",
   ].filter(Boolean);
 
   const filaEnfocada = filas.find((f) => f.m.clave === enfocada) ?? null;
@@ -187,6 +212,7 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
         {titulo}
       </TituloConclusion>
       {matiz.length && juzgadas.length !== 1 ? <p className="-mt-1.5 mb-3 text-[13px] leading-snug text-white/70">{matiz.join("; ")}.</p> : null}
+      {notaEmpate ? <p className="-mt-1 mb-3 text-[12px] leading-snug text-white/60">{notaEmpate}</p> : null}
 
       {/* ---------------- con quién y cuándo ---------------- */}
       <div className="flex flex-wrap items-center gap-1.5">
@@ -281,11 +307,20 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
             )}
             <div className="min-w-0 space-y-2">
               {filas.map((f) => (
-                <FilaMariposa key={f.m.clave} f={f} rivales={rivales} nombreRival={nombreRival} activa={enfocada === f.m.clave} onEnfoca={() => setEnfocada((v) => (v === f.m.clave ? null : f.m.clave))} />
+                <FilaMariposa
+                  key={f.m.clave}
+                  f={f}
+                  rivales={rivales}
+                  nombreRival={nombreRival}
+                  activa={enfocada === f.m.clave}
+                  onEnfoca={() => setEnfocada((v) => (v === f.m.clave ? null : f.m.clave))}
+                  cifra={(lado) => cifraDe(f, lado)}
+                  sentido={enTotales}
+                />
               ))}
               <p className="pt-1 text-[11px] leading-snug text-white/45">
                 Barra llena: el que sale mejor en esa cifra; raya blanca: la media del grupo. En la tira, cada punto es un equipo del grupo y a la derecha está el mejor
-                (en lo que es estilo, el que más). Pincha una cifra para ver su evolución partido a partido.
+                (en lo que es estilo, el que más).{enTotales ? " ▲ más es mejor; ▼ menos es mejor. Lo que no llega a uno por partido va en total («2 en 13»: 2 en 13 partidos)." : ""} Pincha una cifra para ver su evolución partido a partido.
               </p>
             </div>
           </div>
@@ -469,7 +504,26 @@ function Radar({ filas, nombreRival, enfocada, onEnfoca }: { filas: FilaFrente[]
 
 const puesto = (p: number | null) => (p == null ? "" : `${p}.º`);
 
-function FilaMariposa({ f, rivales, nombreRival, activa, onEnfoca }: { f: FilaFrente; rivales: string[]; nombreRival: string; activa: boolean; onEnfoca: () => void }) {
+function FilaMariposa({
+  f,
+  rivales,
+  nombreRival,
+  activa,
+  onEnfoca,
+  cifra,
+  sentido = false,
+}: {
+  f: FilaFrente;
+  rivales: string[];
+  nombreRival: string;
+  activa: boolean;
+  onEnfoca: () => void;
+  /** 27/11/2026 (ronda 11): la cifra como se enseña («2 en 13» en ABP); sin ella, la de siempre. */
+  cifra?: (lado: "nuestro" | "rival") => string;
+  /** 27/11/2026 (ronda 11, ABP): el sentido de la cifra junto al nombre («menos es mejor»). */
+  sentido?: boolean;
+}) {
+  const texto = (lado: "nuestro" | "rival") => (cifra ? cifra(lado) : textoFrente(f.m, lado === "nuestro" ? f.nuestro : f.rival));
   const valores = f.grupo.map((g) => g.valor);
   const tope = Math.max(...valores, f.nuestro ?? 0, f.rival ?? 0, 1e-9);
   const ancho = (v: number | null) => `${v == null ? 0 : Math.max(2, (v / tope) * 100)}%`;
@@ -496,14 +550,16 @@ function FilaMariposa({ f, rivales, nombreRival, activa, onEnfoca }: { f: FilaFr
     >
       <div className="flex items-center justify-between gap-2">
         <span className="text-[15px] font-black tabular-nums" style={{ color: ORO, opacity: f.gana === "rival" ? 0.6 : 1 }}>
-          {textoFrente(f.m, f.nuestro)}
+          {texto("nuestro")}
         </span>
         <span className="min-w-0 truncate text-center text-[12px] font-semibold text-white/80">
           {f.m.nombre}
           {f.m.mejorAlto == null && <span className="ml-1 font-normal text-white/40">· estilo</span>}
+          {sentido && f.m.mejorAlto === false && <span className="ml-1 font-normal text-white/55" title="Menos es mejor">▼</span>}
+          {sentido && f.m.mejorAlto === true && <span className="ml-1 font-normal text-white/55" title="Más es mejor">▲</span>}
         </span>
         <span className="text-[15px] font-black tabular-nums" style={{ color: AZUL, opacity: f.gana === "nuestro" ? 0.6 : 1 }}>
-          {textoFrente(f.m, f.rival)}
+          {texto("rival")}
         </span>
       </div>
       {/* Mariposa */}
@@ -545,7 +601,7 @@ function FilaMariposa({ f, rivales, nombreRival, activa, onEnfoca }: { f: FilaFr
         </span>
       </div>
       <span className="sr-only">
-        Castilla {textoFrente(f.m, f.nuestro)}, {nombreRival} {textoFrente(f.m, f.rival)}, media del grupo {textoFrente(f.m, f.media)}.
+        Castilla {texto("nuestro")}, {nombreRival} {texto("rival")}, media del grupo {textoFrente(f.m, f.media)}.
       </span>
     </button>
   );

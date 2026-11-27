@@ -100,6 +100,8 @@ export function EnlacesJugador({
   compacto = false,
   soloIconos = false,
   rotuloAncho = false,
+  mas = [],
+  extraMas,
   className = "",
 }: {
   jugador: JugadorEnlazable;
@@ -109,6 +111,14 @@ export function EnlacesJugador({
   soloIconos?: boolean;
   /** Con `compacto`: el rótulo también se ve desde pantalla ancha (lg); en el móvil, sólo el icono. */
   rotuloAncho?: boolean;
+  /**
+   * 27/11/2026 (ronda 11 de expertos): destinos secundarios, plegados tras un
+   * chip «Más» que se abre en el sitio (sin capa flotante, para que no lo
+   * recorte una tarjeta estrecha). Sin `mas` ni `extraMas`, todo como antes.
+   */
+  mas?: DestinoJugador[];
+  /** Algo más dentro de «Más» (p. ej. un botón propio de la pantalla). */
+  extraMas?: ReactNode;
   className?: string;
 }) {
   if (!jugador.nombre && !jugador.id) return null;
@@ -146,6 +156,37 @@ export function EnlacesJugador({
           </Link>
         );
       })}
+      {(mas.length > 0 || extraMas) && (
+        <details className="group inline-block max-w-full align-middle" onClick={(e) => e.stopPropagation()}>
+          <summary
+            className="inline-flex min-h-[26px] cursor-pointer list-none items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-white/70 transition hover:text-white [&::-webkit-details-marker]:hidden"
+            aria-label={`Más accesos de ${jugador.nombre}`}
+          >
+            Más
+            <span aria-hidden className="transition group-open:rotate-180">▾</span>
+          </summary>
+          <span className="mt-1 flex w-full flex-wrap items-center gap-1">
+            {mas.map((d) => {
+              const r = ROTULO[d];
+
+              return (
+                <Link
+                  key={d}
+                  href={hrefJugador(d, jugador)}
+                  title={`${r.titulo} · ${jugador.nombre}`}
+                  aria-label={`${r.label} de ${jugador.nombre}`}
+                  onClick={(e) => e.stopPropagation()}
+                  className="inline-flex min-h-[26px] items-center gap-1 rounded-full border border-white/10 bg-white/[0.03] px-2 py-0.5 text-[11px] font-semibold text-white/70 transition hover:text-white"
+                >
+                  {r.icono}
+                  <span>{r.label}</span>
+                </Link>
+              );
+            })}
+            {extraMas}
+          </span>
+        </details>
+      )}
     </span>
   );
 }

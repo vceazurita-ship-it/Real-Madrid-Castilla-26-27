@@ -416,6 +416,20 @@ function idDeJugador(player: RivalPlayer) {
 }
 
 /*
+| El mismo once al defender (27/11/2026, ronda 11, fútbol): con tres centrales,
+| los dos carrileros bajan y el 3-4-3 es un 5-2-3 (el 3-5-2, un 5-3-2).
+| `null` si el dibujo no es de tres atrás.
+*/
+function dibujoAlDefender(dibujo: string): string | null {
+  const partes = dibujo.split("-").map(Number);
+
+  if (partes.length < 3 || partes.some((n) => !Number.isFinite(n))) return null;
+  if (partes[0] === 3 && partes[1] >= 4) return [5, partes[1] - 2, ...partes.slice(2)].join("-");
+
+  return null;
+}
+
+/*
 | La hoja marca las bajas con «NO EN PLANTILLA» en vez de borrarlas
 | (29/10/2026): salen en la lista, para poder corregirlas, pero no en el
 | campograma, el once ni el informe.
@@ -1763,7 +1777,14 @@ export default function RivalPlayersPage() {
       partes.push("marcado a mano");
     }
 
-    if (dibujoSuyo && baseDelSistema) {
+    /*
+    | 27/11/2026 (ronda 11, análisis): con el dibujo marcado a mano distinto del
+    | suyo, la línea de contraste de debajo ya dice el de Wyscout con su base:
+    | aquí no se repite.
+    */
+    if (once.doc.dibujo && dibujoSuyo && once.doc.dibujo !== dibujoSuyo) {
+      /* nada: lo dice la línea del dibujo */
+    } else if (dibujoSuyo && baseDelSistema) {
       partes.push(dibujoDelEquipo !== dibujoSuyo ? `su sistema más usado: ${dibujoSuyo} (${baseDelSistema})` : `su sistema en ${baseDelSistema}`);
     } else if (!once.doc.dibujo && !dibujoSuyo) {
       partes.push("dibujo de partida: aún no hay alineaciones suyas");
@@ -3183,6 +3204,14 @@ export default function RivalPlayersPage() {
   | solvente. Hasta saber qué dice el analista de este equipo, el bloque espera.
   */
   const [analistaLeidoDe, setAnalistaLeidoDe] = useState("");
+  /*
+  | EL DIBUJO QUE VE EL ANALISTA (27/11/2026, ronda 11, fútbol): Scout
+  | Colectivo dice «se espera el 5-2-3» tras el cambio de entrenador y aquí el
+  | campograma decía «manda lo marcado» frente al 4-2-3-1 de Wyscout. Se lee
+  | lo mismo que allí (las tres «Estructura» y el cambio de entrenador escrito
+  | en el contexto o en las asociaciones) para decir un solo dibujo.
+  */
+  const [dibujoAnalista, setDibujoAnalista] = useState<{ equipo: string; dibujos: { dibujo: string; fase: string }[]; cambioEntrenador: boolean } | null>(null);
 
   useEffect(() => {
     if (!selectedTeam) return;
@@ -3198,14 +3227,35 @@ export default function RivalPlayersPage() {
           return;
         }
 
-        const texto = (filas as Record<string, unknown>[])
-          .filter((f) => mismoClub(String(f.EQUIPO ?? ""), selectedTeam))
+        const suyas = (filas as Record<string, unknown>[]).filter((f) => mismoClub(String(f.EQUIPO ?? ""), selectedTeam));
+        const texto = suyas
           .map((f) => String(f.OF_INICIO_CENTRAL_CAPACIDAD ?? "").split(/$/m)[0].trim())
           .filter(Boolean)
           .pop();
         /* La misma lectura que Scout Colectivo (10/11/2026): «Van Rijn + Royo / Fran Gil» son DOS de más. */
         const leidos = centralesDelAnalista(texto ?? "");
 
+        /* Los mismos campos y la misma regla que Scout Colectivo («1-5-2-3» → «5-2-3»), de la última fila con alguno escrito. */
+        const FASES = [
+          { campo: "OF_INICIO_ESTRUCTURA", fase: "en la salida" },
+          { campo: "OF_CAMPO_ESTRUCTURA", fase: "en campo contrario" },
+          { campo: "DEF_BLOQUE_MEDIO_ESTRUCTURA", fase: "defendiendo en bloque medio" },
+        ];
+        const leeDibujos = (f: Record<string, unknown>) =>
+          FASES.map((c) => ({ fase: c.fase, dibujo: (String(f[c.campo] ?? "").match(/\b1-\d(?:-\d){2,3}\b/)?.[0] ?? "").replace(/^1-/, "") })).filter((c) => c.dibujo);
+        const conDibujo = suyas.filter((f) => leeDibujos(f).length > 0).pop();
+
+        setDibujoAnalista(
+          conDibujo
+            ? {
+                equipo: selectedTeam,
+                dibujos: leeDibujos(conDibujo),
+                cambioEntrenador: /cambi[a-z]* de (entrenador|m[ií]ster|t[eé]cnico)|nuevo (entrenador|m[ií]ster|t[eé]cnico)/i.test(
+                  `${String(conDibujo.OF_REINICIO_CONTEXTO ?? "")} ${String(conDibujo.OF_INICIO_ASOCIACIONES ?? "")}`,
+                ),
+              }
+            : null,
+        );
         setCentralesAnalista(leidos ? { equipo: selectedTeam, ...leidos } : null);
         setAnalistaLeidoDe(selectedTeam);
       })
@@ -3443,7 +3493,24 @@ export default function RivalPlayersPage() {
   }, [pitchTeam, selectedTeam, titularesVistos, titularesVistosSet, dibujoDelEquipo, plantillaCampo, titularesEnSuHueco, perfilesPorFicha]);
 
   /* «Once probable en 4-2-3-1 · sus últimos 5 onces», el mismo rótulo del campograma (20/11/2026). */
-  const dibujoDelResumen = `Once probable en ${dibujoDelEquipo}${baseDelDibujo ? ` · ${baseDelDibujo}` : ""}`;
+  /*
+  | UN SOLO NOMBRE DEL DIBUJO (27/11/2026, ronda 11, fútbol y análisis): si el
+  | analista apunta un cambio de entrenador y ve otro dibujo que Wyscout
+  | (cuyos partidos son, casi todos, del entrenador anterior), manda el suyo,
+  | como en Scout Colectivo. Y el 3-4-3 del campo y su 5-2-3 son el mismo once
+  | con los carrileros arriba o abajo: se dice «3-4-3 (5-2-3 al defender)».
+  */
+  const lecturaDibujo = dibujoAnalista && dibujoAnalista.equipo === selectedTeam ? dibujoAnalista : null;
+  const esperadoAnalista = lecturaDibujo?.cambioEntrenador ? (lecturaDibujo.dibujos.find((d) => d.dibujo !== dibujoSuyo)?.dibujo ?? "") : "";
+  const casaConAnalista = Boolean(esperadoAnalista) && (dibujoDelEquipo === esperadoAnalista || dibujoAlDefender(dibujoDelEquipo) === esperadoAnalista);
+  const dibujoConNombre = casaConAnalista && dibujoDelEquipo !== esperadoAnalista ? `${dibujoDelEquipo} (${esperadoAnalista} al defender)` : dibujoDelEquipo;
+  /* Lo que se dice en «Dibujo que más repite» de «Cómo llega»: el mismo nombre. */
+  const dibujoEsperadoTexto = esperadoAnalista
+    ? `Se espera el ${casaConAnalista ? dibujoConNombre : esperadoAnalista}: cambió de entrenador (lectura del analista, Scout colectivo)`
+    : "";
+
+  /* El resumen ya no repite la base del dibujo: la dice una vez el campograma (27/11/2026, ronda 11, análisis). */
+  const dibujoDelResumen = `Once probable en ${dibujoConNombre}`;
 
   /* Del resumen a la ficha: la clave del once → su fila de la plantilla. */
   const abreDelOnce = useCallback(
@@ -4437,9 +4504,17 @@ export default function RivalPlayersPage() {
               antes de mirar a nadie, con el detalle a un toque (Scout colectivo
               y Área del rival, con él ya puesto).
             */}
+            {/*
+              27/11/2026 (ronda 11, análisis): la frase «destaca en…, pero flojea
+              en…» salía aquí y otra vez en «Lo que le hace distinto». Ahora va
+              sólo allí, como titular de su tarjeta con las barras; aquí queda
+              el salto a esa conclusión y los accesos.
+            */}
             {selectedTeam && view === "plantilla" && titularDelRival && (
               <div className="mt-4 flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-1">
-                <p className="min-w-0 text-[15px] font-semibold leading-snug text-white sm:text-base">{titularDelRival}</p>
+                <a href="#como-llega" className="min-w-0 text-[15px] font-semibold leading-snug text-white underline decoration-white/25 underline-offset-4 hover:decoration-[#C8A96B]">
+                  Cómo llega, lo que le hace distinto y dónde hacerle daño ↓
+                </a>
                 <span className="flex shrink-0 flex-wrap items-center gap-x-3 text-[13px] font-semibold">
                   <Link href={conRivalEnUrl("/scout-rival-collective", llavesDelRival)} className="text-[#C8A96B] underline-offset-2 hover:underline">
                     Cómo juega ›
@@ -4840,7 +4915,7 @@ export default function RivalPlayersPage() {
                       </div>
                     )}
 
-                    <div className="campograma-capa sticky top-6 flex h-fit w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
+                    <div id="campograma-rival" className="campograma-capa sticky top-6 flex h-fit w-full scroll-mt-24 flex-col overflow-hidden rounded-2xl border border-white/10 bg-[#11161D]">
                       {/*
                         La cabecera se **parte en dos renglones** cuando no
                         caben los botones.
@@ -4874,7 +4949,15 @@ export default function RivalPlayersPage() {
                           <p className="mt-1 text-[13px] text-white/70">
                             {/* «Once probable en 4-3-3 · su sistema en 7 de 12 · Wyscout» (17/11/2026, jueces de fútbol). */}
                             {/* 20/11/2026 (jueces): con su base al lado, «4-2-3-1 · sus últimos 5 onces · su sistema más usado: 4-3-3 (7 de 12 · Wyscout)». */}
-                            {baseDelDibujo ? `Once probable en ${dibujoDelEquipo} · ${baseDelDibujo}.` : `Once probable en ${dibujoDelEquipo}.`}
+                            {baseDelDibujo ? `Once probable en ${dibujoConNombre} · ${baseDelDibujo}.` : `Once probable en ${dibujoConNombre}.`}
+                          </p>
+                        )}
+
+                        {/* Sin dibujo a mano, pero el analista ve otro tras el cambio de entrenador (27/11/2026, ronda 11, fútbol). */}
+                        {pitchPlayers.length > 0 && dibujoSuyo && dibujoDelEquipo === dibujoSuyo && esperadoAnalista && !casaConAnalista && (
+                          <p className="mt-1 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+                            El analista espera el {esperadoAnalista} tras el cambio de entrenador (Scout colectivo); el campo va en el {dibujoDelEquipo} de Wyscout
+                            {baseDelSistema ? ` (${baseDelSistema})` : ""}, casi todo con el entrenador anterior.
                           </p>
                         )}
 
@@ -4886,9 +4969,17 @@ export default function RivalPlayersPage() {
                         */}
                         {pitchPlayers.length > 0 && once.doc.dibujo && dibujoSuyo && once.doc.dibujo !== dibujoSuyo && (
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+                            {/*
+                              27/11/2026 (ronda 11, fútbol y análisis): una línea corta con la base y,
+                              si el analista ve el mismo once tras el cambio de entrenador, eso en
+                              lugar de «Manda lo marcado» (el mismo dibujo que Scout colectivo).
+                            */}
                             <span>
-                              Contraste con los datos: el {once.doc.dibujo} es lo marcado a mano; Wyscout le da el {dibujoSuyo}
-                              {baseDelSistema ? ` (${baseDelSistema})` : ""}. Manda lo marcado hasta que se cambie.
+                              {casaConAnalista
+                                ? `Se espera el ${dibujoConNombre}: lo ve así el analista tras el cambio de entrenador (Scout colectivo). Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}, casi todo con el entrenador anterior.`
+                                : esperadoAnalista
+                                  ? `Marcado a mano en ${once.doc.dibujo}; el analista espera el ${esperadoAnalista} tras el cambio de entrenador y Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}.`
+                                  : `Marcado a mano en ${once.doc.dibujo}; Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}. Manda lo marcado hasta que se cambie.`}
                             </span>
                             <button
                               type="button"
@@ -5550,8 +5641,12 @@ export default function RivalPlayersPage() {
               {/* CÓMO LLEGA — lo que se pregunta antes de mirar a nadie */}
 
               {selectedTeam && !loading && (
+                <div id="como-llega" className="min-w-0 scroll-mt-24">
                 <VistazoRival
                   equipo={selectedTeam}
+                  /* El dibujo que espera el analista, con el mismo nombre que el campograma (27/11/2026, ronda 11). */
+                  dibujoEsperado={dibujoEsperadoTexto}
+                  rivalId={enfrentamientoDe(ordenRivales, selectedTeam)?.id ?? ""}
                   vistazo={
                     /* El dibujo, el mismo dato que el campograma (29/10/2026): antes uno contaba 8 alineaciones y el otro 9. */
                     /* 17/11/2026: el de Wyscout, el mismo con el que se dibuja el once. */
@@ -5580,6 +5675,7 @@ export default function RivalPlayersPage() {
                     return suyo ? conTildes(nombrePropio(suyo)) : nombre;
                   }}
                 />
+                </div>
               )}
 
               {/* QUIÉN CREA LA AMENAZA — xT/90 de pases y conducciones, npxG/90 y xA/90 (Opta, 26/11/2026). */}
@@ -9232,6 +9328,13 @@ function TacticalPitch({
   const nameWidth = stepX - 4;
 
   const maxBadges = avatar < 34 ? 2 : avatar < 48 ? 3 : 4;
+  /*
+  | FICHAS COMPACTAS POR DEBAJO DE 480 PX (27/11/2026, ronda 11, fútbol): a 390
+  | la fila de chapas («+2») de un carrilero se salía por la derecha y las del
+  | medio se pisaban. Ahí la ficha es foto, dorsal y apellido; las etiquetas, en
+  | su ficha y en la lista. El hueco de la fila se queda (el motor lo cuenta).
+  */
+  const estrecho = compact && size.width > 0 && size.width < 480;
 
   /*
   |--------------------------------------------------------------------------
@@ -9578,7 +9681,8 @@ function TacticalPitch({
           style={{ left: cluster.x, top: cluster.y }}
         >
           <span
-            className="flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[9px] font-bold uppercase tracking-wider"
+            /* A 12 px desde el 27/11/2026 (ronda 11, análisis): a 9 no se leía. */
+            className={`flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[12px] font-bold uppercase leading-tight ${compact ? "tracking-normal" : "tracking-wider"}`}
             style={{
               color: "#0B0F14",
               borderColor: "rgba(8,12,16,0.45)",
@@ -9598,7 +9702,7 @@ function TacticalPitch({
                 aria-expanded={masAbierto === cluster.key}
                 title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
                 aria-label={`Ver los otros ${cluster.ocultos.length} de ${cluster.code}`}
-                className="rounded-full border border-black/30 px-1.5 py-[1px] text-[10px] font-bold leading-tight tabular-nums shadow"
+                className="rounded-full border border-black/30 px-1.5 py-[1px] text-[12px] font-bold leading-tight tabular-nums shadow"
                 style={{ background: cluster.color, color: "#0B0F14" }}
               >
                 +{cluster.ocultos.length} ▾
@@ -9645,8 +9749,8 @@ function TacticalPitch({
           activeTags.length === 0 ||
           activeTags.every((key) => tags.some((tag) => tag.key === key));
 
-        const visibleTags = tagsByPriority(tags).slice(0, maxBadges);
-        const hiddenCount = tags.length - visibleTags.length;
+        const visibleTags = estrecho ? [] : tagsByPriority(tags).slice(0, maxBadges);
+        const hiddenCount = estrecho ? 0 : tags.length - visibleTags.length;
 
         const name = conTildes(player["NOMBRE DEPORTIVO"] || player.JUGADOR);
         const corta = muestraCortaDe?.(player) ?? "";
@@ -9881,7 +9985,12 @@ function TacticalPitch({
               guion donde el navegador sepa partirlo) y la letra no baja de 8 px.
             */}
             {(() => {
-              const texto = nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12);
+              /*
+              | 27/11/2026 (ronda 11, fútbol): en el móvil la chapa «muestra
+              | corta» bajo el nombre se salía y pisaba a la de al lado; ahí va
+              | un * pegado al apellido (la leyenda, en «El once de un vistazo»).
+              */
+              const texto = `${nombreQueCabe(name, nameWidth, nameFont, compact ? 8 : 12)}${compact && corta && enElOnce ? "*" : ""}`;
               /*
               | 20/11/2026 (ronda 5, fútbol): en dos renglones el navegador partía
               | la palabra («MORE NO», «FLAK US»). Un renglón siempre, sin cortar
@@ -9905,7 +10014,7 @@ function TacticalPitch({
               );
             })()}
             {/* Sólo en los del once probable: en el banquillo casi todos tienen pocos minutos y el campo se llenaría de avisos. */}
-            {corta && enElOnce && (
+            {corta && enElOnce && !compact && (
               /*
               | 20/11/2026 (ronda 7, análisis y marketing): en modo día el ámbar
               | se volvía marrón sobre el negro (1,66). La chapa es oscura en los
@@ -9914,7 +10023,7 @@ function TacticalPitch({
               | salía y pisaba a la de al lado.
               */
               <span
-                className={`siempre-oscuro mt-0.5 rounded bg-black/75 px-1 text-center font-semibold leading-tight ${compact ? "text-[10px]" : "whitespace-nowrap text-[11px]"}`}
+                className={`siempre-oscuro mt-0.5 rounded bg-black/75 px-1 text-center font-semibold leading-tight ${compact ? "text-[10px]" : "whitespace-nowrap text-[12px]"}`}
                 style={compact ? { maxWidth: nameWidth } : undefined}
                 title={`Muestra corta: ${corta} en Wyscout (menos de 450′)`}
               >
@@ -9929,7 +10038,7 @@ function TacticalPitch({
                 /* Pulsar una chapa puesta abre el mismo pop-up: es el gesto
                    que se espera al ver algo marcado y querer cambiarlo. */
                 onClick={
-                  etiquetar && tags.length > 0
+                  etiquetar && visibleTags.length > 0
                     ? (event) => {
                         event.stopPropagation();
                         etiquetar();
@@ -9937,7 +10046,7 @@ function TacticalPitch({
                     : undefined
                 }
                 className={`mt-1 flex items-center justify-center gap-0.5 ${
-                  etiquetar && tags.length > 0 ? "cursor-pointer" : ""
+                  etiquetar && visibleTags.length > 0 ? "cursor-pointer" : ""
                 }`}
                 style={{ height: badgeSize }}
               >
@@ -9982,14 +10091,20 @@ function TacticalPitch({
             {/* DETALLE AL PASAR EL RATÓN */}
 
             <span
-              className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl transition group-hover:opacity-100 ${
+              /*
+              | 27/11/2026 (ronda 11, análisis): con un enlace a su Scout
+              | individual. El cuadro se puede tocar mientras se ve (con un
+              | puente invisible de 8 px hasta la ficha para no perderlo al
+              | bajar el ratón) y la letra no baja de 12 px.
+              */
+              className={`pointer-events-none absolute left-1/2 z-40 rounded-xl border border-white/15 bg-[#0B0F14]/95 p-2.5 text-left opacity-0 shadow-2xl transition before:absolute before:inset-x-0 before:h-2 before:content-[''] group-hover:pointer-events-auto group-hover:opacity-100 ${
                 /* En móvil no hay ratón: el detalle sólo aparecía recortado
                    por el borde del campo al tocar la ficha. Y con la ficha en
                    la mano tampoco: el cuadro seguía al puntero tapando medio
                    campo justo cuando hay que ver dónde se suelta. */
                 compact || arrastre?.activo ? "hidden" : ""
               } ${
-                y > size.height / 2 ? "bottom-full mb-2" : "top-full mt-2"
+                y > size.height / 2 ? "bottom-full mb-2 before:-bottom-2" : "top-full mt-2 before:-top-2"
               }`}
               style={{
                 width: TOOLTIP_ANCHO,
@@ -9998,11 +10113,11 @@ function TacticalPitch({
                 transform: `translateX(calc(-50% + ${desplazado}px))`,
               }}
             >
-              <span className="block truncate text-[11px] font-semibold text-white">
+              <span className="block truncate text-[13px] font-semibold text-white">
                 {name}
               </span>
 
-              <span className="mt-0.5 block truncate text-[10px] text-[#C8A96B]">
+              <span className="mt-0.5 block text-[12px] leading-snug text-[#C8A96B]">
                 {/* Con el bloque en el que le pone su once, si es otro (16/11/2026): «extremo izquierdo en su once (delantero de origen)». */}
                 {(() => {
                   const visto = puestoDelRival(String(player["POSICIÓN"] ?? ""), ficha.bloque);
@@ -10026,7 +10141,7 @@ function TacticalPitch({
 
               {enElOnce && (
                 <span
-                  className="mt-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-semibold"
+                  className="mt-1.5 inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[12px] font-semibold"
                   style={{
                     background: `${ONCE_COLOR[enElOnce]}26`,
                     color: chipInk(ONCE_COLOR[enElOnce]),
@@ -10042,7 +10157,7 @@ function TacticalPitch({
                   {tags.map((tag) => (
                     <span
                       key={tag.key}
-                      className="rounded-full px-1.5 py-0.5 text-[9px] font-medium"
+                      className="rounded-full px-1.5 py-0.5 text-[12px] font-medium"
                       style={{
                         background: `${tag.color}26`,
                         color: chipInk(tag.color),
@@ -10052,6 +10167,19 @@ function TacticalPitch({
                     </span>
                   ))}
                 </span>
+              )}
+
+              {/* Su Scout individual con el rival y él ya elegidos (27/11/2026, ronda 11, análisis). */}
+              {player.NOMBRE_EQUIPO && (
+                <Link
+                  data-export-hide
+                  href={`/scout-rival-individual?${new URLSearchParams({ equipo: String(player.NOMBRE_EQUIPO), jugador: String(player["NOMBRE DEPORTIVO"] || player.JUGADOR || "") }).toString()}`}
+                  onPointerDown={(evento) => evento.stopPropagation()}
+                  onClick={(evento) => evento.stopPropagation()}
+                  className="mt-1.5 block text-[12px] font-semibold text-[#C8A96B] underline-offset-2 hover:underline"
+                >
+                  Su Scout individual ›
+                </Link>
               )}
             </span>
           </div>

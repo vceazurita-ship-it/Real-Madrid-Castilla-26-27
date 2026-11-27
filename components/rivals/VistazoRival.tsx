@@ -1,6 +1,8 @@
 "use client";
 
 import { EnlacesAmenaza, useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
+import { BotonGolesEnVideo } from "@/components/rivals/BotonGolesEnVideo";
+import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import Link from "next/link";
 import { useMemo, useState } from "react";
 
@@ -218,7 +220,7 @@ function DosLineas({ children, className = "" }: { children: React.ReactNode; cl
   return (
     <div className={`min-w-0 ${className}`}>
       <p className={abierto ? "" : "line-clamp-2"}>{children}</p>
-      <button type="button" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} className="min-h-7 text-[12px] font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
+      <button type="button" onClick={() => setAbierto((a) => !a)} aria-expanded={abierto} className="min-h-7 text-[13px] font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
         {abierto ? "Ver menos" : "Ver más"}
       </button>
     </div>
@@ -246,7 +248,7 @@ function ChipDuelo({ d, equipo, decide }: { d: NonNullable<Dano["duelo"]>; equip
             .join(" · ")}
         </span>
       </p>
-      <DosLineas className="mt-0.5 text-[12px] text-white/55">
+      <DosLineas className="mt-0.5 text-[13px] text-white/60">
         Duelo «{d.titulo.toLowerCase()}»: los + y − son puntos de percentil de los nuestros del duelo frente a los suyos de {equipo}, cada uno contra su puesto en la categoría (Wyscout); + es ventaja nuestra.
       </DosLineas>
     </>
@@ -261,7 +263,32 @@ const mismoApellido = (a: string, b: string) => {
 
 const signoDuelo = (v: number) => `${v > 0 ? "+" : v < 0 ? "−" : ""}${Math.abs(Math.round(v))}`;
 
-function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; equipo: string; abre: (() => void) | null }) {
+/*
+| A UN TOQUE DESDE CADA TARJETA (27/11/2026, ronda 11, marketing): su duelo
+| con él ya elegido (`?rival=ID&jugador=`), los goles en vídeo (los suyos en
+| «Dónde nos hacen daño», los que le marcan en «Dónde hacerles daño») y su
+| balón parado. El pop-up de los goles es el de toda la app.
+*/
+function EnlacesTarjeta({ equipo, rivalId, jugador, enContra }: { equipo: string; rivalId: string; jugador: string; enContra: boolean }) {
+  const oro = { color: "var(--rmcf-gold-ink, #C8A96B)" };
+  const llaves = { equipo, id: rivalId };
+
+  return (
+    <span className="mt-1 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[13px] font-semibold">
+      <Link href={conRivalEnUrl(`/duelos?${new URLSearchParams({ jugador }).toString()}`, llaves)} className="inline-flex min-h-7 items-center gap-1 underline-offset-2 hover:underline" style={oro}>
+        Su duelo <ArrowUpRight size={12} aria-hidden />
+      </Link>
+      <BotonGolesEnVideo equipo={equipo} lado={enContra ? "favor" : "contra"} className="inline-flex min-h-7 items-center underline-offset-2 hover:underline">
+        <span style={oro}>{enContra ? "▶ Sus goles en vídeo" : "▶ Cómo le marcan"}</span>
+      </BotonGolesEnVideo>
+      <Link href={conRivalEnUrl("/scout-rival-abp", llaves)} className="inline-flex min-h-7 items-center underline-offset-2 hover:underline" style={oro}>
+        Su ABP ›
+      </Link>
+    </span>
+  );
+}
+
+function TarjetaDano({ uno, color, equipo, abre, rivalId = "" }: { uno: Dano; color: string; equipo: string; abre: (() => void) | null; rivalId?: string }) {
   const accion = uno.accion ? uno.accion.charAt(0).toUpperCase() + uno.accion.slice(1) : "";
   const d = uno.duelo;
 
@@ -296,7 +323,7 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
       {/* La base, en el mismo formato en todas las tarjetas: «Base: 1180′ en Wyscout · 12 partidos». */}
       {uno.base ? (
         /* 27/11/2026 (ronda 10, análisis): la base sola («662′ en Wyscout · 8 partidos»); la muestra corta, en su chip. */
-        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] tabular-nums text-white/55">
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[13px] tabular-nums text-white/60">
           <span>Base: {uno.base}</span>
           {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA && (
             <span className="rounded-full border border-white/20 px-1.5 py-px text-[12px] font-semibold text-white/65" title={`Menos de ${MUESTRA_CORTA}′ en Wyscout: se lee como tendencia`}>
@@ -307,12 +334,8 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
       ) : null}
       {uno.contraste ? <p className="mt-0.5 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>{uno.contraste}</p> : null}
 
-      {/* «Su duelo» a la vista en las dos cajas (17/11/2026, ronda 20, análisis). */}
-      {d && (
-        <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
-          Su duelo <ArrowUpRight size={12} aria-hidden />
-        </Link>
-      )}
+      {/* «Su duelo» a la vista en las dos cajas (17/11/2026, ronda 20, análisis); desde el 27/11 (ronda 11), con él ya elegido y junto a sus goles y su ABP. */}
+      <EnlacesTarjeta equipo={equipo} rivalId={rivalId} jugador={uno.nombre} enContra={Boolean(uno.enContra)} />
       {d && (d.tarea || d.objetivo) && (
         <details className="mt-1 min-w-0">
           <summary className="cursor-pointer text-[13px] font-semibold text-white/65 hover:text-white">Ver el duelo</summary>
@@ -320,8 +343,8 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
             <p>«{d.titulo}», el mismo de Duelos y del Plan de partido.</p>
             {d.tarea && <p><b className="font-semibold text-white/85">Tarea:</b> {d.tarea}.</p>}
             {d.objetivo && <p><b className="font-semibold text-white/85">Objetivo:</b> {d.objetivo}.</p>}
-            {d.base && <p className="text-[12px] text-white/55">{d.base}.</p>}
-            <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+            {d.base && <p className="text-[13px] text-white/55">{d.base}.</p>}
+            <Link href={conRivalEnUrl(`/duelos?${new URLSearchParams({ jugador: uno.nombre }).toString()}`, { equipo, id: rivalId })} className="inline-flex items-center gap-1 font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
               Abrir en Duelos <ArrowUpRight size={12} aria-hidden />
             </Link>
           </div>
@@ -350,7 +373,13 @@ export function VistazoRival({
   abreJugador,
   nombreDe,
   fuenteDibujo = "BeSoccer",
+  dibujoEsperado = "",
+  rivalId = "",
 }: {
+  /** El dibujo que espera el analista tras un cambio de entrenador, dicho como el campograma (27/11/2026, ronda 11): va en «Dibujo que más repite». */
+  dibujoEsperado?: string;
+  /** El `ID` de la fila RIVALES, para los enlaces de cada tarjeta (`?rival=`). */
+  rivalId?: string;
   /** El nombre de su ficha de la plantilla para uno de otra fuente («Manín» de BeSoccer → «Manin»), 27/11/2026, ronda 10. */
   nombreDe?: (nombre: string) => string;
   /** De dónde sale el dibujo que más repite (17/11/2026: Wyscout en /rivals, el mismo del campograma). */
@@ -390,6 +419,29 @@ export function VistazoRival({
     () => ordenaAspectos(aspectosConCifraPrincipal(aspectosWyscout, equipo, tablas, equipos), equipos),
     [aspectosWyscout, equipo, tablas, equipos],
   );
+  /*
+  | LOS GOLES, CON LA MISMA MEDIANA QUE EL SCOUT COLECTIVO (27/11/2026, ronda
+  | 11, fútbol): «Goles · mediana 1,4» (Wyscout) aquí y «mediana 1,3» allí. La
+  | fila «Goles» va con la cuenta de BeSoccer de su tira (goles/partidos de
+  | cada equipo del grupo), con su puesto. Sólo para pintar: lo fuerte y lo
+  | flojo del titular siguen con la cifra que manda.
+  */
+  const golesBeSoccer = vistazo?.tabla?.golesPorPartido ?? null;
+  const esFilaGoles = (nombre: string) => Boolean(golesBeSoccer) && /^goles$/i.test(nombre.trim());
+  const aspectosVista = useMemo(
+    () =>
+      golesBeSoccer
+        ? aspectos.map((a) => ({
+            ...a,
+            filas: a.filas.map((f) =>
+              /^goles$/i.test(f.nombre.trim())
+                ? { ...f, valor: golesBeSoccer.valor, mediana: golesBeSoccer.mediana, puesto: golesBeSoccer.puesto, de: golesBeSoccer.de, partidos: golesBeSoccer.partidos, base: undefined }
+                : f,
+            ),
+          }))
+        : aspectos,
+    [aspectos, golesBeSoccer],
+  );
 
   if (!vistazo && aspectos.length === 0) return null;
 
@@ -424,16 +476,15 @@ export function VistazoRival({
         | 2.º de 20) y flojo en balón parado en contra (córners rematados
         | 44,6 %, 20.º de 20)». Sale de la cifra más extrema de cada lado.
         */
-        const { conDato } = fuerteYFlojoDelRival(equipo, aspectos, equipos);
-
         /*
-        | 18/11/2026 (jueces de marketing): la conclusión ya va en la cabecera de
-        | /rivals (la misma cuenta: «con dato» si lo hay; si no, esta frase). Aquí
-        | no se repite: sólo la descripción, cuando la cabecera dijo la otra.
+        | 18/11/2026 (jueces de marketing): la conclusión iba en la cabecera de
+        | /rivals. 27/11/2026 (ronda 11, análisis y marketing): la cabecera ya no
+        | la repite; cada columna abre con su titular con verbo: aquí, cómo llega;
+        | en «Lo que le hace distinto», lo fuerte y lo flojo.
         */
-        return titular && conDato ? (
+        return titular ? (
           <div className="mb-3 min-w-0">
-            <p className="text-sm font-medium text-white/80 sm:text-[15px]">{titular}</p>
+            <p className="text-[15px] font-semibold leading-snug text-white sm:text-base">{titular}</p>
           </div>
         ) : null;
       })()}
@@ -510,7 +561,8 @@ export function VistazoRival({
             /* Con menos de 15 alineaciones es tendencia, no costumbre (07/11/2026, análisis). */
             /* Sólo liga y con la fuente (16/11/2026, jueces): la misma cuenta que el campograma y el Scout colectivo. */
             tendencia={dibujo.de < 15}
-            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (${fuenteDibujo})`}
+            /* 27/11/2026 (ronda 11, fútbol): con el que espera el analista tras el cambio de entrenador, el mismo nombre que el campograma. */
+            pie={`${dibujo.veces} de ${dibujo.de} ${dibujo.de === 1 ? "partido" : "partidos"} de liga (${fuenteDibujo})${dibujoEsperado ? `. ${dibujoEsperado}` : ""}`}
           >
             <p className="flex items-center gap-1.5">
               <LayoutGrid size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
@@ -613,6 +665,24 @@ export function VistazoRival({
             Lo que le hace distinto · frente a su {equipos > 0 ? `grupo de ${equipos} equipos` : "grupo"}
           </p>
 
+          {/*
+            27/11/2026 (ronda 11, análisis y marketing): la frase «destaca en…,
+            pero flojea en…» ya no va en la cabecera de /rivals: va aquí, una
+            vez, como titular de la tarjeta de las barras. Y lo que quiere decir
+            «1.º de 20», a la vista: el puesto ya lleva el sentido de la cifra.
+          */}
+          {(() => {
+            /* Con las mismas cifras que las tarjetas de debajo (los goles, con la cuenta de BeSoccer). */
+            const { conDato } = fuerteYFlojoDelRival(equipo, aspectosVista, equipos);
+
+            return conDato ? <p className="mb-1 text-[15px] font-semibold leading-snug text-white sm:text-base">{conDato}.</p> : null;
+          })()}
+          {equipos > 0 && (
+            <p className="mb-1.5 text-[13px] leading-snug text-white/65">
+              «1.º de {equipos}» es el mejor del grupo en esa cifra y «{equipos}.º de {equipos}», el peor: en las que llevan «menos es mejor», el 1.º es el que menos tiene.
+            </p>
+          )}
+
           {/* Primero la frase, luego los dos grupos: una lista de «p15 · p80» no se leía (guion, 21/10). */}
           {/* Sin la frase que repetía el titular (16/11/2026, jueces de fútbol): se abre con «Fuerte en» y «Flojo en». */}
           {/*
@@ -628,11 +698,11 @@ export function VistazoRival({
             /* 20/11/2026 (ronda 5, marketing): la leyenda larga, también dentro de «Ver base». */
             <div className="mb-2 text-[13px] text-white/60">
               <details className="min-w-0">
-                <summary className="cursor-pointer text-[12px] font-semibold text-white/55 hover:text-white">Ver base: cómo se lee cada barra</summary>
+                <summary className="cursor-pointer text-[13px] font-semibold text-white/55 hover:text-white">Ver base: cómo se lee cada barra</summary>
                 <p className="mt-0.5 text-[13px] text-white/60">
                   El punto es el rival y la raya, la mediana del grupo: a la derecha, mejor. «1.º de {equipos}», el mejor del grupo.
                 </p>
-                <p className="mt-0.5 text-[12px] text-white/55">
+                <p className="mt-0.5 text-[13px] text-white/55">
                   Wyscout, esta temporada, frente a los {equipos} equipos del grupo.
                   {partidosWyscout > 0 ? ` Medias por partido en sus ${partidosWyscout} ${partidosWyscout === 1 ? "partido" : "partidos"} de Wyscout.` : ""}
                   {(() => {
@@ -653,8 +723,8 @@ export function VistazoRival({
           */}
           <div className="grid min-w-0 gap-2 sm:grid-cols-2">
             {[
-              { titulo: "Fuerte en", color: "#34D399", lista: aspectos.filter((a) => a.desviacion >= 0) },
-              { titulo: "Flojo en", color: "#F87171", lista: aspectos.filter((a) => a.desviacion < 0) },
+              { titulo: "Fuerte en", color: "#34D399", lista: aspectosVista.filter((a) => a.desviacion >= 0) },
+              { titulo: "Flojo en", color: "#F87171", lista: aspectosVista.filter((a) => a.desviacion < 0) },
             ]
               .filter((grupo) => grupo.lista.length > 0)
               .map((grupo, i, grupos) => {
@@ -738,7 +808,9 @@ export function VistazoRival({
                             {!/ppda/i.test(f.nombre) && ((f.valor > f.mediana && f.percentil < 50) || (f.valor < f.mediana && f.percentil > 50)) ? " (menos es mejor)" : ""} · mediana {cifraAspecto(f.mediana, f.unidad)}
                             {equipos > 0 ? ` · ${puestoDeFila(f, equipos)}.º de ${f.de ?? equipos}` : ""}
                             {/* La base y el proveedor (16/11/2026, jueces de fútbol): «25 de 56 en 12 partidos», «Opta». */}
-                            {f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : partidosWyscout > 0 && porPartido(f.nombre, f.unidad) ? ` · ${partidosWyscout} partidos` : ""}
+                            {esFilaGoles(f.nombre)
+                              ? ` · ${f.partidos ?? partidosWyscout} partidos · BeSoccer, la misma cuenta del Scout colectivo`
+                              : f.base && f.unidad === "porcentaje" ? ` · ${Math.round(f.base.arriba)} de ${Math.round(f.base.abajo)}${f.partidos ? ` en ${f.partidos} partidos` : ""}` : partidosWyscout > 0 && porPartido(f.nombre, f.unidad) ? ` · ${partidosWyscout} partidos` : ""}
                             {/* 18/11/2026 (ronda 23, fútbol): en la fila basta «PPDA de Opta»; el porqué va en «Ver base». */}
                             {f.proveedor === "Opta" && !/ppda/i.test(f.nombre) ? " · Opta" : ""}
                           </span>
@@ -802,7 +874,7 @@ export function VistazoRival({
               <div key={bloque.clave} className="min-w-0">
                 <p className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-xs font-semibold uppercase tracking-[0.16em]" style={{ color: chipInk(bloque.color) }}>
                   {bloque.titulo}
-                  <span className="text-[12px] font-medium normal-case tracking-normal text-white/55">{bloque.sub}</span>
+                  <span className="text-[13px] font-medium normal-case tracking-normal text-white/55">{bloque.sub}</span>
                 </p>
                 <ul className="grid min-w-0 gap-2">
                   {bloque.amenazas.map((p) => {
@@ -815,18 +887,15 @@ export function VistazoRival({
                         {/* 20/11/2026 (ronda 7, marketing): el dato en dos renglones, el resto con «Ver más». */}
                         <DosLineas className="mt-0.5 text-[13px] tabular-nums text-white/70">{p.dato}.</DosLineas>
                         {/* La base en el mismo formato que «Dónde hacerles daño» (27/11/2026, ronda 10, análisis). */}
-                        {p.base && <p className="mt-0.5 text-[12px] tabular-nums text-white/55">Base: {p.base}</p>}
-                        <EnlacesAmenaza punto={p} equipo={equipo} />
-                        {delDuelo && (
-                          <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
-                            Su duelo <ArrowUpRight size={12} aria-hidden />
-                          </Link>
-                        )}
+                        {p.base && <p className="mt-0.5 text-[13px] tabular-nums text-white/60">Base: {p.base}</p>}
+                        <EnlacesAmenaza punto={p} equipo={equipo} rivalId={rivalId} />
+                        {/* Su duelo (ya elegido), sus goles en vídeo y su ABP, a un toque (27/11/2026, ronda 11, marketing). */}
+                        <EnlacesTarjeta equipo={equipo} rivalId={rivalId} jugador={p.jugador} enContra />
                       </li>
                     );
                   })}
                   {bloque.lista.map((uno) => (
-                    <TarjetaDano key={uno.nombre} uno={uno} color={bloque.color} equipo={equipo} abre={abreJugador?.(uno.nombre) ?? null} />
+                    <TarjetaDano key={uno.nombre} uno={uno} color={bloque.color} equipo={equipo} abre={abreJugador?.(uno.nombre) ?? null} rivalId={rivalId} />
                   ))}
                 </ul>
               </div>

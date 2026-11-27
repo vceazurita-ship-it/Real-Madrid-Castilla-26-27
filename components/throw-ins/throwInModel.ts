@@ -69,9 +69,9 @@ export const BANDA_LABEL: Record<Banda, string> = {
 export function zonaLabel(zona: Zona, mode: Mode) {
   /* 16/11/2026 (jueces): el sitio, siempre desde nuestra portería. */
   if (mode === "offensive") {
-    return zona === 1 ? "Zona 1 · nuestro tercio" : zona === 2 ? "Zona 2 · medio" : "Zona 3 · su tercio";
+    return zona === 1 ? "Zona 1 · nuestro tercio" : zona === 2 ? "Zona 2 · medio" : "Zona 3 · tercio del rival";
   }
-  return zona === 1 ? "Zona 1 · su tercio" : zona === 2 ? "Zona 2 · medio" : "Zona 3 · nuestro tercio";
+  return zona === 1 ? "Zona 1 · tercio del rival" : zona === 2 ? "Zona 2 · medio" : "Zona 3 · nuestro tercio";
 }
 
 // --------------------------------------------------------------- Zona caída

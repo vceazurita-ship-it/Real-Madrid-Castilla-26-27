@@ -129,10 +129,19 @@ function Bloque({
   const primeroFuera = primero?.ausente;
   const sello = `${conEventos} de ${total}`;
   const conPenalti = lista.filter((j) => j.penaltis > 0);
+  /*
+  | 27/11/2026 (ronda 11, fútbol): con dos en la misma cifra a dos decimales
+  | («0,20» y «0,20»), el titular nombraba a uno solo. Ahora, los dos.
+  */
+  const empatado = primero && lista[1] && coma(lista[1].xt90) === coma(primero.xt90) ? lista[1] : null;
   const frase = primero
-    ? `${nombreDe(primero)} es quien más amenaza mueve en ${nombre}: ${coma(primero.xt90)} xT por 90′` +
-      (primeroFuera ? `, pero no ha jugado ninguna de sus últimas ${JORNADAS_AVISO} jornadas.` : ".")
+    ? (empatado
+        ? `${nombreDe(primero)} y ${nombreDe(empatado)} son quienes más amenaza mueven en ${nombre}: ${coma(primero.xt90)} xT por 90′ cada uno`
+        : `${nombreDe(primero)} es quien más amenaza mueve en ${nombre}: ${coma(primero.xt90)} xT por 90′`) +
+      (primeroFuera ? `, pero ${empatado ? `${nombreDe(primero)} no ha jugado` : "no ha jugado"} ninguna de sus últimas ${JORNADAS_AVISO} jornadas.` : ".")
     : "";
+  /* La barra de arriba: los 5 primeros (27/11/2026, ronda 11, fútbol: la conclusión y la barra antes que la tabla). */
+  const enBarra = lista.slice(0, 5);
 
   return (
     <section id="x-idea-2125576947971637586-1" aria-label="Quién crea la amenaza" className="portada-tarjeta portada-entra mt-6 min-w-0 px-4 py-4 sm:px-5">
@@ -147,16 +156,52 @@ function Bloque({
       </p>
       {frase && <h3 className="fuente-club mt-1.5 text-[20px] font-bold leading-[1.15] text-white sm:text-[24px]">{frase}</h3>}
 
-      <div className="mt-3 overflow-x-auto">
+      {/*
+        LA BARRA, ANTES QUE LA TABLA (27/11/2026, ronda 11, fútbol): los cinco
+        que más amenaza mueven, en xT por 90′; el detalle (pase, conducción,
+        npxG, xA y muestra), en la tabla de debajo.
+      */}
+      {enBarra.length > 1 && (
+        <ol aria-label={`xT por 90′ de los ${enBarra.length} primeros`} className="mt-3 grid min-w-0 gap-1.5">
+          {enBarra.map((j, i) => (
+            <li key={j.playerId} className="grid min-w-0 grid-cols-[minmax(0,9rem)_minmax(0,1fr)_3rem] items-center gap-2 text-[13px] tabular-nums sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_3rem]">
+              <span className={`min-w-0 break-words ${i === 0 || j === empatado ? "font-semibold text-white" : "text-white/80"}`}>{nombreDe(j)}</span>
+              <span className="h-3 min-w-0 rounded-full" style={{ background: tinta(0.08) }}>
+                <span className="block h-3 rounded-full" style={{ width: `${Math.max(2, (Math.max(0, j.xt90) / tope) * 100)}%`, background: i === 0 || j === empatado ? ORO : tinta(0.45) }} />
+              </span>
+              <span className={`text-right ${i === 0 || j === empatado ? "font-bold text-white" : "text-white/80"}`}>{coma(j.xt90)}</span>
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {/* Las siglas, allí mismo (27/11/2026, ronda 11, fútbol). */}
+      <p className="mt-3 text-[13px] leading-snug text-white/65">
+        <b className="font-semibold text-white/85">xT</b>, amenaza esperada que suma con pases y conducciones · <b className="font-semibold text-white/85">npxG</b>, goles esperados sin penaltis · <b className="font-semibold text-white/85">xA</b>, asistencias esperadas. Todo, por 90′.
+      </p>
+
+      <div className="mt-2 overflow-x-auto">
         <table className="w-full min-w-[36rem] border-collapse text-[13px] tabular-nums">
           <thead>
             <tr className="border-b border-white/10 text-left text-[12px] font-semibold text-white/55">
               <th className="py-1.5 pr-2 font-semibold">#</th>
               <th className="py-1.5 pr-2 font-semibold">Jugador</th>
-              <th className="px-2 py-1.5 font-semibold" title="Amenaza esperada que suma por 90′ con pases acertados y conducciones">xT/90</th>
-              <th className="px-2 py-1.5 text-right font-semibold" title="xT/90 de pases · de conducciones">Pase · Cond.</th>
-              <th className="px-2 py-1.5 text-right font-semibold" title="xG por 90′ sin los remates de penalti">npxG/90</th>
-              <th className="px-2 py-1.5 text-right font-semibold" title="xA por 90′ (Opta)">xA/90</th>
+              <th className="px-2 py-1.5 font-semibold" title="Amenaza esperada que suma por 90′ con pases acertados y conducciones">
+                xT/90
+                <span className="block text-[12px] font-normal text-white/50">amenaza esperada</span>
+              </th>
+              <th className="px-2 py-1.5 text-right font-semibold" title="xT/90 de pases · de conducciones">
+                Pase · Cond.
+                <span className="block text-[12px] font-normal text-white/50">xT de cada vía</span>
+              </th>
+              <th className="px-2 py-1.5 text-right font-semibold" title="xG por 90′ sin los remates de penalti">
+                npxG/90
+                <span className="block text-[12px] font-normal text-white/50">goles esperados sin penaltis</span>
+              </th>
+              <th className="px-2 py-1.5 text-right font-semibold" title="xA por 90′ (Opta)">
+                xA/90
+                <span className="block text-[12px] font-normal text-white/50">asistencias esperadas</span>
+              </th>
               <th className="py-1.5 pl-2 text-right font-semibold" title="Partidos que jugó de los que Opta tiene evento a evento · minutos">Muestra</th>
             </tr>
           </thead>

@@ -40,6 +40,7 @@ import {
   type EscudoListo,
 } from "@/lib/laboratorio/escudos-liga";
 import { nombreOficial } from "@/lib/equipos/nombres";
+import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
 import { aviso } from "@/lib/avisos";
 import { useAhora } from "@/hooks/useQuinielaDoc";
 import { hoyMadrid } from "@/lib/apuestas/modelo";
@@ -698,7 +699,8 @@ export default function EscudosPage() {
                             )}
                           </h3>
                           {/* 16/11/2026: margen a la derecha en el móvil para que el ⋮ flotante no tape la segunda columna. */}
-                          <div className="grid grid-cols-2 gap-3 pr-7 sm:grid-cols-4 sm:pr-0 lg:grid-cols-5">
+                          {/* 27/11/2026 (marketing, ronda 11): alto automático (items-start): los equipos sin partido ya no dejan un hueco en blanco bajo el nombre. */}
+                          <div className="grid grid-cols-2 items-start gap-3 pr-7 sm:grid-cols-4 sm:pr-0 lg:grid-cols-5">
                             {tanda.map((uno) => (
                               <figure
                                 key={uno.url}
@@ -790,13 +792,15 @@ export default function EscudosPage() {
                                 {jornada.partidos.get(uno.equipo) ? (
                                   <Link
                                     href="/quiniela"
-                                    title={`Jornada ${jornada.numero} de la quiniela`}
+                                    title={`Jornada ${jornada.numero} de la quiniela · vs ${jornada.partidos.get(uno.equipo)?.rival ?? ""}`}
                                     style={{ color: "#9CC3E6", borderColor: "rgba(156,195,230,0.35)" }}
                                     /* 20/11/2026 (ronda 4, marketing): una sola línea con elipsis; el rival largo partía la píldora y descuadraba la fila. */
                                     /* 27/11/2026 (guionista): «vs Juventud de Torre…» se cortaba en escritorio: hasta dos líneas, sin elipsis a media palabra. */
-                                    className="-mt-1 line-clamp-2 block max-w-full break-words rounded-2xl border px-2 py-0.5 text-center text-[11px] font-semibold leading-tight hover:brightness-125"
+                                    /* 27/11/2026 (marketing, ronda 11): a 12 px y con el nombre corto del rival («vs Hércules»), para que quepa en una línea; el nombre entero, al pasar. */
+                                    aria-label={`Jornada ${jornada.numero}, ${jornada.partidos.get(uno.equipo)?.cuando ?? ""}, contra ${jornada.partidos.get(uno.equipo)?.rival ?? ""}: abrir la quiniela`}
+                                    className="-mt-1 line-clamp-2 block max-w-full break-words rounded-2xl border px-2 py-0.5 text-center text-[12px] font-semibold leading-tight hover:brightness-125"
                                   >
-                                    J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {jornada.partidos.get(uno.equipo)?.rival}
+                                    J{jornada.numero} · {jornada.partidos.get(uno.equipo)?.cuando} · vs {rivalCorto(jornada.partidos.get(uno.equipo)?.rival ?? "")}
                                   </Link>
                                 ) : null}
                                 {/* 17/11/2026 (marketing): de su partido a su análisis, a un toque. */}
@@ -841,6 +845,17 @@ export default function EscudosPage() {
                                         Plan
                                       </Link>
                                     ) : null}
+                                    {/* 27/11/2026 (marketing, ronda 11): y la quiniela de la semana, dicha con su nombre (la píldora azul ya llevaba, pero no se veía). */}
+                                    {jornada.partidos.get(uno.equipo) ? (
+                                      <Link
+                                        href="/quiniela"
+                                        title={`Quiniela de la jornada ${jornada.numero}`}
+                                        style={{ color: "#F7D98B" }}
+                                        className="inline-flex min-h-8 items-center text-[12px] font-bold underline underline-offset-2"
+                                      >
+                                        Quiniela
+                                      </Link>
+                                    ) : null}
                                   </div>
                                 ) : null}
                                 {/* El marco oro, explicado (10/11/2026). */}
@@ -883,4 +898,10 @@ export default function EscudosPage() {
       </div>
     </main>
   );
+}
+
+/** El nombre corto de un rival para la píldora de la jornada: sin siglas de club delante ni detrás («Hércules de Alicante CF» → «Hércules»). */
+/* 27/11/2026: el mismo nombre corto que el resto de gráficos (APODOS: «Juventud Torremolinos» → «Torremolinos»). */
+function rivalCorto(equipo: string) {
+  return nombreCortoEquipo(equipo);
 }

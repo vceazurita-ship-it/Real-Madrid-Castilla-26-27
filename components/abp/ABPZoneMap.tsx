@@ -636,7 +636,7 @@ export default function ABPZoneMap({
 
           {/* Escala */}
           <div className="mt-3 flex items-center gap-3">
-            <span className="text-[11px] text-zinc-500">0</span>
+            <span className="text-[12px] text-zinc-500">0</span>
 
             <div
               className="h-2 flex-1 rounded-full"
@@ -645,12 +645,12 @@ export default function ABPZoneMap({
               }}
             />
 
-            <span className="text-[11px] text-zinc-500">
+            <span className="text-[12px] text-zinc-500">
               {format(maxValue)}
             </span>
           </div>
           {/* 27/11/2026 (jueces, ronda 10): «1,4 / 2,1» sin unidad no se leía; cada capa dice qué cuenta la cifra de la zona. */}
-          <p className="mt-1 text-[11px] text-white/60">
+          <p className="mt-1 text-[12px] text-white/60">
             Cifra de cada zona:{" "}
             {metric === "ocupacion"
               ? def
@@ -674,7 +674,7 @@ export default function ABPZoneMap({
           */}
           {corto + barrera + sinZona > 0 && rows.length > 0 ? (
             <div className="mt-4 min-w-0">
-              <p className="text-[11px] text-white/60">
+              <p className="text-[12px] text-white/60">
                 Fuera de las cuatro zonas del área: {corto + barrera + sinZona} de {rows.length}{" "}
                 {rows.length === 1 ? "acción" : "acciones"}
               </p>
@@ -750,7 +750,7 @@ export default function ABPZoneMap({
                   key={m.key}
                   className="flex items-center justify-between rounded-lg bg-white/5 px-3 py-2"
                 >
-                  <dt className="text-[11px] text-zinc-400">
+                  <dt className="text-[12px] text-zinc-400">
                     {m.label}
                   </dt>
 
@@ -767,7 +767,7 @@ export default function ABPZoneMap({
               ))}
             </dl>
 
-            <p className="mt-3 text-[11px] leading-snug text-zinc-500">
+            <p className="mt-3 text-[12px] leading-snug text-zinc-500">
               {def
                 ? "Ocupación y envíos miden cómo defendemos la zona; remates, goles esperados y goles miden lo que el rival nos saca de ella."
                 : "Ocupación y envíos miden lo que planificamos; remates, goles esperados y goles miden lo que conseguimos."}
@@ -780,7 +780,7 @@ export default function ABPZoneMap({
             {def ? "Ocupación vs. peligro concedido" : "Ocupación vs. peligro"}
           </p>
 
-          <p className="mt-1 text-[11px] leading-snug text-zinc-500">
+          <p className="mt-1 text-[12px] leading-snug text-zinc-500">
             {def
               ? "Reparto de jugadores frente al reparto de goles esperados que el rival genera en cada zona."
               : "Reparto de jugadores frente al reparto de goles esperados de cada zona."}
@@ -789,7 +789,7 @@ export default function ABPZoneMap({
           </p>
           {conOcupacion > 0 || rematesConZona > 0 ? (
             /* 20/11/2026 (jueces, ronda 5): la base en una línea; el detalle, desplegable. */
-            <details className="group mt-1 text-[11px] leading-snug text-white/60">
+            <details className="group mt-1 text-[12px] leading-snug text-white/60">
               <summary className="cursor-pointer list-none">
                 Base: {[conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"}` : "", rematesConZona > 0 ? `${rematesConZona} ${rematesConZona === 1 ? "remate" : "remates"}` : ""].filter(Boolean).join(" · ")}
                 {rows.length > conOcupacion ? ` de ${rows.length}` : ""}{" "}
@@ -827,7 +827,7 @@ export default function ABPZoneMap({
                   aria-pressed={selectedZone === z.key}
                   className="-mx-1 block w-[calc(100%+0.5rem)] cursor-pointer rounded-lg px-1 py-0.5 text-left transition hover:bg-white/[0.04]"
                 >
-                  <div className="mb-1.5 flex items-center justify-between text-[11px]">
+                  <div className="mb-1.5 flex items-center justify-between text-[12px]">
                     <span className="text-zinc-300">{z.label}</span>
                     <span className="tabular-nums text-zinc-500">
                       {totalOcupacion ? `${occShare.toFixed(0)} %` : ""}
@@ -856,7 +856,7 @@ export default function ABPZoneMap({
             })}
           </div>
 
-          <div className="mt-4 flex flex-wrap gap-3 text-[11px] text-zinc-400">
+          <div className="mt-4 flex flex-wrap gap-3 text-[12px] text-zinc-400">
             <span className="flex items-center gap-1.5">
               <span className="h-2 w-2 rounded-full bg-[#5E7FB8]" />
               Ocupación
@@ -870,7 +870,7 @@ export default function ABPZoneMap({
             </span>
           </div>
 
-          <p className="mt-4 text-[11px] leading-snug text-zinc-500">
+          <p className="mt-4 text-[12px] leading-snug text-zinc-500">
             {controlado
               ? "Pulsa una zona del campo para filtrar toda la página por ella."
               : "Pulsa una zona del campo para ver su detalle completo."}

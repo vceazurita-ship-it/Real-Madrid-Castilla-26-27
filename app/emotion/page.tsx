@@ -366,6 +366,15 @@ export default function EmotionPage() {
   | verdad (quien lleva la media de la plantilla no cuenta) y el titular más
   | bajo de las seis líneas.
   */
+  /* 27/11/2026 (ronda 11): cuántos titulares de la pizarra tienen valoración propia (la base del campo). */
+  const titularesValorados = useMemo(() => {
+    const nombres = new Set(Object.values(groups).flat());
+    return [...nombres].filter((n) => {
+      const p = getPlayer(n);
+      return Boolean(p && !p.estimado);
+    }).length;
+  }, [groups, getPlayer]);
+
   const conclusion = useMemo(() => {
     const TITULO: Record<GroupKey, string> = {
       keeper: "portero y defensa",
@@ -569,6 +578,8 @@ export default function EmotionPage() {
                         {/* 27/11/2026 (marketing, ronda 10): una línea, con el día límite. */}
                         <span className="font-semibold">A revisar: valoración del {fechaCorta}, hace {diasDesdeValoracion} días.</span>{" "}
                         {limiteValorar ? `Valorar de nuevo ${limiteValorar}.` : "Valorar de nuevo antes del próximo partido."}
+                        {/* 27/11/2026 (los dos jueces, ronda 11): el único sitio con la fecha; los gráficos, en gris hasta renovar. */}
+                        <span className="block text-xs opacity-80">Hasta renovarla, los gráficos van en gris y sus cifras se leen como referencia.</span>
                       </p>
                       <button
                         type="button"
@@ -589,13 +600,17 @@ export default function EmotionPage() {
                   )}
                   {conclusion && (
                     <p className={`mt-1.5 max-w-2xl text-base font-medium leading-snug ${caducada ? "text-white/70" : "text-white"}`}>
-                      {caducada && <span className="mr-1 text-[11px] font-semibold uppercase tracking-[.14em] text-white/55">Al {fechaCorta}:</span>}
                       {conclusion}
                     </p>
                   )}
-                  {rows.length > 0 && rows.length < VALORACIONES_FIRMES && (
-                    <p className="mt-1 max-w-2xl text-[11px] text-white/55">
-                      Base: {rows.length} jugadores con una valoración cada uno; cada línea suma de 2 a 5, así que sus medias son tendencia, no diagnóstico.
+                  {/* 27/11/2026 (los dos jueces, ronda 11): las dos bases de la
+                      pantalla y por qué difieren, dichas una vez. */}
+                  {rows.length > 0 && (
+                    <p className="mt-1 max-w-2xl text-[11px] leading-relaxed text-white/60">
+                      Dos bases: el campo y su lectura cuentan al once de la pizarra
+                      {titularesValorados > 0 ? ` (${titularesValorados} titulares valorados)` : ""}; el resumen de la plantilla y la raya de
+                      referencia, a los {rows.length} evaluados (once y banquillo).
+                      {rows.length < VALORACIONES_FIRMES ? " Una valoración por jugador: cada línea suma de 2 a 5, así que sus medias son tendencia." : ""}
                     </p>
                   )}
 
@@ -691,12 +706,8 @@ export default function EmotionPage() {
             {!loading && rows.length > 0 && (
               <p className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/60">
                 Plantilla · los {rows.length} evaluados (once y banquillo)
-                {fechaCorta ? ` · valoración del ${fechaCorta}` : ""}
-                {caducada && (
-                  <span className="rounded-full border border-amber-500/60 px-2 py-0.5 text-[10px] tracking-[.12em] text-amber-200 [:root[data-theme=light]_&]:text-amber-900">
-                    caducada · hace {diasDesdeValoracion} días
-                  </span>
-                )}
+                {/* 27/11/2026 (ronda 11): caducada, la fecha sólo en el aviso de arriba. */}
+                {fechaCorta && !caducada ? ` · valoración del ${fechaCorta}` : ""}
               </p>
             )}
             <div className={`mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4 ${caducada ? "opacity-60" : ""}`} title={caducada ? `Valoración del ${fechaCorta}: hace ${diasDesdeValoracion} días` : undefined}>
@@ -784,7 +795,7 @@ export default function EmotionPage() {
             {/* ---------------------------------------------- Radares */}
             <div
               id="perfiles-por-linea"
-              className="scroll-mt-24 rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80"
+              className={`scroll-mt-24 rounded-[34px] border border-white/10 bg-[#08131F]/60 p-4 sm:p-5 lg:p-6 [:root[data-theme=light]_&]:border-slate-300 [:root[data-theme=light]_&]:bg-white/80 ${caducada ? "grayscale-[.85]" : ""}`}
             >
               {/* Sin imagen de campo detrás (26/10/2026): ensuciaba los radares y los chips. */}
               {/* 08/11/2026 (jueces): las seis líneas se solapan a propósito (petición
@@ -1366,7 +1377,8 @@ function RadarPanel({
         <div className="w-full min-w-0 flex-1">
           {/* 29/10/2026: lienzo más bajo y radio mayor; antes el radar era un
               rombo pequeño en mucho vacío. */}
-          <div className="h-[270px] w-full min-w-[240px] sm:h-[320px]">
+          {/* 27/11/2026 (marketing, ronda 11): tarjetas más bajas, sin vacío entre radares. */}
+          <div className="h-[240px] w-full min-w-[240px] sm:h-[260px]">
             {series.length === 0 && loading ? (
               <Hueso className="h-full w-full rounded-2xl" />
             ) : series.length === 0 ? (

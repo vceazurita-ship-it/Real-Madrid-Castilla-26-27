@@ -1776,12 +1776,9 @@ function MapaAtender({
         ))}
       </svg>
       {/* 27/11/2026 (análisis, ronda 9): la base y el umbral, en texto, también en el móvil. */}
+      {/* 27/11/2026 (marketing, ronda 11): una sola línea de base bajo el gráfico. */}
       <p className="mt-1 text-[12px] text-white/65">
-        {`Base: ${puntos.length} de ${filas.length} de campo con ficha de scout. Franja dorada «a atender»: más de ${DIAS_SIN_SEGUIMIENTO} días sin seguimiento.`}
-      </p>
-      <p className="mt-0.5 text-[11px] text-white/60">
-        Nota del scout (0-10) frente a días desde su último seguimiento. Pincha un punto para abrir su ficha.
-        {filas.length > puntos.length ? ` ${filas.length - puntos.length} sin ficha de scout van sólo en la lista.` : ""}
+        {`Base: ${puntos.length} de ${filas.length} de campo con ficha de scout${filas.length > puntos.length ? ` (${filas.length - puntos.length} sin ella, sólo en la lista)` : ""} · nota del scout (0-10) frente a días sin seguimiento; franja dorada, más de ${DIAS_SIN_SEGUIMIENTO} días. Pincha un punto para abrir su ficha.`}
       </p>
     </figure>
   );
@@ -1859,7 +1856,7 @@ function LineaMinutos({ rinde }: { rinde?: Rinde }) {
 | aquí: lo hacen con su entrenador).
 */
 const ACCESOS_FICHA: { destino: DestinoJugador; texto: string; Icono: typeof Star }[] = [
-  { destino: "notas", texto: "Notas", Icono: Star },
+  { destino: "notas", texto: "Valoraciones", Icono: Star },
   { destino: "comparativa", texto: "Comparativa", Icono: Scale },
   { destino: "videos", texto: "Vídeos", Icono: Video },
   { destino: "data", texto: "Data", Icono: BarChart3 },
@@ -1890,8 +1887,10 @@ function AccesosFicha({
   const jugador = { id: player.idJugador, nombre: nombreVisible(player.name) };
   /* 27/11/2026 (análisis, ronda 10): la Comparativa sale a la vista, con él
      ya elegido; en «Más» queda el resto y se suma su Emocional. */
+  /* 27/11/2026 (marketing, ronda 11): a 390 px, tres botones y «Más» ocupaban
+     una fila entera; en el móvil la Comparativa pasa a «Más» (a la vista desde sm). */
   const accesos = ACCESOS_FICHA.filter(
-    (a) => a.destino !== "comparativa" && (!portero || (a.destino !== "dashboard" && a.destino !== "calendario")),
+    (a) => !portero || (a.destino !== "dashboard" && a.destino !== "calendario"),
   );
   const titulo: Record<string, string> = {
     notas: "Sus notas en Valoraciones",
@@ -1938,7 +1937,7 @@ function AccesosFicha({
           href={hrefJugador("comparativa", jugador)}
           onClick={(e) => e.stopPropagation()}
           title={`Contra la categoría, en su puesto · ${jugador.nombre}`}
-          className={`${boton} border-white/15 bg-white/[0.03] text-white/80 hover:border-[#C8A96B]/50 hover:text-white`}
+          className={`${boton.replace("inline-flex ", "")} hidden border-white/15 bg-white/[0.03] text-white/80 hover:border-[#C8A96B]/50 hover:text-white sm:inline-flex`}
         >
           <Scale size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
           Comparativa
@@ -1947,7 +1946,7 @@ function AccesosFicha({
       <details className="group/mas min-w-0 open:basis-full" onClick={(e) => e.stopPropagation()}>
         <summary
           className={`${boton} w-fit cursor-pointer list-none border-white/10 bg-white/[0.03] text-white/75 hover:text-white [&::-webkit-details-marker]:hidden`}
-          title={`Notas, vídeos, Data${portero ? "" : ", su seguimiento, su calendario"} y Emocional`}
+          title={`Valoraciones, vídeos, Data${portero ? "" : ", su seguimiento, su calendario"} y Emocional`}
         >
           Más
           <ChevronDown size={12} className="shrink-0 transition group-open/mas:rotate-180" aria-hidden />
@@ -1959,7 +1958,7 @@ function AccesosFicha({
               href={hrefJugador(destino, jugador)}
               title={`${titulo[destino]} · ${jugador.nombre}`}
               onClick={(e) => e.stopPropagation()}
-              className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+              className={`inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white ${destino === "comparativa" ? "sm:hidden" : ""}`}
             >
               <Icono size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
               <span className="min-w-0 break-words leading-tight">{texto}</span>
@@ -2775,9 +2774,35 @@ export default function IndividualPage() {
     /* 17/11/2026: la misma mediana que el Dashboard Seguimiento (lib/seguimiento). */
     const medianaSeg = coma(medianaSeguimientos(deCampo.map((p) => p.sessions ?? 0)));
     const notas = rated.map((p) => p.score);
+    /* 27/11/2026 (análisis y marketing, ronda 11): la nota del scout con la
+       misma base que el mapa y el seguimiento (los de campo); los porteros,
+       aparte y con su rótulo. */
+    const ratedCampo = rated.filter((p) => !esPortero(p.linea));
+    const ratedPorteros = rated.filter((p) => esPortero(p.linea));
+    const notasCampo = ratedCampo.map((p) => p.score);
+    const scoutCampo = {
+      n: ratedCampo.length,
+      avg: notasCampo.length ? notasCampo.reduce((a, b) => a + b, 0) / notasCampo.length : 0,
+      min: notasCampo.length ? Math.min(...notasCampo) : 0,
+      max: notasCampo.length ? Math.max(...notasCampo) : 0,
+      /* Cuántos de campo en cada color de la leyenda (los cortes de scoreColorHex). */
+      bandas: [
+        notasCampo.filter((v) => v >= 8).length,
+        notasCampo.filter((v) => v >= 6.5 && v < 8).length,
+        notasCampo.filter((v) => v >= 5 && v < 6.5).length,
+        notasCampo.filter((v) => v < 5).length,
+      ] as const,
+    };
+    const scoutPorteros = {
+      n: ratedPorteros.length,
+      de: enFiltro.length - deCampo.length,
+      avg: ratedPorteros.length ? ratedPorteros.reduce((a, p) => a + p.score, 0) / ratedPorteros.length : 0,
+    };
 
     return {
       todos,
+      scoutCampo,
+      scoutPorteros,
       medianaSeg,
       minScore: notas.length ? Math.min(...notas) : 0,
       maxScore: notas.length ? Math.max(...notas) : 0,
@@ -2821,7 +2846,7 @@ export default function IndividualPage() {
 
   /* 20/11/2026 (ronda 5, marketing): la banda «A quién toca seguir» enseña
      los seis que más tiempo llevan; el resto, tras «Ver los N». */
-  const [verTodosSeguir, setVerTodosSeguir] = useState(false);
+  const [verTodosSeguir] = useState(false);
 
   const sinSeguimiento = useMemo(() => {
     if (pendiente.seguimiento || pendiente.jugadores || trackingData.length === 0) return [];
@@ -4127,7 +4152,8 @@ export default function IndividualPage() {
                     )}
                   </h2>
                   <p className="mt-0.5 text-[11px] text-white/55">
-                    Jugadores de campo del Castilla (los porteros llevan su seguimiento aparte). Días desde su último registro; la raya marca los {DIAS_SIN_SEGUIMIENTO} días: cuenta quien pasa de ella ({DIAS_SIN_SEGUIMIENTO + 1} días o más).
+                    {/* 27/11/2026 (los dos jueces, ronda 11): una línea, con el sentido de la barra. */}
+                    Días desde su último seguimiento: menos es mejor; la raya, {DIAS_SIN_SEGUIMIENTO} días. Los porteros, en su registro.
                   </p>
 
                   <div className="mt-3 grid min-w-0 items-start gap-x-6 gap-y-4 lg:grid-cols-2">
@@ -4184,14 +4210,18 @@ export default function IndividualPage() {
                       );
                     })}
                   </ul>
+                  {/* 27/11/2026 (análisis, ronda 11): «Ver los 18» repetía la lista de
+                      abajo; ahora la ordena por días sin seguimiento y baja a ella. */}
                   {diasCampo.fuera > 0 && diasCampo.filas.length > diasCampo.fuera && (
                     <button
                       type="button"
-                      onClick={() => setVerTodosSeguir((v) => !v)}
-                      aria-expanded={verTodosSeguir}
+                      onClick={() => {
+                        setSortBy("atrasados");
+                        document.getElementById("plantilla-filtros")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                      }}
                       className="mt-2 inline-flex min-h-[36px] items-center rounded-full border border-white/15 px-3 text-[11px] font-semibold text-white/70 transition hover:text-white sm:min-h-[28px]"
                     >
-                      {verTodosSeguir ? `Ver sólo los ${diasCampo.fuera} que pasan de ${DIAS_SIN_SEGUIMIENTO} días` : `Ver los ${diasCampo.filas.length}`}
+                      {`Los ${diasCampo.filas.length}, en la plantilla por días sin seguimiento ↓`}
                     </button>
                   )}
                   </div>
@@ -4263,7 +4293,7 @@ export default function IndividualPage() {
                         </p>
                       )}
                       <p>
-                        «Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Comparativa», su fila contra la categoría; «Más», sus notas, sus vídeos, su Data análisis, su seguimiento, su calendario y su Emocional.
+                        «Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Comparativa», su fila contra la categoría (en el móvil, dentro de «Más»); «Más», sus Valoraciones, sus vídeos, su Data análisis, su seguimiento, su calendario y su Emocional.
                       </p>
                       <p>
                         «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
@@ -4281,33 +4311,51 @@ export default function IndividualPage() {
                   </details>
                 </StatTile>
 
-                {stats.rated >= 3 && stats.avg > 0 && (
+                {/* 27/11/2026 (marketing, ronda 11): mientras bajan los datos, la
+                    tarjeta guarda su sitio (no salta al llegar). */}
+                {pendiente.jugadores && (
+                  <div aria-hidden className="min-w-0 animate-pulse rounded-2xl border border-white/10 bg-white/[0.025] p-4">
+                    <div className="h-3 w-24 rounded bg-white/10" />
+                    <div className="mt-3 h-7 w-14 rounded bg-white/10" />
+                    <div className="mt-2 h-3 w-full rounded bg-white/[0.06]" />
+                    <div className="mt-1.5 h-3 w-2/3 rounded bg-white/[0.06]" />
+                  </div>
+                )}
+                {!pendiente.jugadores && stats.scoutCampo.n >= 3 && stats.scoutCampo.avg > 0 && (
                   <StatTile
                     icon={Gauge}
-                    label="Nota del scout"
-                    value={stats.avg.toFixed(1).replace(".", ",")}
+                    label="Nota del scout · de campo"
+                    value={coma(stats.scoutCampo.avg)}
                     /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla.
                        16/11/2026: «Media competencias» era jerga; se dice qué es y su escala. */
                     /* 17/11/2026 (ronda 20): la base, contra el total de la cifra «Jugadores». */
                     /* 27/11/2026 (análisis, ronda 10): por qué no casa con la base del mapa de arriba. */
-                    hint={`media de los ${stats.rated} de ${stats.players} con ficha de scout, porteros incluidos (el mapa de arriba cuenta sólo los de campo), escala 0-10, más es mejor (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
+                    /* 27/11/2026 (análisis y marketing, ronda 11): una sola base, la
+                       de campo, la misma del mapa y del seguimiento; los porteros, aparte. */
+                    hint={`media de los ${stats.scoutCampo.n} de ${stats.deCampo} de campo con ficha de scout (la base del mapa y del seguimiento) · escala 0-10, más es mejor (cinco competencias) · de ${coma(stats.scoutCampo.min)} a ${coma(stats.scoutCampo.max)}`}
                   >
-                    {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
+                    {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026),
+                        con cuántos de campo hay en cada color (ronda 11). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">
-                      {([[8, "8 o más"], [6.5, "6,5 a 8"], [5, "5 a 6,5"], [0, "menos de 5"]] as const).map(([v, t]) => (
+                      {([[8, "8 o más"], [6.5, "6,5 a 8"], [5, "5 a 6,5"], [0, "menos de 5"]] as const).map(([v, t], i) => (
                         <span key={t} className="inline-flex items-center gap-1">
                           <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColorHex(v) }} />
-                          {t}
+                          {t} · <span className="font-semibold tabular-nums text-white/80">{stats.scoutCampo.bandas[i]}</span>
                         </span>
                       ))}
                     </p>
+                    {stats.scoutPorteros.n > 0 && (
+                      <p className="mt-1 text-[11px] text-white/55">
+                        Porteros, aparte: {stats.scoutPorteros.n} de {stats.scoutPorteros.de} con ficha, media {coma(stats.scoutPorteros.avg)}.
+                      </p>
+                    )}
                   </StatTile>
                 )}
               </div>
 
               {/* FILTROS */}
 
-              <div className="mt-6 grid min-w-0 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
+              <div id="plantilla-filtros" className="mt-6 grid min-w-0 scroll-mt-24 gap-3 lg:grid-cols-[minmax(0,1fr)_auto]">
                 <div className="flex min-w-0 items-center gap-3 rounded-2xl border border-white/10 bg-white/[0.025] px-4 py-3 transition focus-within:border-[#C8A96B]/60">
                   <Search size={16} className="shrink-0 text-white/30" />
 
@@ -4459,10 +4507,11 @@ export default function IndividualPage() {
                   ésos se enseñan como «—» hasta que llegan. */}
               {filtered.length === 0 ? (
                 <div className="mt-8">
+                  {/* 27/11/2026 (marketing, ronda 11): «Otros» vacío dice qué es, no «búsqueda». */}
                   <EmptyState
                     icon={Search}
-                    title="Ningún jugador coincide con la búsqueda"
-                    hint="Prueba con otro nombre o quita los filtros activos."
+                    title={teamFilter === "externos" && !search ? "Ningún jugador de otros equipos (RMC, Juvenil) en la lista" : "Ningún jugador coincide con la búsqueda"}
+                    hint={teamFilter === "externos" && !search ? "Vuelve a «Castilla» para ver la plantilla." : "Prueba con otro nombre o quita los filtros activos."}
                     action={
                       hasFilters ? (
                         <GoldButton

@@ -606,8 +606,13 @@ export function MarcadorCoding({
             {total + aparte === 1 ? "corte guardado" : "cortes guardados"}
             {aparte > 0 ? (
               /* 20/11/2026 (ronda 4, análisis): qué cuenta cada total. */
-              <span className="block text-[11px] text-white/60" title="Cortes del partido: acciones marcadas con entrada y salida sobre el vídeo del partido. Clips de jugador: vídeos enteros de un jugador, subidos aparte.">
-                {total} {total === 1 ? "corte" : "cortes"} sobre el vídeo del partido · {aparte} {aparte === 1 ? "vídeo entero" : "vídeos enteros"} de un jugador
+              /* 27/11/2026 (marketing, ronda 11): una frase con verbo y sin el «0 cortes» cuando sólo hay clips de jugador. */
+              <span className="block text-[12px] text-white/65" title="Cortes del partido: acciones marcadas con entrada y salida sobre el vídeo del partido. Clips de jugador: vídeos enteros de un jugador, subidos aparte.">
+                {total > 0
+                  ? `${total} marcados en el partido y ${aparte} ${aparte === 1 ? "vídeo entero" : "vídeos enteros"} de jugador`
+                  : aparte === 1
+                    ? "Es un vídeo entero de jugador"
+                    : `Son ${aparte} vídeos enteros de jugador`}
               </span>
             ) : null}
           </span>

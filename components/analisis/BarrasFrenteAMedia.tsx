@@ -17,6 +17,7 @@
 | «Detalle».
 */
 
+import type { ReactNode } from "react";
 import { formatoPorcentaje, type MetricaComparada } from "@/components/abp/ComparativaPartido";
 
 const ORO = "#C8A96B";
@@ -60,6 +61,7 @@ export function BarrasFrenteAMedia({
   titulo,
   pie,
   tendencia = false,
+  cabecera,
 }: {
   metricas: MetricaComparada[];
   /** Cuántos partidos hay detrás de la media. */
@@ -69,6 +71,8 @@ export function BarrasFrenteAMedia({
   pie?: string;
   /** Todo el bloque es tendencia (p. ej. el partido sale de Opta y la media, del vídeo). */
   tendencia?: boolean;
+  /** 27/11/2026 (ronda 11): la conclusión de la semana dentro del mismo bloque, encima de las barras (opcional; sin ella, como siempre). */
+  cabecera?: ReactNode;
 }) {
   const filas = metricas.filter((m) => m.actual !== null && m.media !== null);
 
@@ -76,6 +80,7 @@ export function BarrasFrenteAMedia({
 
   return (
     <div className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3">
+      {cabecera ? <div className="mb-3 min-w-0">{cabecera}</div> : null}
       {titulo ? <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">{titulo}</p> : null}
       <ul className="space-y-2.5">
         {filas.map((m) => {

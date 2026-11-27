@@ -215,7 +215,7 @@ import { esPortero } from "@/lib/abp/pizarra-jugador";
 const CLAVE_SUELTA = "suelta:";
 import { siglasQueChocan, siglasSinChoque } from "@/lib/abp/siglas";
 import { traeJson } from "@/lib/hojaCsv";
-import { EnlacesDelRival } from "@/components/abp/EnlacesDelRival";
+import { CLASE_ENLACE_RIVAL, EnlacesDelRival } from "@/components/abp/EnlacesDelRival";
 import { VideoJugada } from "@/components/abp/pizarra/VideoJugada";
 import {
   RecibeDelLaboratorio,
@@ -3093,9 +3093,23 @@ export default function PizarraAbpPage() {
               <EnlacesDelRival
                 equipo={tablero?.rival || partido.opponent}
                 rivalId={jornada?.id ?? (partido.id.startsWith("riv-") ? partido.id.slice(4) : "")}
-                incluye={["abp", "goles", "encaja", "plan"]}
+                /* 27/11/2026 (jueces, ronda 11): también el microciclo de ABP y, si hay córner defensivo, «Quién marca a quién» (la propuesta de marcas de esa lámina). */
+                incluye={["abp", "goles", "encaja", "plan", "microciclo"]}
                 rotulo={`${rivalCorto(tablero?.rival || partido.opponent)} ·`}
                 className="mt-3"
+                extra={
+                  tablero && tablero.slides.some((s) => s.plantilla === "corner-def") ? (
+                    <button
+                      type="button"
+                      className={CLASE_ENLACE_RIVAL}
+                      title="Abre la lámina del córner defensivo, con la propuesta de quién marca a quién"
+                      onClick={() => setPedida(tablero.slides.findIndex((s) => s.plantilla === "corner-def"))}
+                    >
+                      <Users size={13} aria-hidden />
+                      Quién marca a quién
+                    </button>
+                  ) : null
+                }
               />
             )}
 

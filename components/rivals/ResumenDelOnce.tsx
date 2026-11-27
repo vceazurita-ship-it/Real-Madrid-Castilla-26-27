@@ -116,7 +116,7 @@ function Ficha({ ficha, rotulo, activa, onClick }: { ficha: FichaResumen; rotulo
         {ficha.dorsal || ficha.hueco.slice(0, 2)}
       </span>
       {/* 20/11/2026 (ronda 7, fútbol): a 11 px y sin «…» («Gonzál…», «Jor. Mi…»); si no cabe, parte por el espacio. */}
-      <span className="block w-full break-words text-center text-[11px] leading-tight text-white/80 [hyphens:manual]">
+      <span className="block w-full break-words text-center text-[12px] leading-tight text-white/80 [hyphens:manual]">
         {rotulo}
         {ficha.muestraCorta && <span className="text-white/50">*</span>}
       </span>
@@ -181,15 +181,29 @@ export function ResumenDelOnce({
       aria-label={`El once probable de ${equipo} de un vistazo`}
       className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
     >
-      <header className="border-b border-white/10 px-4 py-3">
-        <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">El once de un vistazo</h2>
-        <p className="mt-0.5 text-[12px] text-white/55">{dibujo} · pincha una ficha para ver el porqué</p>
+      <header className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-white/10 px-4 py-3">
+        <span className="min-w-0">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">El once de un vistazo</h2>
+          <p className="mt-0.5 text-[13px] text-white/60">{dibujo} · pincha un nombre para ver el porqué</p>
+        </span>
+        {/* 27/11/2026 (ronda 11, marketing): el once dibujado está en el campograma; aquí, a un toque. */}
+        <a href="#campograma-rival" className="shrink-0 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+          Ver en el campograma ↓
+        </a>
       </header>
 
-      <div className={ancho ? "min-w-0 md:grid md:grid-cols-2 md:items-start" : "min-w-0"}>
-      {/* El minicampo: el ataque arriba, como el campograma de pie. */}
-      <div className={ancho ? "min-w-0 px-3 pt-3 md:pb-3" : "min-w-0 px-3 pt-3"}>
-        <ol className="flex min-w-0 flex-col gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-1 py-2">
+      {/*
+        UN SOLO ONCE DIBUJADO (27/11/2026, ronda 11, análisis y marketing): el
+        minicampo repetía el campograma entero, que va justo debajo en el
+        escritorio. Ahí ya no sale; en el móvil, donde el campograma queda
+        lejos, va plegado tras «Ver el once en un minicampo». La lista de
+        peligro y explotable y su leyenda siguen a la vista.
+      */}
+      <div className="flex min-w-0 flex-col">
+      {!ancho && (
+      <details className="min-w-0 px-3 pt-3">
+        <summary className="cursor-pointer text-[13px] font-semibold text-white/65 hover:text-white">Ver el once en un minicampo</summary>
+        <ol className="mt-1.5 flex min-w-0 flex-col gap-1 rounded-xl border border-emerald-500/25 bg-emerald-500/[0.07] px-1 py-2">
           {[...conGente].reverse().map((linea) => (
             <li key={linea.clave} className="flex min-w-0 items-start justify-around" aria-label={`${linea.titulo}: ${linea.fichas.map((f) => f.nombre).join(", ")}`}>
               {linea.fichas.map((ficha) => (
@@ -198,26 +212,35 @@ export function ResumenDelOnce({
             </li>
           ))}
         </ol>
+      </details>
+      )}
 
-        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-white/55">
-          <span>
-            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-red-400 align-[-1px]" aria-hidden />
-            peligro
-          </span>
-          <span>
-            <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-emerald-400 align-[-1px]" aria-hidden />
-            explotable
-          </span>
-          {fuera.length > 0 && (
+      {/* La leyenda (18/11/2026, ronda 23; r8): bajo la lista, a 12 px como mínimo (27/11/2026, ronda 11). */}
+      <div className="order-last min-w-0 px-4 pb-3">
+        <p className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5 text-[12px] text-white/60">
+          {/* Los aros son los del minicampo: sin él (escritorio), la lista ya lo dice con su chip. */}
+          {!ancho && (
+            <>
+              <span>
+                <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-red-400 align-[-1px]" aria-hidden />
+                peligro
+              </span>
+              <span>
+                <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-emerald-400 align-[-1px]" aria-hidden />
+                explotable
+              </span>
+            </>
+          )}
+          {!ancho && fuera.length > 0 && (
             <span>
               <span className="mr-1 inline-block h-2.5 w-2.5 rounded-full border-2 border-dashed border-white/50 align-[-1px]" aria-hidden />
               fuera de su sitio
             </span>
           )}
-          {cortos.length > 0 && <span>* muestra corta: menos de 450′ en Wyscout ({cortos.map((f) => `${f.nombre}, ${f.muestraCorta}`).join("; ")})</span>}
+          {cortos.length > 0 && <span>{ancho ? "Muestra corta" : "* muestra corta"}: menos de 450′ en Wyscout ({cortos.map((f) => `${f.nombre}, ${f.muestraCorta}`).join("; ")})</span>}
         </p>
         {/* El criterio, en la leyenda (18/11/2026, ronda 23). */}
-        <p className="mt-0.5 text-[11px] leading-snug text-white/50">{capital(LEYENDA_JERARQUIA)}.</p>
+        <p className="mt-0.5 text-[12px] leading-snug text-white/60">{capital(LEYENDA_JERARQUIA)}.</p>
       </div>
 
       <div className={`min-w-0 space-y-1.5 px-4 pb-3 pt-2 text-[13px] leading-snug text-white/75 ${ancho ? "md:pt-3" : ""}`}>
@@ -245,6 +268,10 @@ export function ResumenDelOnce({
               </p>
             )}
             <span className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+              {/* Sin minicampo, la vuelta a la lista (27/11/2026, ronda 11). */}
+              <button type="button" onClick={() => setElegida(null)} className="min-h-8 font-semibold text-white/65 underline-offset-2 hover:text-white hover:underline">
+                ‹ Volver a la lista
+              </button>
               <button type="button" onClick={() => abrir(activa.clave)} className="min-h-8 font-semibold text-[#C8A96B] underline-offset-2 hover:underline">
                 Su ficha ›
               </button>
@@ -273,7 +300,7 @@ export function ResumenDelOnce({
                     className="flex w-full min-w-0 items-baseline gap-2 rounded-lg px-1.5 py-1 text-left transition hover:bg-white/[0.05]"
                   >
                     <span
-                      className={`shrink-0 rounded-full border px-1.5 py-px text-[11px] font-bold ${peligro ? "border-red-400/60 text-red-300" : "border-emerald-400/60 text-emerald-300"}`}
+                      className={`shrink-0 rounded-full border px-1.5 py-px text-[12px] font-bold ${peligro ? "border-red-400/60 text-red-300" : "border-emerald-400/60 text-emerald-300"}`}
                     >
                       {peligro ? "▲ peligro" : "▼ explotable"}
                     </span>

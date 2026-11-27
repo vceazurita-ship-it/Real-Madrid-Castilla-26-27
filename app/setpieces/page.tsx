@@ -478,7 +478,7 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
   /* 27/11/2026 (jueces, ronda 9): un decimal, como la conclusión (26,6 %, no 27 % en la raya). */
   const pcTxt = (v: number) => `${(Math.round(v * 10) / 10).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`;
   return (
-    <figure className="mt-3 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3">
+    <figure className="mt-3 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-3 sm:px-4">
       <figcaption className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
         <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">Gol u ocasión, partido a partido</span>
         <span className="text-[12px] text-white/70">
@@ -513,7 +513,8 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
                   className={`mb-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums ${marcada ? "font-bold" : corta ? "text-white/45" : "text-white/70"}`}
                   style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}
                 >
-                  {p.n ? `${p.k}/${p.n}` : "sin acc."}
+                  {/* 27/11/2026 (jueces, ronda 11): «a/b» sólo encima de las columnas con 10 acciones o más (y la del último partido); el resto, al pasar por encima: a 390 px se pisaban. */}
+                  {!p.n ? "sin acc." : p.n >= MUESTRA_COLUMNA || marcada ? `${p.k}/${p.n}` : " "}
                 </span>
                 <div
                   className="w-full max-w-[28px] rounded-t-[3px]"
@@ -541,8 +542,8 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
           ))}
         </div>
       </div>
-      <p className="mt-1.5 text-[11.5px] leading-snug text-white/65">
-        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b).{" "}
+      <p className="mt-1.5 text-[12px] leading-snug text-white/65">
+        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b), en los de {MUESTRA_COLUMNA} acciones o más (el resto, al pasar por encima).{" "}
         <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.mejor }} aria-hidden />{MUESTRA_COLUMNA} acciones o más</span>
         {conAcciones.some((p) => p.n < MUESTRA_COLUMNA) ? (
           <>
@@ -556,7 +557,7 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
             <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.oro }} aria-hidden />dorado: el último partido</span>
           </>
         ) : null}
-        . El detalle, en «¿Va a mejor?».
+        . La tendencia de los 3 últimos, en «¿Va a mejor?».
       </p>
     </figure>
   );
@@ -667,7 +668,19 @@ const [rutinaFilter, setRutinaFilter] = useState("ALL");
     /* 17/11/2026: el respaldo de Opta (las jornadas que la hoja aún no tiene y el vídeo de cada acción). Sin él, la página carga igual. */
     const opta = traeRespaldoOpta<FilaHojaOpta>("abp-favor");
 
-    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles, cortes, opta])
+    /* 27/11/2026 (jueces, ronda 11): si una fuente secundaria (goles, cortes u
+       Opta) no contesta —la base de reserva tardando—, la pantalla se quedaba
+       en el esqueleto para siempre. Cada una espera como mucho 8 s; sin ella,
+       la página carga igual con la hoja. */
+    const conTope = <T,>(p: Promise<T>, vacio: T) =>
+      Promise.race([p, new Promise<T>((resolver) => setTimeout(() => resolver(vacio), 8000))]);
+
+    Promise.all([
+      traeCsv(CSV_URL, { forzar: intento > 0 }),
+      conTope(goles, null),
+      conTope(cortes, null),
+      conTope(opta, { partidos: [], filas: [] } as Awaited<typeof opta>),
+    ])
       .then(([t, partidos, doc, respaldo]) => {
         if (!vivo) return;
 
@@ -3350,7 +3363,7 @@ const categoriasVisual: CategoriaVisual[] = [
                 ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"} · {filasVisual.length} {filasVisual.length === 1 ? "acción" : "acciones"}
               </p>
               {/* 20/11/2026 (ronda 7, análisis): el gol (1 de 94) no se veía en la barra: rótulo encima. */}
-              <BarraReparto filas={filasVisual} categorias={categoriasVisual} rotulosFuera />
+              <BarraReparto filas={filasVisual} categorias={categoriasVisual} rotulosFuera compacta />
               {/* 17/11/2026 (jueces, ronda 20): la barra separa gol y ocasión; aquí, la suma que daba la tarjeta (que en Visual ya no sale). */}
               <p className="mt-2 text-[12px] leading-snug text-white/75">
                 <b className="font-semibold text-white/90">Gol u ocasión: {accionesPeligrosas} de {metrics.total}</b> ({cifra(tasaPeligro, 1)} %)
@@ -3378,8 +3391,10 @@ const categoriasVisual: CategoriaVisual[] = [
         última no deja hueco a la derecha—: dos por fila en el móvil y las que
         quepan de 200 px en adelante, estiradas, en el ordenador. */}
     {/* 16/11/2026 (jueces): en el móvil, una tarjeta por fila (dos columnas de
-        alto desigual dejaban la última sola y estrecha). */}
-    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-full sm:[&>*]:basis-[200px]">
+        alto desigual dejaban la última sola y estrecha).
+        27/11/2026 (jueces, ronda 11): la misma rejilla que ABP defensivo, dos
+        por fila en el móvil; si queda una sola al final, ocupa la fila entera. */}
+    <div className="mt-5 grid min-w-0 grid-cols-2 gap-3 sm:mt-6 sm:gap-5 lg:grid-cols-4 [&>*]:min-w-0 [&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(odd)]:col-span-1">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
@@ -3550,20 +3565,15 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {soloVisual && (
               <VisualAbp
-                frente={
-                  <>
-                    <FrenteAlRival area="abp-of" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />
-                    {/* 27/11/2026 (jueces, ronda 10): por qué las dos cifras de remates de córner de Opta no coinciden. */}
-                    <p className="-mt-2 px-1 text-[11.5px] leading-snug text-white/60">
-                      «Remates tras córner» (aquí) cuenta los remates que Opta ata al córner, por partido; «remates de córner» de «¿Y frente a la categoría?» suma también los del rechace y la segunda jugada. Por eso la segunda cifra es mayor.
-                    </p>
-                  </>
-                }
+                /* 27/11/2026 (jueces, ronda 11): «remates tras córner» es ya la misma cifra aquí y en «¿Y frente a la categoría?» (CrnrOnTgt + CrnrOffTgt, lib/opta-abp-dia.ts): fuera la nota que explicaba por qué no coincidían. */
+                frente={<FrenteAlRival area="abp-of" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />}
                 filas={filasVisual}
                 categorias={categoriasVisual}
                 marca={jornada === "ALL" ? jornadaMarca : null}
                 repartoArriba
                 tipoFrenteAlResto
+                /* 27/11/2026 (jueces, ronda 11): el partido a partido ya va arriba («Gol u ocasión, partido a partido»); «¿Va a mejor?» sólo dice la tendencia. */
+                tendenciaEnUnaLinea
                 unidad={{ uno: "acción", varios: "acciones", genero: "f" }}
                 exito={{ uno: "acaba en gol u ocasión", varios: "acaban en gol u ocasión", mejorAlto: true }}
                 fuente="Hoja de ABP ofensivo · con los filtros de arriba"

@@ -52,6 +52,20 @@ const EXTRA: MetricaAbpOpta[] = [
     casos: (f) => num(f.ThrowIn),
     comoLeer: "De cada 100 saques de banda, cuántos recibe un compañero (Opta: ThrowInSc ÷ ThrowIn).",
   },
+  /* 27/11/2026 (jueces, ronda 11, ABP ofensivo): los remates tras córner con las mismas columnas que «¿Y frente al rival?» (CrnrOnTgt + CrnrOffTgt), para que la pantalla dé una sola cifra. */
+  {
+    clave: "RematesCrnr",
+    nombre: "Remates tras córner",
+    seccion: "Córners",
+    modo: "pp",
+    mejorAlto: true,
+    valor: (f) => {
+      const a = num(f.CrnrOnTgt);
+      const b = num(f.CrnrOffTgt);
+      return a != null && b != null ? a + b : null;
+    },
+    comoLeer: "Remates tras córner (a puerta y fuera; sin los bloqueados), por partido: la misma cifra que «¿Y frente al rival?».",
+  },
   {
     clave: "ThrowIn|OPP",
     nombre: "Saques de banda del rival",
@@ -78,7 +92,7 @@ const TODAS = [...METRICAS_ABP_OPTA, ...EXTRA];
 /** Qué cifras de equipo se enseñan en cada pantalla, en este orden. */
 export const CLAVES_DIA: Record<AreaDia, Record<LadoDia, string[]>> = {
   abp: {
-    favor: ["Corners", "CrnrRemate%", "ShotCrnrs", "xGSetPly", "ChncSetPl", "ShotDirFK", "GoalSetPly", "GoalCrnrs", "GoalDirFK"],
+    favor: ["Corners", "CrnrRemate%", "RematesCrnr","xGSetPly", "ChncSetPl", "ShotDirFK", "GoalSetPly", "GoalCrnrs", "GoalDirFK"],
     contra: ["Corners|OPP", "RematesCrnrOPP", "ChncSetPl|OPP", "ShotDirFK|OPP", "GoalSetPly|OPP", "GoalCrnrs|OPP", "GoalDirFK|OPP"],
   },
   banda: {

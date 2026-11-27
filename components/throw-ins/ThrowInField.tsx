@@ -42,7 +42,12 @@ type ThrowInFieldProps = {
   filtros: Record<string, string>;
   /** Pulsar una zona filtra la página entera por banda y zona a la vez. */
   onFiltrar: (pares: [string, string][]) => void;
+  /** 27/11/2026 (jueces, ronda 11): la zona (número de la hoja) que cita la conclusión: se marca en el campo con contorno y rótulo. */
+  zonaConclusion?: number | null;
 };
+
+/** Desde cuántos saques una zona puede ser «la que menos recupera / conserva» del mapa. */
+const MUESTRA_PEOR = 10;
 
 /* Lo mismo que lee el panel para «Perfil» y «Zona_Saque». */
 const paresDe = (banda: Banda, zona: Zona): [string, string][] => [
@@ -107,7 +112,7 @@ function destino(banda: Banda, zona: Zona, mode: Mode, salida: Salida) {
   };
 }
 
-export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldProps) {
+export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = null }: ThrowInFieldProps) {
   /*
   | La zona elegida ya no es un estado de aquí: es el filtro de la página.
   |
@@ -212,6 +217,18 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
       ? nodes.find((node) => cumple(node.banda, node.zona)) ?? null
       : null;
   const maxCount = Math.max(...nodes.map((node) => node.count), 1);
+  /*
+  | 27/11/2026 (jueces, ronda 11): el ejemplo de la leyenda sale del disco más
+  | grande de verdad (antes, un «17/44 · 39 %» inventado), y en el campo se
+  | marcan la zona de la conclusión y el disco que menos conserva o recupera
+  | (con 10 saques o más).
+  */
+  const ejemplo = nodes[0] ?? null;
+  const peor =
+    [...nodes]
+      .filter((node) => node.count >= MUESTRA_PEOR)
+      .sort((a, b) => a.favorables / a.count - b.favorables / b.count)[0] ?? null;
+  const enConclusion = (node: FieldNode) => zonaConclusion != null && node.zona === zonaConclusion;
 
   return (
     <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
@@ -234,7 +251,8 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Su portería"}</span>
       </p>
       <div className="relative mx-auto aspect-[16/10] w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
-        <BoardViewport className="absolute inset-0" label="Mapa de saques de banda">
+        {/* 27/11/2026 (jueces, ronda 11): sin los mandos de zoom en el móvil, que tapaban los discos de la derecha (debajo va la lista «Por zona»). */}
+        <BoardViewport className="absolute inset-0" label="Mapa de saques de banda" mandosClassName="hidden sm:flex">
         {/*
           El césped viaja dentro del visor: si se quedara en el marco, al
           acercarse las flechas se despegarían del campo.
@@ -353,6 +371,9 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                   strokeOpacity={resaltado ? 1 : 0.55}
                   strokeWidth={resaltado ? 0.9 : 0.55}
                 />
+                {(peor && peor.key === node.key) || enConclusion(node) ? (
+                  <circle cx={x} cy={y} r={radius + 2.1} fill="none" stroke="#C8A96B" strokeWidth={0.75} strokeDasharray="1.6 1.1" />
+                ) : null}
                 <circle cx={x} cy={y} r={radius} fill={color} fillOpacity="0.96" stroke="#FFF7E5" strokeWidth="0.35" />
                 <text
                   x={x}
@@ -370,14 +391,27 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 {(() => {
                   /* 27/11/2026 (jueces, ronda 10): con su base («17/44 · 39 %»), no sólo el %. */
                   const rotulo = `${node.favorables}/${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`;
-                  const ancho = rotulo.length * 1.7 + 2.2;
-                  const yTexto = y < 50 ? y + radius + 4.4 : y - radius - 2.2;
+                  /* 27/11/2026 (jueces, ronda 11): un cuerpo más grande, que a 390 px no se leía. */
+                  const ancho = rotulo.length * 1.95 + 2.4;
+                  const yTexto = y < 50 ? y + radius + 4.9 : y - radius - 2.4;
+                  /* La marca de la conclusión y la del disco que menos conserva o recupera, por fuera del rótulo. */
+                  const marca = peor && peor.key === node.key ? (isOffensive ? "menos conservamos" : "menos recuperamos") : enConclusion(node) ? "la conclusión" : "";
+                  const anchoMarca = marca.length * 1.75 + 2.4;
+                  const yMarca = y < 50 ? yTexto + 5.6 : yTexto - 6;
                   return (
                     <g pointerEvents="none">
-                      <rect x={x - ancho / 2} y={yTexto - 3.4} width={ancho} height={4.6} rx={2.3} style={{ fill: "#07111F", fillOpacity: 0.82 }} />
-                      <text x={x} y={yTexto} textAnchor="middle" fontSize="2.9" fontWeight="700" style={{ fill: "#FFFFFF" }}>
+                      <rect x={x - ancho / 2} y={yTexto - 3.8} width={ancho} height={5.2} rx={2.6} style={{ fill: "#07111F", fillOpacity: 0.85 }} />
+                      <text x={x} y={yTexto} textAnchor="middle" fontSize="3.3" fontWeight="700" style={{ fill: "#FFFFFF" }}>
                         {rotulo}
                       </text>
+                      {marca ? (
+                        <>
+                          <rect x={x - anchoMarca / 2} y={yMarca - 3.3} width={anchoMarca} height={4.5} rx={2.25} style={{ fill: "#C8A96B", fillOpacity: 0.95 }} />
+                          <text x={x} y={yMarca} textAnchor="middle" fontSize="2.9" fontWeight="800" style={{ fill: "#07111F" }}>
+                            {marca}
+                          </text>
+                        </>
+                      ) : null}
                     </g>
                   );
                 })()}
@@ -513,6 +547,15 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                     <span className="h-3 w-3 shrink-0 rounded-full" style={{ background: heatColor(node.produccion / node.count, tono) }} aria-hidden />
                     <span className="min-w-0 flex-1 text-white/85">
                       {BANDA_LABEL[node.banda]} · {zonaLabel(node.zona, mode)}
+                      {peor && peor.key === node.key ? (
+                        <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold" style={{ color: "var(--rmcf-gold-ink)", background: "rgb(var(--rmcf-ink-rgb) / .06)" }}>
+                          {isOffensive ? "menos conservamos" : "menos recuperamos"}
+                        </span>
+                      ) : enConclusion(node) ? (
+                        <span className="ml-1.5 rounded-full px-1.5 py-0.5 text-[11px] font-semibold" style={{ color: "var(--rmcf-gold-ink)", background: "rgb(var(--rmcf-ink-rgb) / .06)" }}>
+                          la conclusión
+                        </span>
+                      ) : null}
                     </span>
                     <span className="shrink-0 tabular-nums text-white/90">
                       {node.favorables} de {node.count} · <b>{Math.round((node.favorables / node.count) * 100)} %</b>
@@ -534,7 +577,9 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         <p className="min-w-0">
           {isOffensive ? "Atacamos hacia la derecha: nuestra portería, a la izquierda." : "El rival ataca hacia la izquierda, hacia nuestra portería."}
           {nodes.length
-            ? ` Dentro del disco, los saques de la zona; junto a él, ${isOffensive ? "los que conservamos" : "los que recuperamos"} de esos saques y su % (p. ej. «17/44 · 39 %»). El color del disco es otra medida: el % que ${isOffensive ? "llega" : "le llega"} a último tercio o más. Tamaño del disco = saques; grosor de la flecha = cuántos van en esa dirección.`
+            ? ` Dentro del disco, los saques de la zona; junto a él, ${isOffensive ? "los que conservamos" : "los que recuperamos"} de esos saques y su %${
+                ejemplo ? ` (p. ej. «${ejemplo.favorables}/${ejemplo.count} · ${Math.round((ejemplo.favorables / ejemplo.count) * 100)} %», ${zonaLabel(ejemplo.zona, mode).replace(/^Zona \d · /, "")}, ${BANDA_LABEL[ejemplo.banda].toLowerCase()})` : ""
+              }.${zonaConclusion != null || peor ? ` Con contorno de oro, ${[zonaConclusion != null ? "la zona que cita la conclusión" : "", peor ? `el disco que menos ${isOffensive ? "conserva" : "recupera"} (con ${MUESTRA_PEOR} saques o más)` : ""].filter(Boolean).join(" y ")}.` : ""} El color del disco es otra medida: el % que ${isOffensive ? "llega" : "le llega"} a último tercio o más. Tamaño del disco = saques; grosor de la flecha = cuántos van en esa dirección.`
             : ""}
           {sinUbicar ? ` ${sinUbicar} ${sinUbicar === 1 ? "saque" : "saques"} sin banda o zona apuntada, fuera del campo.` : ""}
         </p>

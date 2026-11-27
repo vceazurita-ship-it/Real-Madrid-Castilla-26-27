@@ -172,6 +172,14 @@ export default function SeasonWorkspace({ area }: Props) {
           /* 27/11/2026 (jueces, ronda 9): la tira colorea las semanas con partido y marca las que, ya jugado, no tienen sus tres cosas. */
           conPartido: Boolean(partido),
           faltaAlgo: Boolean(partido?.jugado) && week.id !== currentWeek.id && !semanaCompleta(week, true),
+          /* 27/11/2026 (análisis, ronda 11): qué le falta a cada semana con partido, para listarlas con su semana. */
+          faltan: partido
+            ? [
+                semanaTiene(week, /convoca/) ? "" : "convocatoria",
+                semanaTiene(week, /horario/) ? "" : "horario",
+                semanaTiene(week, /plan/) ? "" : "plan",
+              ].filter(Boolean)
+            : [],
         };
       });
   }, [season, currentWeek, calendario]);
@@ -238,8 +246,10 @@ export default function SeasonWorkspace({ area }: Props) {
       ...enlacesActual
         .filter((e) => e.texto === "Su plantilla" || e.texto === "Su ABP")
         .map((e) => ({ href: e.href, texto: e.texto === "Su ABP" ? `ABP de ${e.equipo}` : `Plantilla de ${e.equipo}` })),
+      /* 27/11/2026 (marketing, ronda 11): la convocatoria y el horario del viaje se preparan en Desplazamiento. */
+      ...(area === "general" && partidoActual && !partidoActual.jugado ? [{ href: "/desplazamiento", texto: "Desplazamiento" }] : []),
     ],
-    [enlacesActual]
+    [enlacesActual, area, partidoActual]
   );
 
   /* 20/11/2026 (ronda 7, análisis): cuántas semanas tienen todo lo de cada semana. */
@@ -254,7 +264,13 @@ export default function SeasonWorkspace({ area }: Props) {
     const conPartido = tiraSemanas.filter((s) => s.partidoDatos?.jugado && !s.actual);
     if (!conPartido.length) return undefined;
     const completas = conPartido.filter((s) => s.completa);
-    return { completas: completas.length, total: conPartido.length, ultima: completas[completas.length - 1]?.nombre };
+    return {
+      completas: completas.length,
+      total: conPartido.length,
+      ultima: completas[completas.length - 1]?.nombre,
+      /* 27/11/2026 (análisis y fútbol, ronda 11): cada partido jugado, en orden, con lo que le falta. */
+      partidos: conPartido.map((s) => ({ id: s.id, nombre: s.nombre, partido: s.partido, faltan: s.faltan })),
+    };
   }, [area, tiraSemanas]);
 
   const partidoSemanaAbierta = useMemo(
@@ -689,7 +705,8 @@ function TarjetaSemana({
               {tipo}
             </span>
           ) : null}
-          <span className="truncate">{nombreUltimo}</span>
+          {/* 27/11/2026 (fútbol, ronda 11): en el repositorio general el nombre va en dos líneas, sin cortarse en 390 px. */}
+          <span className={miniatura ? "line-clamp-2 min-w-0 break-all" : "truncate"}>{nombreUltimo}</span>
           <ExternalLink size={12} className="shrink-0 opacity-70" aria-hidden />
         </a>
       ) : null}

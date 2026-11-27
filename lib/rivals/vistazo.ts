@@ -33,7 +33,20 @@ export type ResultadoForma = {
 
 export type Vistazo = {
   /** Con la mediana de goles del grupo (30/10/2026): «14-9» solo no decía si es mucho o poco. */
-  tabla: (FilaClasificacion & { equipos: number; medianaFavor: number | null; medianaContra: number | null }) | null;
+  tabla:
+    | (FilaClasificacion & {
+        equipos: number;
+        medianaFavor: number | null;
+        medianaContra: number | null;
+        /**
+         * Sus goles a favor por partido frente a los del grupo, con la cuenta
+         * de la tira del Scout colectivo (mediana de goles/partidos equipo a
+         * equipo, BeSoccer). 27/11/2026, ronda 11: /rivals decía «mediana 1,4»
+         * (Wyscout) y el Scout colectivo «1,3».
+         */
+        golesPorPartido?: { valor: number; mediana: number; puesto: number; de: number; partidos: number } | null;
+      })
+    | null;
   /** Su balance en el campo del partido contra nosotros: fuera si jugamos en casa. */
   enEseCampo: { fila: FilaClasificacion; donde: "en casa" | "fuera" } | null;
   /** Los últimos partidos de liga, del más reciente al más antiguo. */
@@ -97,6 +110,24 @@ export function vistazoDe(
           equipos: total.length,
           medianaFavor: mediana(total.map((f) => f.favor)),
           medianaContra: mediana(total.map((f) => f.contra)),
+          golesPorPartido: (() => {
+            /* Sin redondear la mediana: la misma de `medianaLiga` (TiraJornadas). */
+            const tasas = total.filter((f) => f.jugados > 0).map((f) => f.favor / f.jugados);
+            const orden = [...tasas].filter((v) => Number.isFinite(v)).sort((a, b) => a - b);
+
+            if (orden.length < 2) return null;
+
+            const mitad = Math.floor(orden.length / 2);
+            const valor = propia.favor / propia.jugados;
+
+            return {
+              valor,
+              mediana: orden.length % 2 ? orden[mitad] : (orden[mitad - 1] + orden[mitad]) / 2,
+              puesto: 1 + tasas.filter((t) => t > valor + 1e-9).length,
+              de: tasas.length,
+              partidos: propia.jugados,
+            };
+          })(),
         }
       : null;
 

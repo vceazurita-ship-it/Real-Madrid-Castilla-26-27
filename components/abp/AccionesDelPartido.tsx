@@ -145,8 +145,17 @@ export function AccionesDelPartido({
     .map((t, i) => (i === 0 ? t.charAt(0).toUpperCase() + t.slice(1) : t))
     .join(" · ");
 
+  /*
+  | 27/11/2026 (jueces, ronda 11): un resumen de una línea encima de la lista
+  | de un partido («3 de 5 con remate · 0 goles»), para leerla sin recorrerla.
+  */
+  const conRemate = finales.filter((f) => /^(remate|tiro directo|gol)/.test(f) || /marcamos$/.test(f)).length;
+  const goles = finales.filter((f) => /^gol/.test(f) || /marcamos$/.test(f)).length;
+  const resumen = !variosPartidos && acciones.length >= 2 ? `${conRemate} de ${acciones.length} con remate · ${goles} ${goles === 1 ? "gol" : "goles"}` : "";
+
   return (
     <div className="space-y-3">
+      {resumen ? <p className="text-[14px] font-semibold text-white/90">{resumen}</p> : null}
       {conVideo > 0 && (
         <p className="text-xs leading-relaxed text-white/50">
           {conVideo === acciones.length ? "Cada acción" : `${conVideo} de ${acciones.length} acciones`} con su corte del vídeo {fuenteVideo}

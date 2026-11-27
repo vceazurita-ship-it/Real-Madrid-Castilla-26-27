@@ -343,7 +343,7 @@ export const AVISOS: Record<TipoAviso, { titulo: string; regla: string; accion: 
   },
   nota: {
     titulo: "Nota a la baja",
-    regla: "la media de sus tres últimas notas (0-10, más es mejor), un punto o más por debajo de la de las tres anteriores; con menos de 8 notas es tendencia",
+    regla: "la media de sus tres últimas notas (0-10, más es mejor), un punto o más por debajo de la de las tres anteriores, y al lado su media de temporada; es tendencia con menos de 8 notas o si la bajada no sale de su variación habitual",
     accion: "revisar sus últimos partidos en vídeo",
   },
 };
@@ -390,6 +390,15 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
       const coma1 = (n: number) => n.toFixed(1).replace(".", ",");
       const antesN = notas.slice(-6, -3);
       const ultimasN = notas.slice(-3);
+      /* 27/11/2026 (análisis, ronda 11): ¿la bajada sale de su variación de
+         siempre? Con 3 contra 3, el error de la diferencia es su desviación
+         típica por √(2/3); si la bajada no lo supera, es tendencia aunque
+         tenga 8 notas o más. Y su media de temporada, de referencia. */
+      const mediaTemporada = media(notas);
+      const desviacion = Math.sqrt(media(notas.map((n) => (n - mediaTemporada) ** 2)));
+      const bajada = antesN.length && ultimasN.length ? media(antesN) - media(ultimasN) : -j.notas.trend;
+      const dentroDelRuido = bajada < desviacion * Math.sqrt(2 / 3);
+      const tendencia = notas.length < 8 || dentroDelRuido;
 
       avisos.push({
         tipo: "nota",
@@ -400,7 +409,8 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
           (antesN.length && ultimasN.length
             ? `de ${coma1(media(antesN))} a ${coma1(media(ultimasN))} · últimos 3 partidos frente a los 3 anteriores`
             : `${coma1(j.notas.trend)} puntos`) +
-          ` · ${notas.length} con nota${notas.length < 8 ? " · tendencia" : ""}`,
+          ` · su media de temporada, ${coma1(mediaTemporada)} · ${notas.length} con nota` +
+          (tendencia ? (notas.length < 8 ? " · tendencia" : " · tendencia: dentro de su variación habitual") : ""),
       });
     }
   }

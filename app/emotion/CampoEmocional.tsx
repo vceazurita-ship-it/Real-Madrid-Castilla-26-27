@@ -431,7 +431,9 @@ export function CampoEmocional({
           {/* 20/11/2026 (ronda 5, juez de análisis): las notas del campo son
               de una fecha, no de hoy; se dice encima del campo y, pasados 14
               días, en ámbar. */}
-          {fechaValoracion && (
+          {/* 27/11/2026 (los dos jueces, ronda 11): caducada, la fecha ya va en
+              el aviso de arriba; aquí no se repite. */}
+          {fechaValoracion && !(diasValoracion !== null && diasValoracion >= 14) && (
             <p
               className={`mt-1 inline-flex flex-wrap items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-[11px] font-semibold ${
                 diasValoracion !== null && diasValoracion >= 14
@@ -480,7 +482,9 @@ export function CampoEmocional({
       </div>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_330px] xl:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="min-w-0">
+        {/* 27/11/2026 (análisis, ronda 11): con la valoración caducada, los
+            gráficos en gris hasta renovarla. */}
+        <div className={`min-w-0 ${diasValoracion !== null && diasValoracion >= 14 ? "grayscale-[.85]" : ""}`}>
           {vista === "radares" ? (
             <RadaresEnCampo
               grupos={grupos}
@@ -828,6 +832,36 @@ function RadarLinea({
   const banda = media !== null ? bandFor(media) : null;
   const tono = banda?.tone ?? NEUTRO;
   const resaltado = evaluados.find((c) => c.clave === elegido);
+  const barras = mediaEje ? (
+    <div className="space-y-1.5" aria-label={`Media de ${titulo} por eje`}>
+      {AXES.map((a, i) => {
+        const tonoEje = bandFor(mediaEje[i]).tone;
+        const ref = teamAverage?.[a.key];
+
+        return (
+          <div key={a.key} className="min-w-0">
+            <div className="flex items-baseline justify-between gap-2 text-[12px] leading-none">
+              <span className="whitespace-nowrap" style={{ color: "var(--ce-tinta-suave, rgba(236,248,255,.85))" }}>{a.corto}</span>
+              <span className="whitespace-nowrap font-bold tabular-nums" style={{ color: chipInk(tonoEje) }}>{coma(mediaEje[i])}</span>
+            </div>
+            <div className="relative mt-1 h-1.5 rounded-full" style={{ background: "var(--ce-rejilla, rgba(98,232,255,.22))" }}>
+              <div className="h-full rounded-full" style={{ width: `${Math.min(100, mediaEje[i] * 10)}%`, background: tonoEje }} />
+              {ref !== undefined && (
+                <span
+                  className="absolute -top-0.5 h-2.5 w-[2px] rounded-full"
+                  style={{ left: `calc(${Math.min(100, ref * 10)}% - 1px)`, background: "var(--ce-media-plantilla, rgba(228,201,119,.9))" }}
+                  title={`Media de la plantilla en ${a.corto.toLowerCase()}: ${coma(ref)}`}
+                />
+              )}
+            </div>
+          </div>
+        );
+      })}
+      <p className="text-[11px] leading-tight" style={{ color: "var(--ce-tinta-apagada, rgba(226,246,255,.6))" }}>
+        n = {evaluados.length} {evaluados.length === 1 ? "jugador" : "jugadores"} · raya: media de la plantilla
+      </p>
+    </div>
+  ) : null;
 
   return (
     <div
@@ -848,7 +882,8 @@ function RadarLinea({
             /* 17/11/2026 (ronda 19): con menos de 3 jugadores, la cifra
                grande lleva «tendencia» y va atenuada, como su radar. */
             <p
-              className="shrink-0 text-lg font-bold tabular-nums leading-none"
+              /* 27/11/2026 (marketing, ronda 11): la nota de la línea, en grande. */
+              className="shrink-0 text-2xl font-bold tabular-nums leading-none"
               style={{ color: chipInk(tono), textShadow: `var(--ce-sin-brillo, 0 0 12px ${tono}99)`, opacity: evaluados.length < 3 ? 0.75 : 1 }}
               title={evaluados.length < 3 ? "Tendencia: menos de 3 jugadores" : undefined}
             >
@@ -873,6 +908,7 @@ function RadarLinea({
         {tumbada && (
           <div className="mt-2 hidden xl:block">
             <Nombres jugadores={jugadores} evaluados={evaluados} elegido={elegido} onElegir={onElegir} />
+            {barras && <div className="mt-2">{barras}</div>}
           </div>
         )}
       </div>
@@ -924,9 +960,10 @@ function RadarLinea({
 
         {AXES.map((a, i) => {
           const [x, y] = punto(i, 10);
-          const lado = i === 1 || i === 3;
           const dx = i === 1 ? 3 : i === 3 ? -3 : 0;
-          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : mediaEje ? -1.5 : 2;
+          /* 27/11/2026 (marketing, ronda 11): las cifras salen del radar a las
+             barras de debajo, en 12 px; en el lienzo, sólo el nombre del eje. */
+          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : 2;
           return (
             <text
               key={a.key}
@@ -942,15 +979,17 @@ function RadarLinea({
               style={{ fill: "var(--ce-tinta, rgba(240,250,255,.95))" }}
             >
               {a.corto}
-              {mediaEje && (
-                <tspan style={{ fill: chipInk(tono) }} {...(lado ? { x: x + dx, dy: 8.6 } : { dx: 2 })}>
-                  {coma(mediaEje[i])}
-                </tspan>
-              )}
             </text>
           );
         })}
       </svg>
+
+      {/* 27/11/2026 (análisis y marketing, ronda 11): debajo del radar, cada eje
+          en barra con su cifra a 12 px y la raya dorada de la media de la
+          plantilla; con dos jugadores se lee mejor que el rombo, sobre todo en
+          el móvil. El radar se queda (petición del analista). Tumbada, en
+          pantalla ancha, va en la columna del título. */}
+      {barras && <div className={tumbada ? "xl:hidden" : ""}>{barras}</div>}
 
       <div className={tumbada ? "xl:hidden" : ""}>
         <Nombres jugadores={jugadores} evaluados={evaluados} elegido={elegido} onElegir={onElegir} />
@@ -1263,7 +1302,7 @@ function LecturaDelOnce({
   return (
     <aside className={TARJETA}>
       <p className="text-[11px] uppercase tracking-[.2em] text-white/55">
-        Lectura del once{fecha ? ` · última valoración ${diaCorto(fecha.slice(0, 10))}` : ""}
+        Lectura del once{fecha && !caducada ? ` · última valoración ${diaCorto(fecha.slice(0, 10))}` : ""}
       </p>
 
       <div className="mt-3 flex items-end gap-3">
@@ -1310,7 +1349,7 @@ function LecturaDelOnce({
             {coma(teamAverage[flojo.axis.key])} en {flojo.axis.corto.toLowerCase()}, la media de la plantilla.
             {/* 27/11/2026 (análisis, ronda 10): de dónde sale la cifra del objetivo. */}
             <span className="block text-xs text-white/55">
-              {coma(flojo.valor)}: media en {flojo.axis.corto.toLowerCase()} de los {evaluados.length} titulares valorados; {coma(teamAverage[flojo.axis.key])}: la de todos los evaluados de la plantilla{fecha ? `, valoración del ${diaCorto(fecha.slice(0, 10))}` : ""}.
+              {coma(flojo.valor)}: media en {flojo.axis.corto.toLowerCase()} de los {evaluados.length} titulares valorados; {coma(teamAverage[flojo.axis.key])}: la de todos los evaluados de la plantilla{fecha && !caducada ? `, valoración del ${diaCorto(fecha.slice(0, 10))}` : ""}.
             </span>
           </p>
         )}
@@ -1334,8 +1373,11 @@ function LecturaDelOnce({
       {bajos.length > 0 && (
         <div className="mt-4">
           {/* 17/11/2026 (ronda 20): la base dicha en el rótulo (una valoración por jugador = tendencia). */}
+          {/* 27/11/2026 (análisis, ronda 11): con una valoración cada uno no
+              es una carencia sino algo a confirmar; cada uno con lo que se
+              cuenta y su objetivo (la media de la plantilla en ese eje). */}
           <p className="text-[11px] uppercase tracking-[.2em] text-white/55">
-            Jugadores foco · su eje más bajo · tendencia (una valoración{fecha ? `, ${diaCorto(fecha.slice(0, 10))}` : ""})
+            A confirmar · su eje más bajo (una valoración por jugador)
           </p>
           <div className="mt-2 space-y-1.5">
             {bajos.map((c) => {
@@ -1356,17 +1398,22 @@ function LecturaDelOnce({
                     <span className="min-w-0 font-semibold">{c.nombre}</span>
                     <span className="shrink-0 whitespace-nowrap tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
                       {AXES[i].corto} {coma(v[i])}
-                      {/* 27/11/2026 (análisis, ronda 10): la base en la propia nota. */}
-                      {!cambioDe(c) && <span className="ml-1 text-[11px] text-white/55">· 1 valoración, tendencia</span>}
                     </span>
                   </button>
+                  <p className="mt-1 text-[11px] leading-snug text-white/60">
+                    Se cuenta: {TAREA_POR_EJE[AXES[i].key].seCuenta}
+                    {teamAverage && teamAverage[AXES[i].key] > v[i] ? ` · objetivo: ${coma(teamAverage[AXES[i].key])}, la media de la plantilla en ${AXES[i].corto.toLowerCase()}` : ""}.
+                  </p>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
-                    {/* 20/11/2026 (ronda 4, dos jueces): también su seguimiento, para registrar la tarea de control emocional. */}
-                    {/* 20/11/2026 (ronda 5): y su Dashboard Seguimiento ya filtrado. */}
-                    {/* 27/11/2026 (marketing, ronda 10): y registrar su seguimiento con él ya elegido. */}
-                    <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "dashboard", "registrar"]} />
-                    {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
+                    {/* 27/11/2026 (marketing, ronda 11): a la vista, Ficha y Registrar;
+                        Dashboard Seguimiento, Valoraciones, Comparativa y Valorar, en «Más». */}
+                    <EnlacesJugador
+                      jugador={{ nombre: c.nombre }}
+                      destinos={["ficha", "registrar"]}
+                      mas={["valoraciones", "comparativa", "dashboard"]}
+                      extraMas={onValorar ? <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} /> : undefined}
+                    />
                   </div>
                 </div>
               );

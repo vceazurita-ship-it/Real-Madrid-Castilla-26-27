@@ -17,6 +17,12 @@ const sinTildes = (texto: string) =>
 
 const esLetra = (c: string | undefined) => !!c && /[a-zñ]/i.test(c);
 
+/** Palabras de tres letras que pueden salir en una consigna y no son nombres (sin tildes). */
+const PALABRAS_CORTAS = new Set([
+  "del", "con", "los", "las", "por", "sin", "que", "una", "uno", "dos", "mas", "sus", "les", "nos", "van", "son", "ser", "hay", "muy",
+  "pie", "eje", "gol", "fin", "tal", "ese", "esa", "eso", "ahi", "asi", "via", "red", "par", "sol", "mar", "dar", "ver", "ir", "va",
+]);
+
 export function ajustaNombres(texto: string, jugadores: Jugador[]): string {
   /* Forma oficial por clave sin tildes. Más larga primero: «De la Fuente»
      antes que «Fuente». */
@@ -37,6 +43,18 @@ export function ajustaNombres(texto: string, jugadores: Jugador[]): string {
         if (palabra.length >= 4 && !formas.has(sinTildes(palabra))) {
           formas.set(sinTildes(palabra), palabra);
         }
+      }
+    }
+
+    /*
+    | 27/11/2026 (jueces, ronda 11): «pol» en una consigna no se reconocía:
+    | el apodo de una sola palabra de tres letras («Pol», «Edu») sí cuenta, si
+    | no es una palabra corriente del castellano que pueda ir en la consigna.
+    */
+    for (const campo of [jugador.apodo, jugador.nombre]) {
+      const corto = (campo ?? "").trim();
+      if (corto && !/\s/.test(corto) && corto.length === 3 && !PALABRAS_CORTAS.has(sinTildes(corto)) && !formas.has(sinTildes(corto))) {
+        formas.set(sinTildes(corto), corto);
       }
     }
   }

@@ -65,9 +65,17 @@ function Atajos({ atajos: todos, color }: { atajos: Atajo[]; color: string }) {
   const esJugador = useEsJugador();
   const atajos = esJugador ? todos.filter((a) => a.goles || pantallaDeJugador(a.href.split("?")[0])) : todos;
   if (!atajos.length) return null;
+  /*
+  | 27/11/2026 (jueces, ronda 11): tres atajos por rival a la vista; el resto,
+  | plegado en «Más» (con 4 y 5 botones casi iguales en cada tarjeta, no se
+  | sabía cuál pulsar).
+  */
+  const A_LA_VISTA_ATAJOS = 3;
+  const corte = Math.min(A_LA_VISTA_ATAJOS, atajos.length);
+  const plegados = atajos.slice(corte);
   return (
     <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
-      {atajos.map((a) => (
+      {atajos.slice(0, corte).map((a) => (
         <li key={a.href + a.texto} className="min-w-0">
           {a.goles ? (
             <BotonGolesEnVideo {...a.goles} title={a.title} className={CLASE_ATAJO}>
@@ -90,6 +98,33 @@ function Atajos({ atajos: todos, color }: { atajos: Atajo[]; color: string }) {
           )}
         </li>
       ))}
+      {plegados.length ? (
+        <li className="min-w-0">
+          <details className="group relative">
+            <summary className={`${CLASE_ATAJO} cursor-pointer list-none [&::-webkit-details-marker]:hidden`}>
+              <ChevronRight size={13} aria-hidden style={{ color }} className="transition group-open:rotate-90" />
+              Más ({plegados.length})
+            </summary>
+            <ul className="mt-1.5 flex min-w-0 flex-wrap gap-1.5">
+              {plegados.map((a) => (
+                <li key={a.href + a.texto} className="min-w-0">
+                  {a.goles ? (
+                    <BotonGolesEnVideo {...a.goles} title={a.title} className={CLASE_ATAJO}>
+                      <Film size={13} aria-hidden style={{ color }} />
+                      <span className="truncate">{a.texto}</span>
+                    </BotonGolesEnVideo>
+                  ) : (
+                    <Link href={a.href} title={a.title} className={CLASE_ATAJO}>
+                      <ChevronRight size={13} aria-hidden style={{ color }} />
+                      <span className="truncate">{a.texto}</span>
+                    </Link>
+                  )}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </li>
+      ) : null}
     </ul>
   );
 }

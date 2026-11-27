@@ -166,6 +166,28 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
         const nombre = conNombre(lider.jugador);
         const suParte = Math.round((100 * lider.acciones) / totalCentros);
         const veredicto = centrosLiga.equipo === equipo ? veredictoCentros(centrosLiga.filas) : null;
+        /*
+        | 27/11/2026 (ronda 11, fútbol): «Cerrar a Juan Duran» cuando él pone el
+        | 11 % de los centros y el equipo centra poco: la orden no la sostenía el
+        | dato. Si centra poco, se nombra a quien carga ESA banda con balón (el
+        | que más parte tiene de sus acciones progresivas o de sus regates, de
+        | «Por dónde ataca»), el mismo en Plantillas, Scout colectivo y el Plan.
+        */
+        const lideres = banda.lider;
+        const totales = datos.total;
+        const carga = (() => {
+          if (!veredicto || veredicto.muchos) return null;
+          const opciones = (["progresivas", "regates"] as const)
+            .map((tipo) => {
+              const quien = lideres[tipo];
+              const total = totales[tipo] ?? 0;
+              return quien && total > 0 ? { tipo, jugador: quien.jugador, parte: Math.round((100 * quien.acciones) / total) } : null;
+            })
+            .filter((x): x is NonNullable<typeof x> => x !== null && x.parte >= 10)
+            .sort((a, b) => b.parte - a.parte);
+          return opciones[0] ?? null;
+        })();
+        const quienCarga = carga ? conNombre(carga.jugador) : "";
 
         /*
         | 17/11/2026 (ronda 20, fútbol): «207» aquí y «208» en Área; éste es la
@@ -176,13 +198,17 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
         puntos.push({
           clave: "centros",
           dato: veredicto
-            ? `${veredicto.frase}; lo que centra, el ${parte} % por la ${banda.banda}, y ${nombre} pone el ${suParte} % (Wyscout, temporada)`
+            ? carga && quienCarga
+              ? `${veredicto.frase}; lo que centra, el ${parte} % por la ${banda.banda}, pero esa banda la carga ${quienCarga} con balón: el ${carga.parte} % de sus ${carga.tipo === "progresivas" ? "acciones progresivas" : "regates"} (Wyscout, temporada)`
+              : `${veredicto.frase}; lo que centra, el ${parte} % por la ${banda.banda}, y ${nombre} pone el ${suParte} % (Wyscout, temporada)`
             : `Centra sobre todo por la ${banda.banda}: ${parte} % de los ${totalCentros} centros de sus jugadores; ${nombre}, el ${suParte} % (Wyscout, temporada)`,
           orden:
             veredicto && !veredicto.muchos
-              ? `cerrar a ${nombre} sin dejar el pase interior: su peligro no llega por fuera`
+              ? quienCarga
+                ? `cerrar a ${quienCarga} por la ${banda.banda} sin dejar el pase interior: su peligro llega conduciendo y con pase hacia dentro, no con el centro`
+                : `cerrar la ${banda.banda} sin dejar el pase interior: su peligro no llega con el centro`
               : `cerrar el carril de ${nombre} antes del centro y defender el área con la línea ya hecha`,
-          jugador: nombre,
+          jugador: veredicto && !veredicto.muchos && quienCarga ? quienCarga : nombre,
           base: `${totalCentros} centros en Wyscout${veredicto?.partidos ? ` · ${veredicto.partidos} partidos` : ""}`,
         });
       }

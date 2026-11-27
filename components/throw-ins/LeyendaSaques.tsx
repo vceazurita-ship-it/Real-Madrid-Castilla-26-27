@@ -27,12 +27,12 @@ export function LeyendaSaques({ mode, className = "" }: { mode: Mode; className?
     ? [
         ["Nuestro tercio", "el saque sale cerca de nuestra portería (en la hoja, zona 1)."],
         ["El medio", "tercio central (en la hoja, zona 2)."],
-        ["Su tercio", "el saque sale junto al área rival (en la hoja, zona 3)."],
+        ["Tercio del rival", "el saque sale junto al área rival (en la hoja, zona 3)."],
       ]
     : [
         ["Nuestro tercio", "el rival saca junto a nuestra área: aquí un error cuesta caro (en su hoja, zona 3)."],
         ["El medio", "tercio central (en la hoja, zona 2)."],
-        ["Su tercio", "el rival saca cerca de su portería, lejos de la nuestra (en su hoja, zona 1)."],
+        ["Tercio del rival", "el rival saca cerca de su portería, lejos de la nuestra (en su hoja, zona 1)."],
       ];
 
   /* Los desenlaces, con el mismo nombre que en las barras de «Cómo se reparten». */

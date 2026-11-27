@@ -513,7 +513,16 @@ const [tramoFilter, setTramoFilter] = useState("ALL");
     /* 17/11/2026: el respaldo de Opta (las jornadas que la hoja aún no tiene y el vídeo de cada acción). Sin él, la página carga igual. */
     const opta = traeRespaldoOpta<FilaHojaOpta>("abp-contra");
 
-    Promise.all([traeCsv(CSV_URL, { forzar: intento > 0 }), goles, cortes, opta])
+    /* 27/11/2026: cada fuente secundaria espera como mucho 8 s (sin ella, la página carga con la hoja; antes, una que no contestaba dejaba el esqueleto para siempre). */
+    const conTope = <T,>(p: Promise<T>, vacio: T) =>
+      Promise.race([p, new Promise<T>((resolver) => setTimeout(() => resolver(vacio), 8000))]);
+
+    Promise.all([
+      traeCsv(CSV_URL, { forzar: intento > 0 }),
+      conTope(goles, null),
+      conTope(cortes, null),
+      conTope(opta, { partidos: [], filas: [] } as Awaited<typeof opta>),
+    ])
       .then(([t, partidos, doc, respaldo]) => {
         if (!vivo) return;
 
@@ -2518,12 +2527,17 @@ const conclusiones = (() => {
   const golesDichos = filtered
     .filter(LECTOR.gol)
     .map((r) => `${accionEnPalabras(r.tipoAccion)}${r.contexto.minuto.minuto != null ? `, ${r.contexto.minuto.minuto}′` : ""}`);
+  /*
+  | 27/11/2026 (jueces, ronda 11): el titular ya dice «98 acciones defendidas:
+  | 16 acaban en gol u ocasión (3 goles)»; esta lectura no lo repite: cuáles
+  | fueron los goles y los goles esperados, con un decimal.
+  */
   const frases: (string | null)[] = [
-    `${plural(filtered.length, "ABP", "ABP")} en contra: ${
-      peligroN === 0 ? "ninguna acaba en gol u ocasión" : `${peligroN} de ${filtered.length} ${peligroN === 1 ? "acaba" : "acaban"} en gol u ocasión`
-    }${
-      golesDichos.length ? ` (${golesDichos.length === 1 ? "el gol" : `${golesDichos.length} goles`}: ${golesDichos.join("; ")})` : ocasiones ? ` (${plural(ocasiones, "ocasión", "ocasiones")}, ningún gol)` : ""
-    }, ${cifra(xg, 2)} goles esperados concedidos.`,
+    golesDichos.length
+      ? `${golesDichos.length === 1 ? "El gol encajado" : `Los ${golesDichos.length} goles encajados`}: ${golesDichos.join("; ")}; ${cifra(xg, 1)} goles esperados concedidos en ${plural(filtered.length, "acción", "acciones")}.`
+      : peligroN
+        ? `${plural(ocasiones, "ocasión", "ocasiones")} y ningún gol; ${cifra(xg, 1)} goles esperados concedidos en ${plural(filtered.length, "acción", "acciones")}.`
+        : `${cifra(xg, 1)} goles esperados concedidos en ${plural(filtered.length, "acción", "acciones")}.`,
   ];
 
   /* «Remates concedidos» y «ocasiones» cuentan las mismas jugadas: se dice, y
@@ -2596,7 +2610,10 @@ const conclusiones = (() => {
     const pn = Math.round((zonaLider.n / conZonaArea.length) * 100);
     const tendenciaZona = peligroArea.length < MUESTRA_FIRME ? ` · tendencia (${peligroArea.length} con peligro)` : "";
     frases.push(
-      `Zona que más concede (el mismo criterio que «¿Dónde nos cae?»): ${zonaLider.nombre}, de ahí nacen ${zonaLider.k} de las ${peligroArea.length} acciones que acaban en gol u ocasión suya (${pk} %) con el ${pn} % de los envíos que caen en el área (${zonaLider.n} de ${conZonaArea.length})${tendenciaZona}. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes. En goles esperados (calidad de los remates) el reparto es otro: lo dice «Ocupación vs. peligro concedido».`,
+      `Zona que más concede (el mismo criterio que «¿Dónde nos cae?»): ${zonaLider.nombre}, de ahí nacen ${zonaLider.k} de las ${peligroArea.length} acciones que acaban en gol u ocasión suya (${pk} %) con el ${pn} % de los envíos que caen en el área (${zonaLider.n} de ${conZonaArea.length})${tendenciaZona}. ${
+        /* 27/11/2026 (jueces, ronda 11): con menos de 15 con peligro, a vigilar en el vídeo; la tarea, cuando se confirme. */
+        peligroArea.length < MUESTRA_FIRME ? "Al vídeo del lunes, para vigilarla; la tarea de esa zona, si se confirma." : "Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes."
+      } En goles esperados (calidad de los remates) el reparto es otro: lo dice «Ocupación vs. peligro concedido».`,
     );
   }
 
@@ -2752,8 +2769,36 @@ const conclusiones = (() => {
       ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; en esta jornada ${hoyRemate} %)`
       : metaPartidos
         ? /* 27/11/2026 (jueces, ronda 10): la base del objetivo en la misma frase. */
-          `objetivo: como mucho ${metaPartidos.pct} % con remate, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos con 3 acciones o más; ${remateTemporada}${remateUltimo})`
+          `objetivo: como mucho ${metaPartidos.pct} % con remate, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos con 3 acciones o más)`
         : "";
+  /*
+  | 27/11/2026 (jueces, ronda 11, fútbol): el objetivo medía otra cosa (remate
+  | en global) que la carencia (la zona de la que nace el peligro). Con zona
+  | que manda, se cuenta lo mismo que la carencia: las acciones del rival que
+  | caen ahí y acaban en gol u ocasión, con el nivel de nuestro mejor tercio de
+  | partidos en esa misma cifra (partidos con 2 o más ahí). Y en tres líneas:
+  | la tarea, qué se cuenta y el objetivo con su base.
+  */
+  const enZonaLider = zonaLider ? (r: Row) => zonaDelArea(r.zonaCaida, "defensive") === zonaLider.nombre : null;
+  const metaZona = (() => {
+    if (!enZonaLider || !zonaLider) return null;
+    const porJornada = new Map<string, Row[]>();
+    for (const r of filtered.filter(enZonaLider)) {
+      const clave = r.contexto.jornada.clave;
+      if (clave) porJornada.set(clave, [...(porJornada.get(clave) ?? []), r]);
+    }
+    const tasas = [...porJornada.values()]
+      .filter((filas) => filas.length >= 2)
+      .map((filas) => (filas.filter(LECTOR.peligro).length / filas.length) * 100)
+      .sort((x, y) => x - y);
+    if (tasas.length < 4) return null;
+    const hoy = (zonaLider.k / zonaLider.n) * 100;
+    const posicion = (tasas.length - 1) / 3;
+    const bajo = Math.floor(posicion);
+    const pct = Math.round(tasas[bajo] + (tasas[Math.min(bajo + 1, tasas.length - 1)] - tasas[bajo]) * (posicion - bajo));
+    return pct <= hoy - 3 ? { pct, logrados: tasas.filter((t) => t <= pct).length, partidos: tasas.length } : null;
+  })();
+  const cuandoTarea = jornada === "ALL" ? "en la temporada" : "en esta jornada";
   const tarea = golEncajado
     ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
         /directa/i.test(golEncajado.tipoAccion)
@@ -2761,11 +2806,15 @@ const conclusiones = (() => {
           : /c[oó]rner/i.test(golEncajado.tipoAccion)
             ? "marcas y primer contacto en el córner defensivo"
             : `defensa de la ${hablado(golEncajado.tipoAccion.trim().toLowerCase())}`
-      } (gol encajado: ${[golEncajado.contexto.jornada.corto, golEncajado.rival ? tituloEquipo(golEncajado.rival) : "", golEncajado.contexto.minuto.minuto != null ? `${golEncajado.contexto.minuto.minuto}′` : ""].filter(Boolean).join(" · ")}${(() => {
+      }${zonaLider && metaZona ? `, con vigilancia de ${zonaLider.nombre.toLowerCase()}` : ""} (gol encajado: ${[golEncajado.contexto.jornada.corto, golEncajado.rival ? tituloEquipo(golEncajado.rival) : "", golEncajado.contexto.minuto.minuto != null ? `${golEncajado.contexto.minuto.minuto}′` : ""].filter(Boolean).join(" · ")}${(() => {
         /* 17/11/2026 (jueces, ronda 20): con el dato que la sostiene, «3 goles de 92 (3,3 %)». */
         const g = filtered.filter(LECTOR.gol).length;
-        return g > 1 ? `; ${g} goles en ${filtered.length} acciones, ${cifra((g / filtered.length) * 100, 1)} %` : "";
-      })()}); se cuentan las acciones del rival con remate${objetivoRemate ? ` · ${objetivoRemate}` : ""}.`
+        return g > 1 ? `; ${g} goles en ${filtered.length} acciones` : "";
+      })()}).${
+        zonaLider && metaZona
+          ? `\nSe cuenta: las acciones del rival que caen en ${zonaLider.nombre.toLowerCase()} y acaban en gol u ocasión; ${cuandoTarea}, ${zonaLider.k} de ${zonaLider.n} (${Math.round((zonaLider.k / zonaLider.n) * 100)} %).\nObjetivo: como mucho ${metaZona.pct} %, el nivel de nuestros mejores partidos ahí (uno de cada tres; lo logramos en ${metaZona.logrados} de ${metaZona.partidos} partidos con 2 acciones o más en esa zona${peligroArea.length < MUESTRA_FIRME ? "; tendencia, pocas acciones" : ""}).`
+          : `\nSe cuenta: las acciones del rival con remate; ${remateTemporada.replace(/^en la temporada /, `${cuandoTarea}, `)}${remateUltimo}.${objetivoRemate ? `\nObjetivo: ${objetivoRemate.replace(/^objetivo: /, "")}.` : ""}`
+      }`
     : null;
 
   /* 16/11/2026 (jueces): menos párrafos; dos hallazgos, el vídeo y la tarea. */
@@ -3262,9 +3311,9 @@ const categoriasVisual: CategoriaVisual[] = [
                 frente={
                   <>
                     <FrenteAlRival area="abp-def" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />
-                    {/* 27/11/2026 (jueces, ronda 10): por qué las dos cifras de remates de córner de Opta no coinciden. */}
-                    <p className="-mt-2 px-1 text-[11.5px] leading-snug text-white/60">
-                      «Remates que concede tras córner» (aquí) cuenta los remates que Opta ata al córner, por partido; en «¿Y frente a la categoría?» los remates de córner suman también los del rechace y la segunda jugada: por eso no coinciden.
+                    {/* 27/11/2026 (jueces, ronda 11): la nota de la ronda 10 decía que no coincidían, pero las dos salen de las mismas columnas (CrnrOnTgt + CrnrOffTgt del rival): es la misma cifra. */}
+                    <p className="-mt-2 px-1 text-[12px] leading-snug text-white/60">
+                      «Remates que concede tras córner» es la misma cifra que «remates de córner en contra» de «¿Y frente a la categoría?»: los remates del rival tras córner, a puerta y fuera, por partido.
                     </p>
                   </>
                 }

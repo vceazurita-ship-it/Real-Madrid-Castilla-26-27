@@ -653,6 +653,32 @@ function Coding() {
 
     return jugados[jugados.length - 1]?.rival ?? "";
   }, [calendarioCastilla]);
+
+  /*
+  | 27/11/2026 (análisis, ronda 11): la lista de rivales no decía su orden.
+  | Cada rival del calendario lleva su próximo partido («J14 · dom 29 nov»);
+  | el que ya no tiene partido por delante, el último jugado.
+  */
+  const cuandoRival = useMemo(() => {
+    const mapa = new Map<string, string>();
+    const todos = ordenaPartidos(calendarioCastilla).map(comoNuestro);
+    const rotulo = (p: (typeof todos)[number]) => {
+      const f = new Date(`${p.cuando.slice(0, 10)}T12:00:00`);
+      const dia = Number.isNaN(f.getTime())
+        ? ""
+        : f.toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "");
+      return [p.jornada ? `J${p.jornada}` : "", dia].filter(Boolean).join(" · ");
+    };
+    for (const p of todos.filter((uno) => !uno.jugado)) {
+      const k = apodoSinSiglas(p.rival);
+      if (!mapa.has(k)) mapa.set(k, rotulo(p));
+    }
+    for (const p of [...todos].reverse().filter((uno) => uno.jugado)) {
+      const k = apodoSinSiglas(p.rival);
+      if (!mapa.has(k)) mapa.set(k, `${rotulo(p)}, jugado`);
+    }
+    return mapa;
+  }, [calendarioCastilla]);
   const [plantillas, setPlantillas] = useState<PlantillaRival[]>([]);
 
   useEffect(() => {
@@ -4512,15 +4538,18 @@ function Coding() {
                           arriba y aparte; el resto de la liga, debajo. */}
                       {rivales.length > 1 && rivales[0].origen === "liga" ? (
                         <>
-                          <optgroup label="El de esta semana">
+                          {/* 27/11/2026 (análisis, ronda 11): cada uno con su partido, para que se vea el orden. */}
+                          <optgroup label="El próximo rival">
                             <option value={rivales[0].clave} className="bg-[#11161C]">
                               {rivales[0].nombre}
+                              {cuandoRival.get(apodoSinSiglas(rivales[0].nombre)) ? ` · ${cuandoRival.get(apodoSinSiglas(rivales[0].nombre))}` : ""}
                             </option>
                           </optgroup>
                           <optgroup label="Los demás, por calendario">
                             {rivales.slice(1).map((uno) => (
                               <option key={uno.clave} value={uno.clave} className="bg-[#11161C]">
                                 {uno.nombre}
+                                {cuandoRival.get(apodoSinSiglas(uno.nombre)) ? ` · ${cuandoRival.get(apodoSinSiglas(uno.nombre))}` : ""}
                                 {uno.origen === "propio" ? " · amistoso" : ""}
                               </option>
                             ))}
@@ -4560,7 +4589,8 @@ function Coding() {
               | abierto), y se leían como contradictorios. Ahora una línea dice
               | los dos, cada uno con lo que cuenta.
               */}
-              {(recuento.enPartido > 0 || recuento.deJugador > 0) && (
+              {/* 27/11/2026 (análisis y marketing, ronda 11): con sólo clips de jugador, el recuento ya lo da el marcador; esta franja sale cuando hay cortes del partido. */}
+              {recuento.enPartido > 0 && (
               <div className="flex items-end gap-2">
                 <span className="rounded-xl border border-white/10 px-3 py-2 text-[11px] text-white/60">
                   {/* 10/11/2026: el total del partido ya lo dice el
@@ -4569,9 +4599,7 @@ function Coding() {
                   {src && recuento.enVideo !== recuento.enPartido
                     ? `${recuento.enVideo} ${recuento.enVideo === 1 ? "corte" : "cortes"} en este vídeo · ${formateaTotal(recuento.msPartido)} cortados`
                     : `${formateaTotal(recuento.msPartido)} cortados`}
-                  {recuento.deJugador > 0
-                    ? ` de partido · ${recuento.deJugador} ${recuento.deJugador === 1 ? "clip" : "clips"} de jugador, con su vídeo entero`
-                    : ""}
+                  {recuento.deJugador > 0 ? " de partido" : ""}
                 </span>
               </div>
               )}
@@ -4583,20 +4611,21 @@ function Coding() {
                     jugado (no el próximo).
                     27/11/2026 (jueces, ronda 10): una línea y un solo botón; quedarse
                     con el de por defecto es la equis (fija el rival y el aviso se va). */}
+                {/* 27/11/2026 (análisis y marketing, ronda 11): la contradicción, como pregunta con sus dos respuestas a la vista. */}
                 <p className="min-w-0 flex-1 text-[13px] leading-snug text-white/75">
-                  <b className="text-white">El vídeo se llama {rivalEnConflicto.nombre}</b> y los cortes van con {rival.nombre}.
+                  <b className="text-white">¿De quién son estos cortes?</b> El vídeo es de {rivalEnConflicto.nombre} y se están guardando con {rival.nombre}.
                 </p>
                 <Button tone="primary" onClick={() => cambiaUrl("equipo", rivalEnConflicto.clave)} title={`Fijar ${rivalEnConflicto.nombre} como rival de estos vídeos`}>
-                  Pasar a {rivalEnConflicto.nombre}
+                  Son de {rivalEnConflicto.nombre}
                 </Button>
                 <button
                   type="button"
                   onClick={() => cambiaUrl("equipo", rival.clave)}
-                  aria-label={`Seguir con ${rival.nombre}`}
                   title={`Seguir con ${rival.nombre} y quitar el aviso`}
-                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/55 transition hover:bg-white/[0.06] hover:text-white"
+                  className="inline-flex min-h-10 shrink-0 items-center gap-1.5 rounded-xl border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
                 >
-                  <X size={15} aria-hidden />
+                  <X size={14} aria-hidden />
+                  Siguen con {rival.nombre}
                 </button>
               </div>
             ) : null}

@@ -13,7 +13,7 @@
 */
 
 import Link from "next/link";
-import { ClipboardList, Film, Presentation, Shield, ShieldAlert } from "lucide-react";
+import { CalendarDays, ClipboardList, Film, Presentation, Shield, ShieldAlert } from "lucide-react";
 import type { ReactNode } from "react";
 
 import { BotonGolesEnVideo, EnlaceComoSonSusGoles } from "@/components/rivals/BotonGolesEnVideo";
@@ -22,7 +22,11 @@ import type { LadoGoles } from "@/lib/rivals/goles-en-video";
 const CLASE =
   "inline-flex min-h-9 items-center gap-1.5 rounded-full border border-sky-400/35 bg-sky-400/10 px-3 py-1 text-xs font-semibold text-sky-300 transition hover:bg-sky-400/20 max-sm:min-h-11";
 
-export type EnlaceDelRival = "abp" | "goles" | "encaja" | "plan" | "pizarra";
+/** 27/11/2026 (ronda 11): el mismo aspecto para los botones que la pantalla añade a la fila. */
+export const CLASE_ENLACE_RIVAL = CLASE;
+
+/* 27/11/2026 (ronda 11, Pizarra ABP): «microciclo», el microciclo de ABP de la semana; sólo sale si se pide en `incluye`. */
+export type EnlaceDelRival = "abp" | "goles" | "encaja" | "plan" | "pizarra" | "microciclo";
 
 export function EnlacesDelRival({
   equipo,
@@ -30,6 +34,7 @@ export function EnlacesDelRival({
   incluye = ["abp", "goles", "encaja", "plan", "pizarra"],
   className = "",
   rotulo,
+  extra,
 }: {
   equipo: string;
   /** El ID de la hoja RIVALES (`RIV-NN`), sin el prefijo `riv-`. */
@@ -38,6 +43,8 @@ export function EnlacesDelRival({
   className?: string;
   /** Lo que va delante de los enlaces (p. ej. «Real Murcia»). */
   rotulo?: ReactNode;
+  /** 27/11/2026 (ronda 11): botones propios de la pantalla que van en la misma fila (p. ej. «Quién marca a quién»). */
+  extra?: ReactNode;
 }) {
   const nombre = equipo.trim();
   if (!nombre) return null;
@@ -53,6 +60,7 @@ export function EnlacesDelRival({
           { clave: "pizarra" as const, href: `/abp-pizarra?rival=${encodeURIComponent(id)}`, texto: "Pizarra ABP", icono: <Presentation size={13} aria-hidden /> },
         ]
       : []),
+    { clave: "microciclo" as const, href: "/abp-microciclo", texto: "Microciclo ABP", icono: <CalendarDays size={13} aria-hidden /> },
   ].filter((uno) => incluye.includes(uno.clave));
 
   if (!enlaces.length) return null;
@@ -74,6 +82,7 @@ export function EnlacesDelRival({
           </Link>
         ),
       )}
+      {extra}
       {enlaces.some((uno) => uno.lado) && <EnlaceComoSonSusGoles equipo={nombre} />}
     </nav>
   );

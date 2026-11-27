@@ -101,9 +101,20 @@ export function tituloDondeAbp(filas: FilaVisualAbp[], unidad: Unidad, exito: Ex
     const cuotaPeligro = pc(lider.k, exitosZona);
     const cuotaVolumen = pc(lider.n, conZona.length);
     if (!empate && lider.k >= 2 && cuotaPeligro > cuotaVolumen) {
-      const orden = exito.mejorAlto ? "cargar esa zona" : "reforzar esa zona";
-      const tendencia = exitosZona < 15 ? " (tendencia)" : "";
-      return `${mayuscula(lider.nombre)}: ${lider.k} de ${f ? "las" : "los"} ${exitosZona} que ${exito.varios} (${cuotaPeligro} %) con el ${cuotaVolumen} % de ${deCuantas}${tendencia} → ${orden}`;
+      /*
+      | 27/11/2026 (jueces, ronda 11): una base por frase. Primero el peligro
+      | («7 de las 15 … salen de ahí»), luego el volumen («y sólo recibe 18 de
+      | las 57 que caen en el área»), y por qué la base del peligro es menor que
+      | la de la conclusión (las que caen fuera de las zonas). Con menos de 15,
+      | «tendencia» delante y sin orden.
+      */
+      const fuera = total - exitosZona;
+      const tendencia = exitosZona < MUESTRA_HALLAZGO;
+      const orden = tendencia ? (exito.mejorAlto ? "vigilar si se confirma" : "vigilarla") : exito.mejorAlto ? "cargarla más" : "reforzar esa zona";
+      const dentro = ambito ? `${f ? "las" : "los"} ${conZona.length} que ${ambito.dentro}` : `${conZona.length} ${unidad.varios} con sitio`;
+      return `${tendencia ? "Tendencia · " : ""}${mayuscula(lider.nombre)}: ${lider.k} de ${f ? "las" : "los"} ${exitosZona} que ${exito.varios} salen de ahí${
+        fuera > 0 ? ` (${f ? "las otras" : "los otros"} ${fuera} caen fuera de las zonas)` : ""
+      }, y recibe ${lider.n} de ${dentro} (${cuotaVolumen} %) → ${orden}`;
     }
   }
   if (empateVolumen) return "";
@@ -123,11 +134,18 @@ export function BarraReparto({
   filas,
   categorias,
   rotulosFuera = false,
+  compacta = false,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
   /** 20/11/2026 (ronda 7, ABP ofensivo): los tramos que no caben en la barra (1 de 94) llevan su rótulo encima. */
   rotulosFuera?: boolean;
+  /**
+   * 27/11/2026 (jueces, ronda 11, ABP ofensivo): las cifras dentro de la barra
+   * (con el nombre donde cabe) y, debajo, sólo una línea de colores: la lista
+   * de cuatro filas repetía lo de la barra y empujaba la conclusión.
+   */
+  compacta?: boolean;
 }) {
   const total = filas.length;
   const tramos = categorias.map((c) => ({ ...c, n: filas.filter((f) => f.cat === c.clave).length })).filter((c) => c.n > 0);
@@ -148,23 +166,49 @@ export function BarraReparto({
               style={t.centro < 50 ? { left: `max(0px, calc(${t.centro}% - 4px))` } : { right: `max(0px, calc(${100 - t.centro}% - 4px))` }}
             >
               <span className="h-2 w-2 shrink-0 rounded-sm" style={{ background: t.color }} />
-              {t.rotulo} · {t.n} ↓
+              {/* 27/11/2026 (jueces, ronda 11): con su % y, si son 3 o menos, «tendencia», como en la tarjeta de goles. */}
+              {t.rotulo} · {t.n} · {pc(t.n, total)} %{t.n <= 3 ? " · tendencia" : ""} ↓
             </span>
           ))}
         </div>
       ) : null}
-      <div className="flex h-9 w-full overflow-hidden rounded-lg" role="img" aria-label={tramos.map((t) => `${t.rotulo}: ${t.n}`).join(", ")}>
-        {tramos.map((t) => (
-          <div
-            key={t.clave}
-            className="flex h-full min-w-0 items-center justify-center text-[11px] font-bold tabular-nums"
-            style={{ width: `${(t.n / total) * 100}%`, background: t.color, color: t.color.startsWith("#") ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb))" }}
-            title={`${t.rotulo}: ${t.n} de ${total}`}
-          >
-            {t.n / total >= 0.035 ? t.n : ""}
-          </div>
-        ))}
+      <div className={`flex ${compacta ? "h-10" : "h-9"} w-full overflow-hidden rounded-lg`} role="img" aria-label={tramos.map((t) => `${t.rotulo}: ${t.n}`).join(", ")}>
+        {tramos.map((t) => {
+          const cuota = t.n / total;
+          return (
+            <div
+              key={t.clave}
+              className={`flex h-full min-w-0 items-center justify-center overflow-hidden px-1 font-bold tabular-nums ${compacta ? "text-[12px]" : "text-[11px]"}`}
+              style={{ width: `${cuota * 100}%`, background: t.color, color: t.color.startsWith("#") ? "#0B0F14" : "rgb(var(--rmcf-ink-rgb))" }}
+              title={`${t.rotulo}: ${t.n} de ${total}`}
+            >
+              {compacta && cuota >= 0.2 ? (
+                <span className="min-w-0 whitespace-nowrap">
+                  {/* El nombre sólo donde cabe (en el ordenador); en el móvil y la tableta lo da la línea de colores. */}
+                  <span className="hidden lg:inline">{t.rotulo} · </span>
+                  {t.n} ({pc(t.n, total)} %)
+                </span>
+              ) : compacta && cuota >= 0.1 ? (
+                `${t.n} · ${pc(t.n, total)} %`
+              ) : cuota >= 0.035 ? (
+                t.n
+              ) : (
+                ""
+              )}
+            </div>
+          );
+        })}
       </div>
+      {compacta ? (
+        <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/70">
+          {tramos.map((t) => (
+            <span key={t.clave} className="inline-flex items-center gap-1.5">
+              <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: t.color }} aria-hidden />
+              {t.rotulo}
+            </span>
+          ))}
+        </p>
+      ) : (
       <ul className="mt-3 grid grid-cols-1 gap-x-4 gap-y-1.5 text-[12px] sm:grid-cols-2">
         {tramos.map((t) => (
           <li key={t.clave} className="flex min-w-0 items-center gap-2">
@@ -176,6 +220,7 @@ export function BarraReparto({
           </li>
         ))}
       </ul>
+      )}
     </div>
   );
 }
@@ -230,7 +275,7 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
           </span>
         ))}
       </div>
-      <p className="mt-2 text-[11px] text-white/50">
+      <p className="mt-2 text-[12px] leading-snug text-white/60">
         Encima de cada columna, «a/b»: las que {exito.varios} (a) de las del partido (b). Orden de calendario.
         {mediaN !== null ? ` Raya discontinua: la media de acciones por partido, ${mediaN.toLocaleString("es-ES", { maximumFractionDigits: 1 })} (la altura de cada columna es su número de acciones).` : ""}
         {marca && partidos.some((p) => p.jornada.clave === marca) ? " En oro, el último partido." : ""}
@@ -325,7 +370,7 @@ function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: Ca
       })}
     </ul>
     {hayPocas ? (
-      <p className="mt-2 text-[11px] text-white/50">Atenuados, los tipos con menos de {MUESTRA_FILA_TIPO} acciones: poca muestra para sacar conclusiones.</p>
+      <p className="mt-2 text-[12px] text-white/60">Atenuados, los tipos con menos de {MUESTRA_FILA_TIPO} acciones: poca muestra para sacar conclusiones.</p>
     ) : null}
     </>
   );
@@ -460,7 +505,8 @@ function ComparativaBarras({ filas, destacada, siempre = [] }: { filas: FilaComp
         const color = juicio && COLOR_JUICIO[juicio] ? COLOR_JUICIO[juicio] : ORO_PUNTO;
         const rango = m.rango && m.rango[0] !== m.rango[1] && !(pct && m.rango[0] <= 0 && m.rango[1] >= 100) ? m.rango : null;
         /* 17/11/2026 (ronda 20): con su unidad, que cambia de fila a fila («0 de 3 llegadas a último tercio»). */
-        const base = m.de !== undefined ? (m.n !== undefined ? `${m.n} de ${m.de}${m.unidad ? ` ${m.unidad}` : ""}` : `de ${m.de} ${m.unidad ?? "acciones"}`) : "";
+        /* 27/11/2026 (ronda 11): con «n de de», la base ya va junto al valor; aquí sólo la de «de N acciones». */
+        const base = m.de !== undefined && m.n === undefined ? `de ${m.de} ${m.unidad ?? "acciones"}` : "";
         return (
           <li key={m.clave} className={`min-w-0 ${esClave ? "rounded-xl px-3 py-2.5" : ""}`} style={esClave ? { background: "rgb(var(--rmcf-ink-rgb) / .045)" } : undefined}>
             <div className={`flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 ${esClave ? "text-[14px] font-semibold" : "text-[12px]"}`}>
@@ -468,10 +514,18 @@ function ComparativaBarras({ filas, destacada, siempre = [] }: { filas: FilaComp
                 {m.nombre}
                 {m.mejorAlto === true ? <span className="text-white/50"> · ▲ más es mejor</span> : m.mejorAlto === false ? <span className="text-white/50"> · ▼ menos es mejor</span> : null}
               </span>
-              <span className="shrink-0 tabular-nums">
+              <span className="min-w-0 tabular-nums">
                 <span className="text-[13px] font-bold" style={{ color: juicio === "mejor" || juicio === "peor" ? color : "var(--rmcf-gold-ink)" }}>
                   {fmt(actual)}
                 </span>
+                {/* 27/11/2026 (jueces, ronda 11): la base del partido, en la misma línea que el valor («18,2 % (4 de 22)»). */}
+                {m.de !== undefined && m.n !== undefined ? (
+                  <span className="text-white/60">
+                    {" "}
+                    ({m.n} de {m.de}
+                    {m.unidad ? ` ${m.unidad}` : ""})
+                  </span>
+                ) : null}
                 <span className="text-white/60"> · media {fmt(media)}</span>
                 {juicio ? (
                   <span
@@ -502,7 +556,7 @@ function ComparativaBarras({ filas, destacada, siempre = [] }: { filas: FilaComp
               />
             </div>
             {rango || base ? (
-              <p className="mt-1 text-[11px] text-white/55">
+              <p className="mt-1 text-[12px] text-white/60">
                 {[rango ? `${pct ? "" : "por partido · "}antes, de ${fmt(rango[0])} a ${fmt(rango[1])}` : "", base ? `este partido, ${base}` : ""].filter(Boolean).join(" · ")}
               </p>
             ) : null}
@@ -526,7 +580,7 @@ function ComparativaBarras({ filas, destacada, siempre = [] }: { filas: FilaComp
 
 function LeyendaComparativa() {
   return (
-    <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+    <p className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12px] text-white/60">
       <span className="inline-flex items-center gap-1">
         <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: ORO_PUNTO }} aria-hidden /> este partido
       </span>
@@ -556,6 +610,7 @@ export function VisualAbp({
   marca,
   repartoArriba = false,
   tipoFrenteAlResto = false,
+  tendenciaEnUnaLinea = false,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -580,6 +635,8 @@ export function VisualAbp({
   repartoArriba?: boolean;
   /** 27/11/2026 (ronda 10): con un solo tipo con muestra, «¿Qué hace más daño?» lo compara con el resto. */
   tipoFrenteAlResto?: boolean;
+  /** 27/11/2026 (ronda 11, ABP ofensivo): «¿Va a mejor?» sin las columnas (la pantalla ya pinta el partido a partido arriba). */
+  tendenciaEnUnaLinea?: boolean;
 }) {
   if (!filas.length) return null;
 
@@ -648,7 +705,8 @@ export function VisualAbp({
             <TituloConclusion pregunta="¿Va a mejor?" fuente={`${partidos.length} partidos con estos filtros`}>
               {tituloJornadas}
             </TituloConclusion>
-            <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} marca={marca} />
+            {/* 27/11/2026 (jueces, ronda 11): con el gráfico de partido a partido ya arriba, aquí sólo la tendencia en una línea. */}
+            {tendenciaEnUnaLinea ? null : <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} marca={marca} />}
           </Lamina>
         ) : null}
       </div>

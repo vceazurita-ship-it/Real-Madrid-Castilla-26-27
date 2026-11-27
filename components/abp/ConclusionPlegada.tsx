@@ -60,7 +60,8 @@ export function ConclusionPlegada({
       {titular ? <p className="mt-1 text-base font-semibold leading-snug text-white/90 md:text-lg">{titular}</p> : null}
       {titular && base ? <p className="mt-0.5 text-[12px] leading-snug text-white/65">{base}</p> : null}
       {orden ? (
-        <p className="mt-1.5 text-[13px] leading-snug text-white/80">
+        /* 27/11/2026 (jueces, ronda 11): «Qué entrenamos» puede venir en tres líneas (tarea · qué se cuenta · objetivo), separadas por saltos. */
+        <p className="mt-1.5 whitespace-pre-line text-[13px] leading-snug text-white/80">
           <b className="font-semibold text-white/90">Qué entrenamos:</b> {orden.replace(/^Qué entrenamos[^:]*:\s*/, "")}
           {enlace ? (
             <>

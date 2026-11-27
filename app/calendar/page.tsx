@@ -5,12 +5,13 @@ import { nombreVisible } from "@/lib/nombreJugador";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowRight, Users } from "lucide-react";
+import { ArrowRight, ExternalLink, Plus, Users } from "lucide-react";
 import { usePlayers } from "@/hooks/usePlayers";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, soloDia, type PartidoNuestro } from "@/lib/castilla/calendario";
 import { idVigente } from "@/lib/fichajes";
-import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
+import { EnlacesJugador, NombreJugador, hrefJugador } from "@/components/individual/EnlacesJugador";
+import { urlPostDelPartido } from "@/lib/post-partido";
 import { alineaSeguimiento, DIAS_SIN_SEGUIMIENTO, esPortero, sinPorteros, sinSeguimientoReciente } from "@/lib/seguimiento";
 import {
   CalendarShell,
@@ -437,6 +438,13 @@ export default function Calendar() {
     [sessionDays, months]
   );
 
+  /* 27/11/2026 (marketing, ronda 11): lo que estrecha el selector de jugador. */
+  const [buscaJugador, setBuscaJugador] = useState("");
+  const casaBusca = (nombre: string) => {
+    const q = sinAcentos(buscaJugador);
+    return !q || sinAcentos(nombreVisible(nombre)).includes(q);
+  };
+
   const openPlayer = (id: string) => {
     setSelectedKey(null);
     router.push(`/individual?player=${encodeURIComponent(id)}`);
@@ -466,35 +474,38 @@ export default function Calendar() {
           >
             {/* 10/11/2026: el mismo bloque que /individual: titular, base y
                 un chip por jugador con sus días, que abre su ficha. */}
-            <p className="font-semibold text-[#C8A96B]">
-              A quién toca seguir: {sinSeguimiento.length} del Castilla sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días
-            </p>
-            {/* 17/11/2026 (ronda 20, jueces): el mismo aviso que Plantilla y el
-                Dashboard Seguimiento; aquí, sin repetir la explicación: a un
-                toque, la lista completa del Dashboard. */}
-            <p className="mt-0.5 text-[11px] text-white/55">
-              Sin porteros (llevan su registro aparte).{" "}
-              <Link href="/individual_proc" className="font-semibold text-[#C8A96B] hover:underline">
-                Ver a todos en el Dashboard Seguimiento →
-              </Link>
-            </p>
-            {/* 16/11/2026 (jueces): cada aviso, una acción. */}
-            <ul className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+            {/* 27/11/2026 (marketing, ronda 11): el mismo aviso que Plantilla, en
+                una línea, para que lo primero que se vea sea el calendario. Cada
+                nombre abre su ficha y el «+» registra con él ya elegido (un solo
+                botón por jugador, ronda 9); la lista completa, en el Dashboard. */}
+            <ul className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1.5 text-xs">
+              <li className="font-semibold text-[#C8A96B]">
+                A quién toca seguir: {sinSeguimiento.length} sin seguimiento en {DIAS_SIN_SEGUIMIENTO} días (de campo, sin porteros)
+              </li>
               {sinSeguimiento.map((j) => (
                 <li
                   key={j.id}
-                  className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/40 bg-white/[0.04] py-1 pl-2.5 pr-1 text-xs"
+                  className="inline-flex min-w-0 items-center gap-1 rounded-full border border-[#C8A96B]/40 bg-white/[0.04] py-0.5 pl-2 pr-0.5"
                 >
                   <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="truncate font-semibold" />
                   <span className="shrink-0 tabular-nums text-white/60">
-                    {j.dias == null ? "ningún registro" : `${j.dias} días`}
+                    {j.dias == null ? "ningún registro" : `${j.dias} d`}
                   </span>
-                  {/* 27/11/2026 (ronda 9, análisis y fútbol): un solo botón por jugador,
-                      «Registrar», con él ya elegido; su seguimiento, en su nombre (abre su
-                      ficha) y el Dashboard, una vez arriba. Los iconos sin texto, fuera. */}
-                  <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["registrar"]} />
+                  <Link
+                    href={hrefJugador("registrar", { id: j.id, nombre: j.nombre })}
+                    aria-label={`Registrar seguimiento de ${j.nombre}`}
+                    title={`Registrar seguimiento de ${j.nombre}, con él ya elegido`}
+                    className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/50 bg-[#C8A96B]/15 text-[color:var(--rmcf-gold-ink,#C8A96B)] transition hover:bg-[#C8A96B]/25 sm:h-6 sm:w-6"
+                  >
+                    <Plus size={12} aria-hidden />
+                  </Link>
                 </li>
               ))}
+              <li>
+                <Link href="/individual_proc" className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+                  Ver los {castillaTotal || "de campo"} en el Dashboard Seguimiento →
+                </Link>
+              </li>
             </ul>
           </div>
         ) : undefined
@@ -537,6 +548,8 @@ export default function Calendar() {
                     return (
                       <span title={detalle} className="cursor-help">
                         {comparado}
+                        {/* 27/11/2026 (análisis, ronda 11): la base en la tarjeta, no sólo en el globo. */}
+                        {castillaTotal > 0 ? ` · de los ${castillaTotal} de campo del Castilla (sin porteros)` : ""}
                       </span>
                     );
                   })()
@@ -607,7 +620,7 @@ export default function Calendar() {
           <CalendarStat
             label="Por tipo"
             className={!playerFilter && semanas.lista.some((s) => s.n > 0) ? "max-lg:col-span-2" : ""}
-            hint={!playerFilter && castillaTotal > 0 ? `registros del mes de los ${castillaTotal} de campo del Castilla` : undefined}
+            hint={!playerFilter && castillaTotal > 0 ? `registros del mes de los ${castillaTotal} de campo del Castilla (sin porteros)` : undefined}
             value={
               <span className="mt-1 grid grid-cols-1 gap-x-3 gap-y-0.5 text-[13px] font-medium min-[400px]:grid-cols-2">
                 {TIPOS.filter((tipo) => monthStats.porTipo[tipo] > 0).map((tipo) => (
@@ -636,6 +649,7 @@ export default function Calendar() {
               value={playerFilter}
               onChange={(e) => setPlayerFilter(e.target.value)}
               aria-label="Filtrar por jugador"
+              title="Filtrar por jugador"
               className="max-w-[230px] rounded-xl border border-white/10 bg-[#11161D] py-2 pl-9 pr-3 text-sm outline-none transition hover:border-[#C8A96B] focus:border-[#C8A96B]"
             >
               {/* 16/11/2026: lo que de verdad enseña (los porteros llevan su
@@ -644,8 +658,8 @@ export default function Calendar() {
 
               {/* 30/10/2026: el Castilla primero y los de otros equipos aparte. */}
               {[
-                { etiqueta: "Castilla · de campo", lista: players.filter((p) => p.esCastilla) },
-                { etiqueta: "Otros equipos", lista: players.filter((p) => !p.esCastilla) },
+                { etiqueta: "Castilla · de campo", lista: players.filter((p) => p.esCastilla && casaBusca(p.nombre)) },
+                { etiqueta: "Otros equipos", lista: players.filter((p) => !p.esCastilla && casaBusca(p.nombre)) },
               ]
                 .filter((g) => g.lista.length > 0)
                 .map((g) => (
@@ -662,6 +676,17 @@ export default function Calendar() {
                 ))}
             </select>
           </div>
+
+          {/* 27/11/2026 (marketing, ronda 11): un buscador que estrecha la lista
+              del selector (son más de 35 nombres). */}
+          <input
+            type="search"
+            value={buscaJugador}
+            onChange={(e) => setBuscaJugador(e.target.value)}
+            placeholder="Buscar jugador"
+            aria-label="Buscar jugador en la lista"
+            className="w-36 min-w-0 rounded-xl border border-white/10 bg-[#11161D] px-3 py-2 text-sm outline-none transition placeholder:text-white/35 hover:border-[#C8A96B] focus:border-[#C8A96B]"
+          />
 
           {playerFilter && playersMap[playerFilter] && (
             <EnlacesJugador
@@ -685,12 +710,13 @@ export default function Calendar() {
            post; por jugar, al rival ya elegido (goles, ABP, plan). */
         const marcaPartido = partido ? (
           <Link
-            href={partido.jugado ? "/data-analisis?area=post" : `/rivals?equipo=${encodeURIComponent(partido.rival)}`}
+            /* 27/11/2026 (ronda 11, los dos jueces): jugado, su post con el partido ya elegido. */
+            href={partido.jugado ? urlPostDelPartido(soloDia(partido.cuando), partido.rival) : `/rivals?equipo=${encodeURIComponent(partido.rival)}`}
             onClick={(e) => e.stopPropagation()}
             className="line-clamp-2 break-words rounded-md bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold leading-tight text-sky-300 underline-offset-2 hover:underline"
             title={`Partido · J${partido.jornada} · ${rotuloPartido(partido)} · ${partido.jugado ? "abrir su análisis" : "abrir el rival"}`}
           >
-            ⚽ {rotuloPartido(partido)} →
+            ⚽ {rotuloPartido(partido)} <ExternalLink size={11} aria-hidden className="inline align-[-1px]" />
           </Link>
         ) : null;
         const md = mdDe(key);
@@ -786,6 +812,11 @@ export default function Calendar() {
                       <span className="ml-auto font-semibold tabular-nums">{n}</span>
                     </span>
                   ))}
+                  {/* 27/11/2026 (marketing, ronda 11): los dos primeros nombres y «+N», no sólo los tipos. */}
+                  <span className="block truncate pt-0.5 text-[11px] font-semibold text-white/85">
+                    {grupos.slice(0, 2).map((g) => nombreVisible(playersMap[g.session.ID_JUGADOR]?.nombre || g.session.NOMBRE?.trim() || "")).filter(Boolean).join(", ")}
+                    {grupos.length > 2 ? ` +${grupos.length - 2}` : ""}
+                  </span>
                   <span className="block pt-0.5 text-center text-[11px] font-medium text-[#C8A96B]">ver el día</span>
                 </button>
               )}
@@ -924,7 +955,7 @@ export default function Calendar() {
                   )}
                   {p.jugado && (
                     <Link
-                      href="/data-analisis?area=post"
+                      href={urlPostDelPartido(soloDia(p.cuando), p.rival)}
                       className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#C8A96B] hover:underline"
                     >
                       Análisis del partido <ArrowRight size={14} aria-hidden />
@@ -960,14 +991,21 @@ export default function Calendar() {
                         {nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}
                       </p>
 
-                      <p className="mt-1 text-sm text-[#C8A96B]">
-                        {[session.ESTRATEGIA?.trim(), session.QUIEN?.trim()].filter(Boolean).join(" · ")}
+                      <p className="mt-1 text-sm text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                        {session.ESTRATEGIA?.trim()}
                       </p>
+                      {/* 27/11/2026 (análisis, ronda 11): quién lo registró, dicho. */}
+                      {session.QUIEN?.trim() && (
+                        <p className="mt-0.5 text-xs text-white/65">
+                          Registró: <span className="font-semibold text-white/85">{session.QUIEN.trim()}</span>
+                        </p>
+                      )}
 
+                      {/* 27/11/2026 (análisis, ronda 11): su ficha y su Dashboard Seguimiento, ya filtrado. */}
                       {jugador && (
                         <EnlacesJugador
                           jugador={{ id: session.ID_JUGADOR, nombre: nombreVisible(jugador.nombre) }}
-                          destinos={["ficha", "seguimiento", "registrar"]}
+                          destinos={["ficha", "dashboard", "registrar"]}
                           className="mt-2"
                         />
                       )}
@@ -1006,6 +1044,11 @@ export default function Calendar() {
       )}
     </CalendarShell>
   );
+}
+
+/* 27/11/2026 (ronda 11): para el buscador de jugador, sin tildes ni mayúsculas. */
+function sinAcentos(t: string) {
+  return t.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase().trim();
 }
 
 function Objective({ label, value }: { label: string; value?: string }) {

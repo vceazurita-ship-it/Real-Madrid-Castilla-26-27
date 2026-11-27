@@ -522,7 +522,8 @@ export default function ApuestasPage() {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 pb-24 pt-6 sm:px-6 lg:px-10">
+          {/* 27/11/2026 (marketing, ronda 11): margen a la derecha en el móvil para que el «⋮» flotante no tape las tarjetas. */}
+          <div className="min-w-0 pb-24 pl-4 pr-9 pt-6 sm:px-6 lg:px-10">
             {/* 18/11/2026 (guionista, ronda 22): el antetítulo dice «Operativa», como el menú. */}
             <AbpHeader
               area="RMCF Castilla · Operativa"
@@ -531,9 +532,11 @@ export default function ApuestasPage() {
               aside={
                 <span className="flex flex-wrap items-center justify-end gap-2">
                   {/* 18/11/2026 (ronda 23): la quiniela, con la misma cuenta, a un toque. */}
+                  {/* 27/11/2026 (marketing, ronda 11): la quiniela, enlace secundario (sin caja); «Entrar para apostar», el botón relleno. */}
                   <Link
                     href="/quiniela"
-                    className="inline-flex min-h-9 items-center rounded-full border border-white/15 px-3 text-[13px] font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white"
+                    className="inline-flex min-h-9 items-center px-1 text-[13px] font-semibold underline-offset-2 hover:underline"
+                    style={{ color: "var(--rmcf-gold-ink)" }}
                   >
                     Quiniela de la semana →
                   </Link>
@@ -545,7 +548,7 @@ export default function ApuestasPage() {
                   <button
                     type="button"
                     onClick={abreAcceso}
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-full border border-[#C8A96B]/50 px-3 text-[13px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/10"
+                    className="inline-flex min-h-10 items-center gap-1.5 rounded-full bg-[#C8A96B] px-4 text-[13px] font-semibold text-[#0B0F14] transition hover:brightness-110"
                   >
                     <KeyRound size={14} aria-hidden /> Entrar para apostar
                   </button>
@@ -1232,11 +1235,11 @@ function Recuento({ favor, contra, juegan, faltan }: { favor: number; contra: nu
         </p>
       )}
       {/* 27/11/2026 (marketing, ronda 9): el número dentro de cada tramo, para leerla sin la línea de arriba (si el tramo es muy corto, no cabe y no se pinta). */}
-      <div className="mt-1 flex h-4 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
-        <span className="siempre-oscuro flex h-full items-center justify-center bg-emerald-400 text-[10.5px] font-bold leading-none tabular-nums" style={{ width: `${pFavor}%`, color: "#0B0F14" }}>
+      <div className="mt-1 flex h-5 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
+        <span className="siempre-oscuro flex h-full items-center justify-center bg-emerald-400 text-[12px] font-bold leading-none tabular-nums" style={{ width: `${pFavor}%`, color: "#0B0F14" }}>
           {favor > 0 && pFavor >= 12 ? favor : null}
         </span>
-        <span className="siempre-oscuro flex h-full items-center justify-center bg-rose-400 text-[10.5px] font-bold leading-none tabular-nums" style={{ width: `${pContra}%`, color: "#0B0F14" }}>
+        <span className="siempre-oscuro flex h-full items-center justify-center bg-rose-400 text-[12px] font-bold leading-none tabular-nums" style={{ width: `${pContra}%`, color: "#0B0F14" }}>
           {contra > 0 && pContra >= 12 ? contra : null}
         </span>
       </div>
