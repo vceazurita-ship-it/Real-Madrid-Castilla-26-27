@@ -1942,9 +1942,23 @@ export const AYUDAS: AyudaDePagina[] = [
     ruta: "/rivals",
     titulo: "Plantillas Rivales",
     resumen: "El rival en una frase, su once probable en el campo (con el sistema que más usa según Wyscout), la plantilla por puesto y la ficha de cada jugador.",
-    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (quién crea la amenaza, revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
-    revisada: "2026-11-26",
+    origen: "Hoja RIVALES (plantillas, fichas y análisis); BeSoccer (tabla, resultados, alineaciones, minutos y tarjetas, en Supabase); Wyscout de toda la categoría; Opta (quién crea la amenaza, contra nosotros, revulsivos y goles en vídeo, con los cortes de opta:goles-video); resúmenes del canal de la RFEF. El once probable y los recursos, en Supabase.",
+    revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026): quién nos hizo daño en el partido anterior",
+        filas: [
+          {
+            que: "«Contra nosotros», encima de la plantilla",
+            es: "Si ya hemos jugado contra el equipo elegido esta temporada y Opta tiene ese partido evento a evento, sale una tarjeta con borde ámbar justo encima de la plantilla y el campograma: «Contra nosotros · dd/mm» con los dos o tres jugadores suyos que más destacaron ese día frente a su propia media. Por cada uno, sus minutos y tres chapas (entre líneas, progresivos, xT) con lo que hizo y cuánto pasó o se quedó de su media por 90′; en ámbar, la que la pasó en más de un 30 %. Si nadie la pasó, lo dice. Sin partido contra nosotros (o sin evento a evento), no sale",
+            cuenta: "Opta, evento a evento: opta:directo:<partido> del partido contra el Castilla (el más reciente si hay dos) y, para la media, sus otros partidos del archivo (opta:directo:archivo), los 12 más recientes como mucho, sin el nuestro. Recibidos entre líneas: pases acertados en juego de un compañero cuyo final cae por dentro (y de 18,3 a 81,7 de Opta, el ancho del área) y entre nuestra línea de medios y la de defensa (x de 58 a 83, hasta el borde del área): es una aproximación por zona, Opta no da dónde están las líneas. Pases progresivos: acertados que acercan el balón a portería al menos un 25 % de lo que faltaba (sin los de campo propio a campo propio), los de toda la app. xT: pases acertados + conducciones, la misma cuenta que «Quién crea la amenaza». Lo de contra nosotros se lleva a 90′ con sus minutos de ese partido y se compara con su media por 90′ (minutos de los directos). Se marca si pasa la media en más de un 30 %, jugó 30′ o más, su media sale de 270′ o más y, en los recuentos, hizo 2 o más. Orden del aviso: más cifras marcadas y, a igualdad, más por encima. lib/rivals/contra-nosotros.ts y components/rivals/ContraNosotros.tsx",
+          },
+          {
+            que: "«Contra nosotros», en la ficha del jugador",
+            es: "Debajo de «Cómo juega»: sus tres cifras de ese partido (lo que hizo y por 90′) al lado de su media por 90′ y el % de diferencia; en ámbar si la pasó en más de un 30 %, y «⚠ nos hizo daño» en el título. Si su media no llega a 270′ dice «poca muestra». Sólo sale si jugó contra nosotros y su nombre casa con uno solo de Opta",
+          },
+        ],
+      },
       {
         titulo: "Lo nuevo (26/11/2026): quién crea la amenaza del rival",
         filas: [

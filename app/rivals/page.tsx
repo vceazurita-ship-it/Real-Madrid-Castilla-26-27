@@ -129,6 +129,7 @@ import ResumenesRival from "@/components/rivals/ResumenesRival";
 import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
 import { AmenazaXT } from "@/components/rivals/AmenazaXT";
+import { AvisoContraNosotros, FranjaContraNosotros } from "@/components/rivals/ContraNosotros";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import DefinicionDelantero from "@/components/rivals/DefinicionDelantero";
 import { pieDominante } from "@/lib/rivals/pie";
@@ -4461,6 +4462,15 @@ export default function RivalPlayersPage() {
                 </div>
               )}
 
+              {/* CONTRA NOSOTROS — quién nos hizo daño en el partido de ida frente a su media (Opta, 27/11/2026). */}
+
+              {selectedTeam && !loading && (
+                <AvisoContraNosotros
+                  equipo={selectedTeam}
+                  nombres={players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam).map((p) => String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())}
+                />
+              )}
+
               {/* PLANTILLA + CAMPOGRAMA */}
 
               {loading ? (
@@ -6234,6 +6244,16 @@ export default function RivalPlayersPage() {
                   <div className="mt-5">
                     <PerfilWyscoutCard perfil={perfilDelEditado} besoccer={besoccerDelEditado} />
                   </div>
+                )}
+
+                {/* Y si ya jugamos contra ellos, lo que hizo contra nosotros frente a su media (Opta, 27/11/2026). */}
+
+                {!isCreating && (
+                  <FranjaContraNosotros
+                    equipo={String(editForm.NOMBRE_EQUIPO || selectedTeam || "")}
+                    jugador={String(editForm["NOMBRE DEPORTIVO"] || editForm.JUGADOR || "").trim()}
+                    nombres={plantillaDelEditado.map((p) => String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())}
+                  />
                 )}
 
                 {/* Y si es delantero o mediapunta, cómo define (Opta): goles frente a xG y de dónde tira. */}
