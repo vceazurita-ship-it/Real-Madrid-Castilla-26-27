@@ -23,10 +23,12 @@ import Link from "next/link";
 import { ChevronLeft, Maximize2, Minimize2, Pause, Play, Radio, SkipForward } from "lucide-react";
 
 import { useAdmin } from "@/hooks/useAdmin";
-import { alDia, alertas, calibracion, cifrasHasta, esAcabado, fichasDeGol, queTocar, hitos as hitosDe, inicioSegunda, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
+import { alDia, alertas, calibracion, cifrasHasta, esAcabado, fichasDeGol, queTocar, hitos as hitosDe, inicioSegunda, nombreEquipoCorto, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { filaDelPlan, planEnElCampo, rumbo, type FilaPlan } from "@/lib/sala/rumbo";
+import { AvisoDominio, useTemporadaDescanso } from "./AvisoDominio";
+import { dominioSinPremio } from "@/lib/sala/dominio";
 import { AbpTransiciones, Alertas, Campo, Duelo, HaciaDonde, PlanEnCampo, Jugadores, Lectura, Linea, Marcador, Probabilidad, Pulso, S, SelectorTramo, Tramos, type Capa } from "./piezas";
 
 type Fuente = "castilla" | "rm";
@@ -267,6 +269,17 @@ export function SalaPartido() {
       fichas: fichasDeGol(partido, tVista),
     };
   }, [partido, tVista, k, modo]);
+  /* Dominamos en xG y el marcador no lo refleja (27/11/2026): el aviso y, al lado, la temporada en esa situación al descanso. */
+  const dominio = useMemo(() => (partido && calculo ? dominioSinPremio(partido, tVista, calculo.c) : null), [partido, calculo, tVista]);
+  const idsTemporada = useMemo(
+    () => (partido ? lista.filter((x) => x.partido !== partido.id && x.goles?.length === 2 && x.goles.every((g) => g != null) && (!partido.fecha || String(x.fecha ?? "").slice(0, 10) < String(partido.fecha).slice(0, 10))).map((x) => x.partido) : []),
+    [lista, partido],
+  );
+  const temporada = useTemporadaDescanso(FUENTES[fuente].prefijo, idsTemporada, !!dominio);
+  const avisoDominio = useMemo(
+    () => (dominio && partido?.nuestro ? <AvisoDominio dxg={dominio.dxg} dg={dominio.dg} nuestro={nombreEquipoCorto((partido.nuestro === "L" ? partido.local : partido.visitante).nombre)} lista={temporada.lista} sinPartidos={temporada.sinPartidos} /> : null),
+    [dominio, partido, temporada.lista, temporada.sinPartidos],
+  );
   const haciaDonde = useMemo(() => (partido ? rumbo(partido, tVista) : null), [partido, tVista]);
   const plan = useMemo(() => {
     if (!partido || !conPlan || !filasPlan.length) return null;
@@ -319,7 +332,7 @@ export function SalaPartido() {
     () =>
       partido && calculo && k && ventana ? (
           <div className="mt-4 grid gap-4">
-            <Marcador p={partido} t={tVista} c={calculo.c} modo={modo} parte={calculo.parte} prob={calculo.prob} justo={calculo.justo} titular={calculo.titular} hitos={calculo.hitos} fichas={calculo.fichas} k={k} />
+            <Marcador p={partido} t={tVista} c={calculo.c} modo={modo} parte={calculo.parte} prob={calculo.prob} justo={calculo.justo} titular={calculo.titular} hitos={calculo.hitos} fichas={calculo.fichas} k={k} aviso={avisoDominio} />
 
             {/* En el móvil, los avisos van justo después del marcador (el experto de fútbol: es lo primero que se lee en el banquillo). */}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
@@ -357,7 +370,7 @@ export function SalaPartido() {
             </p>
           </div>
       ) : null,
-    [partido, calculo, k, ventana, tVista, modo, avisos, lectura, omitir, tocar, disponibles, tramo, capa, fuente, haciaDonde, plan],
+    [partido, calculo, k, ventana, tVista, modo, avisoDominio, avisos, lectura, omitir, tocar, disponibles, tramo, capa, fuente, haciaDonde, plan],
   );
 
   const tv = pantalla || tvUrl;

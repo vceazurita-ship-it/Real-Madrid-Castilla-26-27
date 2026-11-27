@@ -150,6 +150,7 @@ export function Marcador({
   hitos,
   fichas,
   k,
+  aviso,
 }: {
   p: Partido;
   t: number;
@@ -162,6 +163,8 @@ export function Marcador({
   hitos: Hito[];
   fichas: FichaGol[];
   k: Calibracion;
+  /** Aviso en la cabecera del marcador (27/11/2026: «dominamos en xG y el marcador no lo refleja»). */
+  aviso?: ReactNode;
 }) {
   /* El apellido para el móvil; la propia puerta conserva su marca («Cestero (p. p.)» salía «p.)»). */
   const ultimoNombre = (n: string) => {
@@ -234,6 +237,7 @@ export function Marcador({
     <section className="relative overflow-hidden rounded-3xl px-3 py-5 sm:px-8 sm:py-6 sala-entra" style={{ background: "radial-gradient(120% 140% at 50% 0%, rgba(40,80,160,0.38), rgba(5,12,26,0.65) 60%)", border: `1px solid ${S.borde}` }}>
       <div aria-hidden className="pointer-events-none absolute inset-0 opacity-40" style={{ background: `linear-gradient(90deg, ${p.local.color}22, transparent 35%, transparent 65%, ${p.visitante.color}22)` }} />
       {modo === "vivo" && <div aria-hidden className="pointer-events-none absolute inset-y-0 left-0 w-1/3 sala-barrido" style={{ background: "linear-gradient(90deg, transparent, rgba(120,190,255,0.06), transparent)" }} />}
+      {aviso}
       <div className="relative grid grid-cols-[minmax(0,1fr)_auto_minmax(0,1fr)] items-start gap-2 sm:gap-8">
         {equipo("L")}
         <div className="flex flex-col items-center">
