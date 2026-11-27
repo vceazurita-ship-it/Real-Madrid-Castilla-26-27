@@ -439,7 +439,27 @@ async function vuelta(S) {
     /* Goles y xG en el índice (13/11/2026): la tira de la jornada de la pantalla, sin pedir cada partido. */
     const col = (m) => cifras.cols.indexOf(m);
     const cifra = (f, m) => (col(m) >= 0 && typeof f[col(m)] === "number" ? f[col(m)] : null);
-    indice.push({ partido, fecha, estado, conDatos: filas.length > 0, equipos: filas.map((f) => f[2]), goles: filas.map((f) => cifra(f, "Goal")), xg: filas.map((f) => cifra(f, "ExpG")) });
+    /*
+    | ¿CUADRA? (27/11/2026, Real Madrid-PSV): Opta marca «Played» antes de tener
+    | todo el evento a evento. La lectura de las 21:53 se quedó con 3-1 (fue 5-1)
+    | y se dio por acabada. Ahora un partido sólo está acabado si los goles del
+    | evento a evento (gol, penalti marcado y propia puerta, al que se beneficia)
+    | son los oficiales; si no, se sigue leyendo cada minuto.
+    */
+    const golesEv = filas.map((f) => {
+      const id = f[cifras.cols.indexOf("teamId")];
+      let n = 0;
+      for (const e of eventos.filas) {
+        if (e[0] !== partido) continue;
+        const tipo = e[4];
+        if ((tipo === "Goal" || tipo === "PenaltyGoal") && e[1] === id) n++;
+        else if (tipo === "OwnGoal" && e[1] && e[1] !== id) n++;
+      }
+      return n;
+    });
+    const cuadra = filas.length > 0 && filas.every((f, i) => cifra(f, "Goal") == null || cifra(f, "Goal") === golesEv[i]);
+    if (filas.length && !cuadra) console.log(`  ${filas.map((f) => f[2]).join("-")}: oficial ${filas.map((f) => cifra(f, "Goal")).join("-")}, evento a evento ${golesEv.join("-")}: aún no cuadra.`);
+    indice.push({ partido, fecha, estado, conDatos: filas.length > 0, cuadra, equipos: filas.map((f) => f[2]), goles: filas.map((f) => cifra(f, "Goal")), xg: filas.map((f) => cifra(f, "ExpG")) });
     const suyos = tramos.filas.filter((f) => f[0] === partido);
     /* «anterior» = la última lectura con cifras distintas de las de ahora. */
     if (filas.length && JSON.stringify(filas) !== JSON.stringify(anteriores.get(`${partido}:ultimo`)?.filas)) {
@@ -451,7 +471,7 @@ async function vuelta(S) {
     if (filas.length) await guarda(`${CLAVE}:${partido}`, { partido, fecha, estado, actualizado: ahora, liga: LIGA, previa: previas.get(partido) ?? null, equipos: { cols: cifras.cols, filas }, anterior: anteriores.get(partido) ?? null, tramos: { cols: tramos.cols, filas: suyos }, eventos: { cols: eventos.cols, filas: eventos.filas.filter((f) => f[0] === partido) }, marcas: eventos.marcas ? { cols: eventos.marcas.cols, filas: eventos.marcas.filas.filter((f) => f[0] === partido) } : undefined, jugadores: { cols: jugadores.cols, filas: jugadores.filas.filter((f) => f[0] === partido) } });
   }
   /* SIN_INDICE (carga de la temporada): no se pisa el índice del directo del día. */
-  if (!process.env.SIN_INDICE) await guarda(CLAVE, { dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
+  if (!process.env.SIN_INDICE) await guarda(CLAVE, { liga: LIGA, dia: delDia[0] ? String(delDia[0][1]).slice(0, 10) : dia, actualizado: ahora, hasta: new Date(fin).toISOString(), partidos: indice });
 
   /* EL ARCHIVO (14/11/2026): todos los partidos que ya tienen su documento, para el
      desplegable «Ver otro partido» de la pantalla (sólo salen los que tienen datos). */
@@ -485,7 +505,7 @@ async function principal() {
         console.log("Hoy no hay partidos: fin.");
         break;
       }
-      if (indice.length && indice.every((p) => p.conDatos && /played|full/i.test(String(p.estado)))) {
+      if (indice.length && indice.every((p) => p.conDatos && p.cuadra && /played|full/i.test(String(p.estado)))) {
         console.log("Todos los partidos del día acabados: fin.");
         break;
       }

@@ -342,6 +342,30 @@ async function miraDirectoOpta({ supabase, apunta, ahora = Date.now() }) {
       apunta(registro ? `Directo de Opta: repaso de los partidos del ${ayer} en marcha (por si alguno se quedó sin guardar).` : "Directo de Opta: el repaso de ayer no arranca (el Chrome de Opta no abre).");
     }
 
+    /*
+    | EL REPASO DEL PRIMER EQUIPO (27/11/2026): el Real Madrid-PSV se quedó en
+    | 3-1 (fue 5-1) porque la lectura de la noche se cortó antes de que Opta
+    | tuviera todo, y el repaso de arriba sólo mira Primera RFEF. Media hora
+    | después del de la categoría, si opta:rm es de ayer, se relee con su liga.
+    */
+    if (hora >= 8 && estado.repasoDe === diaDe(ahora) && estado.repasoRmDe !== diaDe(ahora) && ahora - (estado.repasoIntento ?? 0) > 30 * 60_000 && ahora - (estado.repasoRmIntento ?? 0) > 30 * 60_000) {
+      estado.repasoRmIntento = ahora;
+      guardaJson(FICHERO_ESTADO, estado);
+      const ayer = diaDe(ahora - 86_400_000);
+      const { data } = await supabase.from("app_documents").select("data->dia, data->liga").eq("key", "opta:rm").maybeSingle();
+      if (!data || String(data.dia ?? "").slice(0, 10) !== ayer || !data.liga) {
+        estado.repasoRmDe = diaDe(ahora);
+        guardaJson(FICHERO_ESTADO, estado);
+      } else {
+        const registro = await lanzaAqui({ DIA: ayer, SIN_INDICE: "1", DURACION_MIN: "10", INTERVALO_S: "60", LIGA: String(data.liga), EQUIPO: "Real Madrid", CLAVE: "opta:rm" }, `repaso-rm-${ayer}`);
+        if (registro) {
+          estado.repasoRmDe = diaDe(ahora);
+          guardaJson(FICHERO_ESTADO, estado);
+        }
+        apunta(registro ? `Directo de Opta: repaso del partido del primer equipo del ${ayer} en marcha.` : "Directo de Opta: el repaso del primer equipo no arranca (el Chrome de Opta no abre).");
+      }
+    }
+
     const delCastilla = await partidosDelCastilla(supabase);
     const delGrupo = await horariosDelGrupo(ahora, apunta);
 
