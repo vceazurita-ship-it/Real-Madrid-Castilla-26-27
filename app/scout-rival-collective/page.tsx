@@ -95,6 +95,7 @@ import { RepliegueParte } from "@/components/rivals/RepliegueParte";
 import { TerciosRival } from "@/components/rivals/TerciosRival";
 import { SociedadesRival } from "@/components/rivals/SociedadesRival";
 import { SalidaPivote } from "@/components/rivals/SalidaPivote";
+import { JuegoDirecto } from "@/components/rivals/JuegoDirecto";
 import { RepartoXg } from "@/components/rivals/RepartoXg";
 import { EmbudoAtaque } from "@/components/rivals/EmbudoAtaque";
 import { SegunMarcador } from "@/components/rivals/SegunMarcador";
@@ -2123,6 +2124,9 @@ export default function ScoutRivalCollective() {
 
           {/* Salida de balón (25/11/2026, idea de X): ¿baja el pivote a la línea de centrales? Toques de sus mediocentros y altura de sus laterales en las posesiones que nacen del portero o de un central (Opta). */}
           {!modoEdicion && rivalActivo?.EQUIPO && <SalidaPivote equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
+
+          {/* ¿Le va mejor cuando juega directo? (27/11/2026, idea de X): sus partidos partidos por su mediana de % de pases largos, con puntos, xG y remates de cada mitad y la media de la liga (Opta). */}
+          {!modoEdicion && rivalActivo?.EQUIPO && <JuegoDirecto equipo={rivalActivo.EQUIPO} />}
 
           {/* Amplitud por banda (18/11/2026): de sus toques por fuera en el último tercio, cuántos son del extremo y cuántos del lateral. */}
           {!modoEdicion && rivalActivo?.EQUIPO && <AmplitudBanda equipo={rivalActivo.EQUIPO} nombres={nombresRival} />}
