@@ -79,7 +79,7 @@ export function PorMinutos({
 }) {
   const [franjaSel, setFranjaSel] = useState<Franja | "todas">("todas");
 
-  const { filas, sinFranja } = useMemo(() => {
+  const { filas, sinFranja, sinComparables } = useMemo(() => {
     const edad = REFERENCIAS.find((r) => r.key === refe)?.edad ?? 21;
     const actuales = jugadores.filter((j) => j.temporada === "actual" && j.minutos > 0);
     const grupos = new Map<string, FilaJugador[]>();
@@ -99,6 +99,10 @@ export function PorMinutos({
     );
     const salen: Fila[] = [];
     const fuera: string[] = [];
+    /* 27/11/2026 (fútbol, ronda 10): quien tiene franja pero no sale (sin
+       comparables de su puesto en ella, o sin métricas que medir) se nombra
+       debajo con su porqué; antes desaparecía y salían 17 aquí y 19 arriba. */
+    const sinComp: string[] = [];
     for (const j of nuestros) {
       const puesto = puestoDe(j.posicion);
       const franja = franjaDe(j.minutos);
@@ -110,7 +114,10 @@ export function PorMinutos({
       const todos = percentilesDe(j, grupo, puesto);
       const usados = puesto === "CEN" ? todos.filter((p) => COLUMNAS_CENTRAL.includes(p.metrica.columna)) : todos;
       const bruto = indiceDe(usados);
-      if (bruto === null) continue;
+      if (bruto === null) {
+        sinComp.push(`${nombreDe(j)} (${j.minutos.toLocaleString("es-ES")}′)`);
+        continue;
+      }
       salen.push({
         id: j.jugador,
         nombre: nombreDe(j),
@@ -127,7 +134,7 @@ export function PorMinutos({
       });
     }
     salen.sort((a, b) => b.ajustado - a.ajustado || b.bruto - a.bruto);
-    return { filas: salen, sinFranja: fuera };
+    return { filas: salen, sinFranja: fuera, sinComparables: sinComp };
   }, [jugadores, refe, filtroPuesto, nombreDe]);
 
   const vistas = franjaSel === "todas" ? filas : filas.filter((f) => f.franja === franjaSel);
@@ -139,7 +146,8 @@ export function PorMinutos({
   return (
     <section id="x-idea-2123775341483491446-1" className="mt-5 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
       <h3 className="text-sm font-semibold text-white">
-        Por minutos jugados
+        {/* 27/11/2026 (análisis, ronda 10): la población en el título; cambia respecto al bloque de arriba. */}
+        Por minutos jugados, contra los de su puesto con minutos parecidos
         {destacan.length > 0
           ? ` · destacan pese a jugar poco: ${destacan.map((d) => d.nombre).join(", ")}`
           : " · nadie con menos de 900′ pasa de 60 ajustado"}
@@ -250,6 +258,8 @@ export function PorMinutos({
         Hueco: su percentil en la franja · lleno: el ajustado · raya: 50. «Muestra corta»: {BRUTO_ALTO} o más de percentil
         que, con sus minutos, se queda por debajo de {DESTACA} ajustado. «Tendencia»: menos de {FRANJA_CORTA} en su franja.
         {sinFranja.length > 0 && ` Con menos de 60′ no entran: ${sinFranja.join(", ")}.`}
+        {sinComparables.length > 0 &&
+          ` Sin comparables de su puesto en su franja (o sin métricas de su puesto en ella), no salen: ${sinComparables.join(", ")}.`}
       </p>
     </section>
   );

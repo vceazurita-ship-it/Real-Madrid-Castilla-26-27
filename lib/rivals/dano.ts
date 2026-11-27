@@ -67,6 +67,19 @@ function adaptaAccion(regla: Regla, esCentral: boolean, esLateral: boolean) {
     if (esLateral) return "aislar a nuestro extremo contra él";
   }
 
+  /*
+  | 27/11/2026 (ronda 10, fútbol): «provocarle el 1 contra 1» con las amarillas
+  | como dato mandaba a encarar a un central que gana el 56 % de sus duelos. Las
+  | amarillas no dicen que pierda el duelo, sino que defiende con freno: a un
+  | central se le busca con balón (que la salida pase por él); a los demás, en
+  | conducción, donde tiene que parar con falta.
+  */
+  if (regla.frase === "se carga de amarillas") {
+    return esCentral
+      ? "presión orientada para que la salida pase por él; con amarillas encima, defiende con el freno puesto"
+      : "atacarle en conducción, donde tiene que frenar con falta";
+  }
+
   return regla.accion;
 }
 

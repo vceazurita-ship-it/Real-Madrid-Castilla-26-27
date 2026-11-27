@@ -24,7 +24,7 @@ import { enlaza, nombreVisible, planDeRegistro, propuestasDeLaSesion, sesionDeFe
 import type { LucideIcon } from "lucide-react";
 import { nombreCorto as nombreCortoEquipo } from "@/lib/abp/informe-graficos";
 import { esFilaDePartido, etiquetaMicro, fechaIsoDeHoja, rivalDelMicro, separaSemanas, tipoDeTareaUnificado } from "@/lib/microciclo/cuenta";
-import { fechasDePartido, mdDelDia, microDeHoy as microDeHoyComun } from "@/lib/microciclo/semana-de-hoy";
+import { fechasDePartido, mdDelCalendario, mdDelDia, microDeHoy as microDeHoyComun } from "@/lib/microciclo/semana-de-hoy";
 import { useCalendario } from "@/hooks/useCalendario";
 import { comoNuestro, horaDelCalendarioLocal } from "@/lib/castilla/calendario";
 import {
@@ -2002,10 +2002,11 @@ export default function Page() {
     const fechas = [...new Set(suyas.map((r) => fechaIso(r.fecha)).filter(Boolean))].sort();
 
     /* El MD con la regla compartida (16/11/2026): el mismo que dan el creador y los calendarios. */
+    /* 27/11/2026 (fútbol, ronda 9): la de los calendarios (`mdDelCalendario`): el domingo tras el partido es MD+2 y no MD-7, como en /micro_calendar y /calendar_general. */
     return fechas
       .map((fecha) => ({
         fecha,
-        md: mdDelDia(fecha, fechasPartido) || (suyas.find((r) => fechaIso(r.fecha) === fecha)?.md ?? ""),
+        md: mdDelCalendario(fecha, fechasPartido) || (suyas.find((r) => fechaIso(r.fecha) === fecha)?.md ?? ""),
         plan: planDeRegistro(suyas, fecha),
       }))
       .filter((d) => d.plan.length > 0);
@@ -2810,6 +2811,23 @@ export default function Page() {
                         );
                       })}
                     </div>
+                    {/* 27/11/2026 (fútbol, ronda 9): la tarjeta decía 22 tareas de entreno y los días sumaban 21; la que no cae en ningún día, dicha con su nombre. */}
+                    {(() => {
+                      const enDias = diasDelMicro.reduce((n, d) => n + d.plan.length, 0);
+                      const sobran = metrics.tareasEntreno - enDias;
+                      if (sobran <= 0) return null;
+                      const vistas = new Set(diasDelMicro.flatMap((d) => d.plan.map((t) => `${d.fecha}|${t.codigo}`)));
+                      const fuera = filtered.filter((r) => !esFilaDePartido(r) && !vistas.has(`${fechaIso(r.fecha)}|${String(r.tarea ?? "").trim()}`));
+                      const nombres = fuera
+                        .map((r) => [String(r.tarea ?? "").trim(), String(r.tipo ?? "").trim()].filter(Boolean).join(" ") + (fechaIso(r.fecha) ? "" : " (sin fecha en la hoja)"))
+                        .filter((x) => x.trim());
+                      return (
+                        <p className="mt-3 text-xs text-white/60">
+                          {sobran === 1 ? "1 tarea de entreno del micro no cae en ningún día" : `${sobran} tareas de entreno del micro no caen en ningún día`}
+                          {nombres.length ? `: ${nombres.join(", ")}` : ""}. Por eso los días suman {enDias} y la cabecera, {metrics.tareasEntreno}.
+                        </p>
+                      );
+                    })()}
                   </Panel>
                 )}
 

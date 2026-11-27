@@ -35,7 +35,7 @@ interface Props {
   /** En cuántas semanas hay imágenes y en cuántas PDFs (ya no se pinta: la línea de resumen da el total de semanas con material). */
   semanasCon?: { images: number; pdfs: number };
   /** Una casilla por semana transcurrida, para ver de un vistazo cuáles tienen material. */
-  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number; completa?: boolean }[];
+  tiraSemanas?: { id: number; nombre: string; conMaterial: boolean; actual: boolean; fechas?: string; partido?: string; imagenes?: number; pdfs?: number; completa?: boolean; conPartido?: boolean; faltaAlgo?: boolean }[];
   onSelectWeek?: (id: number) => void;
   /** Lo que debería haber esta semana (sólo el repositorio general) y si ya está. */
   checklist?: { texto: string; hecho: boolean; href?: string }[];
@@ -162,20 +162,20 @@ export default function SeasonHeader({
         </h1>
 
         {/* 29/10/2026: la descripción va pegada al título, antes del estado y la leyenda. */}
-        <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
-          {config.description}
-        </p>
-
-        {/* 20/11/2026 (ronda 5, análisis): en qué se diferencia de la portada y de «Mis tareas». */}
+        {/* 27/11/2026 (fútbol, ronda 9): en el repositorio general, un solo párrafo (antes eran dos que decían casi lo mismo), con el enlace a «Tu día». */}
         {area === "general" ? (
-          <p className="mt-1 max-w-2xl text-[13px] leading-5 text-white/60">
-            Aquí se guarda lo que se reparte al cuerpo técnico cada semana. Lo que hay que hacer hoy está en la{" "}
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/60">
+            Lo que se reparte al cuerpo técnico cada semana —convocatoria, horario, plan de partido y otro material—, en imágenes y PDF. Lo que toca hoy está en{" "}
             <Link href="/" className="font-medium text-white/80 underline decoration-white/25 underline-offset-2 hover:text-[#C8A96B]">
-              portada
-            </Link>{" "}
-            («Tu día» y «Mis tareas»).
+              «Tu día», en la portada
+            </Link>
+            .
           </p>
-        ) : null}
+        ) : (
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-white/55">
+            {config.description}
+          </p>
+        )}
 
         {/*
           ---------- El estado, en una línea neutra (17/11/2026, ronda 20) ----------
@@ -265,7 +265,7 @@ export default function SeasonHeader({
           <div className="mt-3 max-w-3xl">
             <p className="flex flex-wrap items-baseline justify-between gap-x-3 text-[13px] text-white/75">
               <span>
-                Semanas con convocatoria, horario y plan:{" "}
+                Partidos jugados con convocatoria, horario y plan subidos:{" "}
                 <span className="font-semibold tabular-nums text-white/90">
                   {cumplimiento.completas} de {cumplimiento.total}
                 </span>
@@ -277,7 +277,7 @@ export default function SeasonHeader({
             <div
               className="mt-1.5 h-2.5 w-full overflow-hidden rounded-full bg-white/[0.08]"
               role="img"
-              aria-label={`${cumplimiento.completas} de ${cumplimiento.total} semanas con convocatoria, horario y plan`}
+              aria-label={`${cumplimiento.completas} de ${cumplimiento.total} semanas con partido jugado tienen convocatoria, horario y plan`}
             >
               <div
                 className="h-full rounded-full bg-[#C8A96B]"
@@ -285,7 +285,7 @@ export default function SeasonHeader({
               />
             </div>
             <p className="mt-1 text-[12px] text-white/60">
-              El plan sólo cuenta en las semanas con partido; cada cosa se reconoce por el nombre del archivo.
+              Cuentan sólo las semanas con partido ya jugado (la de ahora va en su tarjeta, debajo); en la tira, a las que les falta algo las subraya una raya roja. Cada cosa se reconoce por el nombre del archivo.
             </p>
           </div>
         ) : null}
@@ -298,7 +298,7 @@ export default function SeasonHeader({
           con el rival ya elegido. La última semana con material, en pequeño.
         */}
         {checklist && currentWeek ? (
-          <div className="mt-3 max-w-3xl rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-3.5 py-3">
+          <div className={`mt-3 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.07] px-3.5 py-3 ${general ? "" : "max-w-3xl"}`}>
             {(() => {
               const faltan = checklist.filter((c) => !c.hecho);
               const lista = faltan.map((c) => `${c.texto === "Convocatoria" ? "la" : "el"} ${c.texto.toLowerCase()}`);
@@ -306,15 +306,25 @@ export default function SeasonHeader({
               /* 27/11/2026 (jueces): un solo bloque con la cuenta y el partido («Faltan 3 cosas para la J14 en Rayo Majadahonda»); la lista con los botones va debajo. */
               const cuantas = faltan.length === 1 ? "1 cosa" : `${faltan.length} cosas`;
               const semanaRotulo = currentWeek.week.toLowerCase();
+              /* 27/11/2026 (marketing, ronda 9): una sola cifra de arranque, «0 de 3 subidas», con su base. */
+              const hechas = checklist.length - faltan.length;
               const titular = faltan.length
-                ? `${semanaRotulo.charAt(0).toUpperCase()}${semanaRotulo.slice(1)} · ${faltan.length === 1 ? "falta" : "faltan"} ${cuantas}${partidoActual ? ` para la ${partidoActual}` : ""}`
+                ? general
+                  ? `Esta semana · ${hechas} de ${checklist.length} subidas${partidoActual ? ` para la ${partidoActual}` : ""}`
+                  : `${semanaRotulo.charAt(0).toUpperCase()}${semanaRotulo.slice(1)} · ${faltan.length === 1 ? "falta" : "faltan"} ${cuantas}${partidoActual ? ` para la ${partidoActual}` : ""}`
                 : `${semanaRotulo.charAt(0).toUpperCase()}${semanaRotulo.slice(1)} · ya está todo lo de cada semana`;
 
               return (
                 <>
                   <p className="text-[15px] font-semibold leading-snug text-white/90">
                     {titular}
-                    {faltan.length ? <span className="font-normal text-white/70">: {unidas}.</span> : "."}
+                    {faltan.length ? (
+                      <span className="font-normal text-white/70">
+                        {general ? `: falta${faltan.length === 1 ? "" : "n"} ${unidas} (${semanaRotulo}${weekRangeLabel(currentWeek) ? `, ${weekRangeLabel(currentWeek)}` : ""}).` : `: ${unidas}.`}
+                      </span>
+                    ) : (
+                      "."
+                    )}
                   </p>
 
                   {/*
@@ -336,11 +346,11 @@ export default function SeasonHeader({
                       if (archivos.length) onSubirTipo?.(tipoRef.current, archivos);
                     }}
                   />
-                  <ul className="mt-2.5 space-y-1.5" aria-label="Lo que debería haber cada semana">
+                  <ul className={`mt-2.5 ${general ? "grid gap-2 lg:grid-cols-3" : "space-y-1.5"}`} aria-label="Lo que debería haber cada semana">
                     {checklist.map((c) => (
                       <li
                         key={c.texto}
-                        className={`flex min-h-11 flex-col items-stretch gap-x-3 gap-y-1.5 rounded-lg border px-3 py-1.5 sm:flex-row sm:flex-wrap sm:items-center ${
+                        className={`flex min-h-11 min-w-0 flex-col items-stretch gap-x-3 gap-y-1.5 rounded-lg border px-3 ${general ? "py-2.5 sm:flex-row sm:flex-wrap sm:items-center lg:flex-col lg:items-stretch" : "py-1.5 sm:flex-row sm:flex-wrap sm:items-center"} ${
                           c.hecho ? "border-[#C8A96B]/50" : "border-white/20"
                         }`}
                       >
@@ -404,15 +414,22 @@ export default function SeasonHeader({
                         {`Subir a la ${currentWeek.week.toLowerCase()}`}
                       </button>
                     )}
-                    {enlacesRival.map((e) => (
-                      <Link
-                        key={e.href}
-                        href={e.href}
-                        className="inline-flex min-h-10 items-center rounded-lg border border-white/15 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
-                      >
-                        {e.texto}
-                      </Link>
-                    ))}
+                    {/* 27/11/2026 (fútbol y marketing, ronda 9): subir a la izquierda; los enlaces a otras pantallas, aparte, con su rótulo y su flecha. */}
+                    {enlacesRival.length ? (
+                      <span className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 sm:ml-auto">
+                        <span className="text-[12px] font-semibold uppercase tracking-[0.1em] text-white/60">Preparar el partido</span>
+                        {enlacesRival.map((e) => (
+                          <Link
+                            key={e.href}
+                            href={e.href}
+                            className="inline-flex min-h-10 items-center text-[13px] font-semibold underline-offset-2 hover:underline"
+                            style={{ color: "var(--rmcf-gold-ink)" }}
+                          >
+                            {e.texto} →
+                          </Link>
+                        ))}
+                      </span>
+                    ) : null}
                   </div>
 
                   {onSubirTipo ? (
@@ -494,6 +511,16 @@ export default function SeasonHeader({
                   <span className="inline-block h-3 w-3 rounded-[3px] border-2 border-[#C8A96B] bg-[#C8A96B]/30" /> esta semana
                 </span>
               ) : null}
+              {general ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-[3px] border border-white/30 shadow-[inset_0_-3px_0_rgba(220,80,70,0.8)]" /> partido sin sus tres cosas
+                </span>
+              ) : null}
+              {general ? (
+                <span className="inline-flex items-center gap-1.5">
+                  <span className="inline-block h-3 w-3 rounded-[3px] border border-dashed border-white/30" /> sin partido
+                </span>
+              ) : null}
               {general ? <span className="text-white/60">· debajo del número, cuántos archivos</span> : null}
               {quedanAntes > 0 ? (
                 <button
@@ -544,12 +571,14 @@ export default function SeasonHeader({
                       title={detalle.join(" · ")}
                       aria-label={detalle.join(", ")}
                       aria-current={semana.actual ? "true" : undefined}
-                      className={`relative flex h-12 shrink-0 flex-col items-center justify-center rounded-[8px] leading-none tabular-nums transition hover:scale-105 ${semana.conMaterial || semana.actual ? "w-12" : "w-9"} ${
+                      className={`relative flex h-12 shrink-0 flex-col items-center justify-center rounded-[8px] leading-none tabular-nums transition hover:scale-105 ${semana.conMaterial || semana.actual ? "w-12" : "w-9"} ${semana.faltaAlgo ? "shadow-[inset_0_-3px_0_rgba(220,80,70,0.8)]" : ""} ${
                         semana.actual
                           ? "border-2 border-[#C8A96B] bg-[#C8A96B]/30 text-white"
                           : semana.conMaterial
                             ? "bg-[#C8A96B] text-[#0B0F14]"
-                            : "border border-white/20 bg-white/[0.04] text-white/70"
+                            : semana.conPartido
+                              ? "border border-white/30 bg-white/[0.04] text-white/80"
+                              : "border border-dashed border-white/20 text-white/55"
                       }`}
                     >
                       <span className="text-[14px] font-semibold">{i + 1}</span>

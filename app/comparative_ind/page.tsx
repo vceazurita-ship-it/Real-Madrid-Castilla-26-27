@@ -159,7 +159,10 @@ function EscalaIndices({
   if (!filas.length) return null;
   const orden = [...filas].sort((a, b) => b.indice - a.indice);
   const firmes = orden.filter((f) => !f.corta);
-  const arriba = firmes.filter((f) => f.indice >= 50).length;
+  /* 27/11/2026 (fútbol, ronda 10): «por encima» es más de 50; quien está en 50 justo, en la media. */
+  const arriba = firmes.filter((f) => f.indice > 50).length;
+  const enMedia = firmes.filter((f) => f.indice === 50).length;
+  const pocosComparables = filas.some((f) => !f.corta && f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES);
   const mejor = firmes[0];
   /* 16/11/2026 (jueces): «suben» con el MISMO criterio que la cifra
      «Mejoran respecto a 25/26» (450′ o más el año pasado, más de 3 puntos);
@@ -168,7 +171,7 @@ function EscalaIndices({
   const cortas = orden.length - firmes.length;
   const titulo = [
     firmes.length
-      ? `${arriba} de ${firmes.length} con ${MUESTRA_CORTA}′ o más por encima de la media de su puesto${cortas ? ` (los otros ${cortas} son tendencia)` : ""}`
+      ? `${arriba} de ${firmes.length} con ${MUESTRA_CORTA}′ o más por encima de la media de su puesto${enMedia ? ` y ${enMedia} en la media` : ""}${cortas ? ` (${cortas} más, con menos de ${MUESTRA_CORTA}′, son tendencia)` : ""}`
       : "",
     mejor ? `el más alto, ${mejor.nombre} (${mejor.indice})` : "",
     suben ? `${suben} ${suben === 1 ? "mejora" : "mejoran"} más de ${ESTABLE} puntos sobre 25/26` : "",
@@ -211,13 +214,13 @@ function EscalaIndices({
                   {/* 17/11/2026 (ronda 20, jueces): «tendencia» dentro de cada puesto corto, en su fila. */}
                   {/* 27/11/2026 (fútbol, ronda 9): con su espacio y con el porqué, para no
                       confundirla con la tendencia por menos de 300′. */}
+                  {/* 27/11/2026 (marketing y análisis, ronda 10): una marca, «*», con la regla
+                      en la leyenda (antes el rótulo largo se repetía en media lista) y el
+                      punto con anillo discontinuo. */}
                   {f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES && (
-                    <>
-                      {" "}
-                      <span className="ml-1 whitespace-nowrap rounded-full border border-dashed border-white/25 px-1.5 text-[11px] text-white/60">
-                        tendencia · puesto con {f.comparables} comparables
-                      </span>
-                    </>
+                    <span className="ml-1 font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]" title={`Tendencia: su puesto tiene ${f.comparables} comparables (menos de ${COMPARABLES_FIRMES})`}>
+                      * {f.comparables} comp.
+                    </span>
                   )}
                 </span>
                 <span className="relative block h-5">
@@ -235,7 +238,13 @@ function EscalaIndices({
                   {/* 16/11/2026 (jueces): la tendencia (menos de 300′), con punto hueco y discontinuo. */}
                   <span
                     className="absolute top-1/2 h-3.5 w-3.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
-                    style={f.corta ? { left: `${f.indice}%`, border: `2px dashed ${color}`, background: "transparent" } : { left: `${f.indice}%`, background: color }}
+                    style={
+                      f.corta
+                        ? { left: `${f.indice}%`, border: `2px dashed ${color}`, background: "transparent" }
+                        : f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES
+                          ? { left: `${f.indice}%`, background: color, outline: `2px dashed ${color}`, outlineOffset: "2px" }
+                          : { left: `${f.indice}%`, background: color }
+                    }
                   />
                 </span>
                 <span className="text-right text-[13px] font-semibold tabular-nums" style={{ color }}>
@@ -257,7 +266,13 @@ function EscalaIndices({
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ background: PEOR }} />menos de 45</span>
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-2.5 w-2.5 rounded-full border-2" style={{ borderColor: tinta(0.45) }} />su índice en 25/26</span>
         <span className="inline-flex items-center gap-1.5"><i className="inline-block h-3 w-3 rounded-full" style={{ border: `2px dashed ${tinta(0.4)}` }} />menos de {MUESTRA_CORTA}′ (tendencia)</span>
-        <span>Raya: 50, la media de su puesto · al lado de cada uno, su ficha, su seguimiento y sus notas · la tabla entera, en «Detalle»</span>
+        {pocosComparables && (
+          <span className="inline-flex items-center gap-1.5">
+            <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: ORO, outline: `2px dashed ${ORO}`, outlineOffset: "2px" }} />
+            * puesto con menos de {COMPARABLES_FIRMES} comparables (tendencia)
+          </span>
+        )}
+        <span>Raya: 50, la media de su puesto; más es mejor · al lado de cada uno, su ficha, su seguimiento y sus notas · la tabla entera, en «Detalle»</span>
       </p>
       {/* 17/11/2026 (ronda 19): por qué no coinciden las cifras de arriba. */}
       <p className="mt-2 text-[12px] text-white/65">
@@ -798,6 +813,8 @@ export default function ComparativaCategoria() {
     return {
       comparados: conIndice.length,
       top3: filas.filter((f) => f.ranking && f.ranking.posicion <= 3).length,
+      /* 27/11/2026 (análisis, ronda 10): cuántos de esos están empatados en índice. */
+      top3Empate: filas.filter((f) => f.ranking && f.ranking.posicion <= 3 && f.ranking.empatados > 0).length,
       media: conIndice.length ? Math.round(conIndice.reduce((s, f) => s + (f.indice ?? 0), 0) / conIndice.length) : null,
       /* 17/11/2026 (ronda 19): sólo quien tiene índice esta temporada (salía
          A. Pérez, sin índice, y la tarjeta decía 5 contra 4 del gráfico). */
@@ -1017,7 +1034,7 @@ export default function ComparativaCategoria() {
                       {[
                         { t: "Jugadores comparados", v: kpis.comparados, h: "con índice esta temporada" },
                         /* Con su base (27/11/2026, ronda 9, grupo «nuevo»): «8 de 19 jugadores». */
-                        { t: "Top 3 de su puesto", v: `${kpis.top3} de ${kpis.comparados}`, h: "jugadores comparados, entre los 3 primeros del ranking de su puesto" },
+                        { t: "Top 3 de su puesto", v: `${kpis.top3} de ${kpis.comparados}`, h: `jugadores comparados, entre los 3 primeros del ranking de su puesto${kpis.top3Empate ? ` (${kpis.top3Empate} empatados en índice con otro)` : ""}` },
                         ...(kpis.media !== null ? [{ t: "Índice medio", v: kpis.media, h: `de los nuestros comparados · ${kpis.media >= 50 ? "+" : "−"}${Math.abs(Math.round(kpis.media - 50))} sobre 50, la media de su puesto en la categoría`.replace("+-", "−") }] : []),
                         { t: "Mejoran respecto a 25/26", v: `${kpis.mejoran} de ${kpis.conAnoPasado}`, h: `con 450′ o más el año pasado, suben más de ${ESTABLE} pts de índice; quiénes, debajo` },
                       ].map((k) => (
@@ -2505,7 +2522,8 @@ function CaraACara({
                                   <span className="text-[11px] text-white/35">{c.percentil === null ? "poca muestra" : `P${c.percentil}`}</span>
                                 </div>
                               ) : (
-                                <span className="text-white/25">—</span>
+                                /* 27/11/2026 (fútbol, ronda 10): sin dato, la celda vacía (sin «—»). */
+                                null
                               )}
                             </td>
                           ))}
@@ -2516,7 +2534,8 @@ function CaraACara({
                 </tbody>
               </table>
             </div>
-            <p className="mt-3 text-[11px] text-white/35">En verde, el mejor de cada fila. «Le gana» cuenta las métricas con percentil de los dos.</p>
+            {/* 27/11/2026 (análisis, ronda 10): el sentido del percentil, en la propia leyenda de la rejilla. */}
+            <p className="mt-3 text-xs text-white/55">P = percentil en su puesto: P50 es la media del puesto; más es mejor. En verde, el mejor de cada fila. «Le gana» cuenta las métricas con percentil de los dos.</p>
           </>
         )}
       </div>

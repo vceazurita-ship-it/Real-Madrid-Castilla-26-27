@@ -8,7 +8,7 @@
  */
 
 import { useState } from "react";
-import { ExternalLink, Film, Play, X } from "lucide-react";
+import { ExternalLink, Film, MoreVertical, Play, X } from "lucide-react";
 import { rotuloSegundo } from "@/lib/goles/tecnico";
 
 export type EnlaceHudlAccion = { url: string; seg: number };
@@ -39,7 +39,23 @@ export function EnlaceHudl({ hudl, que = "la acción" }: { hudl: EnlaceHudlAccio
  * (lib/opta-video.ts). Sale cuando la acción viene de Opta y aún no tenemos
  * su corte, o al lado del corte para verla en Opta.
  */
-export function VerAccion({ video, hudl, opta, que = "la acción" }: { video?: string; hudl?: EnlaceHudlAccion; opta?: string; que?: string }) {
+export function VerAccion({
+  video,
+  hudl,
+  opta,
+  que = "la acción",
+  compacto = false,
+}: {
+  video?: string;
+  hudl?: EnlaceHudlAccion;
+  opta?: string;
+  que?: string;
+  /**
+   * 27/11/2026 (jueces, ronda 10, balón parado): un solo botón de vídeo por
+   * fila; «Abrir en Hudl» va a un menú ⋮ al lado. Por defecto, como siempre.
+   */
+  compacto?: boolean;
+}) {
   const [abierto, setAbierto] = useState(false);
 
   if (!video && !hudl && !opta) return null;
@@ -58,7 +74,22 @@ export function VerAccion({ video, hudl, opta, que = "la acción" }: { video?: s
             <Film size={13} className="text-[#C8A96B]" aria-hidden /> {ver}
           </a>
         ) : null}
-        {hudl ? <EnlaceHudl hudl={hudl} que={que} /> : null}
+        {hudl && compacto && video ? (
+          <details className="relative">
+            <summary
+              className="inline-flex min-h-[30px] cursor-pointer list-none items-center rounded-lg border border-white/10 bg-white/[0.03] px-2 text-xs text-white/75 hover:bg-white/[0.06] [&::-webkit-details-marker]:hidden"
+              aria-label="Más opciones del vídeo"
+              title="Más opciones del vídeo"
+            >
+              <MoreVertical size={14} aria-hidden />
+            </summary>
+            <div className="absolute left-0 z-20 mt-1 rounded-xl border border-white/10 bg-[var(--background)] p-1.5 shadow-xl">
+              <EnlaceHudl hudl={hudl} que={que} />
+            </div>
+          </details>
+        ) : hudl ? (
+          <EnlaceHudl hudl={hudl} que={que} />
+        ) : null}
         {opta && !video ? (
           <a href={opta} target="_blank" rel="noopener noreferrer" className={BOTON} title={`Abre en Opta ProVision ${que} con su vídeo (hace falta la sesión de Opta)`}>
             <Play size={13} className="text-[#C8A96B]" aria-hidden /> Vídeo en Opta

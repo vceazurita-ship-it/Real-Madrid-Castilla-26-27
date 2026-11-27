@@ -13,6 +13,7 @@
  * asoma). Las cuentas, en `lib/rivals/amenaza-xt.ts`.
  */
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 
 import { ORO, tinta } from "@/components/data/graficas";
@@ -21,7 +22,9 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, num, type TablaOpta } from "@/lib/opta";
 import { casaEquipo, pistaDe, rematesDe } from "@/lib/opta-eventos";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
-import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
+import { nombreDeRival } from "@/lib/rivals/nombre-jugador";
+import { nombrePropio } from "@/lib/rivals/dano";
+import { conTildes } from "@/lib/rivals/tildes";
 import {
   CONDUCCION_MAX_S,
   CONDUCCION_MIN_M,
@@ -74,7 +77,7 @@ function Indice({ equipo, nombres }: { equipo: string; nombres: string[] }) {
 
   if (!rival || !conEventos.length) return null;
   const total = Math.max(suyos.length, conEventos.length);
-  return <Bloque teamId={rival.id} nombre={rival.nombre} ids={conEventos.slice(0, MAX_PARTIDOS_XT)} conEventos={conEventos.length} total={total} suyos={suyos} nombres={nombres} />;
+  return <Bloque teamId={rival.id} nombre={rival.nombre} ids={conEventos.slice(0, MAX_PARTIDOS_XT)} conEventos={conEventos.length} total={total} suyos={suyos} nombres={nombres} equipoUrl={equipo} />;
 }
 
 function Bloque({
@@ -85,7 +88,10 @@ function Bloque({
   total,
   suyos,
   nombres,
+  equipoUrl,
 }: {
+  /** El nombre del equipo en la plantilla, para el enlace a su ficha. */
+  equipoUrl: string;
   teamId: string;
   nombre: string;
   ids: string[];
@@ -111,7 +117,12 @@ function Bloque({
   }
 
   const { lista, leidos } = datos;
-  const nombreDe = (j: AmenazaJugador) => (j.jugador && (nombreDePlantilla(j.jugador, nombres) || j.jugador)) || j.jugador;
+  /*
+  | 27/11/2026 (ronda 10, fútbol): el nombre de su ficha («Jeremy José», no el
+  | «Jeremy Jorge» de Opta) y todos con la misma caja: la hoja los escribe en
+  | mayúsculas y Opta no, y la tabla mezclaba «OSCAR MESA» con «Antonio Amaro».
+  */
+  const nombreDe = (j: AmenazaJugador) => (j.jugador ? conTildes(nombrePropio(nombreDeRival(j.jugador, nombres) || j.jugador)) : j.jugador);
   const visibles = verTodos ? lista : lista.slice(0, A_LA_VISTA);
   const tope = Math.max(...lista.map((j) => Math.max(0, j.xt90)), 0.001);
   const primero = lista[0];
@@ -128,7 +139,7 @@ function Bloque({
       <p className="flex flex-wrap items-baseline gap-x-2 gap-y-1 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Quién crea la amenaza de {nombre} · xT/90
         <span
-          className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60"
+          className="rounded-full border border-white/15 px-2 py-0.5 text-[12px] font-semibold normal-case tracking-normal text-white/60"
           title={`Opta tiene evento a evento de ${conEventos} de sus ${total} partidos${leidos < conEventos ? `; se leen los ${leidos} más recientes` : ""}`}
         >
           dato · Opta, {sello} partidos{leidos < conEventos ? ` · últimos ${leidos}` : ""}
@@ -137,9 +148,9 @@ function Bloque({
       {frase && <h3 className="fuente-club mt-1.5 text-[20px] font-bold leading-[1.15] text-white sm:text-[24px]">{frase}</h3>}
 
       <div className="mt-3 overflow-x-auto">
-        <table className="w-full min-w-[36rem] border-collapse text-[12px] tabular-nums">
+        <table className="w-full min-w-[36rem] border-collapse text-[13px] tabular-nums">
           <thead>
-            <tr className="border-b border-white/10 text-left text-[11px] font-semibold text-white/55">
+            <tr className="border-b border-white/10 text-left text-[12px] font-semibold text-white/55">
               <th className="py-1.5 pr-2 font-semibold">#</th>
               <th className="py-1.5 pr-2 font-semibold">Jugador</th>
               <th className="px-2 py-1.5 font-semibold" title="Amenaza esperada que suma por 90′ con pases acertados y conducciones">xT/90</th>
@@ -155,16 +166,24 @@ function Bloque({
                 <td className="py-1.5 pr-2 text-white/50">{i + 1}</td>
                 <td className="max-w-[14rem] py-1.5 pr-2 font-semibold text-white">
                   <span className="block truncate">{nombreDe(j)}</span>
+                  {/* Su ficha y sus cortes, con el rival ya elegido (27/11/2026, ronda 10, marketing). */}
+                  <Link
+                    href={`/scout-rival-individual?${new URLSearchParams({ equipo: equipoUrl, jugador: nombreDe(j) }).toString()}`}
+                    className="text-[12px] font-semibold hover:underline"
+                    style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}
+                  >
+                    Su ficha ›
+                  </Link>
                   {j.ausente && (
                     <span
-                      className="mt-0.5 inline-block rounded-full border border-amber-400/60 px-1.5 py-px text-[11px] font-bold text-amber-300"
+                      className="mt-0.5 inline-block rounded-full border border-amber-400/60 px-1.5 py-px text-[12px] font-bold text-amber-300"
                       title={`No ha tenido minutos en ninguna de las últimas ${JORNADAS_AVISO} jornadas de ${nombre} (Opta)`}
                     >
                       ⚠ sin jugar las últimas {JORNADAS_AVISO}
                     </span>
                   )}
                   {j.penaltis > 0 && (
-                    <span className="ml-1 mt-0.5 inline-block rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold text-white/60" title="Remates de penalti fuera del npxG">
+                    <span className="ml-1 mt-0.5 inline-block rounded-full border border-white/20 px-1.5 py-px text-[12px] font-semibold text-white/60" title="Remates de penalti fuera del npxG">
                       {j.penaltis} pen. fuera
                     </span>
                   )}
@@ -183,7 +202,7 @@ function Bloque({
                 <td className="px-2 py-1.5 text-right text-white/80">{coma(j.npxg90)}</td>
                 <td className="px-2 py-1.5 text-right text-white/80">{coma(j.xa90)}</td>
                 <td className="py-1.5 pl-2 text-right">
-                  <span className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60" title={`Jugó ${j.partidos} de los ${leidos} partidos leídos; Opta tiene evento a evento de ${sello} partidos de ${nombre}`}>
+                  <span className="whitespace-nowrap rounded-full border border-white/15 px-1.5 py-px text-[12px] font-semibold text-white/60" title={`Jugó ${j.partidos} de los ${leidos} partidos leídos; Opta tiene evento a evento de ${sello} partidos de ${nombre}`}>
                     {j.partidos} de {leidos} · {Math.round(j.minutos)}′
                   </span>
                 </td>

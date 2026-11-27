@@ -24,7 +24,7 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
-import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
+import { nombreDeRival } from "@/lib/rivals/nombre-jugador";
 import {
   amplitudBanda,
   MAX_PARTIDOS,
@@ -91,7 +91,7 @@ function Bloque({ teamId, nombre, ids, nombres }: { teamId: string; nombre: stri
   }, [docs, ids, teamId]);
 
   if (!datos) return null;
-  const visto = (n: string) => nombreDePlantilla(n, nombres) || n;
+  const visto = (n: string) => nombreDeRival(n, nombres) || n;
   const conLateral = [datos.derecha, datos.izquierda].filter((b) => b.daLateral && b.laterales[0]);
   const titular = conLateral.length
     ? conLateral.length === 2

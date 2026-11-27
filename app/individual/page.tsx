@@ -1653,7 +1653,7 @@ function estaSinSeguir(player: MergedPlayer) {
 | partidos con nota y sus minutos sobre los posibles de los partidos que hay
 | en Valoraciones (90′ por partido). Sin partidos, no se pinta.
 */
-type Rinde = { ultimas3: number | null; nUltimas: number; minutos: number; posibles: number };
+type Rinde = { ultimas3: number | null; nUltimas: number; nNotas: number; minutos: number; posibles: number };
 
 /*
 | A QUIÉN ATENDER, EN UN GRÁFICO (20/11/2026, ronda 7, análisis y
@@ -1803,7 +1803,8 @@ function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer;
   if (!hayScout && !hayPartidos) return null;
 
   return (
-    <span className="flex min-w-0 flex-col gap-0.5 text-[11px] tabular-nums text-white/65">
+    /* 27/11/2026 (marketing, ronda 10): a 12 px, no a 11. */
+    <span className="flex min-w-0 flex-col gap-0.5 text-xs tabular-nums text-white/65">
       {hayScout && (
         <span title={detalle} className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap">
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(player.score) }} />
@@ -1822,7 +1823,8 @@ function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer;
           {/* 27/11/2026 (fútbol, ronda 9): que no se confunda con la del scout. */}
           <span>{`media últ. ${rinde.nUltimas} partidos`}</span>
           <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
-          {rinde.nUltimas < 3 && <span title="Menos de tres partidos con nota: tendencia">· tend.</span>}
+          {/* 27/11/2026 (análisis, ronda 10): con menos de 4 partidos con nota en la temporada, tendencia. */}
+          {rinde.nNotas < 4 && <span title={`${rinde.nNotas} ${rinde.nNotas === 1 ? "partido" : "partidos"} con nota en la temporada: tendencia`}>· tend.</span>}
         </span>
       )}
     </span>
@@ -1886,7 +1888,11 @@ function AccesosFicha({
 }) {
   const portero = esPortero(player.linea);
   const jugador = { id: player.idJugador, nombre: nombreVisible(player.name) };
-  const accesos = ACCESOS_FICHA.filter((a) => !portero || (a.destino !== "dashboard" && a.destino !== "calendario"));
+  /* 27/11/2026 (análisis, ronda 10): la Comparativa sale a la vista, con él
+     ya elegido; en «Más» queda el resto y se suma su Emocional. */
+  const accesos = ACCESOS_FICHA.filter(
+    (a) => a.destino !== "comparativa" && (!portero || (a.destino !== "dashboard" && a.destino !== "calendario")),
+  );
   const titulo: Record<string, string> = {
     notas: "Sus notas en Valoraciones",
     comparativa: "Contra la categoría, en su puesto",
@@ -1928,11 +1934,20 @@ function AccesosFicha({
           Registrar
         </button>
       )}
+      <Link
+          href={hrefJugador("comparativa", jugador)}
+          onClick={(e) => e.stopPropagation()}
+          title={`Contra la categoría, en su puesto · ${jugador.nombre}`}
+          className={`${boton} border-white/15 bg-white/[0.03] text-white/80 hover:border-[#C8A96B]/50 hover:text-white`}
+        >
+          <Scale size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+          Comparativa
+        </Link>
       {/* Abierto, ocupa la fila entera: los accesos caen debajo sin salirse de la ficha. */}
       <details className="group/mas min-w-0 open:basis-full" onClick={(e) => e.stopPropagation()}>
         <summary
           className={`${boton} w-fit cursor-pointer list-none border-white/10 bg-white/[0.03] text-white/75 hover:text-white [&::-webkit-details-marker]:hidden`}
-          title={`Notas, comparativa, vídeos, Data${portero ? "" : ", su seguimiento y su calendario"}`}
+          title={`Notas, vídeos, Data${portero ? "" : ", su seguimiento, su calendario"} y Emocional`}
         >
           Más
           <ChevronDown size={12} className="shrink-0 transition group-open/mas:rotate-180" aria-hidden />
@@ -1950,6 +1965,15 @@ function AccesosFicha({
               <span className="min-w-0 break-words leading-tight">{texto}</span>
             </Link>
           ))}
+          <Link
+            href={`/emotion?jugador=${encodeURIComponent(jugador.nombre)}`}
+            title={`Su valoración emocional · ${jugador.nombre}`}
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
+          >
+            <Gauge size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+            <span className="min-w-0 break-words leading-tight">Emocional</span>
+          </Link>
         </div>
       </details>
     </nav>
@@ -2057,14 +2081,17 @@ function PlayerCard({
           parrilla no quede desalineada con o sin «Sin seguir»). */}
       <div className="mt-auto flex min-w-0 flex-col gap-1 px-2.5 py-2">
         {/* Alto fijo por renglón, para que todas las fichas queden alineadas (20/11/2026, ronda 7). */}
-        <div className="min-h-[34px]">
+        {/* 27/11/2026 (marketing, ronda 10): «Sin seguir · N días», insignia
+            a la derecha de las notas y no perdida en el pie. */}
+        <div className="flex min-h-[34px] min-w-0 items-start justify-between gap-1.5">
           <LineaNotas player={player} rinde={rinde} />
+          <InsigniaSinSeguir player={player} />
         </div>
         <div className="min-h-[16px]">
           <LineaMinutos rinde={rinde} />
         </div>
         <div className="flex min-h-[22px] min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-          <PieFicha player={player} />
+          <PieFicha player={player} sinInsignia />
         </div>
       </div>
     </button>
@@ -2148,7 +2175,20 @@ function FilaListaJugador({
 }
 
 /** Lo que se sabe de su seguimiento, rotulado: en la ficha y en la lista. */
-function PieFicha({ player }: { player: MergedPlayer }) {
+function InsigniaSinSeguir({ player }: { player: MergedPlayer }) {
+  const diasSinSeguir = diasDesdeSeguimiento(player);
+  if (!estaSinSeguir(player)) return null;
+  return (
+    <span
+      className={`shrink-0 whitespace-nowrap rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${diasSinSeguir === null || diasSinSeguir >= 2 * DIAS_SIN_SEGUIMIENTO ? "bg-[#F87171]/15 text-[#F87171]" : "bg-[#C8A96B]/20 text-[#C8A96B]"}`}
+      title={`Más de ${DIAS_SIN_SEGUIMIENTO} días sin un registro de seguimiento`}
+    >
+      {diasSinSeguir !== null ? `Sin seguir · ${diasSinSeguir} d` : "Sin seguimiento"}
+    </span>
+  );
+}
+
+function PieFicha({ player, sinInsignia = false }: { player: MergedPlayer; sinInsignia?: boolean }) {
   const diasSinSeguir = diasDesdeSeguimiento(player);
   const sinSeguir = estaSinSeguir(player);
   /* 16/11/2026: los porteros llevan su seguimiento con su entrenador, en un
@@ -2158,7 +2198,7 @@ function PieFicha({ player }: { player: MergedPlayer }) {
   const portero = esPortero(player.linea);
   return (
     <>
-      {sinSeguir && (
+      {sinSeguir && !sinInsignia && (
         <span
           className={`rounded-full px-1.5 py-0.5 text-[11px] font-semibold ${diasSinSeguir === null || diasSinSeguir >= 2 * DIAS_SIN_SEGUIMIENTO ? "bg-[#F87171]/15 text-[#F87171]" : "bg-[#C8A96B]/20 text-[#C8A96B]"}`}
           title={`Más de ${DIAS_SIN_SEGUIMIENTO} días sin un registro de seguimiento`}
@@ -2815,6 +2855,7 @@ export default function IndividualPage() {
       m.set(id, {
         ultimas3: ultimas.length ? ultimas.reduce((a, b) => a + b, 0) / ultimas.length : null,
         nUltimas: ultimas.length,
+        nNotas: c.notas.length,
         minutos: c.minutos,
         posibles: cuentaValoraciones.posibles,
       });
@@ -4191,7 +4232,54 @@ export default function IndividualPage() {
                             : ""
                         }`
                   }
-                />
+                >
+                  {/* 27/11/2026 (marketing, ronda 10): vídeos, informes y «Cómo se
+                      lee cada ficha», al pie de esta tarjeta y no sueltos debajo. */}
+                  {!pendiente.videos && !pendiente.informes && (
+                    <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 pt-2 text-xs text-white/60">
+                      <span className="inline-flex items-center gap-1.5">
+                        <Video size={12} className="shrink-0 text-[#C8A96B]" />
+                        {stats.videos} {stats.videos === 1 ? "vídeo individual" : "vídeos individuales"} · {base.conVideos} de {base.n} jugadores{base.de}
+                      </span>
+                      <span className="inline-flex items-center gap-1.5">
+                        <FileText size={12} className="shrink-0 text-[#C8A96B]" />
+                        {stats.reports} {stats.reports === 1 ? "informe" : "informes"} · {base.conInforme} de {base.n} jugadores{base.de}
+                      </span>
+                    </p>
+                  )}
+
+                  {/* 17/11/2026 (ronda 19): la base de la línea de cada ficha, una vez.
+                      20/11/2026 (ronda 5, marketing y análisis): plegada tras
+                      «Cómo se lee», con la leyenda de los iconos de cada ficha. */}
+                  <details className="mt-2 text-xs text-white/60">
+                    <summary className="inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 font-semibold text-white/70 hover:text-white">
+                      <Star size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
+                      Cómo se lee cada ficha
+                    </summary>
+                    <div className="mt-1 space-y-1.5 pl-5">
+                      {posiblesValoraciones > 0 && (
+                        <p>
+                          «scout», la nota de su ficha de scout · «media últ. 3 partidos», la nota media de sus 3 últimos partidos en Valoraciones (con menos de 4 partidos con nota en la temporada, «tend.»); las dos notas, de 0 a 10, más es mejor · «810′ de {posiblesValoraciones}′ · Valoraciones», sus minutos de los posibles en Valoraciones (BeSoccer; la misma cuenta que el Dashboard de plantilla, que pone primero los de Wyscout). Sin minutos, la línea no sale.
+                        </p>
+                      )}
+                      <p>
+                        «Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Comparativa», su fila contra la categoría; «Más», sus notas, sus vídeos, su Data análisis, su seguimiento, su calendario y su Emocional.
+                      </p>
+                      <p>
+                        «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
+                      </p>
+                      <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                        <span>Accesos de cada ficha, con el jugador ya elegido:</span>
+                        <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden /> Notas en Valoraciones</span>
+                        <span className="inline-flex items-center gap-1"><Scale size={12} aria-hidden /> Comparativa</span>
+                        <span className="inline-flex items-center gap-1"><Video size={12} aria-hidden /> Vídeos</span>
+                        <span className="inline-flex items-center gap-1"><BarChart3 size={12} aria-hidden /> Data análisis</span>
+                        <span className="inline-flex items-center gap-1"><LayoutDashboard size={12} aria-hidden /> Seguimiento: Dashboard Seguimiento</span>
+                        <span className="inline-flex items-center gap-1"><CalendarDays size={12} aria-hidden /> Calendario de seguimiento</span>
+                      </p>
+                    </div>
+                  </details>
+                </StatTile>
 
                 {stats.rated >= 3 && stats.avg > 0 && (
                   <StatTile
@@ -4201,7 +4289,8 @@ export default function IndividualPage() {
                     /* 10/11/2026: tres datos en el pie; el método, en la ayuda de la pantalla.
                        16/11/2026: «Media competencias» era jerga; se dice qué es y su escala. */
                     /* 17/11/2026 (ronda 20): la base, contra el total de la cifra «Jugadores». */
-                    hint={`media de los ${stats.rated} de ${stats.players} con ficha de scout, escala 0-10 (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
+                    /* 27/11/2026 (análisis, ronda 10): por qué no casa con la base del mapa de arriba. */
+                    hint={`media de los ${stats.rated} de ${stats.players} con ficha de scout, porteros incluidos (el mapa de arriba cuenta sólo los de campo), escala 0-10, más es mejor (cinco competencias) · de ${coma(stats.minScore)} a ${coma(stats.maxScore)}`}
                   >
                     {/* La leyenda del distintivo de las fichas, dentro de su tarjeta (07/11/2026). */}
                     <p className="mt-2 flex min-w-0 flex-wrap items-center gap-x-2.5 gap-y-1 text-[11px] text-white/55">
@@ -4215,53 +4304,6 @@ export default function IndividualPage() {
                   </StatTile>
                 )}
               </div>
-
-              {/* VÍDEOS E INFORMES, en segunda línea */}
-              {!pendiente.videos && !pendiente.informes && (
-                <p className="mt-3 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/55">
-                  <span className="inline-flex items-center gap-1.5">
-                    <Video size={12} className="shrink-0 text-[#C8A96B]" />
-                    {stats.videos} {stats.videos === 1 ? "vídeo individual" : "vídeos individuales"} · {base.conVideos} de {base.n} jugadores{base.de}
-                  </span>
-                  <span className="inline-flex items-center gap-1.5">
-                    <FileText size={12} className="shrink-0 text-[#C8A96B]" />
-                    {stats.reports} {stats.reports === 1 ? "informe" : "informes"} · {base.conInforme} de {base.n} jugadores{base.de}
-                  </span>
-                </p>
-              )}
-
-              {/* 17/11/2026 (ronda 19): la base de la línea de cada ficha, una vez.
-                  20/11/2026 (ronda 5, marketing y análisis): plegada tras
-                  «Cómo se lee», con la leyenda de los iconos de cada ficha. */}
-              <details className="mt-2 text-xs text-white/60">
-                <summary className="inline-flex min-h-[32px] cursor-pointer items-center gap-1.5 font-semibold text-white/70 hover:text-white">
-                  <Star size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
-                  Cómo se lee cada ficha
-                </summary>
-                <div className="mt-1 space-y-1.5 pl-5">
-                  {posiblesValoraciones > 0 && (
-                    <p>
-                      «scout», la nota de su ficha de scout · «media últ. 3 partidos», la nota media de sus 3 últimos partidos en Valoraciones (con menos, «tend.») · «810′ de {posiblesValoraciones}′ · Valoraciones», sus minutos de los posibles en Valoraciones (BeSoccer; la misma cuenta que el Dashboard de plantilla, que pone primero los de Wyscout). Sin minutos, la línea no sale.
-                    </p>
-                  )}
-                  <p>
-                    «Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Más», sus notas, su comparativa, sus vídeos, su Data análisis, su seguimiento y su calendario.
-                  </p>
-                  <p>
-                    «Sin seguir · N días»: jugador de campo del Castilla con más de {DIAS_SIN_SEGUIMIENTO} días sin registro (la misma regla que Calendario y Dashboard Seguimiento).
-                  </p>
-                  <p className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-                    <span>Accesos de cada ficha, con el jugador ya elegido:</span>
-                    <span className="inline-flex items-center gap-1"><Star size={12} aria-hidden /> Notas en Valoraciones</span>
-                    <span className="inline-flex items-center gap-1"><Scale size={12} aria-hidden /> Comparativa</span>
-                    <span className="inline-flex items-center gap-1"><Video size={12} aria-hidden /> Vídeos</span>
-                    <span className="inline-flex items-center gap-1"><BarChart3 size={12} aria-hidden /> Data análisis</span>
-                    <span className="inline-flex items-center gap-1"><LayoutDashboard size={12} aria-hidden /> Seguimiento: Dashboard Seguimiento</span>
-                    <span className="inline-flex items-center gap-1"><CalendarDays size={12} aria-hidden /> Calendario de seguimiento</span>
-                  </p>
-                </div>
-              </details>
-
 
               {/* FILTROS */}
 
@@ -4473,7 +4515,40 @@ export default function IndividualPage() {
                           </span>
                         </div>
 
-                        <RejillaJugadores jugadores={linePlayers} onSelect={openPlayer} onRegistrar={registrarDe} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
+                        {(() => {
+                          /* 27/11/2026 (marketing, ronda 10): los porteros del Castilla sin
+                             minutos no son fichas vacías: van juntos en una fila, con su Ficha. */
+                          const sinMinutos =
+                            line.key === "Portero" && !pendiente.jugadores && rinde.size > 0
+                              ? linePlayers.filter((p) => !p.externo && (rinde.get(p.idJugador)?.minutos ?? 0) <= 0)
+                              : [];
+                          const conFicha = sinMinutos.length ? linePlayers.filter((p) => !sinMinutos.includes(p)) : linePlayers;
+                          return (
+                            <>
+                              {conFicha.length > 0 && (
+                                <RejillaJugadores jugadores={conFicha} onSelect={openPlayer} onRegistrar={registrarDe} lista={vista === "auto" ? "auto" : vista === "lista"} rinde={rinde} />
+                              )}
+                              {sinMinutos.length > 0 && (
+                                <div className={`${conFicha.length ? "mt-3 " : ""}flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-white/70`}>
+                                  <span className="font-semibold text-white/80">Porteros sin minutos ({sinMinutos.length}):</span>
+                                  {sinMinutos.map((p) => (
+                                    <button
+                                      key={p.idJugador}
+                                      type="button"
+                                      onClick={() => openPlayer(p)}
+                                      title={`Abrir la ficha completa de ${nombreVisible(p.name)}`}
+                                      className="inline-flex min-h-[30px] items-center gap-1.5 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-2 font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition hover:bg-[#C8A96B]/20"
+                                    >
+                                      <UserRound size={12} className="shrink-0" aria-hidden />
+                                      {nombreVisible(p.name)}
+                                      {p.score > 0 && <span className="font-normal text-white/60">· scout {coma(p.score)}</span>}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
+                            </>
+                          );
+                        })()}
                       </section>
                     );
                   })}

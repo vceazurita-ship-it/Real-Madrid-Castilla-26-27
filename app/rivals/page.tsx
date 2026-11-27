@@ -130,6 +130,7 @@ import { SeccionGolesDelRival } from "@/components/rivals/GolesDelRivalEnVideo";
 import { Revulsivos } from "@/components/rivals/Revulsivos";
 import { AmenazaXT } from "@/components/rivals/AmenazaXT";
 import { AvisoContraNosotros, FranjaContraNosotros } from "@/components/rivals/ContraNosotros";
+import { useOptaLigero } from "@/hooks/useOptaLigero";
 import PerfilWyscoutCard from "@/components/rivals/PerfilWyscoutCard";
 import DefinicionDelantero from "@/components/rivals/DefinicionDelantero";
 import { pieDominante } from "@/lib/rivals/pie";
@@ -3495,11 +3496,17 @@ export default function RivalPlayersPage() {
   | más flojo contra la categoría (Wyscout, la misma frase de «Cómo llega»); sin
   | Wyscout, su sitio en la tabla y su racha (BeSoccer).
   */
+  /*
+  | 27/11/2026 (ronda 10, fútbol): con las tablas de Opta, como «Cómo llega» y
+  | la tira del Scout colectivo: sin ellas, el titular contaba el PPDA y el
+  | Goles − xG de Wyscout y no casaba con la franja de debajo.
+  */
+  const { tablas: tablasOpta } = useOptaLigero();
   const titularDelRival = useMemo(() => {
     if (!selectedTeam) return "";
 
     const conDato = perfilesRival
-      ? fuerteYFlojoDelRival(selectedTeam, perfilesRival.aspectos ?? [], perfilesRival.equipos ?? 0).conDato
+      ? fuerteYFlojoDelRival(selectedTeam, perfilesRival.aspectos ?? [], perfilesRival.equipos ?? 0, tablasOpta).conDato
       : "";
 
     if (conDato) return `${conDato}.`;
@@ -3507,7 +3514,7 @@ export default function RivalPlayersPage() {
     const frase = fraseDelVistazo(vistazoRival);
 
     return frase ? `${selectedTeam}: ${frase.replace(/\.$/, "")}.` : "";
-  }, [perfilesRival, selectedTeam, vistazoRival]);
+  }, [perfilesRival, selectedTeam, vistazoRival, tablasOpta]);
 
   /*
   | Bajas y apercibidos (21/10/2026), lo primero que se mira para cerrar el
@@ -4871,6 +4878,30 @@ export default function RivalPlayersPage() {
                           </p>
                         )}
 
+                        {/*
+                          27/11/2026 (ronda 10, marketing): el campograma abría en el 3-4-3
+                          marcado a mano mientras el titular decía 4-2-3-1 (Wyscout). El
+                          contraste, en el propio campograma, con el botón a la vista
+                          (también en el móvil, donde «Volver al…» de la barra no sale).
+                        */}
+                        {pitchPlayers.length > 0 && once.doc.dibujo && dibujoSuyo && once.doc.dibujo !== dibujoSuyo && (
+                          <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+                            <span>
+                              Contraste con los datos: el {once.doc.dibujo} es lo marcado a mano; Wyscout le da el {dibujoSuyo}
+                              {baseDelSistema ? ` (${baseDelSistema})` : ""}. Manda lo marcado hasta que se cambie.
+                            </span>
+                            <button
+                              type="button"
+                              data-export-hide
+                              onClick={() => once.ponDibujo(dibujoSuyo)}
+                              className="min-h-8 rounded-full border px-3 py-1 text-[13px] font-semibold transition hover:bg-white/[0.06]"
+                              style={{ borderColor: "color-mix(in srgb, var(--rmcf-gold-ink, #C8A96B) 55%, transparent)" }}
+                            >
+                              Usar el {dibujoSuyo}
+                            </button>
+                          </p>
+                        )}
+
                         {/* Un titular por hueco: lo que no cuadra se dice, con el arreglo a un toque. */}
                         {/* Quien juega en un hueco que no es el suyo, dicho como dato (como Duelos con fueraDeSitioEn). */}
                         {pitchPlayers.length > 0 && titularesEnSuHueco.fuera.length > 0 && (
@@ -5542,6 +5573,22 @@ export default function RivalPlayersPage() {
                     const ficha = players.find((p) => p.NOMBRE_EQUIPO === selectedTeam && mismoNombreRival(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || ""), nombre));
                     return ficha ? () => openPlayer(ficha) : null;
                   }}
+                  /* «Manín» de BeSoccer con el nombre de su ficha, «Manin» (27/11/2026, ronda 10, fútbol). */
+                  nombreDe={(nombre) => {
+                    const ficha = players.find((p) => p.NOMBRE_EQUIPO === selectedTeam && mismoNombreRival(String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || ""), nombre));
+                    const suyo = ficha ? String(ficha["NOMBRE DEPORTIVO"] || ficha.JUGADOR || "").trim() : "";
+                    return suyo ? conTildes(nombrePropio(suyo)) : nombre;
+                  }}
+                />
+              )}
+
+              {/* QUIÉN CREA LA AMENAZA — xT/90 de pases y conducciones, npxG/90 y xA/90 (Opta, 26/11/2026). */}
+              {/* 27/11/2026 (ronda 10, marketing): por encima del vídeo plegado, a la vista tras «Cómo llega». */}
+
+              {selectedTeam && !loading && (
+                <AmenazaXT
+                  equipo={selectedTeam}
+                  nombres={players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam).map((p) => String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())}
                 />
               )}
 
@@ -5566,15 +5613,6 @@ export default function RivalPlayersPage() {
                   {/* GOLES EN VÍDEO — los suyos y los que encaja, de seguido o uno a uno (16/11/2026). */}
                   <SeccionGolesDelRival equipo={selectedTeam} />
                 </details>
-              )}
-
-              {/* QUIÉN CREA LA AMENAZA — xT/90 de pases y conducciones, npxG/90 y xA/90 (Opta, 26/11/2026). */}
-
-              {selectedTeam && !loading && (
-                <AmenazaXT
-                  equipo={selectedTeam}
-                  nombres={players.filter((p) => p.NOMBRE_EQUIPO === selectedTeam).map((p) => String(p["NOMBRE DEPORTIVO"] || p.JUGADOR || "").trim())}
-                />
               )}
 
               {/* REVULSIVOS — quién le cambia el partido desde el banquillo (Opta). */}

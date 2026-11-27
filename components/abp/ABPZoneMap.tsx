@@ -455,7 +455,8 @@ export default function ABPZoneMap({
               ${
                 metric === m.key
                   ? "border-[#C8A96B] bg-[#C8A96B] text-black"
-                  : "border-white/10 bg-white/[0.04] text-zinc-300 hover:bg-white/[0.08]"
+                  : /* 27/11/2026 (jueces, ronda 10): las inactivas se leían apagadas en modo día; más tinta y borde. */
+                    "border-white/25 bg-white/[0.06] font-medium text-white/85 hover:bg-white/[0.1]"
               }
             `}
           >
@@ -648,6 +649,23 @@ export default function ABPZoneMap({
               {format(maxValue)}
             </span>
           </div>
+          {/* 27/11/2026 (jueces, ronda 10): «1,4 / 2,1» sin unidad no se leía; cada capa dice qué cuenta la cifra de la zona. */}
+          <p className="mt-1 text-[11px] text-white/60">
+            Cifra de cada zona:{" "}
+            {metric === "ocupacion"
+              ? def
+                ? "jugadores nuestros en la zona, de media por acción defendida"
+                : "jugadores nuestros en la zona, de media por acción"
+              : metric === "caidas"
+                ? "acciones cuyo balón cae ahí"
+                : metric === "remates"
+                  ? "remates desde la zona"
+                  : metric === "xg"
+                    ? "goles esperados acumulados"
+                    : metric === "goles"
+                      ? "goles"
+                      : "goles esperados por cada envío que cae ahí"}
+          </p>
 
           {/*
           | 17/11/2026 (jueces, ronda 19): lo que no cae en una de las cuatro
@@ -766,6 +784,8 @@ export default function ABPZoneMap({
             {def
               ? "Reparto de jugadores frente al reparto de goles esperados que el rival genera en cada zona."
               : "Reparto de jugadores frente al reparto de goles esperados de cada zona."}
+            {/* 27/11/2026 (jueces, ronda 10): por qué este panel puede señalar otra zona que el titular del campo. */}
+            {" "}Mide la calidad de los remates; el titular del campo cuenta las acciones que acaban en gol u ocasión, por eso pueden señalar zonas distintas.
           </p>
           {conOcupacion > 0 || rematesConZona > 0 ? (
             /* 20/11/2026 (jueces, ronda 5): la base en una línea; el detalle, desplegable. */
@@ -779,7 +799,8 @@ export default function ABPZoneMap({
                 {conOcupacion > 0 ? `${conOcupacion} ${conOcupacion === 1 ? "acción" : "acciones"} con ocupación apuntada. ` : ""}
                 Sólo las cuatro zonas del área; lo de fuera, bajo el campo.
                 {/* 20/11/2026 (jueces, ronda 4): «28 acciones con remate» y «29 remates» no son un error. */}
-                {rematesConZona > 0 ? " Se cuentan remates, no acciones: una acción puede tener dos (el rechace), por eso no coincide con las acciones con remate." : ""}
+                {/* 27/11/2026 (ronda 10): el código cuenta UN remate por fila (la zona de remate apuntada); la frase del rechace no cuadraba. */}
+                {rematesConZona > 0 ? " Remates: uno por acción, el de la zona de remate apuntada en la hoja; si la hoja apunta zona de remate en una acción cuyo desenlace no es remate (o al revés), esta base y la de las acciones con remate no coinciden." : ""}
               </p>
             </details>
           ) : null}

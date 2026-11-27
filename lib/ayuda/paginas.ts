@@ -427,6 +427,13 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "MD de cada día en «La semana en sesión»", es: "La misma regla que los calendarios: MD el partido, MD+1 y MD+2 los dos días siguientes, salvo partido a dos días o menos; si no, MD-n hasta el próximo." },
+          { que: "Tareas que no caen en ningún día", es: "Si la cabecera cuenta más tareas de entreno que los días, al pie se dice cuáles faltan (sin fecha o sin código en la hoja)." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Titular del micro", es: "Si a la semana le falta una fase de juego entera, el titular es esa carencia con su base y la media de los demás micros, y cómo acabó el partido; el recuento de tareas va debajo, con las que no se hicieron (según los equipos de Jugadores sesión)." },
@@ -528,6 +535,17 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Láminas a la vista", es: "El mapa «¿Dónde cae?», la tabla acción a acción y «¿Y frente al rival?» salen ya enteras, sin el revelado al bajar (antes se quedaban apagadas en modo día). Las pestañas de capa inactivas tienen más contraste." },
+          { que: "Titular de la conclusión", es: "Dice la idea: «Córner rinde menos que el resto: 22 % en gol u ocasión (13 de 59) frente a 38 % (15 de 40) → tarea de córner». Debajo, su base («59 acciones de córner frente a 40 del resto»). Con menos de 15 acciones en un lado, «(tendencia)»." },
+          { que: "Gol u ocasión, partido a partido", es: "Las columnas de partidos con menos de 10 acciones van en gris (tendencia: un 0/2 no es una carencia); verde con 10 o más; dorado, el último partido. Caben las 13 jornadas a 390 px." },
+          { que: "¿Qué hace más daño?", es: "Si sólo un tipo tiene 15 acciones o más, se compara con el resto («Córner, el único tipo con muestra: … por debajo del 38 % del resto»)." },
+          { que: "Acción a acción", es: "Un solo botón de vídeo por fila; «Abrir en Hudl» va en el menú ⋮. «En la pizarra» abre la pizarra ABP con el rival ya elegido." },
+          { que: "Remates de córner en Opta", es: "Bajo «¿Y frente al rival?», una línea: «remates tras córner» son los que Opta ata al córner; «remates de córner» de la categoría suma rechace y segunda jugada, por eso es mayor." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Titular de «¿Dónde cae?»", es: "Lo manda la zona que se lleva más acciones de gol u ocasión que las que le tocan por volumen (con al menos 3), y acaba en «cargar esa zona». Con menos de 15, «tendencia». Si no, el volumen." },
@@ -619,6 +637,15 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Una sola zona crítica", es: "La conclusión elige la zona con el mismo criterio que «¿Dónde nos cae?» (de dónde nacen más acciones de gol u ocasión suya, frente a su parte del volumen). «Ocupación vs. peligro concedido» mide goles esperados y puede señalar otra; lo dice en su pie." },
+          { que: "Objetivo de remates", es: "«Como mucho X % con remate, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo logramos en N de M partidos con 3 acciones o más)»." },
+          { que: "Mapa: unidad y remates", es: "Bajo la escala, qué cuenta la cifra de cada zona en cada capa (Ocupación: jugadores nuestros en la zona, de media por acción defendida). Remates: uno por acción, el de la zona de remate apuntada." },
+          { que: "Goles encajados y rivales", es: "La tarjeta de goles encajados va como tendencia con menos de 5 goles. Los rivales, con nombre corto en tipo título («Águilas»). En la tabla, «Cómo lo defendimos, en la pizarra» con el rival elegido." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Titular de «¿Dónde nos cae?»", es: "La misma regla: la zona con más peligro concedido respecto a su volumen → «reforzar esa zona». En modo día, el campo es césped claro con rampa roja." },
@@ -685,8 +712,17 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Ofensivo",
     resumen: "Cada saque de banda a favor: dónde se saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda ofensivo, una fila por saque. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, banda, zona de saque (tercio del sacador), envío (corto < 15 m, largo), dónde cae (progresión o retroceso, carril exterior o interior, área) y el resultado de los 15 s siguientes (remate, balón parado ganado, conquista del último tercio o posesional, con «Rival» si el balón acaba suyo). «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo); los saques de la hoja sin corte propio lo ganan si casan por minuto (±1).",
-    revisada: "2026-11-22",
+    revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Mapa de saques", es: "Junto a cada disco, los conservados de los saques de esa zona y su % («17/44 · 39 %»); dentro, los saques; el color es otra medida (% que llega a último tercio). Sin velo." },
+          { que: "Conservamos y último tercio", es: "Bajo la barra de la conclusión, qué es cada cosa: conservamos = la jugada acaba con el balón para nosotros; llegan a último tercio = acaba cerca de su área, en ocasión o en gol." },
+          { que: "Objetivo", es: "Dice de dónde sale: el nivel de nuestro mejor tercio de partidos en ese sitio (uno de cada tres; lo logramos en N de M partidos con 2 saques o más)." },
+          { que: "¿Y frente al rival?", es: "Con una sola cifra comparable, el titular es «Sin diferencia clara con X: sólo una cifra comparable…» con su base de partidos, y no sale el marcador." },
+        ],
+      },
       FRENTE_AL_RIVAL,
       {
         titulo: "Las cifras",
@@ -751,8 +787,16 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Saque de Banda Defensivo",
     resumen: "Cada saque de banda del rival: dónde saca, adónde va y en qué acaba.",
     origen: "Nuestra hoja de saque de banda defensivo, una fila por saque del rival. El corte y el segundo de Hudl, del doc «banda:cortes»; la categoría, de Opta. Respaldo de Opta (17/11/2026): la jornada que la hoja aún no tiene sale de Opta (opta:abp-eventos + el evento a evento opta:directo, por /api/opta/respaldo) con el sello «Desde Opta · aún sin etiquetar en Hudl»; en cuanto la hoja tiene una fila de esa jornada, manda la hoja. De Opta salen sacador, banda, zona de saque (tercio del sacador), envío (corto < 15 m, largo), dónde cae (progresión o retroceso, carril exterior o interior, área) y el resultado de los 15 s siguientes (remate, balón parado ganado, conquista del último tercio o posesional, con «Rival» si el balón acaba suyo). «▶ Vídeo»: el corte de Opta (opta:acciones-video) o «Vídeo en Opta» (ProVision en ese segundo); los saques de la hoja sin corte propio lo ganan si casan por minuto (±1).",
-    revisada: "2026-11-22",
+    revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Titular de la conclusión", es: "Señala el sitio: la zona de saque donde menos recuperamos (5 saques o más) frente a lo que recuperamos en todos, y la orden (salto al receptor y vigilancia a la espalda del lateral)." },
+          { que: "Zonas", es: "Se nombra sólo el tercio (nuestro tercio, el medio, su tercio), igual que en ofensivo; el número de la hoja va entre paréntesis en la leyenda." },
+          { que: "Objetivo y frente al rival", es: "El objetivo dice su fuente (nuestro mejor tercio de partidos). Con una sola cifra comparable frente al rival, «Sin diferencia clara» con su base." },
+        ],
+      },
       FRENTE_AL_RIVAL,
       {
         titulo: "Las cifras",
@@ -1054,6 +1098,16 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Hoja JUGADORES, y las fotos desde Supabase.",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Accesos de cada ficha", es: "A la vista: Ficha, Registrar y Comparativa (con él elegido); en «Más»: notas, vídeos, Data, seguimiento, calendario y Emocional (abre /emotion con él elegido)" },
+          { que: "Notas de la ficha", es: "«scout» y «media últ. 3 partidos», de 0 a 10, más es mejor; «tend.» con menos de 4 partidos con nota en la temporada. «Sin seguir · N d», insignia a la derecha" },
+          { que: "Vídeos, informes y «Cómo se lee»", es: "Al pie de la tarjeta «Seguimientos»" },
+          { que: "Porteros sin minutos", es: "Los del Castilla sin minutos en Valoraciones van juntos en una fila, con su ficha a un toque" },
+          { que: "Nota del scout (tarjeta)", es: "Cuenta los porteros; el mapa «a quién toca seguir» sólo a los de campo, por eso las bases no coinciden" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Accesos de cada ficha", es: "«Ficha» abre su ficha completa; «Registrar», un seguimiento nuevo con él ya elegido; «Más», sus notas, su comparativa, sus vídeos, su Data análisis, su seguimiento y su calendario. Los porteros no llevan «Registrar»." },
@@ -1176,6 +1230,14 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Evolución semanal", es: "Si una semana pasa de 1,6 veces la segunda, el eje se corta (marca de corte en la barra, cifra real encima); la anotación del pico dice cuántos registros son grupales" },
+          { que: "Seguimientos (tarjeta)", es: "«68,5 % con feedback (261 de 381)»; con menos de 15 registros, tendencia. En objetivos y estrategias, «tendencia» con menos de 15" },
+          { que: "Avisos y lecturas con jugadores", es: "El nombre abre su ficha y un solo botón «Registrar seguimiento»; los sin objetivo defensivo, en su propia tarjeta con su base" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Evolución semanal y media", es: "El gráfico semanal va justo debajo del aviso. La media semanal es la de las semanas completas de la temporada, y al lado va la de las 7 últimas cerradas (la ventana de Calendario)." },
@@ -1229,6 +1291,16 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Wyscout (minutos, edad, contrato, amarillas, goles, asistencias y percentiles por puesto), Valoraciones (quién jugó cada jornada, titular o suplente, minutos y nota), hoja JUGADORES (plantilla, licencia y ficha de competencias) y Jugadores sesión (documento «jugadores-sesion», desde el 21/10).",
     revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Cifras de arriba", es: "Cuatro tarjetas (Jugadores del Castilla, Han jugado, Minutos sub-21, Avisos), cada una con su base; los partidos y los minutos posibles van en la línea de fuentes de la cabecera" },
+          { que: "Quién cuenta", es: "Plegado tras «?»: el total (licencia del Castilla + los de fuera), quién cuenta como «ha jugado», la regla sub-21, los partidos de cada fuente y qué dispara un aviso" },
+          { que: "Minutos por tramos", es: "Barra de cabecera de «¿Quién juega y cuánto?»: cuántos juegan la mitad o más, entre el 25 y el 50 % y menos del 25 %, con los de menos del 25 % nombrados; debajo, el detalle por puesto" },
+          { que: "Orden en el móvil", es: "«¿De quién hay que hablar esta semana?» sale antes que las barras de minutos" },
+          { que: "Nota a la baja", es: "«de X a Y · últimos 3 partidos frente a los 3 anteriores · N con nota»; con menos de 8 notas, «tendencia». Todos los avisos llevan Ficha, su acción, Vídeos y Comparativa" },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -1284,8 +1356,16 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Valoraciones de partido",
     resumen: "La nota que el cuerpo técnico pone a cada jugador en cada partido y lo que sale de ella: ranking, campograma, comparativa e histórico.",
     origen: "Supabase (tabla match_ratings, temporada 2026-2027); los partidos, de la hoja del calendario (la misma que Planes de partido). Minutos, titularidad, goles, asistencias y tarjetas los rellena cada noche BeSoccer (scripts/valoraciones-besoccer.mjs); la nota, las áreas y el comentario, sólo el cuerpo técnico.",
-    revisada: "2026-11-26",
+    revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Ranking", es: "Media (n) = media de 0 a 10 con su nº de notas; «tend.» junto a la flecha con menos de 8 notas; «Ir a» con rótulo en pantalla ancha" },
+          { que: "Progresión y goles + asistencias", es: "Dos tarjetas con el top 3: nombre, cifra y su base (de X a Y, PJ; goles, asistencias, PJ)" },
+          { que: "Evolución del equipo", es: "Tocar un punto abre el partido: el último, su análisis post; los demás, el rival" },
+        ],
+      },
       {
         titulo: "Registrar",
         filas: [
@@ -1338,6 +1418,14 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Wyscout: la descarga de jugadores de toda la categoría (esta temporada y la pasada) y, para el ajuste a la posesión, la posesión media de cada equipo en sus partidos de liga de Wyscout. Opta: sus tablas de jugadores de Primera RFEF, todas las temporadas que hay. Al lado, nuestras Valoraciones (nota) y la hoja de seguimiento (nº de registros).",
     revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Titular del gráfico", es: "Por encima = índice mayor que 50; en 50, «en la media»; los de menos de 300′, aparte como tendencia" },
+          { que: "Puesto con pocos comparables", es: "«* N comp.» junto al nombre y punto con anillo discontinuo: su puesto tiene menos de 25 comparables, tendencia" },
+          { que: "Por minutos jugados", es: "Contra los de su puesto con minutos parecidos; al pie, quién no sale por no tener comparables en su franja" },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -1408,6 +1496,15 @@ export const AYUDAS: AyudaDePagina[] = [
         titulo: "Lo nuevo (27/11/2026): a qué central atacar",
         filas: [
           { que: "A qué central atacar", es: "Al pinchar la tarjeta «Nuestro delantero vs sus centrales» (o su raya en el campo), dentro sale un plano con todos los centrales de su plantilla: duelos defensivos por 90 en horizontal y % de duelos defensivos ganados en vertical, con dos rayas en la mediana de los centrales de la categoría y en oro la zona «a cargar» (muchos duelos y por debajo de la mediana del acierto). Punto lleno: en su once de esta pantalla. Al que más duelos pierde se le pone un aro naranja y su nombre, y al lado sus duelos perdidos por 90, su % de duelos aéreos ganados y la consigna para nuestro delantero (balones largos y centros hacia él si gana menos de la mitad por arriba). Los de menos de 540′ salen en gris, con ⚠ y su minutaje al pie. Con «Balón: rival» no se enseña. Se abre directo con /duelos?duelo=del-cen", cuenta: "Wyscout, esta temporada: «Duelos defensivos/90», «Duelos defensivos ganados, %» y «Duelos aéreos ganados, %». Centrales = puesto CEN de la sigla principal de Wyscout; los suyos, los de su equipo en Wyscout (el de sus centrales del once). Mediana de la categoría: centrales con 90′ o más y al menos 2 duelos defensivos por 90 (la regla de volumen de DATA). Duelos perdidos por 90 = duelos/90 × (1 − % ganados / 100); «el que más pierde», el de más entre los de 540′ o más (si ninguno llega, entre todos, con aviso). El % aéreo, sólo con volumen suficiente. Cuentas en lib/duelos-centrales.ts" },
+        ],
+      },
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Titular del recuento", es: "La misma frase que el Plan de partido: «N duelos medidos y M con pocos minutos (tendencia): X para buscar, Y de doble cara…». Al lado, el umbral (±10) y la fuente de minutos y puesto de cada rival (Wyscout y su ficha, los mismos de Plantillas rivales: misma función asignaPerfiles)" },
+          { que: "Qué hacemos · al vestuario", es: "Cada duelo acaba con una frase para el jugador («Ciria, ofrecerse entre líneas…: ahí le ganamos») y con «X: su ficha y vídeo ›» del rival, con el rival ya elegido" },
+          { que: "Campo en grande (móvil)", es: "En el móvil, «Ver el campo en grande, con los nombres» abre el campo a pantalla completa (960 px de ancho, se desliza de lado) con nombres y dorsales legibles; tocar un nombre abre su ficha" },
+          { que: "Con su trío y sin él", es: "No se pinta cuando hay muestra corta (menos de 270′ en un lado) y la diferencia de xG por 90′ entre con y sin el trío es menor de 0,3" },
         ],
       },
       {
@@ -1703,6 +1800,16 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Último partido a un toque", es: "Una sola fila «A un toque» bajo «Siguiente»: el post de la última jornada, el plan para la próxima, sus goles en vídeo, su ABP y su plantilla. En «Más»: cómo le marcan, cómo son sus goles, su coding y, si la última jornada está etiquetada, sus robos y sus pérdidas." },
+          { que: "Para la J· (16/11/2026)", es: "Ya no es una fila aparte: sus enlaces van en la fila única «A un toque» (ver «Último partido a un toque»)." },
+          { que: "¿Cómo va la racha? (Visual)", es: "Cada jornada con G, E o P y el marcador; toca una para abrir su post. El puesto tras cada jornada va en «¿Dónde estamos en la tabla?»; sólo si esa lámina no sale, aparece aquí debajo de cada partido." },
+          { que: "¿A cuánto de arriba y de abajo? (Visual, 17/11/2026)", es: "El titular dice la distancia en puntos al líder, al 16º y al próximo rival, sin repetir nuestro puesto (lo dice la lámina de encima). Las láminas se ven enteras desde el principio, sin fundido." },
+          { que: "Qué es", es: "La proyección de la tabla sólo sale, con su rótulo y su título, cuando hay con qué hacerla (Opta con xG del grupo, número par de equipos y partidos por jugar). Mientras llega Opta, un hueco gris del alto de la tabla; si al final no hay proyección, no se nombra." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Último partido a un toque", es: "«Sus robos» y «Sus pérdidas» sólo salen cuando esas pantallas ya tienen ese partido. La línea de puntos da los puntos por partido frente a la media de la liga y, entre paréntesis, los puntos de un equipo medio." },
@@ -1984,6 +2091,16 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "A un toque (rival)", es: "Cinco accesos a la vista con el rival ya elegido: sus goles en vídeo, su plan de partido, su ABP, su plantilla y el post de nuestro partido contra él (si ya jugamos). El resto (cómo le marcan, cómo son sus goles, sus jugadores uno a uno, robos, pérdidas y faltas de ese partido si están etiquetados, y la ficha del jugador del último corte) va plegado en «Más (n)». La ficha es la del último corte de un jugador: los «Vídeo completo» y los de comportamiento no cuentan." },
+          { que: "El vídeo se llama otro rival", es: "Si un vídeo abierto lleva el nombre de otro equipo de la liga, sale una línea: «El vídeo se llama X y los cortes van con Y». «Pasar a X» guarda los cortes con ese equipo; la equis se queda con Y (el rival de nuestro último partido) y quita el aviso." },
+          { que: "Sin vídeo abierto", es: "El hueco del vídeo ofrece «Elegir vídeo» y dice el último corte guardado: de quién es y su categoría, o «un vídeo entero» si era un clip de jugador sin marcar, con su fecha y el nombre del vídeo, para reabrirlo en «Vídeos»." },
+          { que: "Cortes", es: "El título de la tabla dice cuántos cortes enseña y cuánto vídeo suman (en segundos por debajo del minuto, si no mm:ss), y cuántos son vídeos enteros. Debajo, cuántos de cuántos y de cuántos vídeos, con el filtro activo." },
+          { que: "Por jugador · Por comportamiento · Por categoría", es: "«Por comportamiento» sale a partir de 3 cortes de comportamiento colectivo, sin contar los «Vídeo completo», y lleva el número de cortes en el título." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Lo codificado de un vistazo", es: "Encima del reproductor, barras de cortes por categoría y por jugador con una frase: cuántos cortes de partido, cuántos clips de jugador sueltos y lo más cortado (tendencia con menos de 15)." },
@@ -2077,6 +2194,17 @@ export const AYUDAS: AyudaDePagina[] = [
             que: "«Contra nosotros», en la ficha del jugador",
             es: "Debajo de «Cómo juega»: sus tres cifras de ese partido (lo que hizo y por 90′) al lado de su media por 90′ y el % de diferencia; en ámbar si la pasó en más de un 30 %, y «⚠ nos hizo daño» en el título. Si su media no llega a 270′ dice «poca muestra». Sólo sale si jugó contra nosotros y su nombre casa con uno solo de Opta",
           },
+        ],
+      },
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Dónde nos hacen daño · centros", es: "Abre con el veredicto de Área del rival: centra mucho o poco frente a la mediana de la liga (centros laterales por partido, con su puesto) y el acierto (centros precisos %: bueno o malo sólo si se separa más de 2 puntos y no es tendencia). Después, la banda que más centra y quién pone su parte. Si centra poco, la orden es cerrar al que más centra sin dejar el pase interior; si centra mucho, cerrar su carril antes del centro. Debajo, «Base: N centros en Wyscout · N partidos». Misma regla en Plantillas rivales, Scout colectivo, Plan y Área (lib/rivals/veredicto-centros.ts)" },
+          { que: "Dónde hacerles daño / nos hacen daño · base", es: "Cada tarjeta acaba en «Base: minutos y partidos» (Wyscout u Opta). La muestra corta, menos de 450′ (el mismo corte del campograma y de Duelos), va en su propio chip. Las amarillas ya no mandan encarar: a un central, presión orientada para que la salida pase por él; a los demás, atacarle en conducción" },
+          { que: "Nombres de los jugadores", es: "En la tabla xT, «Le hacen los goles» y las tarjetas sale siempre el nombre de su ficha de la plantilla. Si el nombre de Opta, Wyscout o BeSoccer no casa entero, vale el mismo nombre de pila con la misma inicial del apellido cuando sólo casa una ficha («Jeremy Jorge» de Opta es «Jeremy José»)" },
+          { que: "Campograma · contraste con los datos", es: "Si el dibujo está marcado a mano y no es el que más repite en Wyscout, una línea lo dice («el 3-4-3 es lo marcado a mano; Wyscout le da el 4-2-3-1 (11 de 12)») con el botón «Usar el 4-2-3-1», que también sale en el móvil" },
+          { que: "Quién crea la amenaza · xT/90", es: "Ahora va justo después de «Cómo llega», por encima del vídeo plegado. Cada fila lleva «Su ficha ›» a Scout individual con el rival elegido, y los nombres van con la caja de su ficha" },
+          { que: "Titular del rival", es: "Lo fuerte y lo flojo se cuentan con las tablas de Opta (PPDA de Opta), como «Cómo llega» y la tira del Scout colectivo; las cifras negativas llevan el menos tipográfico (−0,8)" },
         ],
       },
       {
@@ -2304,6 +2432,14 @@ export const AYUDAS: AyudaDePagina[] = [
             es: "Debajo de «Salida de balón»: una tira con cada partido del rival colocado según su % de pases largos (verde si ganó, gris si empató, naranja si perdió; al pasar el ratón, rival, resultado y xG), con la raya de su mediana, la de la liga a trazos y sus dos mitades sombreadas (azul, menos directo; oro, más directo). Debajo, una tabla con puntos por partido, xG a favor, xG en contra y remates en sus partidos más directos, en los menos directos y la media de la liga; en cada fila, verde la mitad que sale mejor y naranja la peor. El titular dice si le va mejor en largo (apretarle arriba le hace un favor), si sufre jugando en largo (apretarle tiene premio) o si rinde parecido; en ese caso sale el sello «sin diferencia clara»",
             cuenta: "Opta, opta:partidos (una fila por equipo y partido). % de largos de cada partido: LgBall / PsAtt × 100. Puntos: 3, 1 o 0 con sus goles (Goal) y los del oponente. xG a favor: su ExpG; xG en contra: el ExpG del oponente en ese partido; remates: ShtIncBl (con los bloqueados). Sus partidos se ordenan por % de largos y se parten por la mediana: la mitad de abajo y la de arriba (con un número impar, el de la mediana no entra); de cada mitad, la media de las cuatro cifras. Liga: la media de todas las filas de los equipos de su grupo (él y los que se ha cruzado). «Sin diferencia clara» si alguna mitad tiene menos de 4 partidos, si la diferencia de puntos y la del balance de xG (a favor − en contra) van en sentidos opuestos o si ni los puntos cambian 0,5 ni el balance 0,3. Cuentas en lib/rivals/juego-directo.ts",
           },
+        ],
+      },
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Dónde hacerles daño · contraste con los datos", es: "En «Su salida de balón», una línea con la lectura de «Cómo sale» (Opta, presionSalida): si se le rompe la salida, manda la presión alta; si la relación es floja, la presión orientada es pista; si aguanta, manda el dato para la altura (bloque medio) y el analista para el lado. Cada tarjeta lleva «Sus duelos, en Duelos ›»" },
+          { que: "Cómo nos hacen daño · balón parado", es: "Si «Remates que nacen de ABP %» (Wyscout) está entre los 6 primeros de su liga, sale una tarjeta con la cifra, su puesto y sus goles a balón parado (penalti, dato; córner y falta, estimación de Wyscout), su base, «Qué hacemos» y el enlace a ABP del rival. Las tarjetas de dato llevan «Base: …»" },
+          { que: "Dibujo", es: "Una sola línea «Dibujo: se espera el …» con su fuente. Normalmente, el que más repite en Wyscout (o BeSoccer), con los que ve el analista en cada fase. Si el analista escribe un cambio de entrenador (en Contextualización o Asociaciones), manda su dibujo y se dice que los partidos contados son casi todos del entrenador anterior" },
         ],
       },
       {
@@ -2742,6 +2878,14 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Salida", es: "La primera salida del primer día con citas que no vuelva al sitio de «Sale de» (ni diga vuelta o regreso). Si sólo está la vuelta, no se nombra." },
+          { que: "Datos por poner", es: "Sólo lo ve el administrador: cuántos datos faltan y cuáles; al pulsar se abre la lista para rellenarlos." },
+          { que: "Medidas del campo", es: "En la línea del estadio, sólo la medida. De dónde sale se elige en su tarjeta: por defecto la hoja RIVALES, luego BeSoccer, luego OpenStreetMap." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Horario sin distancia", es: "Sin trayecto se proponen solo las citas que no dependen de él: llegada al estadio, calentamiento, partido y salida de vuelta (fin + 105′). El dossier no lleva la fuente de las medidas." },
@@ -2829,6 +2973,14 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "La hoja emocional (una fila por jugador, que se sobrescribe) y, encima, lo editado aquí en «Editar valoraciones» (documento «emotion:valoraciones» de Supabase), que manda jugador a jugador. El once, del tablero de la pizarra táctica. La flecha compara con la foto anterior guardada en este aparato.",
     revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Cifras de la plantilla", es: "Rotuladas «Plantilla · los N evaluados», con la fecha y el sello «caducada» a partir de 14 días; cada una dice de cuántos sale" },
+          { que: "Qué entrenamos", es: "Con la valoración caducada, «propuesta, a confirmar al valorar de nuevo»; el objetivo dice de dónde sale cada cifra" },
+          { que: "Jugadores foco y enlace directo", es: "«1 valoración, tendencia» y «Registrar seguimiento»; /emotion?jugador=NOMBRE abre con ese jugador elegido" },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -3122,6 +3274,12 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Barra a favor / en contra", es: "Verde a favor, rojo en contra; dentro de cada tramo, cuántos han apostado a ese lado (no sale si el tramo es muy corto)." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Balance", es: "El balance por persona sale cuando hay alguna apuesta decidida." },
@@ -3349,6 +3507,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
     revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Con qué día abre", es: "Si hoy no tiene objetivos, abre en el último día con acciones validadas. Si no hay ninguno, en un entreno sin analizar que ya tenga objetivos (nunca hoy). Si tampoco, en el último analizado. La franja de arriba cuenta los entrenos sin analizar, dice por qué se ve ese día y lleva el botón: «Analizar el dd/mm» o, si aún no tiene objetivos, «Poner los objetivos de hoy»." },
+          { que: "Un día sin objetivos", es: "Enseña los objetivos del último día que los tuvo, cada uno con su meta, su tarea, sus jugadores (nombre de la plantilla, enlazado a su ficha) y su cuenta de lo revisado. Las propuestas sin revisar no cuentan. «Copiar estos N» los copia con el mismo texto y jugadores, sin la tarea. Debajo, las tareas del día del registro y el enlace a su micro." },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -3607,6 +3772,12 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Aviso de formato sin equipos", es: "Si la lista del día no llega al formato de la hoja (10v8 = 18), avisa con cuántos hay y propone uno que cabe: equipos lo más parejos posible y 2 comodines desde 10 jugadores." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Tareas listas", es: "Lista = sin nada que corregir; debajo, cuántas tienen equipos (la cifra de Microciclos). Las que faltan se nombran por su código y abren su tarea." },
@@ -3831,6 +4002,13 @@ export const AYUDAS: AyudaDePagina[] = [
       "La pestaña ALERTAS de la hoja de cálculo es el único origen: la lee y la envía el Apps Script con su disparador horario. Los adjuntos se suben a Supabase y al correo va el enlace. Las que van atadas al partido usan el calendario del Castilla.",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Esta semana y la semana siguiente con avisos", es: "Si al partido de esta semana ya no le queda ningún aviso por salir, se dice («J14 en Rayo Majadahonda: no queda ningún aviso del partido por salir») y debajo va la semana siguiente con avisos, día a día. Si no, la del próximo partido." },
+          { que: "Titular con todo silenciado", es: "Cuántos recordatorios están silenciados y de qué jornada (la del primero que saldría al reactivarlo). Debajo, cuándo saldría el primero y a cuántas personas, con «Revisar y reactivar» y «Nueva tarea con alerta»." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Estado de hoy", es: "Sin partido ni salidas hoy, una sola franja: «Hoy… no sale ningún correo · N silenciadas», con reactivar y «Tu día». Los días sin alertas de la semana del partido son columnas estrechas." },
@@ -3917,6 +4095,15 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El material semanal del cuerpo técnico (planificaciones, imágenes y PDF), semana a semana de la temporada.",
     origen: "Lo que sube el cuerpo técnico. La lista de semanas se guarda en Supabase (temporada 2026-2027) y los archivos en su almacén de ficheros.",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Partidos jugados con convocatoria, horario y plan", es: "De las semanas con partido ya jugado (sin contar la de ahora), en cuántas se subieron las tres cosas; la misma base en la cifra y en la barra. Cada cosa se reconoce por el nombre del archivo." },
+          { que: "La tira de semanas", es: "Dorada, semana con material; borde normal, semana con partido; borde discontinuo, semana sin partido; raya roja abajo, semana con partido jugado a la que le falta convocatoria, horario o plan; debajo del número, cuántos archivos." },
+          { que: "Esta semana", es: "«X de 3 subidas» para el partido de la semana: convocatoria, horario y plan (el plan, sólo con partido), con su botón de subir. «Preparar el partido» lleva al microciclo, al ABP y a la plantilla del rival ya elegido." },
+          { que: "Etiqueta del archivo", es: "Convocatoria, Horario, Plan de partido, Multas o Firmas, sacada del nombre del archivo." },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -4079,6 +4266,14 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Hoja de seguimiento, una fila por registro (la misma de /individual). El jugador se ata por nombre con la plantilla, no por ID. Los días de partido salen del calendario de BeSoccer (el mismo de la portada).",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Por semana", es: "A doble ancho: cifra en cada barra, semana debajo, media de las semanas cerradas rotulada; la semana en curso, rayada y fuera de la media" },
+          { que: "Días con 5 o más registros", es: "Un contador por tipo y «ver el día», en vez de tarjetas" },
+          { que: "Tarjeta del día", es: "A la derecha, las iniciales de quién hizo el registro; la leyenda de tipos lleva los registros de la temporada de cada uno; el MD de hoy abre Microciclos; el pie, en «? Cómo leer el calendario»" },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Móvil y repetidos", es: "En el móvil abre en la semana de hoy; los días anteriores del mes van plegados. «×2»: el mismo jugador con dos registros del mismo tipo ese día; los autores, al pasar el ratón. En «A quién toca seguir», un solo botón por jugador: Registrar." },
@@ -4220,6 +4415,12 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
     revisada: "2026-11-27",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Media de cada MD en el aviso de carga", es: "UA de un día = suma de la Carga Ponderada (minutos × intensidad) de sus tareas de entreno, sin el partido; media de los días ya pasados de la temporada con carga apuntada, con 3 días o más. La misma cuenta que Crear o editar microciclo (lib/microciclo/carga-md.ts)." },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
@@ -4511,6 +4712,12 @@ export const AYUDAS: AyudaDePagina[] = [
       "BeSoccer, a través de Supabase: el documento del informe del rival (rivals:informe, cada equipo y su clasificación) y el de los dos grupos de la categoría (escudos:categoria).",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Botones de vídeo en modo día", es: "«▶ Sus goles» y los demás botones de vídeo de la tarjeta llevan el color dorado oscuro en modo día (antes parecían desactivados). El chip del partido ocupa hasta dos líneas, sin cortar con «…», y «Ficha» está en el menú de cada tarjeta con partido." },
+        ],
+      },
+      {
         titulo: "Lo que hay",
         filas: [
           { que: "Escudo que no llega", es: "Si BeSoccer no sirve la imagen, la tarjeta muestra las iniciales del club sobre su fondo (con borde ámbar) y no entra en el .pptx" },
@@ -4537,7 +4744,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
       "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
     ],
-    revisada: "2026-11-20",
+    revisada: "2026-11-27",
   },
 
   /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */
@@ -4773,6 +4980,12 @@ export const AYUDAS: AyudaDePagina[] = [
     revisada: "2026-11-27",
     bloques: [
       {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "Barra de carga de cada día", es: "La carga media de su MD con la misma cuenta que el calendario de contenidos: días ya entrenados de toda la temporada con carga apuntada (también fuera de liga), sin el partido, con 3 días o más. Cada tarjeta dice la cifra y cuántos días; la base se explica una vez, debajo." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Bases del paso 1 y vista del paso 2", es: "«N de M semanas de liga» cuenta las semanas de liga con entreno en ese MD; la carga es la media de todos los días de ese MD con carga de la temporada (también fuera de liga). En la vista del paso 2, las tareas que no se hicieron en el micro de origen van tachadas." },
@@ -4845,6 +5058,15 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El vídeo de análisis de cada partido ya jugado, microciclo a microciclo, con el balance de la liga arriba.",
     origen: "La hoja de vídeos de partido (microciclo, fecha, resultado, partido y enlace), completada con el calendario de BeSoccer para los partidos de liga que no están en ella. La media de la liga sale del análisis de goles de la categoría. Hudl, la grabación táctica y el resumen RFEF, de los enlaces de cada día.",
     bloques: [
+      {
+        titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
+        filas: [
+          { que: "El titular (17/11/2026)", es: "La racha: puntos de los últimos 5 partidos de liga sobre 15, marcada como tendencia. Los puntos de la temporada y el reparto de victorias, empates y derrotas los dicen la curva (con su letra V, E o D en cada punto) y su titular." },
+          { que: "¿Cómo va la temporada?", es: "Titular corto: cuántos puntos vamos por encima o por debajo de un equipo medio de la liga. Debajo, la base: nuestros puntos y por partido frente a la media, los puntos de un equipo medio (la media de los 20 equipos tras la última jornada), cuántos partidos (con menos de 20, tendencia) y la fuente (calendario de BeSoccer)." },
+          { que: "Curva de puntos", es: "La línea dorada son nuestros puntos acumulados; la raya, los de un equipo medio (la media de los 20 equipos tras cada jornada), en la misma unidad. La leyenda dice el valor final de cada una." },
+          { que: "Botones de cada tarjeta", es: "En un partido jugado se ven «Post del partido» y «▶ Goles». «Análisis (n)» despliega el resto: Coding con el partido elegido, Hudl, la grabación táctica (sólo en el ordenador del club), el resumen de YouTube y robos, pérdidas y faltas si ese partido está etiquetado. n cuenta los que hay. En un partido sin jugar, Coding, Hudl y el resumen van en su fila." },
+        ],
+      },
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [

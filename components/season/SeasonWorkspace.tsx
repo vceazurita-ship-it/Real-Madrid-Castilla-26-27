@@ -169,6 +169,9 @@ export default function SeasonWorkspace({ area }: Props) {
           ultimo: ultimoArchivo(week.images ?? [], week.pdfs ?? []),
           /* 20/11/2026 (ronda 7, análisis): convocatoria, horario y, si hubo partido, plan. */
           completa: semanaCompleta(week, Boolean(partido)),
+          /* 27/11/2026 (jueces, ronda 9): la tira colorea las semanas con partido y marca las que, ya jugado, no tienen sus tres cosas. */
+          conPartido: Boolean(partido),
+          faltaAlgo: Boolean(partido?.jugado) && week.id !== currentWeek.id && !semanaCompleta(week, true),
         };
       });
   }, [season, currentWeek, calendario]);
@@ -242,8 +245,16 @@ export default function SeasonWorkspace({ area }: Props) {
   /* 20/11/2026 (ronda 7, análisis): cuántas semanas tienen todo lo de cada semana. */
   const cumplimiento = useMemo(() => {
     if (area !== "general" || tiraSemanas.length < 2) return undefined;
-    const completas = tiraSemanas.filter((s) => s.completa);
-    return { completas: completas.length, total: tiraSemanas.length, ultima: completas[completas.length - 1]?.nombre };
+    /*
+    | 27/11/2026 (jueces, ronda 9): «1 de 22» contaba todas las semanas, con
+    | pretemporada y semanas sin partido, aunque la nota decía que el plan sólo
+    | cuenta con partido. La base son ahora las semanas con partido ya jugado
+    | (la de ahora va en su tarjeta), la misma en la cifra y en la barra.
+    */
+    const conPartido = tiraSemanas.filter((s) => s.partidoDatos?.jugado && !s.actual);
+    if (!conPartido.length) return undefined;
+    const completas = conPartido.filter((s) => s.completa);
+    return { completas: completas.length, total: conPartido.length, ultima: completas[completas.length - 1]?.nombre };
   }, [area, tiraSemanas]);
 
   const partidoSemanaAbierta = useMemo(
@@ -576,6 +587,17 @@ function semanaCompleta(week: WeekData, conPartido: boolean) {
   return semanaTiene(week, /convoca/) && semanaTiene(week, /horario/) && (!conPartido || semanaTiene(week, /plan/));
 }
 
+/** La etiqueta de un archivo por su nombre (la misma regla que la lista de la semana). */
+function tipoDeArchivo(nombre: string) {
+  const n = nombre.toLowerCase();
+  if (/convoca/.test(n)) return "Convocatoria";
+  if (/horario/.test(n)) return "Horario";
+  if (/plan/.test(n)) return "Plan de partido";
+  if (/multa/.test(n)) return "Multas";
+  if (/firma/.test(n)) return "Firmas";
+  return null;
+}
+
 /** El último archivo de una semana: el último PDF si lo hay; si no, la última imagen. */
 function ultimoArchivo(imagenes: string[], pdfs: string[]) {
   if (pdfs.length) return { url: pdfs[pdfs.length - 1], kind: "pdfs" as FileKind };
@@ -612,6 +634,8 @@ function TarjetaSemana({
   onSelect: () => void;
 }) {
   const nombreUltimo = s.ultimo ? humanFileName(s.ultimo.url, s.ultimo.kind === "images" ? "Imagen" : "Documento") : "";
+  /* 27/11/2026 (análisis y marketing, ronda 9): qué es cada archivo, dicho con una etiqueta, no sólo con su nombre crudo. */
+  const tipo = miniatura && nombreUltimo ? tipoDeArchivo(nombreUltimo) : null;
 
   return (
     <div
@@ -660,6 +684,11 @@ function TarjetaSemana({
           ) : (
             <FileText size={13} className="shrink-0 text-[#C8A96B]" aria-hidden />
           )}
+          {tipo ? (
+            <span className="shrink-0 rounded border border-[#C8A96B]/45 px-1.5 py-0.5 text-[11px] font-semibold no-underline" style={{ color: "var(--rmcf-gold-ink)" }}>
+              {tipo}
+            </span>
+          ) : null}
           <span className="truncate">{nombreUltimo}</span>
           <ExternalLink size={12} className="shrink-0 opacity-70" aria-hidden />
         </a>

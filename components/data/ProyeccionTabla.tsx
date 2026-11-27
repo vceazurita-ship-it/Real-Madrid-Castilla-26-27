@@ -22,7 +22,7 @@
  * simulación va a trozos para no congelar la página.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { COMPARADO, ORO } from "@/components/data/graficas";
 import { useOptaLigero } from "@/hooks/useOptaLigero";
@@ -65,7 +65,13 @@ type Resultado = {
   puestos: Int32Array[];
 };
 
-export function ProyeccionTabla(props: { partidos: PartidoGoles[]; proximoRival: string }) {
+/**
+ * 27/11/2026 (jueces, ronda 10): `encabezado` (el rótulo y el título de la
+ * sección) se pinta aquí y sólo cuando hay proyección que enseñar: sin Opta,
+ * con un número impar de equipos o sin partidos por jugar, no sale nada y la
+ * página no acaba en un título vacío.
+ */
+export function ProyeccionTabla(props: { partidos: PartidoGoles[]; proximoRival: string; encabezado?: ReactNode }) {
   const caja = useRef<HTMLDivElement>(null);
   const [abierto, setAbierto] = useState(false);
 
@@ -108,7 +114,7 @@ const sorteaGoles = (c: Float64Array) => {
   return k;
 };
 
-function Bloque({ partidos, proximoRival }: { partidos: PartidoGoles[]; proximoRival: string }) {
+function Bloque({ partidos, proximoRival, encabezado }: { partidos: PartidoGoles[]; proximoRival: string; encabezado?: ReactNode }) {
   const { opta, cargando } = useOptaLigero();
   const [objetivo, setObjetivo] = useState(50);
   const [hecho, setHecho] = useState<{ clave: string; r: Resultado } | null>(null);
@@ -287,7 +293,13 @@ function Bloque({ partidos, proximoRival }: { partidos: PartidoGoles[]; proximoR
       .sort((a, b) => b.media - a.media || b.pts - a.pts);
   }, [base, hecho, clave, proximoRival]);
 
-  if (!opta) return cargando ? <p className="mt-6 text-sm text-white/50">Cargando Opta…</p> : null;
+  /* 27/11/2026 (jueces, ronda 10, fútbol): mientras llega Opta, un esqueleto del
+     alto de la tabla con los colores del tema (el «Cargando Opta…» en blanco no
+     se leía en modo día). Sin título: si al final no hay proyección, no se nombra. */
+  if (!opta)
+    return cargando ? (
+      <div role="status" aria-label="Cargando la proyección de la tabla" className="hueso mt-6 h-64 rounded-[18px] border border-white/10" />
+    ) : null;
   if (!base) return null;
   if (!base.quedan.length) return null;
 
@@ -306,6 +318,7 @@ function Bloque({ partidos, proximoRival }: { partidos: PartidoGoles[]; proximoR
 
   return (
     <div className="min-w-0">
+      {encabezado}
       <p className="mb-3 text-base font-medium text-white/85 sm:text-lg">{titular || (progreso < 1 ? "Simulando lo que queda de liga…" : "")}</p>
 
       <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-2 text-[12px] text-white/70">

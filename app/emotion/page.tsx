@@ -566,8 +566,9 @@ export default function EmotionPage() {
                   {caducada && (
                     <div className="mt-3 flex max-w-2xl flex-col gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                       <p className="min-w-0 text-sm leading-snug text-amber-200 [:root[data-theme=light]_&]:text-amber-900">
-                        <span className="font-semibold">A revisar: la valoración es del {fechaCorta}, hace {diasDesdeValoracion} días.</span>{" "}
-                        {limiteValorar ? `Valorar de nuevo ${limiteValorar}.` : "Valorar de nuevo antes del próximo partido."} Hasta entonces, las cifras de abajo van atenuadas.
+                        {/* 27/11/2026 (marketing, ronda 10): una línea, con el día límite. */}
+                        <span className="font-semibold">A revisar: valoración del {fechaCorta}, hace {diasDesdeValoracion} días.</span>{" "}
+                        {limiteValorar ? `Valorar de nuevo ${limiteValorar}.` : "Valorar de nuevo antes del próximo partido."}
                       </p>
                       <button
                         type="button"
@@ -684,6 +685,20 @@ export default function EmotionPage() {
             )}
 
             {/* ---------------------------------------------- Resumen */}
+            {/* 27/11/2026 (análisis, ronda 10): la cohorte de estas cuatro cifras
+                (la plantilla evaluada, no el once) y, si la valoración tiene 14
+                días o más, el sello «caducada» a la vista. */}
+            {!loading && rows.length > 0 && (
+              <p className="mb-2 flex flex-wrap items-center gap-2 text-[11px] font-semibold uppercase tracking-[.16em] text-white/60">
+                Plantilla · los {rows.length} evaluados (once y banquillo)
+                {fechaCorta ? ` · valoración del ${fechaCorta}` : ""}
+                {caducada && (
+                  <span className="rounded-full border border-amber-500/60 px-2 py-0.5 text-[10px] tracking-[.12em] text-amber-200 [:root[data-theme=light]_&]:text-amber-900">
+                    caducada · hace {diasDesdeValoracion} días
+                  </span>
+                )}
+              </p>
+            )}
             <div className={`mb-5 grid grid-cols-2 gap-2.5 sm:gap-3 xl:grid-cols-4 ${caducada ? "opacity-60" : ""}`} title={caducada ? `Valoración del ${fechaCorta}: hace ${diasDesdeValoracion} días` : undefined}>
               <SummaryTile
                 label="Jugadores analizados"
@@ -702,7 +717,7 @@ export default function EmotionPage() {
                 caption={
                   loading
                     ? "Cargando datos"
-                    : `${labelFor(teamScore)} · de los ${rows.length} evaluados`
+                    : `${labelFor(teamScore)} · de los ${rows.length} de la plantilla evaluados${rows.length < VALORACIONES_FIRMES ? " · una valoración cada uno, tendencia" : ""}`
                 }
                 tone={loading ? undefined : toneFor(teamScore)}
               />
@@ -712,7 +727,7 @@ export default function EmotionPage() {
                 value={axisRanking ? nombreLargo(axisRanking.top) : null}
                 caption={
                   axisRanking
-                    ? `${axisRanking.top.corto} · ${axisRanking.top.label}`
+                    ? `${axisRanking.top.corto} · ${axisRanking.top.label} · media de los ${rows.length} evaluados`
                     : "Cargando datos"
                 }
                 tone="#3BEA9A"
@@ -723,7 +738,7 @@ export default function EmotionPage() {
                 value={axisRanking ? nombreLargo(axisRanking.bottom) : null}
                 caption={
                   axisRanking
-                    ? `${axisRanking.bottom.corto} · ${axisRanking.bottom.label}`
+                    ? `${axisRanking.bottom.corto} · ${axisRanking.bottom.label} · media de los ${rows.length} evaluados`
                     : "Cargando datos"
                 }
                 tone="#FFB84D"
@@ -988,7 +1003,8 @@ function SummaryTile({
         </p>
       )}
 
-      <p className="mt-1 text-[11px] text-white/55 sm:text-xs">{caption}</p>
+      {/* 27/11/2026 (marketing, ronda 10): más contraste en el pie de cada cifra. */}
+      <p className="mt-1 text-xs text-white/70">{caption}</p>
     </div>
   );
 }

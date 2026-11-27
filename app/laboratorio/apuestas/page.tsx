@@ -1231,9 +1231,14 @@ function Recuento({ favor, contra, juegan, faltan }: { favor: number; contra: nu
           {faltan > 0 && <span className="text-white/70"> · {faltan === 1 ? "falta 1" : `faltan ${faltan}`}</span>}
         </p>
       )}
-      <div className="mt-1 flex h-3 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
-        <span className="h-full bg-emerald-400" style={{ width: `${pFavor}%` }} />
-        <span className="h-full bg-rose-400" style={{ width: `${pContra}%` }} />
+      {/* 27/11/2026 (marketing, ronda 9): el número dentro de cada tramo, para leerla sin la línea de arriba (si el tramo es muy corto, no cabe y no se pinta). */}
+      <div className="mt-1 flex h-4 overflow-hidden rounded-full bg-white/[0.08]" aria-hidden>
+        <span className="siempre-oscuro flex h-full items-center justify-center bg-emerald-400 text-[10.5px] font-bold leading-none tabular-nums" style={{ width: `${pFavor}%`, color: "#0B0F14" }}>
+          {favor > 0 && pFavor >= 12 ? favor : null}
+        </span>
+        <span className="siempre-oscuro flex h-full items-center justify-center bg-rose-400 text-[10.5px] font-bold leading-none tabular-nums" style={{ width: `${pContra}%`, color: "#0B0F14" }}>
+          {contra > 0 && pContra >= 12 ? contra : null}
+        </span>
       </div>
       {conPorcentaje && (
         <p className="mt-1 text-[12px] tabular-nums text-white/65">

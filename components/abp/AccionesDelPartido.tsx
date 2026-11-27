@@ -12,11 +12,13 @@
  */
 
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { Presentation } from "lucide-react";
 
 import { VerAccion } from "@/components/video/VerAccion";
 import { desenlace, nombreDeAccion, type EnlaceAccionAbp, type FilaAbpCorte } from "@/lib/abp/cortes-abp";
 import { zonaLegible } from "@/lib/abp/accionFrase";
+import { buscaJornada, cargaJornadas } from "@/lib/abp/jornada";
 
 export type AccionDeLista = {
   clave: string | null;
@@ -84,6 +86,7 @@ export function AccionesDelPartido({
   enlaces,
   fichaDe,
   enlacesVisibles = false,
+  pizarra,
 }: {
   acciones: AccionDeLista[];
   enlaces: Map<string, EnlaceAccionAbp>;
@@ -91,8 +94,25 @@ export function AccionesDelPartido({
   fichaDe?: (nombre: string) => string | null;
   /** 20/11/2026 (ronda 7, ABP ofensivo): los nombres con ficha, en oro, para que se vea que abren. */
   enlacesVisibles?: boolean;
+  /**
+   * 27/11/2026 (jueces, ronda 10): en cada fila, a la pizarra ABP con el rival
+   * ya elegido (`/abp-pizarra?rival=ID`, el ID de la hoja RIVALES). Sin ID, la
+   * pizarra a secas.
+   */
+  pizarra?: { rival: string; texto: string };
 }) {
   const [todas, setTodas] = useState(false);
+  const [idPizarra, setIdPizarra] = useState("");
+  const rivalPizarra = pizarra?.rival ?? "";
+  useEffect(() => {
+    if (!rivalPizarra) return;
+    const ctrl = new AbortController();
+    cargaJornadas(ctrl.signal)
+      .then((lista) => setIdPizarra(buscaJornada(lista, { rival: rivalPizarra })?.id ?? ""))
+      .catch(() => undefined);
+    return () => ctrl.abort();
+  }, [rivalPizarra]);
+  const hrefPizarra = idPizarra ? `/abp-pizarra?rival=${encodeURIComponent(idPizarra)}` : "/abp-pizarra";
 
   if (!acciones.length) return null;
 
@@ -180,7 +200,21 @@ export function AccionesDelPartido({
                     {variosPartidos && a.rival ? <span className="font-normal text-white/45"> · {a.rival}</span> : null}
                   </p>
                   {detalle && <p className="text-[13px] text-white/60">{detalle}</p>}
-                  {enlace && <VerAccion video={enlace.video} hudl={enlace.hudl} opta={enlace.opta} que="la acción" />}
+                  {enlace || pizarra ? (
+                    <div className="flex min-w-0 flex-wrap items-start gap-1.5">
+                      {enlace && <VerAccion video={enlace.video} hudl={enlace.hudl} opta={enlace.opta} que="la acción" compacto />}
+                      {pizarra ? (
+                        <Link
+                          href={hrefPizarra}
+                          title={`${pizarra.texto}${pizarra.rival ? ` · ${pizarra.rival}` : ""}`}
+                          className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-white/75 transition hover:bg-white/[0.06] hover:text-white"
+                        >
+                          <Presentation size={13} className="text-[#C8A96B]" aria-hidden />
+                          {pizarra.texto}
+                        </Link>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {caida ? (

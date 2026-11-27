@@ -62,7 +62,6 @@ import ABPZoneMap, {
   zonaDelArea,
   zonasDeAccion,
 } from "@/components/abp/ABPZoneMap";
-import { nombreEquipo } from "@/lib/equipos";
 import {
   AvisoPretemporada,
   BarraFiltros,
@@ -1085,6 +1084,17 @@ const numeroEnHoja = jornadas.reduce<number | null>(
   null,
 );
 const fichaRival = (equipo: string) => (equipo ? `/scout-rival-individual?equipo=${encodeURIComponent(equipo)}` : null);
+/* 27/11/2026 (jueces, ronda 10): los rivales con nombre corto y en tipo de título, como en ABP ofensivo («Águilas», no «ÁGUILAS FC»). */
+const tituloEquipo = (equipo: string) => {
+  const corto = nombreCorto(equipo);
+  return corto === corto.toLocaleUpperCase("es-ES")
+    ? corto
+        .toLocaleLowerCase("es-ES")
+        .split(" ")
+        .map((palabra) => `${palabra.charAt(0).toLocaleUpperCase("es-ES")}${palabra.slice(1)}`)
+        .join(" ")
+    : corto;
+};
 
 /* La jornada que se compara es la última de esta hoja y la ofensiva ya va por una posterior. */
 const jornadaComparadaObj = jornadas.find((una) => una.clave === jornadaComparada);
@@ -2556,11 +2566,47 @@ const conclusiones = (() => {
     );
   }
 
-  const zona = mejorGrupo(
-    filtered,
-    (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
-    tasaPeligroDe,
-  );
+  /*
+  | 27/11/2026 (jueces, ronda 10): una sola zona crítica en toda la página. La
+  | conclusión decía segundo palo (por tasa, 4 de 17) y «¿Dónde nos cae?»
+  | primer palo (6 de 12). Ahora las dos usan el MISMO criterio y la misma
+  | muestra que el campo (zonaDelArea): la zona de donde nacen más acciones que
+  | acaban en gol u ocasión suya, con su parte del volumen al lado. Sólo si no
+  | hay una que mande (empate o menos de 3), la frase de siempre por tasa.
+  */
+  const conZonaArea = filtered.filter((r) => zonaDelArea(r.zonaCaida, "defensive"));
+  const peligroArea = conZonaArea.filter(LECTOR.peligro);
+  const zonasPeligro = [...new Set(conZonaArea.map((r) => zonaDelArea(r.zonaCaida, "defensive")))]
+    .map((nombre) => {
+      const lista = conZonaArea.filter((r) => zonaDelArea(r.zonaCaida, "defensive") === nombre);
+      return { nombre, n: lista.length, k: lista.filter(LECTOR.peligro).length };
+    })
+    .sort((x, y) => y.k - x.k || x.n - y.n);
+  const zonaLider =
+    peligroArea.length >= 3 &&
+    zonasPeligro[0] &&
+    zonasPeligro[0].k >= 2 &&
+    !(zonasPeligro[1] && zonasPeligro[1].k === zonasPeligro[0].k) &&
+    /* Como el titular del campo: sólo si se lleva más peligro del que le toca por volumen. */
+    Math.round((zonasPeligro[0].k / peligroArea.length) * 100) > Math.round((zonasPeligro[0].n / conZonaArea.length) * 100)
+      ? zonasPeligro[0]
+      : null;
+  if (zonaLider) {
+    const pk = Math.round((zonaLider.k / peligroArea.length) * 100);
+    const pn = Math.round((zonaLider.n / conZonaArea.length) * 100);
+    const tendenciaZona = peligroArea.length < MUESTRA_FIRME ? ` · tendencia (${peligroArea.length} con peligro)` : "";
+    frases.push(
+      `Zona que más concede (el mismo criterio que «¿Dónde nos cae?»): ${zonaLider.nombre}, de ahí nacen ${zonaLider.k} de las ${peligroArea.length} acciones que acaban en gol u ocasión suya (${pk} %) con el ${pn} % de los envíos que caen en el área (${zonaLider.n} de ${conZonaArea.length})${tendenciaZona}. Vídeo el lunes y tarea de vigilancia de esa zona y salida del portero el martes. En goles esperados (calidad de los remates) el reparto es otro: lo dice «Ocupación vs. peligro concedido».`,
+    );
+  }
+
+  const zona = zonaLider
+    ? null
+    : mejorGrupo(
+        filtered,
+        (r) => (esSuperioridad(r.zonaCaida) ? "" : r.zonaCaida),
+        tasaPeligroDe,
+      );
 
   if (zona && zona.valor > 0) {
     /*
@@ -2705,7 +2751,8 @@ const conclusiones = (() => {
     anterioresConclusion && anterioresConclusion.length
       ? `objetivo: como mucho ${Math.round((anterioresConclusion.filter(LECTOR.remate).length / anterioresConclusion.length) * 100)} % con remate (media de las ${nAnterioresConclusion} jornadas anteriores; en esta jornada ${hoyRemate} %)`
       : metaPartidos
-        ? `objetivo: como mucho ${metaPartidos.pct} % con remate (lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos; ${remateTemporada}${remateUltimo})`
+        ? /* 27/11/2026 (jueces, ronda 10): la base del objetivo en la misma frase. */
+          `objetivo: como mucho ${metaPartidos.pct} % con remate, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo logramos en ${metaPartidos.logrados} de ${metaPartidos.partidos} partidos con 3 acciones o más; ${remateTemporada}${remateUltimo})`
         : "";
   const tarea = golEncajado
     ? `Qué entrenamos${filtered.length < MUESTRA_FIRME ? " (tendencia que vigilar)" : ""}: ${
@@ -2714,7 +2761,7 @@ const conclusiones = (() => {
           : /c[oó]rner/i.test(golEncajado.tipoAccion)
             ? "marcas y primer contacto en el córner defensivo"
             : `defensa de la ${hablado(golEncajado.tipoAccion.trim().toLowerCase())}`
-      } (gol encajado: ${[golEncajado.contexto.jornada.corto, golEncajado.rival ? nombreEquipo(golEncajado.rival) : "", golEncajado.contexto.minuto.minuto != null ? `${golEncajado.contexto.minuto.minuto}′` : ""].filter(Boolean).join(" · ")}${(() => {
+      } (gol encajado: ${[golEncajado.contexto.jornada.corto, golEncajado.rival ? tituloEquipo(golEncajado.rival) : "", golEncajado.contexto.minuto.minuto != null ? `${golEncajado.contexto.minuto.minuto}′` : ""].filter(Boolean).join(" · ")}${(() => {
         /* 17/11/2026 (jueces, ronda 20): con el dato que la sostiene, «3 goles de 92 (3,3 %)». */
         const g = filtered.filter(LECTOR.gol).length;
         return g > 1 ? `; ${g} goles en ${filtered.length} acciones, ${cifra((g / filtered.length) * 100, 1)} %` : "";
@@ -2888,7 +2935,7 @@ const categoriasVisual: CategoriaVisual[] = [
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-3 sm:pt-5">
+          <section className="laminas-quietas px-4 sm:px-8 pb-8 sm:pb-12 pt-3 sm:pt-5">
 
   <AbpHeader
     area="RMCF Castilla · Colectivo"
@@ -3074,7 +3121,7 @@ const categoriasVisual: CategoriaVisual[] = [
           }
         `}
       >
-        {nombreEquipo(equipo)}
+        {tituloEquipo(equipo)}
       </button>
     );
   })}
@@ -3115,7 +3162,7 @@ const categoriasVisual: CategoriaVisual[] = [
     | del partido o en los gráficos: aquí sólo lo que se mira primero. Los
     | goles nuestros tras robar su ABP siguen en la tabla y en el filtro.
     */}
-    <div className="mt-5 grid grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4 max-sm:pr-10">
+    <div className="mt-5 grid min-w-0 grid-cols-2 gap-3 sm:mt-6 xl:grid-cols-4">
   <Card
   /* 16/11/2026 (jueces): en la tabla «Remates concedidos» es un número (3);
      aquí es un porcentaje, y se llama como la fila de la tabla en %. */
@@ -3156,6 +3203,7 @@ const categoriasVisual: CategoriaVisual[] = [
   value={metrics.goalsAgainst.toLocaleString()}
   hint="Encajados desde su ABP · menos es mejor"
   muestra={{ n: metrics.goalsAgainst, de: metrics.total, unidad: "acciones" }}
+  pocosCasos
   activo={resultadoFilter === "Gol Rival"}
   onClick={() => pulsa("resultado", "Gol Rival")}
   referencia={mediaAnterior("golesRival", (n) => cifra(n, 1))}
@@ -3211,11 +3259,20 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {soloVisual && (
               <VisualAbp
-                frente={<FrenteAlRival area="abp-def" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />}
+                frente={
+                  <>
+                    <FrenteAlRival area="abp-def" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />
+                    {/* 27/11/2026 (jueces, ronda 10): por qué las dos cifras de remates de córner de Opta no coinciden. */}
+                    <p className="-mt-2 px-1 text-[11.5px] leading-snug text-white/60">
+                      «Remates que concede tras córner» (aquí) cuenta los remates que Opta ata al córner, por partido; en «¿Y frente a la categoría?» los remates de córner suman también los del rechace y la segunda jugada: por eso no coinciden.
+                    </p>
+                  </>
+                }
                 filas={filasVisual}
                 categorias={categoriasVisual}
                 marca={jornada === "ALL" ? jornadaMarca : null}
                 repartoArriba
+                tipoFrenteAlResto
                 unidad={{ uno: "acción del rival", varios: "acciones del rival", genero: "f" }}
                 exito={{ uno: "acaba en gol u ocasión suya", varios: "acaban en gol u ocasión suya", mejorAlto: false }}
                 fuente="Hoja de ABP defensivo · con los filtros de arriba"
@@ -3250,7 +3307,13 @@ const categoriasVisual: CategoriaVisual[] = [
                         titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${nombreCorto(rivalAnalizado)}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} del rival con su vídeo`,
                         nodo: (
                           <>
-                            <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={() => fichaRival(rivalAnalizado)} />
+                            <AccionesDelPartido
+                              acciones={accionesLista}
+                              enlaces={enlacesVistos}
+                              fichaDe={() => fichaRival(rivalAnalizado)}
+                              /* 27/11/2026 (jueces, ronda 10): cómo lo defendimos, en la pizarra ABP con el rival ya elegido. */
+                              pizarra={rivalAnalizado && new Set(accionesLista.map((a) => a.rival)).size <= 1 ? { rival: rivalAnalizado, texto: "Cómo lo defendimos, en la pizarra" } : undefined}
+                            />
                             {listaDeLaMarca && jornadaMarca ? (
                               <button
                                 type="button"
@@ -4787,10 +4850,13 @@ function Card({
   onClick,
   activo = false,
   referencia,
+  pocosCasos = false,
 }: {
   title: string;
   value: React.ReactNode;
   hint?: string;
+  /** 27/11/2026 (jueces, ronda 10): un suceso raro (goles) con menos de 5 casos es tendencia aunque la base sea larga, como en ABP ofensivo. */
+  pocosCasos?: boolean;
   /** De cuántas acciones sale la cifra: con menos de 10 va en gris, con «tendencia». */
   muestra?: { n: number; de: number; unidad: string; soloBase?: boolean };
   /** Las tarjetas que son un resultado concreto («Gol Rival») filtran por él. */
@@ -4801,7 +4867,7 @@ function Card({
 }) {
   const Caja = onClick ? "button" : "div";
   /* Un solo umbral y una sola palabra (10/11/2026): «tendencia» por debajo de MUESTRA_FIRME, en gris y sin juicio. */
-  const corta = Boolean(muestra && muestra.de < MUESTRA_FIRME);
+  const corta = Boolean(muestra && (muestra.de < MUESTRA_FIRME || (pocosCasos && muestra.n < 5)));
 
   return (
     <Caja

@@ -103,6 +103,12 @@ function Bloque({ teamId, nombre, ids, suyos }: { teamId: string; nombre: string
   const xgCon = por90(r.con.xg, r.con.minutos);
   const xgSin = por90(r.sin.xg, r.sin.minutos);
   const fiable = r.con.minutos >= MIN_MINUTOS && r.sin.minutos >= MIN_MINUTOS;
+  /*
+  | 27/11/2026 (ronda 10, fútbol): con muestra corta y sin diferencia que se
+  | lea (menos de 0,3 xG por 90′), el bloque no dice nada: no se pinta. Con
+  | 154′ juntos y +0,01, todo salía en cero o casi igual.
+  */
+  if (!fiable && (xgCon == null || xgSin == null || Math.abs(xgCon - xgSin) < 0.3)) return null;
   const lectura =
     xgCon == null || xgSin == null
       ? r.sin.minutos <= 0

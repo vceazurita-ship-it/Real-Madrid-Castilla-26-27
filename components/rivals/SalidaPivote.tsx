@@ -24,7 +24,7 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
-import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
+import { nombreDeRival } from "@/lib/rivals/nombre-jugador";
 import {
   MARGEN_ALTURA,
   MAX_PARTIDOS,
@@ -113,7 +113,7 @@ function Bloque({ teamId, nombre, ids, nombres }: { teamId: string; nombre: stri
   const { s, quien } = datos;
   const nombreDe = (id: string) => {
     const n = quien.get(id)?.nombre || "";
-    return (n && (nombreDePlantilla(n, nombres) || n)) || `Jugador ${id}`;
+    return (n && (nombreDeRival(n, nombres) || n)) || `Jugador ${id}`;
   };
   const corto = (id: string) => {
     const n = nombreDe(id).trim().split(/\s+/);

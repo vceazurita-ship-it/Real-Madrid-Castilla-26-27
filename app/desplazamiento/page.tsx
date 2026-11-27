@@ -331,11 +331,22 @@ function salidaDelViaje(viaje: Desplazamiento) {
   const dias = [...viaje.dias].filter((d) => d.fecha).sort((a, b) => a.fecha.localeCompare(b.fecha));
   const dia = dias.find((d) => d.citas.length > 0);
   const orden = dia ? ordenaCitas(dia.citas) : [];
-  const cita = orden.find((c) => esSalida(c)) ?? orden.find((c) => c.tipo === "viaje" && !/^llegada\b/i.test(c.texto.trim()));
+  const origen = (viaje.origen ?? "").split(",")[0].trim();
+  /*
+  | 27/11/2026 (fútbol, ronda 9): en un partido sin noche fuera la única salida
+  | del día era la vuelta («Salida bus a Valdebebas», 17:45) y la tarjeta la
+  | daba como SALIDA. La que va al sitio de «Sale de» (o dice vuelta o
+  | regreso) no es la salida del viaje; si no hay otra, no se nombra.
+  */
+  const destinoOrigen = origen ? [" a ", " hacia ", " hasta "].map((p) => `${p}${llano(origen)}`) : [];
+  const esVuelta = (c: { texto: string }) => {
+    const t = ` ${llano(c.texto)}`;
+    return t.includes(" vuelta") || t.includes(" regreso") || destinoOrigen.some((d) => t.includes(d));
+  };
+  const cita = orden.find((c) => esSalida(c) && !esVuelta(c)) ?? orden.find((c) => c.tipo === "viaje" && !/^llegada\b/i.test(c.texto.trim()) && !esVuelta(c));
 
   if (!dia || !cita) return null;
 
-  const origen = (viaje.origen ?? "").split(",")[0].trim();
   const nombra = !origen || llano(cita.texto).includes(llano(origen));
   const texto = cita.texto.trim();
 
@@ -669,6 +680,10 @@ function ListaPendiente({
           <Circle size={10} className="shrink-0" aria-hidden />
           {porCompletar === 1 ? "1 dato por poner" : `${porCompletar} datos por poner`}
         </button>
+        {/* 27/11/2026 (marketing, ronda 9): cuáles, a la vista y con su aviso de que es trabajo de quien monta el viaje (el resto del cuerpo técnico no lo ve). */}
+        <p className="mt-1 text-[12px] leading-snug text-white/60">
+          Sólo lo ves tú, como administrador: {nombresFalta.join(", ")}. Pulsa para rellenarlos.
+        </p>
       </div>
     );
   }
@@ -2872,7 +2887,8 @@ export default function DesplazamientoPage() {
                       enCasa ? "en casa" : "fuera",
                       !enCasa && viaje.conHotel ? "con hotel" : "",
                       viaje.estadio.superficie,
-                      medidas ? `${medidas}${fuenteMedidas ? ` (${fuenteMedidas})` : ""}` : "",
+                      /* 27/11/2026 (fútbol, ronda 9): la fuente («Hoja RIVALES») va en la ayuda de la pantalla, no en la línea del cuerpo técnico. */
+                      medidas,
                     ].filter((x) => x?.trim()).join(" · ");
 
                     return (

@@ -439,6 +439,21 @@ const patronDeEnvio = (r: Row) => patronEnvio(r.tipoEnvio, r.zonaCaida);
 | los partidos de la hoja que con estos filtros se quedan sin acciones salen
 | rotulados «sin acc.» en vez de desaparecer.
 */
+/** 27/11/2026 (jueces, ronda 10): el rival corto y en tipo de título («Torremolinos», no «TORREMOLINOS»). */
+const tituloEquipo = (equipo: string) => {
+  const corto = nombreCorto(equipo);
+  return corto === corto.toLocaleUpperCase("es-ES")
+    ? corto
+        .toLocaleLowerCase("es-ES")
+        .split(" ")
+        .map((palabra) => `${palabra.charAt(0).toLocaleUpperCase("es-ES")}${palabra.slice(1)}`)
+        .join(" ")
+    : corto;
+};
+
+/** 27/11/2026 (jueces, ronda 10): por debajo, la columna de un partido se pinta en gris, como tendencia. */
+const MUESTRA_COLUMNA = 10;
+
 function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[]; marca: string | null; todas?: FilaVisualAbp["jornada"][] }) {
   const porJornada = new Map<string, { jornada: FilaVisualAbp["jornada"]; n: number; k: number }>();
   const competiciones = new Set(filas.map((f) => f.jornada.competicion));
@@ -473,7 +488,8 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
       <div className="min-w-0 overflow-x-auto">
         <div
           className="relative mt-2 flex h-24 items-end gap-1"
-          style={{ minWidth: partidos.length * 30 }}
+          /* 27/11/2026 (jueces, ronda 10): a 390 px se cortaba en J10 y la J13 en oro no se veía; 20 px por columna caben las 13. */
+          style={{ minWidth: partidos.length * 20 }}
           role="img"
           aria-label={`Gol u ocasión por partido: ${partidos.map((p) => (p.n ? `${p.jornada.corto} ${p.k} de ${p.n}` : `${p.jornada.corto} sin acciones`)).join(", ")}; media ${pcTxt(media)} (${totalK} de ${totalN})`}
         >
@@ -485,14 +501,16 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
           {partidos.map((p) => {
             const v = p.n ? (p.k / p.n) * 100 : 0;
             const marcada = marca === p.jornada.clave;
+            /* 27/11/2026 (jueces, ronda 10): con menos de 10 acciones el % es tendencia: en gris, no igual que J01–J05. */
+            const corta = p.n > 0 && p.n < MUESTRA_COLUMNA;
             return (
               <div
                 key={p.jornada.clave}
                 className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-                title={p.n ? `${p.jornada.etiqueta}: ${p.k} de ${p.n} (${pcTxt(v)})` : `${p.jornada.etiqueta}: sin acciones con estos filtros`}
+                title={p.n ? `${p.jornada.etiqueta}: ${p.k} de ${p.n} (${pcTxt(v)})${corta ? " · tendencia, pocas acciones" : ""}` : `${p.jornada.etiqueta}: sin acciones con estos filtros`}
               >
                 <span
-                  className={`mb-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums ${marcada ? "font-bold" : "text-white/60"}`}
+                  className={`mb-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums ${marcada ? "font-bold" : corta ? "text-white/45" : "text-white/70"}`}
                   style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}
                 >
                   {p.n ? `${p.k}/${p.n}` : "sin acc."}
@@ -501,7 +519,7 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
                   className="w-full max-w-[28px] rounded-t-[3px]"
                   style={{
                     height: v > 0 ? `calc(${alto(v)} * 0.8)` : "2px",
-                    background: v > 0 ? (marcada ? COLOR_DESENLACE.oro : COLOR_DESENLACE.mejor) : p.n ? "rgb(var(--rmcf-ink-rgb) / .25)" : "transparent",
+                    background: v > 0 ? (marcada ? COLOR_DESENLACE.oro : corta ? "rgb(var(--rmcf-ink-rgb) / .3)" : COLOR_DESENLACE.mejor) : p.n ? "rgb(var(--rmcf-ink-rgb) / .25)" : "transparent",
                     borderTop: p.n ? undefined : "1px dashed rgb(var(--rmcf-ink-rgb) / .3)",
                     outline: marcada ? "2px solid var(--rmcf-gold-ink)" : undefined,
                     outlineOffset: 1,
@@ -511,7 +529,7 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
             );
           })}
         </div>
-        <div className="mt-1 flex gap-1" style={{ minWidth: partidos.length * 30 }} aria-hidden>
+        <div className="mt-1 flex gap-1" style={{ minWidth: partidos.length * 20 }} aria-hidden>
           {partidos.map((p) => (
             <span
               key={p.jornada.clave}
@@ -523,8 +541,22 @@ function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[
           ))}
         </div>
       </div>
-      <p className="mt-1.5 text-[11.5px] leading-snug text-white/55">
-        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b), de {Math.min(...conAcciones.map((p) => p.n))} a {Math.max(...conAcciones.map((p) => p.n))}: se lee como tendencia. El detalle, en «¿Va a mejor?».
+      <p className="mt-1.5 text-[11.5px] leading-snug text-white/65">
+        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b).{" "}
+        <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.mejor }} aria-hidden />{MUESTRA_COLUMNA} acciones o más</span>
+        {conAcciones.some((p) => p.n < MUESTRA_COLUMNA) ? (
+          <>
+            {" · "}
+            <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: "rgb(var(--rmcf-ink-rgb) / .3)" }} aria-hidden />gris: menos de {MUESTRA_COLUMNA}, tendencia (un 0/2 no es una carencia)</span>
+          </>
+        ) : null}
+        {marca && partidos.some((p) => p.jornada.clave === marca) ? (
+          <>
+            {" · "}
+            <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.oro }} aria-hidden />dorado: el último partido</span>
+          </>
+        ) : null}
+        . El detalle, en «¿Va a mejor?».
       </p>
     </figure>
   );
@@ -2924,10 +2956,26 @@ const titularDecision = (() => {
   const pc = (k: number, n: number) => Math.round((k / n) * 100);
   const [que, ...accion] = lectura.entrenar.titulo.split(": ");
 
-  return `${que}: ${h.aciertos} de ${h.n} en gol u ocasión (${pc(h.aciertos, h.n)} %) frente a ${h.aciertosResto} de ${h.resto} (${pc(h.aciertosResto, h.resto)} %) en el resto${accion.length ? ` → ${accion.join(": ")}` : ""}${h.n < MUESTRA_FIRME ? " · tendencia" : ""}`;
+  /*
+  | 27/11/2026 (jueces, ronda 10): «Tipo de acción: 13 de 59 … → Córner» se
+  | leía como que el córner es lo mejor. Ahora la idea en vestuario y la base
+  | aparte: «El córner rinde menos que el resto: 22 % (13 de 59) frente a 38 %
+  | (15 de 40) → tarea de córner · base: 59 acciones frente a 40 del resto».
+  | Con menos de 15 acciones en el grupo o en el resto, no se afirma: tendencia.
+  */
+  const sinTarea = que.trim().toLocaleLowerCase("es-ES") === h.dimension.trim().toLocaleLowerCase("es-ES");
+  const sujeto = sinTarea ? h.valor : que;
+  const tarea = sinTarea ? `tarea de ${h.valor.toLocaleLowerCase("es-ES")}` : accion.join(": ").replace(/^./, (c) => c.toLocaleLowerCase("es-ES"));
+  const sujetoFrase = `${sujeto.charAt(0).toLocaleUpperCase("es-ES")}${sujeto.slice(1)}`;
+  const firme = h.n >= MUESTRA_FIRME && h.resto >= MUESTRA_FIRME;
+
+  return {
+    titular: `${sujetoFrase} ${/^env[ií]os /i.test(sujeto) ? "rinden" : "rinde"} menos que el resto${firme ? "" : " (tendencia)"}: ${pc(h.aciertos, h.n)} % en gol u ocasión (${h.aciertos} de ${h.n}) frente a ${pc(h.aciertosResto, h.resto)} % (${h.aciertosResto} de ${h.resto})${tarea ? ` → ${tarea}` : ""}`,
+    base: `Base: ${h.n} ${h.n === 1 ? "acción" : "acciones"} de ${sujeto.toLocaleLowerCase("es-ES")} frente a ${h.resto} del resto con el dato apuntado${firme ? "" : `; con menos de ${MUESTRA_FIRME} en un lado, se lee como tendencia`}.`,
+  };
 })();
 
-const titularConclusiones = titularDecision ?? (filtered.length
+const titularConclusiones = titularDecision?.titular ?? (filtered.length
   ? (() => {
       const conRemate = filtered.filter(LECTOR.remate).length;
       const peligro = filtered.filter(LECTOR.peligro).length;
@@ -3083,7 +3131,7 @@ const categoriasVisual: CategoriaVisual[] = [
         <div className="min-w-0 flex-1">
           <Topbar />
 
-          <section className="px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
+          <section className="laminas-quietas px-4 sm:px-8 pb-8 sm:pb-12 pt-6 sm:pt-10">
 
   <AbpHeader
     area="RMCF Castilla · Colectivo"
@@ -3277,7 +3325,7 @@ const categoriasVisual: CategoriaVisual[] = [
     }
   `}
 >
-  {nombreCorto(equipo)}
+  {tituloEquipo(equipo)}
 </button>
       ))}
   </div>
@@ -3292,6 +3340,7 @@ const categoriasVisual: CategoriaVisual[] = [
       <ConclusionPlegada
         items={conclusionesVista}
         titular={titularConclusiones}
+        base={titularDecision?.base}
         marca={filtered.length && filtered.length < MUESTRA_FIRME ? `tendencia · ${filtered.length} acciones` : undefined}
         grafico={
           filasVisual.length ? (
@@ -3320,7 +3369,7 @@ const categoriasVisual: CategoriaVisual[] = [
     ) : vista === "resumen" ? (
       <Conclusiones
         items={conclusionesVista}
-        titular={titularConclusiones}
+        titular={titularDecision ? `${titularDecision.titular} · ${titularDecision.base.replace(/^Base/, "base").replace(/\.$/, "")}` : titularConclusiones}
         enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo de ABP" }}
         className="mt-5"
       />
@@ -3330,7 +3379,7 @@ const categoriasVisual: CategoriaVisual[] = [
         quepan de 200 px en adelante, estiradas, en el ordenador. */}
     {/* 16/11/2026 (jueces): en el móvil, una tarjeta por fila (dos columnas de
         alto desigual dejaban la última sola y estrecha). */}
-    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 max-sm:pr-10 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-full sm:[&>*]:basis-[200px]">
+    <div className="mt-5 flex flex-wrap gap-4 sm:mt-6 sm:gap-5 [&>*]:min-w-0 [&>*]:grow [&>*]:basis-full sm:[&>*]:basis-[200px]">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
@@ -3501,11 +3550,20 @@ const categoriasVisual: CategoriaVisual[] = [
 
             {soloVisual && (
               <VisualAbp
-                frente={<FrenteAlRival area="abp-of" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />}
+                frente={
+                  <>
+                    <FrenteAlRival area="abp-of" rivalFiltro={rival !== "ALL" ? rival : ""} rivalPartido={rivalAnalizado} />
+                    {/* 27/11/2026 (jueces, ronda 10): por qué las dos cifras de remates de córner de Opta no coinciden. */}
+                    <p className="-mt-2 px-1 text-[11.5px] leading-snug text-white/60">
+                      «Remates tras córner» (aquí) cuenta los remates que Opta ata al córner, por partido; «remates de córner» de «¿Y frente a la categoría?» suma también los del rechace y la segunda jugada. Por eso la segunda cifra es mayor.
+                    </p>
+                  </>
+                }
                 filas={filasVisual}
                 categorias={categoriasVisual}
                 marca={jornada === "ALL" ? jornadaMarca : null}
                 repartoArriba
+                tipoFrenteAlResto
                 unidad={{ uno: "acción", varios: "acciones", genero: "f" }}
                 exito={{ uno: "acaba en gol u ocasión", varios: "acaban en gol u ocasión", mejorAlto: true }}
                 fuente="Hoja de ABP ofensivo · con los filtros de arriba"
@@ -3541,7 +3599,14 @@ const categoriasVisual: CategoriaVisual[] = [
                         titulo: `${listaDeLaMarca && etiquetaAnalizada ? `El último partido · ${etiquetaAnalizada}${rivalAnalizado ? ` · ${nombreCorto(rivalAnalizado)}` : ""} · ` : ""}Acción a acción · ${accionesLista.length === 1 ? "la acción" : `las ${accionesLista.length}`} con su vídeo`,
                         nodo: (
                           <>
-                            <AccionesDelPartido acciones={accionesLista} enlaces={enlacesVistos} fichaDe={fichaNuestra} enlacesVisibles />
+                            <AccionesDelPartido
+                              acciones={accionesLista}
+                              enlaces={enlacesVistos}
+                              fichaDe={fichaNuestra}
+                              enlacesVisibles
+                              /* 27/11/2026 (jueces, ronda 10): de cada fila a la pizarra ABP con el rival ya elegido. */
+                              pizarra={rivalAnalizado && new Set(accionesLista.map((a) => a.rival)).size <= 1 ? { rival: rivalAnalizado, texto: "En la pizarra" } : undefined}
+                            />
                             {/* 20/11/2026 (ronda 7, fútbol): del rival del partido, a sus goles encajados (Análisis de goles, en contra). */}
                             {rivalAnalizado && new Set(accionesLista.map((a) => a.rival)).size <= 1 ? (
                               <Link

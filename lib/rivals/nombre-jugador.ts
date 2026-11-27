@@ -30,3 +30,24 @@ export function nombreDePlantilla(otro: string, nombres: string[]): string {
 
   return casan.length === 1 ? casan[0] : otro;
 }
+
+/**
+ * Lo mismo, con una segunda oportunidad (27/11/2026, ronda 10, jueces de
+ * fútbol): Opta escribe «Jeremy Jorge» y la plantilla «Jeremy José». Si el
+ * cruce entero no casa, vale el mismo nombre de pila (cuatro letras o más) con
+ * la misma inicial del apellido, y sólo si casa UNA ficha. Si no, como venía.
+ */
+export function nombreDeRival(otro: string, nombres: string[]): string {
+  const directo = nombreDePlantilla(otro, nombres);
+  if (directo !== otro || !otro.trim()) return directo;
+
+  const suyas = llano(otro);
+  if (suyas.length < 2 || suyas[0].length < 4) return otro;
+
+  const casan = [...new Set(nombres)].filter((n) => {
+    const palabras = llano(n);
+    return palabras.length >= 2 && palabras[0] === suyas[0] && palabras[palabras.length - 1].charAt(0) === suyas[suyas.length - 1].charAt(0);
+  });
+
+  return casan.length === 1 ? casan[0] : otro;
+}

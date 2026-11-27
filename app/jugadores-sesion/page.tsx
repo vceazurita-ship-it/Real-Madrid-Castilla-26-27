@@ -2892,9 +2892,25 @@ export default function JugadoresSesionPage() {
     const renombrada = Boolean(tarea.plan && tarea.plan.nombre.trim() && tarea.plan.nombre.trim() !== tarea.nombre.trim());
     const [lados, extra = "0"] = m[0].split("+");
     const porEquipo = lados.split(/v/i).map((n) => Number(n.trim()));
-    if (tarea.equipos.length !== porEquipo.length) return [];
     const esperados = porEquipo.reduce((s, n) => s + n, 0) + Number(extra.trim());
     const hay = enLaTarea.length;
+    /*
+    | 27/11/2026 (fútbol, ronda 9): antes de hacer los equipos, si la lista del
+    | día no llega al formato de la hoja (V-T1 10v8 = 18 con 13 disponibles),
+    | se avisa con una propuesta que sí cabe: mismos equipos, repartidos lo más
+    | parejos posible, y dos comodines desde 10 jugadores.
+    */
+    const disponibles = sesion ? sesion.jugadores.filter((j) => !j.baja).length : 0;
+    if (!hay && disponibles > 0 && disponibles < esperados && porEquipo.length > 1) {
+      const comodines = disponibles >= 10 ? 2 : 0;
+      const resto = disponibles - comodines;
+      const base = Math.floor(resto / porEquipo.length);
+      const propuesta = porEquipo.map((_, i) => base + (i < resto % porEquipo.length ? 1 : 0)).join("v") + (comodines ? `+${comodines} comodines` : "");
+      const texto = `La tarea pide ${esperados} (${formato.trim()}) y hay ${disponibles} disponibles: ajustarla a ${propuesta}.`;
+
+      return [{ nivel: "aviso", texto, titular: texto }];
+    }
+    if (tarea.equipos.length !== porEquipo.length) return [];
     const tamanos = tarea.equipos.map((e) => (reparto.porEquipo[e.id] ?? []).length);
     const descuadre = [...tamanos].sort((a, b) => a - b).join() !== [...porEquipo].sort((a, b) => a - b).join();
     const deLaHoja = renombrada && tarea.plan ? ` (tarea «${tarea.plan.nombre.trim()}» de la hoja)` : "";

@@ -20,7 +20,7 @@ import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
 import { useAsoma } from "@/hooks/useAsoma";
 import { lecturaConcentracion, repartoXg } from "@/lib/rivals/reparto-xg";
-import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
+import { nombreDePlantilla, nombreDeRival } from "@/lib/rivals/nombre-jugador";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 const miles = (v: number) => Math.round(v).toLocaleString("es-ES");
@@ -59,7 +59,7 @@ function Bloque({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const color = esCastilla ? ORO : COMPARADO;
   const primero = r.jugadores[0];
   /* Los del rival con el nombre de su plantilla; los nuestros, como vienen. */
-  const nombreVisto = (jugador: string) => (esCastilla ? jugador : nombreDePlantilla(jugador, nombres));
+  const nombreVisto = (jugador: string) => (esCastilla ? jugador : nombreDeRival(jugador, nombres));
   const escala = Math.max(...r.jugadores.map((j) => Math.max(j.xg, j.esperado)), 0.01);
 
   return (

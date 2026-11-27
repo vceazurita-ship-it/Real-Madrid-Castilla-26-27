@@ -198,7 +198,24 @@ export function CampoEmocional({
 
   const [once, setOnce] = useState<OnceDeLaJornada | null | undefined>(undefined);
   const [historia, setHistoria] = useState<Foto[]>([]);
-  const [elegido, setElegido] = useState<string | null>(null);
+  /* 27/11/2026 (análisis, ronda 10): /emotion?jugador=NOMBRE (desde su ficha de
+     /individual) abre con él elegido. `undefined` = aún no se ha tocado nada. */
+  const [elegidoMano, setElegido] = useState<string | null | undefined>(undefined);
+  const [pedido, setPedido] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelado = false;
+
+    void Promise.resolve().then(() => {
+      if (cancelado) return;
+      const q = new URLSearchParams(window.location.search).get("jugador");
+      if (q) setPedido(q);
+    });
+
+    return () => {
+      cancelado = true;
+    };
+  }, []);
   const [vista, setVista] = useState<"radares" | "fichas">("radares");
 
   /* El once se lee cada vez que se abre la pantalla: lo cambiado en la pizarra sale al recargar.
@@ -334,6 +351,12 @@ export function CampoEmocional({
   }, [once, rows, deLaPlantilla, conHistoria, teamAverage]);
 
   const todos = useMemo(() => [...titulares, ...banquillo], [titulares, banquillo]);
+  const pedidoClave = useMemo(() => {
+    if (!pedido) return null;
+    const conDato = todos.filter((c) => c.dato && !c.dato.estimado);
+    return mejorCasado([pedido], conDato, (c) => [c.nombre, c.dato?.jugador])?.clave ?? null;
+  }, [pedido, todos]);
+  const elegido = elegidoMano !== undefined ? elegidoMano : pedidoClave;
   const seleccionado = todos.find((c) => c.clave === elegido && c.dato) ?? null;
 
   /* Las líneas del once de la pizarra, con el nombre de la hoja emocional. */
@@ -486,6 +509,7 @@ export function CampoEmocional({
             titulares={titulares}
             teamAverage={teamAverage}
             fecha={fechaValoracion}
+            caducada={diasValoracion !== null && diasValoracion >= 14}
             onCerrar={() => setElegido(null)}
             onElegir={elige}
             onValorar={onValorar}
@@ -1169,6 +1193,7 @@ function PanelLateral({
   titulares,
   teamAverage,
   fecha,
+  caducada = false,
   onCerrar,
   onElegir,
   onValorar,
@@ -1178,24 +1203,28 @@ function PanelLateral({
   titulares: Colocado[];
   teamAverage: Record<MetricKey, number> | null;
   fecha: string | null;
+  caducada?: boolean;
   onCerrar: () => void;
   onElegir: (clave: string | null) => void;
 }) {
   if (seleccionado?.dato) return <PerfilJugador c={seleccionado} dato={seleccionado.dato} teamAverage={teamAverage} onCerrar={onCerrar} onValorar={onValorar} />;
 
-  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} fecha={fecha} onElegir={onElegir} onValorar={onValorar} />;
+  return <LecturaDelOnce titulares={titulares} teamAverage={teamAverage} fecha={fecha} caducada={caducada} onElegir={onElegir} onValorar={onValorar} />;
 }
 
 function LecturaDelOnce({
   titulares,
   teamAverage,
   fecha,
+  caducada = false,
   onElegir,
   onValorar,
 }: {
   titulares: Colocado[];
   teamAverage: Record<MetricKey, number> | null;
   fecha: string | null;
+  /** 27/11/2026 (análisis, ronda 10): valoración de hace 14 días o más. */
+  caducada?: boolean;
   onElegir: (clave: string | null) => void;
   onValorar?: (nombreHoja: string) => void;
 }) {
@@ -1263,8 +1292,12 @@ function LecturaDelOnce({
 
       {/* 07/11/2026: que «A trabajar» acabe en una tarea, con qué se cuenta
           y el objetivo (la media de la plantilla en ese eje). */}
-      <div className="mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-relaxed text-white/75">
-        <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-[#C8A96B]">Qué entrenamos</p>
+      {/* 27/11/2026 (análisis, ronda 10): con la valoración caducada no es una
+          orden sino una propuesta a confirmar con la valoración nueva. */}
+      <div className={`mt-3 rounded-2xl border border-white/10 bg-white/[0.03] px-3 py-2.5 text-[13px] leading-relaxed text-white/75 ${caducada ? "border-dashed" : ""}`}>
+        <p className="text-[11px] font-semibold uppercase tracking-[.2em] text-[#C8A96B]">
+          {caducada ? "Qué entrenamos · propuesta, a confirmar al valorar de nuevo" : "Qué entrenamos"}
+        </p>
         <p className="mt-1">
           <span className="font-semibold text-white">Tarea:</span> {TAREA_POR_EJE[flojo.axis.key].tarea}.
         </p>
@@ -1275,6 +1308,10 @@ function LecturaDelOnce({
           <p>
             <span className="font-semibold text-white">Objetivo:</span> llevar el once de {coma(flojo.valor)} a{" "}
             {coma(teamAverage[flojo.axis.key])} en {flojo.axis.corto.toLowerCase()}, la media de la plantilla.
+            {/* 27/11/2026 (análisis, ronda 10): de dónde sale la cifra del objetivo. */}
+            <span className="block text-xs text-white/55">
+              {coma(flojo.valor)}: media en {flojo.axis.corto.toLowerCase()} de los {evaluados.length} titulares valorados; {coma(teamAverage[flojo.axis.key])}: la de todos los evaluados de la plantilla{fecha ? `, valoración del ${diaCorto(fecha.slice(0, 10))}` : ""}.
+            </span>
           </p>
         )}
       </div>
@@ -1319,13 +1356,16 @@ function LecturaDelOnce({
                     <span className="min-w-0 font-semibold">{c.nombre}</span>
                     <span className="shrink-0 whitespace-nowrap tabular-nums" style={{ color: chipInk(bandFor(v[i]).tone) }}>
                       {AXES[i].corto} {coma(v[i])}
+                      {/* 27/11/2026 (análisis, ronda 10): la base en la propia nota. */}
+                      {!cambioDe(c) && <span className="ml-1 text-[11px] text-white/55">· 1 valoración, tendencia</span>}
                     </span>
                   </button>
                   <div className="mt-1.5 flex flex-wrap items-center gap-1">
                     {/* 17/11/2026 (ronda 20, jueces): con texto, no sólo iconos; «Valorar» abre el editor con él elegido. */}
                     {/* 20/11/2026 (ronda 4, dos jueces): también su seguimiento, para registrar la tarea de control emocional. */}
                     {/* 20/11/2026 (ronda 5): y su Dashboard Seguimiento ya filtrado. */}
-                    <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "dashboard"]} />
+                    {/* 27/11/2026 (marketing, ronda 10): y registrar su seguimiento con él ya elegido. */}
+                    <EnlacesJugador jugador={{ nombre: c.nombre }} destinos={["ficha", "dashboard", "registrar"]} />
                     {onValorar && <BotonValorar onClick={() => onValorar(c.dato.jugador)} nombre={c.nombre} />}
                   </div>
                 </div>

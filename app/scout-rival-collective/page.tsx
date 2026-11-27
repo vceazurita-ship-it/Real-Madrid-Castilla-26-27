@@ -82,6 +82,12 @@ import { DatosDelRival } from "@/components/rivals/DatosDelRival";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { PorDondeAtaca } from "@/components/rivals/PorDondeAtaca";
 import { EnlacesAmenaza, useAmenazaDelRival } from "@/components/rivals/AmenazaDelRival";
+import { useAmenazaAbp } from "@/components/rivals/AmenazaAbp";
+import { useOptaLigero } from "@/hooks/useOptaLigero";
+import { CASTILLA_OPTA } from "@/lib/opta";
+import { casaEquipo } from "@/lib/opta-eventos";
+import { partidosPorEquipo } from "@/lib/opta-evolucion";
+import { presionSalida } from "@/lib/rivals/presion-salida";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
 import { EvolucionComparada } from "@/components/rivals/EvolucionComparada";
@@ -636,6 +642,30 @@ export default function ScoutRivalCollective() {
 
   /* «Cómo nos hacen daño» en datos: quién le hace el xG y por dónde centra (la misma cuenta que el Plan de partido). */
   const amenaza = useAmenazaDelRival(equipoActivo, nombresRival);
+  /* Su balón parado como amenaza, si es su vía (27/11/2026, ronda 10, fútbol): la misma cuenta que ABP del rival. */
+  const amenazaAbp = useAmenazaAbp(equipoActivo);
+
+  /*
+  | CONTRASTE DE LA PRESIÓN (27/11/2026, ronda 10, fútbol): el analista pide
+  | «presión alta orientada a…» y «Cómo sale» dice «aguanta la presión». La
+  | misma cuenta que «Cómo sale» (`presionSalida`, Opta) y una sola orden.
+  */
+  const { opta: optaLigero } = useOptaLigero();
+  const contrastePresion = useMemo(() => {
+    if (!optaLigero || !equipoActivo) return "";
+    const equipos = optaLigero.equipos.map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") }));
+    const id = casaEquipo(equipoActivo, equipos);
+    if (!id || id === CASTILLA_OPTA) return "";
+    const porEquipo = partidosPorEquipo(optaLigero.partidos);
+    const p = presionSalida(porEquipo.get(id) ?? [], porEquipo.get(CASTILLA_OPTA) ?? []);
+    if (!p || !p.lectura) return "";
+    const base = `Opta, ${p.puntos.length} partidos`;
+    return p.lectura === "se rompe"
+      ? `Contraste con los datos: lo confirma «Cómo sale» (${base}): cuanto más le aprietan, más pierde atrás. Manda la presión alta.`
+      : p.lectura === "algo"
+        ? `Contraste con los datos: «Cómo sale» ve relación floja (${base}). Presión orientada como pista, no como plan de todo el partido.`
+        : `Contraste con los datos: «Cómo sale» dice que aguanta la presión (${base}): apretarle arriba en bloque no le rompe la salida. Manda el dato para la altura (bloque medio) y el analista para el lado: cuando se salte, orientado a ese central.`;
+  }, [optaLigero, equipoActivo]);
 
   /* Sus fichas de Plantillas rivales, para enlazar a cada jugador desde «Por dónde ataca». */
   const plantillaDelRival = useMemo(
@@ -1767,10 +1797,21 @@ export default function ScoutRivalCollective() {
                         <b className="font-semibold text-emerald-300">Qué hacemos{d.deducido ? " (se deduce del campo)" : ""}:</b> {conSiglas(sinPortero(sinErratas(conPlantilla(d.queHacemos, nombresRival, fichasRival))))}
                       </p>
                     )}
+                    {d.campo === "OF_INICIO_CENTRAL_CAPACIDAD" && contrastePresion && (
+                      <p className="mt-1 text-[13px] leading-5" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>{contrastePresion}</p>
+                    )}
                     {admin === true && contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival)) && (
                       <p className="mt-1 text-[12px] leading-5 text-[#C8A96B]">{contrasteDuelos(conPlantilla(d.texto, nombresRival, fichasRival))}</p>
                     )}
                     <FichasCitadas texto={conPlantilla(d.texto, nombresRival, fichasRival)} fichas={fichasRival} equipo={equipoActivo} rivalId={String(rivalActivo.ID ?? "")} />
+                    {/* Su duelo, con el rival ya elegido (27/11/2026, ronda 10, marketing). */}
+                    <Link
+                      href={`/duelos?${new URLSearchParams({ equipo: equipoActivo }).toString()}`}
+                      className="mt-1 inline-block text-[13px] font-semibold hover:underline"
+                      style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}
+                    >
+                      Sus duelos, en Duelos ›
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -1796,20 +1837,38 @@ export default function ScoutRivalCollective() {
             del dato. Ahora primero el dato (Opta y Wyscout) y luego el vídeo,
             cada frase con su fuente.
           */}
-          {!modoEdicion && rivalActivo && (peligro.length > 0 || amenaza.length > 0) && (
+          {!modoEdicion && rivalActivo && (peligro.length > 0 || amenaza.length > 0 || amenazaAbp) && (
             <section aria-label="Cómo nos hacen daño" className="mb-6 rounded-2xl border border-rose-400/25 bg-rose-400/[0.05] px-5 py-4">
               <p className="text-base font-bold text-rose-300">Cómo nos hacen daño</p>
-              <ul className={`mt-2 grid gap-3 ${peligro.length + amenaza.length >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+              <ul className={`mt-2 grid gap-3 ${peligro.length + amenaza.length + (amenazaAbp ? 1 : 0) >= 3 ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
                 {amenaza.map((p) => (
                   <li key={p.clave} className="min-w-0">
                     <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold text-white/65">dato · Opta y Wyscout, temporada</span>
                     <p className="mt-1 text-sm leading-6 text-white/85">{p.dato}.</p>
+                    {p.base && <p className="text-[12px] tabular-nums text-white/55">Base: {p.base}</p>}
                     <p className="mt-0.5 text-sm leading-6 text-white/85">
                       <b className="font-semibold text-rose-300">Qué hacemos:</b> {p.orden.charAt(0).toUpperCase() + p.orden.slice(1)}.
                     </p>
                     <EnlacesAmenaza punto={p} equipo={equipoActivo} rivalId={String(rivalActivo.ID ?? "")} />
                   </li>
                 ))}
+                {amenazaAbp && (
+                  <li className="min-w-0">
+                    <span className="rounded-full border border-white/15 px-2 py-0.5 text-[12px] font-semibold text-white/65">dato · Wyscout, temporada</span>
+                    <p className="mt-1 text-sm leading-6 text-white/85">{amenazaAbp.dato}.</p>
+                    <p className="text-[12px] tabular-nums text-white/55">Base: {amenazaAbp.base}</p>
+                    <p className="mt-0.5 text-sm leading-6 text-white/85">
+                      <b className="font-semibold text-rose-300">Qué hacemos:</b> {amenazaAbp.orden.charAt(0).toUpperCase() + amenazaAbp.orden.slice(1)}.
+                    </p>
+                    <Link
+                      href={conRivalEnUrl("/scout-rival-abp", { equipo: equipoActivo, id: String(rivalActivo.ID ?? "") })}
+                      className="mt-1 inline-block text-[13px] font-semibold hover:underline"
+                      style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}
+                    >
+                      Su balón parado, en ABP del rival ›
+                    </Link>
+                  </li>
+                )}
                 {peligro.map((d) => {
                   const texto = conPlantilla(d.texto, nombresRival, fichasRival);
 
@@ -1842,13 +1901,38 @@ export default function ScoutRivalCollective() {
           */}
           {!modoEdicion && rivalActivo && dibujoMedido && dibujosEscritos.length > 0 && (
             <p className="mb-6 rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-2.5 text-[13px] leading-6 text-white/65">
-              <b className="text-white/80">Dibujo de referencia: {dibujoMedido.dibujo}</b>{" "}
-              <span className="rounded-full border border-white/15 px-1.5 py-px text-[11px] font-semibold text-white/60">dato · {dibujoMedido.fuente}</span>
-              {" · "}Salen en {dibujoMedido.dibujo} en {dibujoMedido.veces} de {dibujoMedido.de} partidos de liga (la misma cuenta que Plantillas rivales)
-              {dibujosEscritos.some((d) => d.dibujo !== dibujoMedido.dibujo)
-                ? `; según el analista, se transforman en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}. Es el mismo equipo cambiando de forma en cada fase.`
-                : ", lo mismo que ve el analista en cada fase."}{" "}
-              <span className="text-white/55">Los dibujos se escriben sin contar al portero.</span>
+              {/*
+                27/11/2026 (ronda 10, marketing y fútbol): una sola línea «Dibujo: …»
+                con su base y su fuente, y cuál se espera el domingo. Si el analista
+                apunta un cambio de entrenador, manda lo que ha visto él: los
+                partidos de Wyscout son, casi todos, del entrenador anterior.
+              */}
+              {(() => {
+                const otro = dibujosEscritos.find((d) => d.dibujo !== dibujoMedido.dibujo);
+                const cambioEntrenador = /cambi[a-z]* de (entrenador|m[ií]ster|t[eé]cnico)|nuevo (entrenador|m[ií]ster|t[eé]cnico)/i.test(
+                  `${valorDe("OF_REINICIO_CONTEXTO")} ${valorDe("OF_INICIO_ASOCIACIONES")}`,
+                );
+                const esperado = otro && cambioEntrenador ? otro.dibujo : dibujoMedido.dibujo;
+
+                return (
+                  <>
+                    <b className="text-white/85">Dibujo: se espera el {esperado}</b>{" "}
+                    <span className="rounded-full border border-white/15 px-1.5 py-px text-[12px] font-semibold text-white/60">
+                      {esperado === dibujoMedido.dibujo ? `dato · ${dibujoMedido.fuente}` : "lectura del analista"}
+                    </span>
+                    {" · "}
+                    {esperado === dibujoMedido.dibujo
+                      ? `Sale en ${dibujoMedido.dibujo} en ${dibujoMedido.veces} de ${dibujoMedido.de} partidos de liga (${dibujoMedido.fuente}, la misma cuenta que Plantillas rivales)`
+                      : `Cambió de entrenador hace poco y el analista le ve ya en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}; ${dibujoMedido.fuente} le da el ${dibujoMedido.dibujo} en ${dibujoMedido.veces} de ${dibujoMedido.de} partidos, casi todos con el entrenador anterior`}
+                    {esperado === dibujoMedido.dibujo && otro
+                      ? `; según el analista, se transforma en ${dibujosEscritos.map((d) => `${d.dibujo} ${d.fase}`).join(", ")}: el mismo equipo cambiando de forma en cada fase.`
+                      : esperado === dibujoMedido.dibujo
+                        ? ", lo mismo que ve el analista en cada fase."
+                        : "."}{" "}
+                    <span className="text-white/55">Sin contar al portero.</span>
+                  </>
+                );
+              })()}
             </p>
           )}
 

@@ -617,8 +617,9 @@ const tituloTabla = (() => {
   const arriba = lider.nuestro
     ? `Líderes${t.filas[1] ? `, ${pts(yo.puntos - t.filas[1].puntos)} por encima del 2º` : ""}`
     : lider.puntos === yo.puntos
-      ? `${yo.puesto}º, con los mismos puntos que el líder (${lider.nombre})`
-      : `${yo.puesto}º, a ${pts(lider.puntos - yo.puntos)} del líder (${lider.nombre})`;
+      ? /* 27/11/2026 (jueces, ronda 10): sin repetir el puesto, que ya es el titular de la lámina de encima. */
+        `Con los mismos puntos que el líder (${lider.nombre})`
+      : `A ${pts(lider.puntos - yo.puntos)} del líder (${lider.nombre})`;
   const abajo = bajo && !bajo.nuestro && yo.puesto < 16 ? ` y ${pts(yo.puntos - bajo.puntos)} por encima del 16º (${bajo.nombre})` : "";
   /* 20/11/2026 (ronda 4, marketing): y la distancia con el próximo rival. */
   const suyo = proximoRivalTabla ? t.filas.find((f) => !f.nuestro && mismoClub(f.nombre, proximoRivalTabla)) : null;
@@ -749,26 +750,6 @@ useEffect(() => {
                     : "."}
                 </p>
               ) : null}
-              {/* 20/11/2026 (ronda 4, análisis): el último partido, a un toque: su post, sus robos y sus pérdidas. */}
-              {ultimo?.cuando ? (
-                <EnlacesRapidos
-                  className="mt-2"
-                  titulo={`Último partido · J${ultimo.jornada}`}
-                  enlaces={[
-                    { href: urlPostDelPartido(ultimo.cuando, ultimo.rival), texto: `Post contra el ${nombreEquipo(ultimo.rival)}`, icono: BarChart3 },
-                    {
-                      href: delVideo?.robos({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/transiciones", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
-                      texto: "Sus robos",
-                      icono: Crosshair,
-                    },
-                    {
-                      href: delVideo?.perdidas({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/perdidas", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
-                      texto: "Sus pérdidas",
-                      icono: ArrowLeftRight,
-                    },
-                  ]}
-                />
-              ) : null}
               {/* 16/11/2026: lo que se hace con el dato: el siguiente partido y lo que hay en juego. */}
               {tabla && (proximo || enJuego) ? (
                 <p className="mt-2 text-[14px] leading-snug text-white/75">
@@ -784,21 +765,48 @@ useEffect(() => {
                   {enJuego ? `${enJuego.charAt(0).toUpperCase()}${enJuego.slice(1)}.` : null}
                 </p>
               ) : null}
-              {/* 16/11/2026 (expertos, ronda 18): del siguiente partido, a un toque, lo que lo prepara. */}
-              {proximo ? (
+              {/*
+              | 27/11/2026 (jueces, ronda 10, marketing): una sola fila de enlaces,
+              | no dos («Último partido» y «Para la J·»). A la vista, cinco: el
+              | post del último partido y lo que prepara el siguiente (plan, sus
+              | goles en vídeo, su ABP y su plantilla); el resto, en «Más».
+              | Siguen saliendo todos los que pidieron las rondas 4, 18 y 19, y
+              | robos y pérdidas sólo si ese partido los tiene etiquetados.
+              */}
+              {ultimo?.cuando || proximo ? (
                 <EnlacesRapidos
                   className="mt-2"
-                  titulo={`Para la J${proximo.jornada}`}
+                  aLaVista={5}
                   enlaces={[
-                    /* 17/11/2026 (ronda 19): el plan con el rival puesto, cómo le marcan y su coding. */
-                    { href: conRivalEnUrl("/match-preparation", { equipo: proximo.rival }), texto: "Plan de partido", icono: ClipboardList },
-                    /* 18/11/2026: los dos vídeos, en el pop-up de la portada; aparte, «Cómo son sus goles» en Análisis de goles. */
-                    { golesEnVideo: { equipo: proximo.rival, lado: "favor" as const }, texto: "Sus goles en vídeo", icono: Video },
-                    { golesEnVideo: { equipo: proximo.rival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
-                    { href: urlGolesDelEquipo(proximo.rival), texto: "Cómo son sus goles", title: `Todos los goles de ${proximo.rival}, en el campo (Análisis de goles)` },
-                    { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su ABP", icono: Trophy },
-                    { href: `/rivals?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su plantilla", icono: Users },
-                    { href: `/coding?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su coding", icono: Clapperboard },
+                    ...(ultimo?.cuando
+                      ? [{ href: urlPostDelPartido(ultimo.cuando, ultimo.rival), texto: `Post de la J${ultimo.jornada} (${nombreEquipo(ultimo.rival)})`, icono: BarChart3 }]
+                      : []),
+                    ...(proximo
+                      ? [
+                          { href: conRivalEnUrl("/match-preparation", { equipo: proximo.rival }), texto: `Plan para la J${proximo.jornada}`, icono: ClipboardList },
+                          /* 18/11/2026: los dos vídeos, en el pop-up de la portada; aparte, «Cómo son sus goles» en Análisis de goles. */
+                          { golesEnVideo: { equipo: proximo.rival, lado: "favor" as const }, texto: "Sus goles en vídeo", icono: Video },
+                          { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su ABP", icono: Trophy },
+                          { href: `/rivals?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su plantilla", icono: Users },
+                          { golesEnVideo: { equipo: proximo.rival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
+                          { href: urlGolesDelEquipo(proximo.rival), texto: "Cómo son sus goles", title: `Todos los goles de ${proximo.rival}, en el campo (Análisis de goles)` },
+                          { href: `/coding?equipo=${encodeURIComponent(proximo.rival)}`, texto: "Su coding", icono: Clapperboard },
+                        ]
+                      : []),
+                    ...(ultimo?.cuando
+                      ? [
+                          {
+                            href: delVideo?.robos({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/transiciones", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
+                            texto: `Robos de la J${ultimo.jornada}`,
+                            icono: Crosshair,
+                          },
+                          {
+                            href: delVideo?.perdidas({ fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) ? enlaceConPartido("/laboratorio/perdidas", { fecha: ultimo.cuando.slice(0, 10), rival: ultimo.rival }) : null,
+                            texto: `Pérdidas de la J${ultimo.jornada}`,
+                            icono: ArrowLeftRight,
+                          },
+                        ]
+                      : []),
                   ]}
                 />
               ) : null}
@@ -827,7 +835,8 @@ useEffect(() => {
                 <VistaVisualDetalle
                   pantalla="collective-history"
                   visual={
-                    <div className="grid min-w-0 gap-4">
+                    /* 27/11/2026 (jueces, ronda 10): `laminas-quietas`, sin el fundido de entrada; salían atenuadas al abrir. */
+                    <div className="laminas-quietas grid min-w-0 gap-4">
                       <Lamina>
                         <TituloConclusion pregunta="¿Vamos por encima de la media?" fuente={`Calendario y marcadores de BeSoccer · la media, de los ${liga.equipos || 20} equipos`}>
                           {tituloPuntos}
@@ -854,7 +863,8 @@ useEffect(() => {
                         <TituloConclusion pregunta="¿Cómo va la racha?" fuente={`${jugados.length} partidos de liga`}>
                           {tituloRacha}
                         </TituloConclusion>
-                        <RachaPartidos jugados={jugados} puestos={conPuesto ? liga.puestos : null} />
+                        {/* 27/11/2026 (jueces, ronda 10): el puesto de cada jornada ya va en «¿Dónde estamos en la tabla?»; aquí sólo si esa lámina no sale. */}
+                        <RachaPartidos jugados={jugados} puestos={conPuesto && !tituloPuesto ? liga.puestos : null} />
                       </Lamina>
                     </div>
                   }
@@ -1100,9 +1110,19 @@ useEffect(() => {
             {/* 23/11/2026 (idea de X): cómo puede acabar la liga, con lo que queda simulado 50.000 veces. */}
             {(golesLiga.value.partidos ?? []).length > 0 ? (
               <section id="x-idea-2123486255568539817-1" aria-label="Proyección de la tabla" className="mb-8 min-w-0">
-                <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">Final de temporada</p>
-                <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">Proyección de la tabla</h2>
-                <ProyeccionTabla partidos={golesLiga.value.partidos ?? []} proximoRival={proximo?.rival ?? ""} />
+                {/* 27/11/2026 (jueces, ronda 10): el rótulo y el título van dentro de
+                    ProyeccionTabla, que sólo los pinta si hay proyección (antes la
+                    página acababa en un título vacío). */}
+                <ProyeccionTabla
+                  partidos={golesLiga.value.partidos ?? []}
+                  proximoRival={proximo?.rival ?? ""}
+                  encabezado={
+                    <>
+                      <p className="text-xs uppercase tracking-[0.35em] text-[#C8A96B]">Final de temporada</p>
+                      <h2 className="mt-3 mb-4 text-2xl sm:text-3xl font-semibold tracking-tight">Proyección de la tabla</h2>
+                    </>
+                  }
+                />
               </section>
             ) : null}
 

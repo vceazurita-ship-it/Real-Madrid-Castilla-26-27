@@ -23,13 +23,14 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { traeJson } from "@/lib/hojaCsv";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { casaEquipo } from "@/lib/opta-eventos";
-import { nombreDePlantilla } from "@/lib/rivals/nombre-jugador";
+import { nombreDeRival } from "@/lib/rivals/nombre-jugador";
 import type { PorDondeAtaca } from "@/lib/rivals/por-donde-ataca";
 import { repartoXg } from "@/lib/rivals/reparto-xg";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { nombrePropio } from "@/lib/rivals/dano";
 import { conTildes } from "@/lib/rivals/tildes";
+import { veredictoCentros, type FilaCentros } from "@/lib/rivals/veredicto-centros";
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 
@@ -41,6 +42,8 @@ export type PuntoAmenaza = {
   orden: string;
   /** El jugador, para su ficha en Scout individual. */
   jugador: string;
+  /** La base, en el formato de las tarjetas de /rivals: «1020′ en Opta · 11 partidos» (27/11/2026, ronda 10). */
+  base?: string;
 };
 
 /** Los dos puntos de su amenaza; vacío mientras carga o si no hay dato. */
@@ -60,6 +63,32 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
       })
       .catch(() => {
         if (!cancelado) setBandas({ equipo, datos: null });
+      });
+
+    return () => {
+      cancelado = true;
+    };
+  }, [equipo]);
+
+  /*
+  | El veredicto de centros de Área del rival (27/11/2026, ronda 10, fútbol):
+  | la misma petición que esa pantalla (misma caché de `traeJson`) y la misma
+  | regla (`lib/rivals/veredicto-centros.ts`). Si centra poco, la orden ya no
+  | es «cerrar el carril antes del centro» sino no dejar el pase interior.
+  */
+  const [centrosLiga, setCentrosLiga] = useState<{ equipo: string; filas: FilaCentros[] }>({ equipo: "", filas: [] });
+
+  useEffect(() => {
+    if (!equipo) return;
+
+    let cancelado = false;
+
+    traeJson<{ ok?: boolean; aspectos?: { filas?: FilaCentros[] }[] }>(`/api/data-analisis?abpRival=${encodeURIComponent(equipo)}&ambito=area&v=7`)
+      .then((r) => {
+        if (!cancelado) setCentrosLiga({ equipo, filas: r?.ok && Array.isArray(r.aspectos) ? r.aspectos.flatMap((a) => a.filas ?? []) : [] });
+      })
+      .catch(() => {
+        if (!cancelado) setCentrosLiga({ equipo, filas: [] });
       });
 
     return () => {
@@ -99,7 +128,7 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
 
   return useMemo(() => {
     const puntos: PuntoAmenaza[] = [];
-    const conNombre = (j: string) => nombreDePlantilla(j, firmaNombres ? firmaNombres.split("|") : []);
+    const conNombre = (j: string) => nombreDeRival(j, firmaNombres ? firmaNombres.split("|") : []);
 
     if (tEquipos && tJugPartidos) {
       const equipos = aObjetos(tEquipos).map((f) => ({ teamId: String(f.teamId ?? ""), equipo: String(f.equipo ?? "") }));
@@ -110,6 +139,8 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
       /* Sólo si de verdad concentra: con un 12 % no hay «su hombre» que marcar. */
       if (reparto && primero && primero.pct >= 18 && primero.minutos >= 270) {
         const nombre = conNombre(primero.jugador);
+        /* Los partidos que jugó, de la misma tabla (jugador × partido con minutos). */
+        const partidos = aObjetos(tJugPartidos).filter((f) => String(f.teamId ?? "") === id && String(f.playerId ?? "") === primero.playerId && Number(f.Min ?? 0) > 0).length;
 
         puntos.push({
           clave: "xg",
@@ -117,6 +148,7 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
           dato: `${nombre} hace el ${Math.round(primero.pct)} % de los goles esperados (xG) de ${equipo} (${coma(primero.xg)} en ${Math.round(primero.minutos)}′${primero.xg90 != null ? `, ${coma(primero.xg90)} por 90′` : ""}; Opta, ${reparto.sinPenaltis ? "sin penaltis" : "con penaltis"})`,
           orden: `marcar a ${nombre} en el área: vigilancia al hombre en el centro y en el segundo palo`,
           jugador: nombre,
+          base: `${Math.round(primero.minutos)}′ en Opta${partidos > 0 ? ` · ${partidos} ${partidos === 1 ? "partido" : "partidos"}` : ""}`,
         });
       }
     }
@@ -132,19 +164,32 @@ export function useAmenazaDelRival(equipo: string, nombres: string[] = []): Punt
 
       if (banda && parte >= 50 && lider) {
         const nombre = conNombre(lider.jugador);
+        const suParte = Math.round((100 * lider.acciones) / totalCentros);
+        const veredicto = centrosLiga.equipo === equipo ? veredictoCentros(centrosLiga.filas) : null;
 
+        /*
+        | 17/11/2026 (ronda 20, fútbol): «207» aquí y «208» en Área; éste es la
+        | suma de sus jugadores. 27/11/2026 (ronda 10): la salvedad del redondeo
+        | va en «Cómo se cuenta», no en la tarjeta; y la frase abre con el
+        | veredicto de Área del rival, el mismo en las cuatro pantallas.
+        */
         puntos.push({
           clave: "centros",
-          /* 17/11/2026 (ronda 20, fútbol): «207» aquí y «208» en Área; éste es la suma de sus jugadores, no el total del equipo, y se dice. */
-          dato: `Centra sobre todo por la ${banda.banda}: ${parte} % de los ${totalCentros} centros de sus jugadores; ${nombre}, el ${Math.round((100 * lider.acciones) / totalCentros)} % (Wyscout, temporada, sumados jugador a jugador desde su «por 90»: por redondeo puede diferir en uno o dos del total del equipo que da Área del rival)`,
-          orden: `cerrar el carril de ${nombre} antes del centro y defender el área con la línea ya hecha`,
+          dato: veredicto
+            ? `${veredicto.frase}; lo que centra, el ${parte} % por la ${banda.banda}, y ${nombre} pone el ${suParte} % (Wyscout, temporada)`
+            : `Centra sobre todo por la ${banda.banda}: ${parte} % de los ${totalCentros} centros de sus jugadores; ${nombre}, el ${suParte} % (Wyscout, temporada)`,
+          orden:
+            veredicto && !veredicto.muchos
+              ? `cerrar a ${nombre} sin dejar el pase interior: su peligro no llega por fuera`
+              : `cerrar el carril de ${nombre} antes del centro y defender el área con la línea ya hecha`,
           jugador: nombre,
+          base: `${totalCentros} centros en Wyscout${veredicto?.partidos ? ` · ${veredicto.partidos} partidos` : ""}`,
         });
       }
     }
 
     return puntos;
-  }, [tEquipos, tJugPartidos, bandas, equipo, firmaNombres]);
+  }, [tEquipos, tJugPartidos, bandas, equipo, firmaNombres, centrosLiga]);
 }
 
 /** Los enlaces de un punto: su ficha en Scout individual y, en los centros, Área del rival. */
@@ -183,6 +228,7 @@ export function AmenazaDelRival({ equipo, rivalId = "", nombres = [] }: { equipo
         {puntos.map((p) => (
           <li key={p.clave} className="min-w-0">
             <p className="text-sm leading-6 text-white/85">{p.dato}.</p>
+            {p.base && <p className="text-[12px] tabular-nums text-white/55">Base: {p.base}</p>}
             <p className="mt-0.5 text-sm leading-6 text-white/85">
               <b className="font-semibold text-rose-300">Qué hacemos:</b> {p.orden.charAt(0).toUpperCase() + p.orden.slice(1)}.
             </p>

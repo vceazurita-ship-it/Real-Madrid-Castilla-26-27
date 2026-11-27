@@ -22,16 +22,17 @@ export function LeyendaSaques({ mode, className = "" }: { mode: Mode; className?
   | La hoja numera desde la portería del que saca, así que en la defensiva la
   | zona 1 del rival es su tercio, el más lejano a nuestra área.
   */
+  /* 27/11/2026 (jueces, ronda 10): se nombra sólo el tercio, igual en las dos pantallas; el número de la hoja, al final y entre paréntesis. */
   const zonas = ofensivo
     ? [
-        ["Nuestro tercio (zona 1)", "el saque sale cerca de nuestra portería."],
-        ["El medio (zona 2)", "tercio central."],
-        ["Su tercio (zona 3)", "el saque sale junto al área rival."],
+        ["Nuestro tercio", "el saque sale cerca de nuestra portería (en la hoja, zona 1)."],
+        ["El medio", "tercio central (en la hoja, zona 2)."],
+        ["Su tercio", "el saque sale junto al área rival (en la hoja, zona 3)."],
       ]
     : [
-        ["Su tercio (zona 1)", "el rival saca cerca de su portería, lejos de la nuestra."],
-        ["El medio (zona 2)", "tercio central."],
-        ["Nuestro tercio (zona 3)", "el rival saca junto a nuestra área: aquí un error cuesta caro."],
+        ["Nuestro tercio", "el rival saca junto a nuestra área: aquí un error cuesta caro (en su hoja, zona 3)."],
+        ["El medio", "tercio central (en la hoja, zona 2)."],
+        ["Su tercio", "el rival saca cerca de su portería, lejos de la nuestra (en su hoja, zona 1)."],
       ];
 
   /* Los desenlaces, con el mismo nombre que en las barras de «Cómo se reparten». */

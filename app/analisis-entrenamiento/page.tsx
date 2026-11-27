@@ -54,6 +54,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { BarChart3, ClipboardCheck, Copy, ListChecks, Loader2, Plus, RefreshCw, Target, TrendingUp, UserRound } from "lucide-react";
+import Link from "next/link";
 import { toast } from "sonner";
 
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
@@ -72,11 +73,14 @@ import {
   accionesQueCuentan,
   claveAnalisis,
   claveSesion,
+  cuentas,
   cuentasDe,
   huellaObjetivo,
+  lecturaCuentas,
   normalizaAnalisis,
   normalizaSesion,
   nuevoId,
+  objetivoMedido,
   sesionVigente,
   sinMotores,
   validacionesAnteriores,
@@ -443,6 +447,7 @@ export default function AnalisisEntrenamientoPage() {
   }, [registro, historial, dias, hoyDia]);
   const pendientesTira = useMemo(() => new Set(sinAnalizar), [sinAnalizar]);
   const masReciente = sinAnalizar.at(-1) ?? null;
+  const masRecienteConObjetivos = masReciente ? dias.some((d) => d.fecha === masReciente && d.sesion.objetivos.some((o) => o.objetivo.trim())) : false;
 
   /*
   | ABRE EN EL ÚLTIMO DÍA CON TRABAJO (26/10/2026; 30/10/2026; 27/11/2026).
@@ -473,7 +478,16 @@ export default function AnalisisEntrenamientoPage() {
 
       const ultimo = (lista: DiaEntreno[]) => lista.reduce<string | null>((a, d) => (!a || d.fecha > a ? d.fecha : a), null);
       const validado = ultimo(pasados.filter(conValidadas));
-      const pendiente = sinAnalizar.at(-1) ?? null;
+      /*
+      | 27/11/2026 (jueces, ronda 9): el entreno sin analizar más reciente solía
+      | ser HOY mismo (tiene tareas en el registro), y el salto acababa en hoy,
+      | vacío y con un solo botón. Ahora sólo se salta a uno sin analizar que
+      | ya tenga sus objetivos escritos (su paso es pedir el análisis) y que no
+      | sea hoy; si no, a la última sesión analizada, con sus resultados. Hoy y
+      | los que faltan quedan en la franja de arriba con su botón.
+      */
+      const conObjetivosEn = (f: string) => pasados.some((d) => d.fecha === f && conObjetivos(d));
+      const pendiente = [...sinAnalizar].reverse().find((f) => f !== hoyDia && conObjetivosEn(f)) ?? null;
       const analizado = ultimo(pasados.filter((d) => d.analisis));
       const [destino, motivo] = validado
         ? [validado, "validado" as const]
@@ -506,6 +520,35 @@ export default function AnalisisEntrenamientoPage() {
   const plantillaCastilla = useMemo(() => players.filter((p) => p.esCastilla && p.activo !== false).map((p) => ({ id: p.id, nombre: p.nombre, apodo: p.apodo })), [players]);
 
   const anteriorConObjetivos = ultimoDiaConObjetivos(dias, fecha);
+
+  /*
+  | LO QUE SE COPIARÍA (27/11/2026, jueces ronda 9). Un día sin objetivos ya no
+  | es una caja con un botón: enseña los objetivos del último día que los tuvo,
+  | cada uno con su cuenta de lo revisado (o las propuestas que quedan por
+  | revisar), sus jugadores con su nombre de la plantilla y su meta. Copiarlos
+  | es la acción principal.
+  */
+  const propuestaCopia = anteriorConObjetivos
+    ? {
+        fecha: anteriorConObjetivos.fecha,
+        analizado: Boolean(anteriorConObjetivos.analisis),
+        objetivos: anteriorConObjetivos.sesion.objetivos
+          .filter((o) => o.objetivo.trim())
+          .map((o) => {
+            const a = anteriorConObjetivos.analisis;
+            const v = sesionVigente(anteriorConObjetivos.sesion, a);
+
+            return {
+              id: o.id,
+              texto: o.objetivo.trim(),
+              meta: o.meta,
+              tarea: o.tarea,
+              jugadores: o.jugadores.map((j) => nombreCompleto(j.id, j.nombre)),
+              cuenta: a && objetivoMedido(o, a) ? cuentas(o.id, a.acciones, v.validaciones) : null,
+            };
+          }),
+      }
+    : null;
 
   /* El último día anterior con análisis: el resumen de un día vacío ofrece abrirlo (30/10/2026). */
   const ultimoAnalizado = dias
@@ -791,7 +834,14 @@ export default function AnalisisEntrenamientoPage() {
                       {saltoDesdeHoy ? (
                         <span className="text-white/55">
                           {" "}
-                          · ahora se ve el {ddmm(fecha)}, {motivoSalto === "validado" ? "el último con acciones validadas" : "el último analizado"}
+                          · ahora se ve el {ddmm(fecha)},{" "}
+                          {motivoSalto === "validado"
+                            ? "el último con acciones validadas"
+                            : motivoSalto === "pendiente"
+                              ? "con sus objetivos listos para analizar"
+                              : motivoSalto === "objetivos"
+                                ? "el último con objetivos"
+                                : "el último analizado"}
                         </span>
                       ) : null}
                     </summary>
@@ -800,8 +850,9 @@ export default function AnalisisEntrenamientoPage() {
                     )}
                   </details>
                 </div>
-                <Button icon={ClipboardCheck} tone="primary" onClick={() => setFecha(masReciente)}>
-                  Analizar el {ddmm(masReciente)}
+                {/* 27/11/2026: si el más reciente aún no tiene objetivos (hoy, normalmente), el botón dice lo que toca de verdad. */}
+                <Button icon={masRecienteConObjetivos ? ClipboardCheck : Target} tone="primary" onClick={() => setFecha(masReciente)}>
+                  {masRecienteConObjetivos ? `Analizar el ${ddmm(masReciente)}` : masReciente === hoyDia ? "Poner los objetivos de hoy" : `Poner objetivos al ${ddmm(masReciente)}`}
                 </Button>
               </div>
             ) : saltoDesdeHoy && fecha !== hoyDia ? (
@@ -864,32 +915,24 @@ export default function AnalisisEntrenamientoPage() {
             </CabeceraSesion>
 
             {diaVacio ? (
-              <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
-                <p className="text-sm font-medium text-white/80">Marca qué se busca, de quién y cómo se ve en el vídeo</p>
-                <div className="mt-3 flex flex-wrap justify-center gap-2">
-                  <Button
-                    icon={Plus}
-                    tone="primary"
-                    onClick={() => {
-                      setPestana("objetivos");
-                      nuevoObjetivo();
-                    }}
-                  >
-                    {futuro ? "Preparar los objetivos" : "Añadir los objetivos"}
-                  </Button>
-                  {anteriorConObjetivos ? (
-                    <Button
-                      icon={Copy}
-                      onClick={() => {
-                        copiaObjetivos();
-                        setPestana("objetivos");
-                      }}
-                    >
-                      Copiar los del {ddmm(anteriorConObjetivos.fecha)}
-                    </Button>
-                  ) : null}
-                </div>
-              </div>
+              <DiaSinObjetivos
+                futuro={futuro}
+                propuesta={propuestaCopia}
+                tareas={planDelDia.map((t) => ({ codigo: t.codigo, texto: [t.tipo, t.formato].filter(Boolean).join(" ") || t.contenidoPrincipal }))}
+                micro={plan?.micro ? String(plan.micro) : null}
+                onAnadir={() => {
+                  setPestana("objetivos");
+                  nuevoObjetivo();
+                }}
+                onCopia={() => {
+                  copiaObjetivos();
+                  setPestana("objetivos");
+                }}
+                onAbre={(f) => {
+                  setFecha(f);
+                  setPestana("resumen");
+                }}
+              />
             ) : (
             <>
             <Pestanas
@@ -1245,5 +1288,138 @@ function ResumenSinAnalisis({
             : "Cuando pidas el análisis, aquí sale el resumen del día con sus gráficos y sus clips."}
       </p>
     </div>
+  );
+}
+
+type ObjetivoPropuesto = { id: string; texto: string; meta?: number; tarea?: string; jugadores: string[]; cuenta: ReturnType<typeof cuentas> | null };
+
+/**
+ * DÍA SIN OBJETIVOS (27/11/2026, jueces ronda 9: «abre vacío con un solo
+ * botón»). Enseña lo que se copiaría —los objetivos del último día que los
+ * tuvo, cada uno con su cuenta de lo revisado, su meta y sus jugadores
+ * enlazados a su ficha—, con «Copiar» como acción principal, y las tareas del
+ * día para elegir dónde mirarlo. Lo que no tiene dato no sale.
+ */
+function DiaSinObjetivos({
+  futuro,
+  propuesta,
+  tareas,
+  micro,
+  onAnadir,
+  onCopia,
+  onAbre,
+}: {
+  futuro: boolean;
+  propuesta: { fecha: string; analizado: boolean; objetivos: ObjetivoPropuesto[] } | null;
+  tareas: { codigo: string; texto: string }[];
+  micro: string | null;
+  onAnadir: () => void;
+  onCopia: () => void;
+  onAbre: (fecha: string) => void;
+}) {
+  if (!propuesta || !propuesta.objetivos.length)
+    return (
+      <div className="rounded-xl border border-dashed border-white/12 px-5 py-8 text-center">
+        <p className="text-sm font-medium text-white/80">Marca qué se busca, de quién y cómo se ve en el vídeo</p>
+        <div className="mt-3 flex flex-wrap justify-center gap-2">
+          <Button icon={Plus} tone="primary" onClick={onAnadir}>
+            {futuro ? "Preparar los objetivos" : "Añadir los objetivos"}
+          </Button>
+        </div>
+        {tareas.length ? <TareasDelDia tareas={tareas} micro={micro} /> : null}
+      </div>
+    );
+
+  const n = propuesta.objetivos.length;
+
+  return (
+    <div className="min-w-0 space-y-4 rounded-2xl border border-white/10 bg-white/[0.03] p-4 sm:p-5">
+      <div className="flex min-w-0 flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h2 className="text-base font-semibold text-white">
+            {futuro ? "Prepara los objetivos del día" : "Este día aún no tiene objetivos"}: seguir con {n === 1 ? "el" : `los ${n}`} del {ddmm(propuesta.fecha)}
+          </h2>
+          <p className="mt-0.5 text-xs text-white/60">Se copian con el mismo texto y los mismos jugadores, para que su evolución siga en la misma línea; la tarea se elige otra vez, porque cada día tiene las suyas.</p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <Button icon={Copy} tone="primary" onClick={onCopia}>
+            Copiar {n === 1 ? "este objetivo" : `estos ${n}`}
+          </Button>
+          <Button icon={Plus} onClick={onAnadir}>
+            Empezar de cero
+          </Button>
+        </div>
+      </div>
+
+      <ol className="space-y-3">
+        {propuesta.objetivos.map((o, i) => {
+          const c = o.cuenta;
+          const pct = c?.total ? c.pctBruto : null;
+
+          return (
+            <li key={o.id} className="flex min-w-0 gap-2.5">
+              <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#C8A96B]/15 text-[11px] font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {i + 1}
+              </span>
+              <div className="min-w-0 flex-1 space-y-1">
+                <p className="text-sm text-white/90">{o.texto}</p>
+                {o.jugadores.length || o.tarea || o.meta ? (
+                  <p className="text-xs text-white/60">
+                    {o.jugadores.map((nombre, k) => (
+                      <span key={`${nombre}-${k}`}>
+                        {k ? ", " : ""}
+                        <Link href={`/individual?nombre=${encodeURIComponent(nombre)}`} className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink)" }}>
+                          {nombre}
+                        </Link>
+                      </span>
+                    ))}
+                    {[o.tarea ? `${o.jugadores.length ? " · " : ""}Tarea ${o.tarea} el ${ddmm(propuesta.fecha)}` : "", o.meta ? `${o.jugadores.length || o.tarea ? " · " : ""}meta ${o.meta} %` : ""].join("")}
+                  </p>
+                ) : null}
+                {c && (c.total || c.porValidar) ? (
+                  <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+                    {pct !== null ? (
+                      <div className="relative h-2 w-40 max-w-full shrink-0 overflow-hidden rounded-full bg-white/10" aria-hidden>
+                        <div className="h-full rounded-full" style={{ width: `${pct}%`, background: "var(--rmcf-gold-ink)", opacity: c.muestraCorta ? 0.55 : 1 }} />
+                        {o.meta ? <div className="absolute inset-y-0 w-0.5 bg-white/80" style={{ left: `${o.meta}%` }} /> : null}
+                      </div>
+                    ) : null}
+                    <span className="text-xs tabular-nums text-white/70">
+                      {c.total ? `${ddmm(propuesta.fecha)}: ${lecturaCuentas(c)}` : `${ddmm(propuesta.fecha)}: ${c.porValidar} ${c.porValidar === 1 ? "propuesta" : "propuestas"} sin revisar, todavía no cuentan`}
+                    </span>
+                  </div>
+                ) : null}
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+
+      <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 pt-3 text-xs">
+        {propuesta.analizado ? (
+          <button type="button" onClick={() => onAbre(propuesta.fecha)} className="font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink)" }}>
+            Ver los resultados del {ddmm(propuesta.fecha)} →
+          </button>
+        ) : null}
+        {tareas.length ? <TareasDelDia tareas={tareas} micro={micro} enLinea /> : null}
+      </div>
+    </div>
+  );
+}
+
+/** Las tareas del día en el registro, para saber en cuál mirar cada objetivo (con el micro a un toque). */
+function TareasDelDia({ tareas, micro, enLinea = false }: { tareas: { codigo: string; texto: string }[]; micro: string | null; enLinea?: boolean }) {
+  return (
+    <p className={`min-w-0 text-xs text-white/60 ${enLinea ? "" : "mt-4"}`}>
+      <span className="font-semibold text-white/75">Tareas del día:</span> {tareas.map((t) => `${t.codigo}${t.texto ? ` ${t.texto}` : ""}`).join(" · ")}
+      {micro ? (
+        <>
+          {" "}
+          <Link href={`/microcycles?micro=${micro}`} className="font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink)" }}>
+            Ver el micro {micro} →
+          </Link>
+        </>
+      ) : null}
+    </p>
   );
 }

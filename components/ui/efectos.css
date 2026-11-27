@@ -190,6 +190,18 @@
     from { opacity: 0.35; transform: translateY(14px); }
     to { opacity: 1; transform: none; }
   }
+
+  /*
+  | 27/11/2026 (jueces, ronda 10, balón parado): dentro de `.laminas-quietas`
+  | las láminas salen ya enteras, sin el revelado: en una captura o al abrir
+  | la pantalla a media altura, el mapa y la tabla se quedaban al 35 % y se
+  | leían «desactivados» en modo día. Sólo afecta a quien lleve la clase.
+  */
+  .laminas-quietas .lamina-aparece {
+    animation: none;
+    opacity: 1;
+    transform: none;
+  }
 }
 
 /* ---------- Cambio de tema: revelado circular (theme-toggle.tsx) ---------- */

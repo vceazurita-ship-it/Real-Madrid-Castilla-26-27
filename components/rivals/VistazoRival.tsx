@@ -28,8 +28,9 @@ import { balanceDe, fraseDelVistazo, MUESTRA_TENDENCIA, type ResultadoForma, typ
 | franja no sale.
 */
 
-/* Por debajo de estos minutos la lectura de un jugador es muestra corta (30/10/2026). */
-const MUESTRA_CORTA = 500;
+/* Por debajo de estos minutos la lectura de un jugador es muestra corta (30/10/2026).
+   27/11/2026 (ronda 10, fútbol): 450′, el mismo corte del campograma y de Duelos (antes 500). */
+const MUESTRA_CORTA = 450;
 
 /* Los colores del resultado, los mismos verde/rojo del resto de la ficha. */
 const COLOR_RESULTADO: Record<ResultadoForma["resultado"], string> = {
@@ -64,7 +65,7 @@ function Casilla({
       <p className="flex flex-wrap items-center gap-1.5 text-xs font-semibold uppercase tracking-[0.12em] text-white/55">
         {titulo}
         {tendencia && (
-          <span className="rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold normal-case tracking-normal text-white/65" title="Muestra corta: se lee como tendencia, no como rasgo">
+          <span className="rounded-full border border-white/20 px-1.5 py-px text-[12px] font-semibold normal-case tracking-normal text-white/65" title="Muestra corta: se lee como tendencia, no como rasgo">
             tendencia
           </span>
         )}
@@ -81,7 +82,8 @@ function Casilla({
 /** La cifra de un aspecto de Wyscout con su unidad: «47,3 %», «11,2». */
 function cifraAspecto(valor: number, unidad: string) {
   if (!Number.isFinite(valor)) return "";
-  const texto = valor.toLocaleString("es-ES", { maximumFractionDigits: unidad === "entero" ? 0 : 1 });
+  /* Con el menos tipográfico (27/11/2026, ronda 10, fútbol): «Goles − xG −0,8», no «-0,8». */
+  const texto = valor.toLocaleString("es-ES", { maximumFractionDigits: unidad === "entero" ? 0 : 1 }).replace(/^-/, "−");
 
   return unidad === "porcentaje" ? `${texto} %` : unidad === "minutos" ? `${texto}′` : texto;
 }
@@ -293,9 +295,14 @@ function TarjetaDano({ uno, color, equipo, abre }: { uno: Dano; color: string; e
       {uno.cifra ? <p className="mt-0.5 text-[13px] tabular-nums text-white/75">{uno.cifra}</p> : null}
       {/* La base, en el mismo formato en todas las tarjetas: «Base: 1180′ en Wyscout · 12 partidos». */}
       {uno.base ? (
-        <p className="mt-0.5 text-[12px] tabular-nums text-white/55">
-          Base: {uno.base}
-          {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA ? ` · tendencia: menos de ${MUESTRA_CORTA}′` : ""}
+        /* 27/11/2026 (ronda 10, análisis): la base sola («662′ en Wyscout · 8 partidos»); la muestra corta, en su chip. */
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[12px] tabular-nums text-white/55">
+          <span>Base: {uno.base}</span>
+          {(uno.minutos ?? 0) > 0 && (uno.minutos ?? 0) < MUESTRA_CORTA && (
+            <span className="rounded-full border border-white/20 px-1.5 py-px text-[12px] font-semibold text-white/65" title={`Menos de ${MUESTRA_CORTA}′ en Wyscout: se lee como tendencia`}>
+              muestra corta
+            </span>
+          )}
         </p>
       ) : null}
       {uno.contraste ? <p className="mt-0.5 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>{uno.contraste}</p> : null}
@@ -341,8 +348,11 @@ export function VistazoRival({
   dano = [],
   enlaces,
   abreJugador,
+  nombreDe,
   fuenteDibujo = "BeSoccer",
 }: {
+  /** El nombre de su ficha de la plantilla para uno de otra fuente («Manín» de BeSoccer → «Manin»), 27/11/2026, ronda 10. */
+  nombreDe?: (nombre: string) => string;
   /** De dónde sale el dibujo que más repite (17/11/2026: Wyscout en /rivals, el mismo del campograma). */
   fuenteDibujo?: string;
   /** Abre la ficha del jugador en la pantalla (16/11/2026): devuelve con qué abrirla, o `null` si no está en la plantilla. */
@@ -528,16 +538,18 @@ export function VistazoRival({
             <ul className="min-w-0 space-y-0.5">
               {goleadores.map((g) => {
                 const abre = abreJugador?.(g.nombre) ?? null;
+                /* El de la ficha, como en el campograma y las tarjetas (27/11/2026, ronda 10, fútbol). */
+                const visto = nombreDe?.(g.nombre) || g.nombre;
 
                 return (
                 <li key={g.nombre} className="flex min-w-0 items-center gap-1.5 text-sm">
                   <Goal size={12} className="shrink-0 text-white/40" aria-hidden />
                   {abre ? (
-                    <button type="button" onClick={abre} title={`Abrir la ficha de ${g.nombre}`} className="min-w-0 truncate text-left underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
-                      {g.nombre}
+                    <button type="button" onClick={abre} title={`Abrir la ficha de ${visto}`} className="min-w-0 truncate text-left underline decoration-white/25 underline-offset-2 hover:decoration-[#C8A96B]">
+                      {visto}
                     </button>
                   ) : (
-                    <span className="min-w-0 truncate">{g.nombre}</span>
+                    <span className="min-w-0 truncate">{visto}</span>
                   )}
                   <span className="ml-auto shrink-0 font-semibold tabular-nums">{g.goles}</span>
                 </li>
@@ -802,6 +814,8 @@ export function VistazoRival({
                         {delDuelo && <ChipDuelo d={delDuelo} equipo={equipo} decide />}
                         {/* 20/11/2026 (ronda 7, marketing): el dato en dos renglones, el resto con «Ver más». */}
                         <DosLineas className="mt-0.5 text-[13px] tabular-nums text-white/70">{p.dato}.</DosLineas>
+                        {/* La base en el mismo formato que «Dónde hacerles daño» (27/11/2026, ronda 10, análisis). */}
+                        {p.base && <p className="mt-0.5 text-[12px] tabular-nums text-white/55">Base: {p.base}</p>}
                         <EnlacesAmenaza punto={p} equipo={equipo} />
                         {delDuelo && (
                           <Link href={`/duelos?equipo=${encodeURIComponent(equipo)}`} className="mt-1 inline-flex items-center gap-1 text-[13px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>

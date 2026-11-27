@@ -402,19 +402,14 @@ export default function DashboardPlantilla() {
       value: delCastilla,
       base: `con licencia del Castilla${filtrados.length > delCastilla ? ` · aparte, ${filtrados.length - delCastilla} de fuera con minutos` : ""}`,
     },
-    {
-      title: "Partidos de liga",
-      value: partidosEquipo,
-      base:
-        partidosWy > 0 && partidosWy !== partidos.length
-          ? `${partidos.length} en Valoraciones (${partidos.length * 90}′) y ${partidosWy} en Wyscout (${posiblesWy}′): cada minuto se mide sobre los partidos de su fuente`
-          : `${posibles}′ posibles por jugador`,
-    },
+    /* 27/11/2026 (marketing, ronda 10): cuatro tarjetas; «Partidos de liga»
+       pasa a la línea de fuentes de la cabecera y a «Quién cuenta». */
     {
       title: "Han jugado",
       value: conMinutos,
-      /* 27/11/2026 (marketing, ronda 9): qué cuenta, para que no choque con los 0′ de «Juega poco». */
-      base: `de ${filtrados.length}: un minuto o más, o una aparición en Valoraciones (titular o con nota) aunque no lleve minutos anotados`,
+      /* 27/11/2026 (marketing, ronda 9): qué cuenta, para que no choque con los 0′ de «Juega poco».
+         Ronda 10: corta; la regla entera, en «Quién cuenta». */
+      base: `de los ${filtrados.length} del grupo: un minuto o más, o una aparición en Valoraciones`,
     },
     ...(minutosConEdad > 0
       ? [
@@ -422,7 +417,8 @@ export default function DashboardPlantilla() {
             title: "Minutos sub-21",
             value: `${Math.round((minutosSub21 / minutosConEdad) * 100)} %`,
             /* 08/11/2026 (jueces): un porcentaje solo no dice si es mucho; se da la base en minutos. */
-            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′ jugados por los de ${CORTE_SUB21_TEXTO}, la misma regla que la Comparativa (${conEdad.length} jugadores con edad)`,
+            /* 27/11/2026 (ronda 10): la regla de edad, en «Quién cuenta». */
+            base: `${minutosSub21.toLocaleString("es-ES")}′ de ${minutosConEdad.toLocaleString("es-ES")}′, de los ${conEdad.length} del grupo con edad en Wyscout`,
           },
         ]
       : []),
@@ -432,7 +428,7 @@ export default function DashboardPlantilla() {
       /* 07/11/2026: avisos no son jugadores (uno puede tener dos). */
       /* 10/11/2026: qué los dispara, en la propia tarjeta. */
       /* 16/11/2026: la cifra es la de las filas que se ven abajo. */
-      base: `${new Set(avisosVisibles.map((a) => a.jugador.ficha.id)).size} jugadores del Castilla · por minutos, partidos sin jugar, notas y amarillas`,
+      base: `${new Set(avisosVisibles.map((a) => a.jugador.ficha.id)).size} de los ${delCastilla} con licencia del Castilla · minutos, partidos sin jugar, notas y amarillas`,
     },
   ];
 
@@ -479,6 +475,8 @@ export default function DashboardPlantilla() {
                 : wyEstado === "cargando"
                   ? "Wyscout: cargando"
                   : "Wyscout no ha respondido: los minutos salen de Valoraciones"}
+              {/* 27/11/2026 (ronda 10): lo que decía la tarjeta «Partidos de liga». */}
+              {partidosEquipo > 0 ? ` · ${posibles}′ posibles por jugador (${partidosEquipo} partidos a 90′)` : ""}
             </p>
           </div>
 
@@ -575,7 +573,7 @@ export default function DashboardPlantilla() {
             <>
               {/* CIFRAS */}
 
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 sm:gap-4 xl:grid-cols-5">
+              <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
                 {kpis.map((kpi) => {
                   const cuerpo = (
                     <>
@@ -621,14 +619,34 @@ export default function DashboardPlantilla() {
               </div>
 
               {/* 16/11/2026 (jueces): tres poblaciones en la misma pantalla
-                  (27, 23, 21) se explican en una sola línea. */}
-              <p className="-mt-3 text-[12px] leading-snug text-white/55">
-                <span className="font-semibold text-white/70">Quién cuenta:</span> {filtrados.length} jugadores
-                {filtrados.length > delCastilla ? ` = ${delCastilla} con licencia del Castilla + ${filtrados.length - delCastilla} de fuera que han jugado con nosotros` : " con licencia del Castilla"}
-                {` · ${conMinutos} han jugado al menos un minuto`}
-                {conEdad.length > 0 && conEdad.length < filtrados.length ? ` · Wyscout publica la edad de ${conEdad.length}` : ""}
-                {" · los avisos son sólo de licencia del Castilla."}
-              </p>
+                  (27, 23, 21) se explican en una sola línea.
+                  27/11/2026 (ronda 10, jueces): plegada tras un «?», con la
+                  regla de cada tarjeta; el titular deja a la vista el total. */}
+              <details className="group -mt-3 text-[12px] leading-snug text-white/60">
+                <summary className="inline-flex cursor-pointer list-none flex-wrap items-center gap-1.5 font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+                  <span aria-hidden className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-[#C8A96B]/50 text-[10px] font-bold">?</span>
+                  Quién cuenta: {filtrados.length} jugadores
+                  {filtrados.length > delCastilla ? ` = ${delCastilla} del Castilla + ${filtrados.length - delCastilla} de fuera` : ""}
+                </summary>
+                <div className="mt-1.5 space-y-1">
+                  <p>
+                    {filtrados.length} jugadores
+                    {filtrados.length > delCastilla ? ` = ${delCastilla} con licencia del Castilla + ${filtrados.length - delCastilla} de fuera que han jugado con nosotros` : " con licencia del Castilla"}
+                    {` · ${conMinutos} han jugado al menos un minuto o salen en Valoraciones (titular o con nota) aunque no lleven minutos anotados`}
+                    {conEdad.length > 0 && conEdad.length < filtrados.length ? ` · Wyscout publica la edad de ${conEdad.length}` : ""}
+                    {" · los avisos son sólo de licencia del Castilla."}
+                  </p>
+                  {minutosConEdad > 0 && (
+                    <p>Minutos sub-21: los jugados por los de {CORTE_SUB21_TEXTO} (edad de Wyscout), la misma regla que la Comparativa categoría.</p>
+                  )}
+                  <p>
+                    {partidosWy > 0 && partidosWy !== partidos.length
+                      ? `Partidos: ${partidos.length} en Valoraciones (${partidos.length * 90}′) y ${partidosWy} en Wyscout (${posiblesWy}′); cada minuto se mide sobre los partidos de su fuente.`
+                      : `Partidos de liga: ${partidosEquipo}, ${posibles}′ posibles por jugador.`}
+                  </p>
+                  <p>Avisos: por minutos, partidos sin jugar, notas y amarillas; un jugador puede tener dos.</p>
+                </div>
+              </details>
 
               <div className="sticky top-0 z-20 -mx-4 bg-[#0B0F14] px-4 py-2 sm:-mx-6 sm:px-6 md:-mx-8 md:px-8">
                 <Pestanas
@@ -652,14 +670,17 @@ export default function DashboardPlantilla() {
               ) : (
                 <>
                   {vista === "plantilla" && (
-                    <div className="grid min-w-0 gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-                      <div className="min-w-0 space-y-6">
+                    /* 27/11/2026 (marketing, ronda 10): en el móvil, «De quién hablar
+                       esta semana» va primero, antes de las barras; en escritorio
+                       sigue en la columna derecha, arriba. */
+                    <div className="grid min-w-0 content-start items-start gap-6 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)] xl:grid-rows-[auto_1fr]">
+                      <div id="avisos-semana" className="min-w-0 scroll-mt-20 xl:col-start-2 xl:row-start-1">
+                        <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
+                      </div>
+                      <div className="min-w-0 space-y-6 xl:col-start-1 xl:row-span-2 xl:row-start-1">
                         <BloqueMinutos jugadores={filtrados} onAbre={abreFicha} />
                       </div>
-                      <div className="min-w-0 space-y-6">
-                        <div id="avisos-semana" className="scroll-mt-20">
-                          <BloqueAvisos avisos={avisos} onAbre={abreFicha} partidosEquipo={partidosEquipo} />
-                        </div>
+                      <div className="min-w-0 space-y-6 xl:col-start-2 xl:row-start-2">
                         <div id="edad-plantilla" className="scroll-mt-20">
                           <BloqueEdad jugadores={filtrados} />
                         </div>
@@ -868,8 +889,53 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
         </>
       }
     >
+      {/* 27/11/2026 (jueces, ronda 10): el gráfico de cabecera, por tramos
+          (≥50 %, 25-50 %, <25 %), con los que juegan poco ya nombrados.
+          Debajo sigue el detalle puesto a puesto. */}
+      {deWyscout && conMinutos.length > 0 && (
+        <div className="-mt-1 mb-4 min-w-0">
+          <div className="flex h-7 w-full overflow-hidden rounded-md" role="img" aria-label={`${mitad} con la mitad o más, ${conMinutos.length - mitad - poco} entre el 25 y el 50 %, ${poco} por debajo del 25 %`}>
+            {[
+              { n: mitad, texto: "≥50 %", fondo: `color-mix(in srgb, ${ORO} 60%, transparent)` },
+              { n: conMinutos.length - mitad - poco, texto: "25-50 %", fondo: `color-mix(in srgb, ${ORO} 28%, transparent)` },
+              { n: poco, texto: "<25 %", fondo: `color-mix(in srgb, ${PEOR} 50%, transparent)` },
+            ]
+              .filter((t) => t.n > 0)
+              .map((t) => (
+                <div
+                  key={t.texto}
+                  className="flex min-w-0 items-center justify-center overflow-hidden px-1 text-xs font-semibold tabular-nums"
+                  style={{ width: `${(t.n / conMinutos.length) * 100}%`, background: t.fondo, color: tinta(0.92) }}
+                  title={`${t.texto}: ${t.n}`}
+                >
+                  <span className="truncate">{t.n}</span>
+                </div>
+              ))}
+          </div>
+          <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-white/65">
+            <span>{mitad} con la mitad o más</span>
+            {conMinutos.length - mitad - poco > 0 && <span>{conMinutos.length - mitad - poco} entre el 25 y el 50 %</span>}
+            {poco > 0 && <span>{poco} por debajo del 25 %</span>}
+          </p>
+          {poco > 0 && (
+            <p className="mt-2 rounded-lg border px-2.5 py-1.5 text-xs leading-snug text-white/80" style={{ borderColor: `color-mix(in srgb, ${PEOR} 45%, transparent)` }}>
+              <span className="font-semibold">Juegan menos del 25 %:</span>{" "}
+              {conMinutos
+                .filter((j) => (j.pct ?? 0) < 25)
+                .map((j, i) => (
+                  <span key={j.ficha.id}>
+                    {i > 0 && ", "}
+                    <NombreJugador jugador={{ id: j.ficha.id, nombre: j.ficha.nombre }}>{nombreDe(j)}</NombreJugador>
+                    <span className="tabular-nums text-white/55"> {Math.min(100, j.pct ?? 0)} %</span>
+                  </span>
+                ))}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* 07/11/2026: la leyenda de colores a la vista, junto al título. */}
-      <p className="-mt-1 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/65">
+      <p className="-mt-1 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-white/65">
         <span className="inline-flex items-center gap-1.5">
           <span aria-hidden className="h-2.5 w-5 rounded-sm" style={{ background: ORO }} />
           25 % o más
@@ -1066,7 +1132,7 @@ function BloqueAvisos({
                 <p className="text-sm font-semibold text-white">
                   {def.titulo} <span className="font-normal text-white/50">· {suyos.length}</span>
                 </p>
-                <p className="mt-0.5 text-[11px] leading-snug text-white/50">
+                <p className="mt-0.5 text-xs leading-snug text-white/60">
                   {def.regla}. Qué hacer: {def.accion}.
                 </p>
                 <ul className="mt-2 space-y-1.5">
@@ -1088,13 +1154,14 @@ function BloqueAvisos({
                         className="ml-auto"
                         jugador={{ id: a.jugador.ficha.id, nombre: a.jugador.ficha.nombre }}
                         /* 20/11/2026 (ronda 5, análisis): también su Comparativa, ya elegido. */
-                        destinos={["ficha", accion.destino, "comparativa"]}
+                        /* 27/11/2026 (marketing, ronda 10): «Vídeos» en todos los avisos, no sólo en la nota. */
+                        destinos={accion.destino === "videos" ? ["ficha", "videos", "comparativa"] : ["ficha", accion.destino, "videos", "comparativa"]}
                       />
                     </li>
                   ))}
                 </ul>
                 {tipo === "carga" && (
-                  <Link href="/microcycles" className="mt-2 inline-block text-[11px] font-medium text-[#C8A96B] hover:underline">
+                  <Link href="/microcycles" className="mt-2 inline-block text-xs font-medium text-[#C8A96B] hover:underline">
                     Planificar la semana en Microciclos →
                   </Link>
                 )}
@@ -1323,7 +1390,7 @@ function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[];
                   <span className="block max-w-[3rem] truncate">{rivalCorto(p.match.opponent)}</span>
                 </th>
               ))}
-              <th className="pl-2 text-right text-[11px] font-medium text-white/50">Tit · Sup</th>
+              <th className="whitespace-nowrap pl-2 text-right text-[11px] font-medium text-white/50">Tit · Sup</th>
             </tr>
           </thead>
           <tbody>
@@ -1333,7 +1400,7 @@ function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[];
 
               return [
                 <tr key={`${pu.key}-cab`}>
-                  <td colSpan={partidos.length + 2} className="sticky left-0 bg-[#0B0F14] pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
+                  <td colSpan={partidos.length + 2} className="sticky left-0 whitespace-nowrap bg-[#0B0F14] pt-3 text-[11px] font-semibold uppercase tracking-[0.18em] text-[#C8A96B]">
                     {pu.label}
                   </td>
                 </tr>,
@@ -1349,7 +1416,7 @@ function BloqueJornadas({ jugadores, partidos, onAbre }: { jugadores: Jugador[];
                         <Celda a={a} />
                       </td>
                     ))}
-                    <td className="pl-2 text-right text-[12px] tabular-nums text-white/65">
+                    <td className="whitespace-nowrap pl-2 text-right text-[12px] tabular-nums text-white/65">
                       {j.titular} · {j.suplente}
                     </td>
                   </tr>

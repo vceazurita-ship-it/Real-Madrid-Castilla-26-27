@@ -99,13 +99,16 @@ export function CalendarStat({
   label,
   value,
   hint,
+  className = "",
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
+  /** Clases extra (p. ej. ocupar dos columnas); 27/11/2026, aditivo. */
+  className?: string;
 }) {
   return (
-    <div className="min-w-0 rounded-2xl border border-white/10 bg-[#11161D] px-3 py-2 sm:px-4 sm:py-3">
+    <div className={`min-w-0 rounded-2xl border border-white/10 bg-[#11161D] px-3 py-2 sm:px-4 sm:py-3 ${className}`}>
       <p className="text-[11px] uppercase tracking-[0.16em] text-white/55">
         {label}
       </p>

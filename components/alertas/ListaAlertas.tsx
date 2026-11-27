@@ -824,7 +824,8 @@ export default function ListaAlertas({
                           </Link>
                         ) : null}
                         <Link href={`/rivals?equipo=${encodeURIComponent(rival)}`} className={chip}>
-                          {id ? "Su plantilla" : `La plantilla de ${rival}`}
+                          {/* 27/11/2026 (fútbol, ronda 9): «Su plantilla» quedaba descolgado; con el nombre del rival. */}
+                          {`Plantilla de ${rival}`}
                           <ChevronRight className="h-3.5 w-3.5" aria-hidden />
                         </Link>
                       </>

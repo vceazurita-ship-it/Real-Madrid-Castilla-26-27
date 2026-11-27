@@ -343,7 +343,7 @@ export const AVISOS: Record<TipoAviso, { titulo: string; regla: string; accion: 
   },
   nota: {
     titulo: "Nota a la baja",
-    regla: "la media de sus tres últimas notas, un punto o más por debajo de la de las tres anteriores (de la anterior a la última)",
+    regla: "la media de sus tres últimas notas (0-10, más es mejor), un punto o más por debajo de la de las tres anteriores; con menos de 8 notas es tendencia",
     accion: "revisar sus últimos partidos en vídeo",
   },
 };
@@ -395,9 +395,12 @@ export function avisosDe<F extends FichaPlantilla>(lista: JugadorDash<F>[], part
         tipo: "nota",
         jugador: j,
         cifra:
-          antesN.length && ultimasN.length
-            ? `de ${coma1(media(antesN))} a ${coma1(media(ultimasN))}`
-            : `${coma1(j.notas.trend)} puntos`,
+          /* 27/11/2026 (análisis, ronda 10): la base en el propio aviso (3 contra 3,
+             de cuántos valorados) y «tendencia» con menos de 8 notas. */
+          (antesN.length && ultimasN.length
+            ? `de ${coma1(media(antesN))} a ${coma1(media(ultimasN))} · últimos 3 partidos frente a los 3 anteriores`
+            : `${coma1(j.notas.trend)} puntos`) +
+          ` · ${notas.length} con nota${notas.length < 8 ? " · tendencia" : ""}`,
       });
     }
   }

@@ -370,8 +370,10 @@ export default function Calendar() {
   const legend = useMemo<CalendarLegendItem[]>(() => {
     const hay = new Set(visibleData.map((s) => strategyKey(s.ESTRATEGIA)));
 
+    /* 27/11/2026 (análisis, ronda 10): cada tipo con cuántos registros son
+       (de lo que enseña el calendario, con el filtro de jugador). */
     return TIPOS.filter((tipo) => hay.has(tipo)).map((tipo) => ({
-      label: STRATEGY_STYLES[tipo].label,
+      label: `${STRATEGY_STYLES[tipo].label} · ${visibleData.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length}`,
       color: STRATEGY_STYLES[tipo].dot,
     }));
   }, [visibleData]);
@@ -452,7 +454,7 @@ export default function Calendar() {
       loading={loading}
       keyboardEnabled={!selectedKey}
       legend={legend}
-      statsColumnas={!playerFilter && semanas.lista.some((s) => s.n > 0) ? 4 : 3}
+      statsColumnas={!playerFilter && semanas.lista.some((s) => s.n > 0) ? 5 : 3}
       franja={
         /* La alerta va ENCIMA del calendario (26/10/2026): al final de la
            página quedaba fuera de la vista y es lo que se pregunta el lunes.
@@ -554,33 +556,44 @@ export default function Calendar() {
           {!playerFilter && semanas.lista.some((s) => s.n > 0) && (
             <CalendarStat
               label="Por semana · últimas 8"
+              /* 27/11/2026 (ronda 10, análisis y marketing): a doble ancho, con la
+                 cifra de cada barra, su semana debajo y la media rotulada. */
+              className="col-span-2"
               value={
-                <span className="mt-1 block">
-                  <span className="flex h-12 items-end gap-1" aria-hidden>
-                    {semanas.lista.map((s) => (
-                      <span
-                        key={s.desde}
-                        title={`Semana del ${s.etiqueta}: ${s.n}${s.enCurso ? " (en curso)" : ""}`}
-                        className={`relative flex-1 rounded-t ${s.enCurso ? "" : "bg-[#C8A96B]"}`}
-                        /* 17/11/2026 (ronda 20, jueces): la semana en curso, con trama
-                           (rayas) y no como una completa más. */
-                        style={{
-                          height: `${Math.max(4, (s.n / semanas.max) * 100)}%`,
-                          background: s.enCurso
-                            ? "repeating-linear-gradient(135deg, #C8A96B 0 3px, rgb(200 169 107 / .28) 3px 6px)"
-                            : undefined,
-                        }}
-                      />
-                    ))}
+                <span className="mt-1 block text-[11px] font-normal">
+                  <span className="relative block h-24">
+                    <span className="absolute inset-0 flex items-end gap-1.5">
+                      {semanas.lista.map((s) => (
+                        <span key={s.desde} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end">
+                          <span className="tabular-nums leading-none text-white/75">{s.n}</span>
+                          <span
+                            title={`Semana del ${s.etiqueta}: ${s.n}${s.enCurso ? " (en curso)" : ""}`}
+                            className={`mt-0.5 block w-full rounded-t ${s.enCurso ? "" : "bg-[#C8A96B]"}`}
+                            /* 17/11/2026 (ronda 20, jueces): la semana en curso, con trama
+                               (rayas) y no como una completa más. */
+                            style={{
+                              height: `${Math.max(3, (s.n / semanas.max) * 78)}%`,
+                              background: s.enCurso
+                                ? "repeating-linear-gradient(135deg, #C8A96B 0 3px, rgb(200 169 107 / .28) 3px 6px)"
+                                : undefined,
+                            }}
+                          />
+                        </span>
+                      ))}
+                    </span>
+                    <span aria-hidden className="pointer-events-none absolute inset-x-0" style={{ bottom: `${(semanas.media / semanas.max) * 78}%` }}>
+                      <span className="block border-t border-dashed" style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.55)" }} />
+                      <span className="absolute -top-4 right-0 rounded bg-[#11161D] px-1 tabular-nums text-white/75">
+                        media {semanas.media.toFixed(1).replace(".", ",")}
+                      </span>
+                    </span>
                   </span>
-                  <span
-                    aria-hidden
-                    className="relative -mt-12 block h-12 pointer-events-none"
-                  >
-                    <span
-                      className="absolute inset-x-0 border-t border-dashed border-white/50"
-                      style={{ bottom: `${(semanas.media / semanas.max) * 100}%` }}
-                    />
+                  <span aria-hidden className="mt-1 flex gap-1.5 text-white/55">
+                    {semanas.lista.map((s) => (
+                      <span key={s.desde} className="min-w-0 flex-1 truncate text-center tabular-nums">
+                        {s.etiqueta}
+                      </span>
+                    ))}
                   </span>
                   <span className="sr-only">
                     {semanas.lista.map((s) => `${s.etiqueta}: ${s.n}`).join(", ")}
@@ -593,6 +606,7 @@ export default function Calendar() {
           )}
           <CalendarStat
             label="Por tipo"
+            className={!playerFilter && semanas.lista.some((s) => s.n > 0) ? "max-lg:col-span-2" : ""}
             hint={!playerFilter && castillaTotal > 0 ? `registros del mes de los ${castillaTotal} de campo del Castilla` : undefined}
             value={
               <span className="mt-1 grid grid-cols-1 gap-x-3 gap-y-0.5 text-[13px] font-medium min-[400px]:grid-cols-2">
@@ -680,10 +694,23 @@ export default function Calendar() {
           </Link>
         ) : null;
         const md = mdDe(key);
+        /* 27/11/2026 (marketing, ronda 10): el MD de hoy abre la semana en
+           Microciclos (la previa del partido), a un toque desde la celda. */
         const marcaMd = md ? (
-          <span className="whitespace-nowrap rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300" title="Días que faltan para el próximo partido">
-            {md}
-          </span>
+          key === hoyKey ? (
+            <Link
+              href="/microcycles"
+              onClick={(e) => e.stopPropagation()}
+              className="whitespace-nowrap rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300 underline-offset-2 hover:underline"
+              title="Hoy: abrir la semana del partido en Microciclos"
+            >
+              {md} →
+            </Link>
+          ) : (
+            <span className="whitespace-nowrap rounded-full border border-sky-500/40 bg-sky-500/10 px-1.5 py-0.5 text-[11px] font-bold text-sky-300" title="Días que faltan para el próximo partido">
+              {md}
+            </span>
+          )
         ) : null;
 
         if (!hasSessions) {
@@ -713,8 +740,12 @@ export default function Calendar() {
             grupos.push(g);
           }
         }
-        const visible = grupos.slice(0, MAX_VISIBLE_PER_DAY);
-        const hidden = daySessions.length - visible.reduce((t, g) => t + g.n, 0);
+        /* 27/11/2026 (análisis, ronda 10): con 5 o más registros el día se lee
+           como mapa de calor: un contador por tipo, no tres tarjetas y «+N más». */
+        const porTipoDia = TIPOS.map((t) => ({ t, n: daySessions.filter((x) => strategyKey(x.ESTRATEGIA) === t).length })).filter((x) => x.n > 0);
+        const comoContador = daySessions.length >= 5;
+        const visible = comoContador ? [] : grupos.slice(0, MAX_VISIBLE_PER_DAY);
+        const hidden = comoContador ? 0 : daySessions.length - visible.reduce((t, g) => t + g.n, 0);
 
         return {
           hasContent: true,
@@ -738,6 +769,26 @@ export default function Calendar() {
           children: (
             <>
               {marcaPartido}
+              {comoContador && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedKey(key);
+                  }}
+                  title="Ver todos los registros del día"
+                  className="block w-full space-y-0.5 rounded-md border border-[#C8A96B]/25 bg-[#C8A96B]/10 px-1.5 py-1 text-left"
+                >
+                  {porTipoDia.map(({ t, n }) => (
+                    <span key={t} className="flex min-w-0 items-center gap-1 text-[11px]">
+                      <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", STRATEGY_STYLES[t].dot)} />
+                      <span className="min-w-0 truncate text-white/75">{STRATEGY_STYLES[t].label}</span>
+                      <span className="ml-auto font-semibold tabular-nums">{n}</span>
+                    </span>
+                  ))}
+                  <span className="block pt-0.5 text-center text-[11px] font-medium text-[#C8A96B]">ver el día</span>
+                </button>
+              )}
               {visible.map(({ session, n }, index) => {
                 const jugador = playersMap[session.ID_JUGADOR];
                 const style = STRATEGY_STYLES[strategyKey(session.ESTRATEGIA)];
@@ -775,6 +826,12 @@ export default function Calendar() {
                     >
                       <span className="truncate">{nombreVisible(jugador?.nombre || session.NOMBRE?.trim() || "Sin jugador en la hoja")}</span>
                       {n > 1 && <span className="shrink-0 tabular-nums text-white/60">×{n}</span>}
+                      {/* 27/11/2026 (análisis, ronda 10): quién lo hizo, en iniciales; el nombre entero, en el globo y al abrir el día. */}
+                      {session.QUIEN?.trim() && (
+                        <span className="ml-auto shrink-0 font-normal uppercase text-white/50">
+                          {session.QUIEN.trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("")}
+                        </span>
+                      )}
                     </p>
                   </div>
                 );
@@ -808,12 +865,20 @@ export default function Calendar() {
     >
       {!loading && !error && trackingData.length > 0 && (
         <div className="px-4 pb-4 md:px-8">
-          <p className="text-xs leading-relaxed text-white/55">
-            La franja de color de cada tarjeta dice el tipo (la leyenda está
-            sobre el calendario); quién lo hizo, al pasar el ratón o al abrir el día, y «×2» si el mismo jugador tiene dos registros del mismo tipo ese día. En azul, el
-            día de partido con su rival y su resultado. Pulsar un día abre todos
-            sus registros; pulsar una tarjeta, la ficha del jugador.
-          </p>
+          {/* 27/11/2026 (marketing, ronda 10): el pie largo, plegado tras un «?». */}
+          <details className="group text-xs leading-relaxed text-white/60">
+            <summary className="inline-flex cursor-pointer list-none items-center gap-1.5 font-medium text-[#C8A96B] [&::-webkit-details-marker]:hidden">
+              <span aria-hidden className="inline-flex h-4 w-4 items-center justify-center rounded-full border border-[#C8A96B]/50 text-[10px] font-bold">?</span>
+              Cómo leer el calendario
+            </summary>
+            <p className="mt-1.5">
+              La franja de color de cada tarjeta dice el tipo (la leyenda, sobre el calendario, con los registros de la temporada de cada tipo);
+              a la derecha, las iniciales de quién lo hizo (el nombre, al pasar el ratón o al abrir el día), y «×2» si el mismo jugador tiene dos
+              registros del mismo tipo ese día. Con 5 registros o más, el día enseña cuántos hay de cada tipo. En azul, el día de partido con su
+              rival y su resultado (jugado, abre su análisis; por jugar, el rival) y el MD de hoy, que abre la semana en Microciclos. Pulsar un día
+              abre todos sus registros; pulsar una tarjeta, la ficha del jugador.
+            </p>
+          </details>
         </div>
       )}
 

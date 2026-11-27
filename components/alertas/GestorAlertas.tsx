@@ -308,9 +308,11 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
       .sort((x, y) => x.s.cuando.getTime() - y.s.cuando.getTime());
 
     return salidas[0]
-      ? { titulo: salidas[0].a.titulo.trim(), cuando: salidas[0].s.cuando }
+      ? { titulo: salidas[0].a.titulo.trim(), cuando: salidas[0].s.cuando, partido: partidoDeLaSalida(salidas[0].s.cuando, salidas[0].s.dias, partidos) }
       : null;
   })();
+  /* 27/11/2026 (marketing, ronda 9): la jornada de las silenciadas, para que el titular sea la acción («3 recordatorios de la J15 silenciados»). */
+  const jornadaSilenciadas = primeraAlReactivar?.partido?.jornada ? `J${primeraAlReactivar.partido.jornada}` : "";
 
   return (
     <div className="space-y-4">
@@ -434,16 +436,21 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
           <p className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[15px] font-bold text-white/90">
             <BellOff className="h-5 w-5 shrink-0 text-[#C8A96B]" aria-hidden />
             {/* 20/11/2026 (ronda 5, análisis): el estado claro, arriba: con todo apagado no sale ningún correo. */}
-            {pantalla && ahora > 0
-              ? `Hoy, ${new Date(ahora).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "")}: no sale ningún correo`
-              : "No sale ningún correo"}
+            {/* 27/11/2026 (marketing, ronda 9): el titular es la acción («3 recordatorios de la J15 silenciados: hay que reactivarlos»), y «hoy no sale ningún correo» va detrás. */}
+            {pantalla && nSilenciadas > 0
+              ? `${nSilenciadas === 1 ? "1 recordatorio" : `${nSilenciadas} recordatorios`}${jornadaSilenciadas ? ` de la ${jornadaSilenciadas}` : ""} ${nSilenciadas === 1 ? "está silenciado" : "están silenciados"}`
+              : pantalla && ahora > 0
+                ? `Hoy, ${new Date(ahora).toLocaleDateString("es-ES", { weekday: "short", day: "numeric", month: "short" }).replace(/\./g, "").replace(",", "")}: no sale ningún correo`
+                : "No sale ningún correo"}
             <span className="font-semibold text-white/80">
               {" · "}
-              {nSilenciadas > 0
-                ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
-                : nCaducadas === 1
-                  ? "1 caducada"
-                  : `${nCaducadas} caducadas`}
+              {pantalla && nSilenciadas > 0
+                ? "hoy no sale ningún correo"
+                : nSilenciadas > 0
+                  ? `${nSilenciadas} ${nSilenciadas === 1 ? "silenciada" : "silenciadas"}`
+                  : nCaducadas === 1
+                    ? "1 caducada"
+                    : `${nCaducadas} caducadas`}
             </span>
           </p>
           <p className="mt-1">
@@ -497,6 +504,17 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
           </button>
           ) : null}
           {/* 20/11/2026 (ronda 5, análisis): un solo botón principal; «Nueva tarea con alerta» baja al pie de la lista. */}
+          {/* 27/11/2026 (análisis, ronda 9): y también aquí, en segundo plano, para que el vacío de la semana sea una acción. */}
+          {pantalla ? (
+            <button
+              type="button"
+              onClick={abrirNueva}
+              className="inline-flex min-h-9 items-center gap-1 rounded-full border border-white/20 px-3 text-[13px] font-medium text-white/80 transition hover:bg-white/[0.06] hover:text-white"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              Nueva tarea con alerta
+            </button>
+          ) : null}
           {pantalla ? (
             <Link href="/" className="inline-flex min-h-9 items-center gap-1 text-[13px] font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
               Tu día, en la portada
@@ -600,7 +618,7 @@ export default function GestorAlertas({ pantalla = false }: { pantalla?: boolean
           jornadas={jornadas}
         />
         {/* Con el panel de estado arriba, la nueva tarea va aquí, como acción secundaria. */}
-        {!resumen && alertas.length > 0 ? (
+        {!pantalla && !resumen && alertas.length > 0 ? (
           <button
             type="button"
             onClick={abrirNueva}
@@ -830,6 +848,27 @@ function SemanaDeAlertas({
     ? `${nuestro.jornada ? `J${nuestro.jornada} ` : ""}${nuestro.lado === "casa" ? "vs" : "en"} ${nuestro.rival}${diaPartido ? ` (${dia(diaPartido)})` : ""}`
     : "";
 
+  /*
+  | LA SEMANA DE AHORA, PRIMERO (27/11/2026, los tres jueces, ronda 9). El
+  | viernes MD-2 de la J14, con los avisos de ese día ya pasados, la línea
+  | saltaba a «Semana del siguiente partido · J15 vs Real Jaén» y chocaba con
+  | la portada, que trabaja la J14. Si el próximo partido es anterior al de
+  | los avisos, se dice: «J14 en Rayo Majadahonda: no queda ningún aviso por
+  | salir» y, debajo, la semana siguiente con correos.
+  */
+  const hoyClave = ahora > 0 ? clave(new Date(ahora)) : "";
+  const proximo = hoyClave
+    ? ([...partidos]
+        .filter((p) => String(p.cuando).slice(0, 10) >= hoyClave)
+        .sort((a, b) => String(a.cuando).localeCompare(String(b.cuando)))[0] as (PartidoParaAlerta & Partial<PartidoCastilla>) | undefined)
+    : undefined;
+  const proximoNuestro = proximo && proximo.local && proximo.visitante ? comoNuestro(proximo as PartidoCastilla) : null;
+  const saltaUno = Boolean(proximoNuestro && diaPartido && String(proximo?.cuando).slice(0, 10) < clave(diaPartido));
+  const rotuloAhora =
+    saltaUno && proximoNuestro && proximo
+      ? `${proximoNuestro.jornada ? `J${proximoNuestro.jornada} ` : ""}${proximoNuestro.lado === "casa" ? "vs" : "en"} ${proximoNuestro.rival} (${dia(new Date(`${String(proximo.cuando).slice(0, 10)}T12:00:00`))})`
+      : "";
+
   const maxDias = Math.max(6, ...delPartido.map(diasDe));
   const semana = Array.from({ length: maxDias + 1 }, (_, i) => maxDias - i);
   const fechaDe = (md: number) => {
@@ -850,11 +889,16 @@ function SemanaDeAlertas({
 
   return (
     <section aria-label="Las tareas atadas al partido, día a día">
+      {rotuloAhora ? (
+        <p className="mb-2 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-snug text-white/75">
+          <b className="font-semibold text-white/90">Esta semana · {rotuloAhora}</b>: no queda ningún aviso del partido por salir.
+        </p>
+      ) : null}
       <p className="mb-2 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/60">
         {rotulo ? (
           <>
             {/* 20/11/2026 (ronda 7, análisis): «Semana del siguiente partido» y la fecha de hoy, para que se vea que la de hoy ya no es esta. */}
-            Semana del siguiente partido · <span className="normal-case tracking-normal text-white/85">{rotulo}</span>
+            {rotuloAhora ? "Semana siguiente con avisos" : "Semana del próximo partido"} · <span className="normal-case tracking-normal text-white/85">{rotulo}</span>
             {ahora > 0 ? (
               <span className="normal-case tracking-normal text-white/60">
                 {" · hoy "}
@@ -915,7 +959,8 @@ function SemanaDeAlertas({
                         <span className="min-w-0 [overflow-wrap:anywhere]">{nombre(a)}</span>
                         {(() => {
                           const d = listaDestino(a.destinatarios, agenda);
-                          const quienes = [...d.nombres.map((n) => n.split(/\s+/).filter(Boolean).slice(0, 2).map((p) => p[0]?.toUpperCase() ?? "").join("")), ...(d.externos ? [`+${d.externos}`] : [])];
+                          /* 27/11/2026 (marketing, ronda 9): las iniciales no se entendían; el nombre de pila, y el completo al pasar o tocar. */
+                          const quienes = [...d.nombres.map((n) => n.split(/\s+/).filter(Boolean)[0] ?? ""), ...(d.externos ? [`+${d.externos}`] : [])];
 
                           return quienes.length ? (
                             <span className="mt-0.5 flex flex-wrap gap-1" aria-label={`A ${[...d.nombres, d.externo].filter(Boolean).join(", ")}`}>
@@ -939,4 +984,14 @@ function SemanaDeAlertas({
       </ol>
     </section>
   );
+}
+
+/** El partido al que va atada una salida («cuándo» + los días antes), como lo cuenta la portada. */
+function partidoDeLaSalida(cuando: Date, dias: number, partidos: PartidoParaAlerta[]) {
+  const d = new Date(cuando.getTime());
+  d.setDate(d.getDate() + dias);
+  const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  const p = partidos.find((x) => String(x.cuando).slice(0, 10) === k) as (PartidoParaAlerta & Partial<PartidoCastilla>) | undefined;
+
+  return p && p.local && p.visitante ? comoNuestro(p as PartidoCastilla) : null;
 }

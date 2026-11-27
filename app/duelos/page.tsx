@@ -707,12 +707,17 @@ export default function DuelosPage() {
             {/* El dato arriba (10/11/2026, jueces): el recuento es el titular; la clave del percentil, debajo. */}
             {!cargando && equipoVisto && pintados.length > 0 && (
               <p className="mt-3 max-w-3xl text-lg font-semibold leading-snug text-white sm:text-xl">
-                Contra {equipoVisto}: {recuentoBase.replace(/^\d+ duelos? medidos?: /, "")}
+                {/*
+                  27/11/2026 (ronda 10, análisis): la MISMA frase que el Plan de partido
+                  («5 duelos medidos y 1 con pocos minutos (tendencia): 2 para buscar…»),
+                  con la misma cuenta, y sin «momentos» en el titular.
+                */}
+                Contra {equipoVisto}: {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}
+                {tendencias.size ? ` y ${tendencias.size} con pocos minutos (tendencia)` : ""}
+                {/: /.test(recuentoBase) ? `: ${recuentoBase.replace(/^[^:]*: /, "")}` : ""}
                 {" "}
                 <span className="text-sm font-normal text-white/50">
-                  {/* Ronda 20 (17/11/2026, análisis): que «8 duelos» no se lea como 16 momentos, y el umbral dicho una vez. */}
-                  · {pintados.length - tendencias.size} {pintados.length - tendencias.size === 1 ? "duelo medido" : "duelos medidos"}, cada uno con nuestro balón y con el suyo
-                  {tendencias.size ? `, y ${tendencias.size} con pocos minutos (tendencia: menos de 450′ en un lado)` : ""}. Cuenta desde ±{UMBRAL_DUELO} de diferencia de percentil, como en el Plan de partido.
+                  · Cuenta desde ±{UMBRAL_DUELO} de diferencia de percentil, como en el Plan de partido; tendencia: menos de 450′ en un lado. Minutos y puesto de cada rival: Wyscout y su ficha, los mismos de Plantillas rivales.
                 </span>
               </p>
             )}
@@ -882,7 +887,31 @@ export default function DuelosPage() {
                                     </span>
                                   ) : null;
                                 })()}
+                                {/*
+                                  27/11/2026 (ronda 10, marketing): la consigna de vestuario, una frase
+                                  para el jugador; la orden de arriba es la del cuerpo técnico.
+                                */}
+                                {(() => {
+                                  const orden = ordenCorta(consignaDelDuelo(d, sentido));
+                                  const quien = d.nuestros.map((j) => apellidoDe(j)).join(" y ");
+                                  const que = orden.includes(": ") ? orden.slice(orden.indexOf(": ") + 2) : orden;
+                                  if (!que || !quien) return null;
+                                  const cierre = (v ?? 0) >= 0 ? "ahí le ganamos" : "ahí es donde nos pueden ganar";
+                                  return (
+                                    <span className="mt-1 block text-[13px] leading-snug" style={{ color: ORO }}>
+                                      <b>Al vestuario:</b> «{quien}, {que.charAt(0).toLowerCase() + que.slice(1)}: {cierre}».
+                                    </span>
+                                  );
+                                })()}
                               </button>
+                              {/* Su ficha y su vídeo con el rival ya elegido (27/11/2026, ronda 10, análisis): fuera del botón, que no se anidan enlaces. */}
+                              <span className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
+                                {d.suyos.map((j) => (
+                                  <Link key={j.clave} href={fichaDe(j, false, equipoVisto)} className="font-semibold hover:underline" style={{ color: ORO }}>
+                                    {apellidoDe(j)}: su ficha y vídeo ›
+                                  </Link>
+                                ))}
+                              </span>
                             </li>
                           );
                         })}
@@ -1107,6 +1136,8 @@ function Campo({
 }) {
   const estrecho = useSyncExternalStore(suscribeEstrecho, esEstrecho, anchoServidor);
   const [tocada, setTocada] = useState<string | null>(null);
+  /* 27/11/2026 (ronda 10, fútbol y marketing): en el móvil, el campo a pantalla completa con un toque. */
+  const [grande, setGrande] = useState(false);
   /* El nombre en el campo abre su ficha sin recargar (16/11/2026, ronda 18). */
   const router = useRouter();
   const K = 8;
@@ -1166,7 +1197,7 @@ function Campo({
     return salida;
   })();
 
-  const ficha = (j: JugadorDuelo | undefined, p: { x: number; y: number }, nuestro: boolean, key: string) => {
+  const ficha = (j: JugadorDuelo | undefined, p: { x: number; y: number }, nuestro: boolean, key: string, estrecho: boolean) => {
     const { x, y } = px(p);
     /* En el móvil, el número (el dorsal; sin él, el puesto) y el nombre sólo de la ficha tocada. */
     const numero = j ? (nuestro ? (j.fichaId ? dorsalNuestro.get(j.fichaId) : undefined) : j.dorsal) : undefined;
@@ -1204,12 +1235,8 @@ function Campo({
     );
   };
 
-  return (
-    /* Encajado al ancho (10/11/2026, jueces): a 390 px se cortaba por la derecha y había que deslizarlo.
-       Las letras crecen en el móvil para que, escaladas, sigan por encima de 11 px. */
-    /* En el móvil, la lista de parejas va primero y el campo de apoyo (16/11/2026, ronda 18, análisis). */
-    <div className="mt-3 flex min-w-0 flex-col">
-    <svg viewBox={`-24 -40 ${W + 48} ${H + 84}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={{ maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
+  const lienzo = (estrecho: boolean, enGrande = false) => (
+    <svg viewBox={`-24 -40 ${W + 48} ${H + 84}`} preserveAspectRatio="xMidYMid meet" className="h-auto w-full" style={enGrande ? undefined : { maxHeight: "max(300px, calc(100vh - 330px))" }} role="img" aria-label="Duelos en el campo">
       <rect x={0} y={0} width={W} height={H} rx={10} fill="#12301f" />
       {[...Array(10)].map((_, i) => (
         <rect key={i} x={(i * W) / 10} y={0} width={W / 10} height={H} fill={i % 2 ? "rgba(255,255,255,0.025)" : "transparent"} />
@@ -1243,9 +1270,54 @@ function Campo({
 
       {/* La medular ya no va sobre el césped (tapaba a Leiva, 16/11/2026): su cifra está en la leyenda de debajo. */}
 
-      {HUECOS.map((h) => ficha(once[h.clave], SITIO[h.clave], true, `n-${h.clave}`))}
-      {HUECOS.map((h) => ficha(suyo[h.clave], espejo(SITIO[h.clave]), false, `s-${h.clave}`))}
+      {HUECOS.map((h) => ficha(once[h.clave], SITIO[h.clave], true, `n-${h.clave}`, estrecho))}
+      {HUECOS.map((h) => ficha(suyo[h.clave], espejo(SITIO[h.clave]), false, `s-${h.clave}`, estrecho))}
     </svg>
+  );
+
+  return (
+    /* Encajado al ancho (10/11/2026, jueces): a 390 px se cortaba por la derecha y había que deslizarlo.
+       Las letras crecen en el móvil para que, escaladas, sigan por encima de 11 px. */
+    /* En el móvil, la lista de parejas va primero y el campo de apoyo (16/11/2026, ronda 18, análisis). */
+    <div className="mt-3 flex min-w-0 flex-col">
+    {lienzo(estrecho)}
+    {/*
+      27/11/2026 (ronda 10): a 390 px el campo es de apoyo y sus letras quedan
+      pequeñas. Con un toque se abre a pantalla completa, con los nombres y el
+      dorsal a su tamaño (el lienzo, a 960 px de ancho, se desliza de lado).
+    */}
+    {estrecho && (
+      <button
+        type="button"
+        onClick={() => setGrande(true)}
+        className="mt-2 self-start rounded-full border border-white/15 px-3 py-1.5 text-[13px] font-semibold"
+        style={{ color: ORO }}
+      >
+        Ver el campo en grande, con los nombres
+      </button>
+    )}
+    {grande && (
+      <div className="modal-veil fixed inset-0 z-[70] flex flex-col p-2" role="dialog" aria-modal="true" aria-label="Duelos en el campo, a pantalla completa">
+        <div className="flex min-h-0 flex-1 flex-col rounded-2xl border border-white/10 p-2" style={{ background: "#0c2416" }}>
+          <div className="flex items-center justify-between gap-2 px-1 pb-2">
+            <p className="text-[13px] font-semibold" style={{ color: "rgba(255,255,255,0.92)" }}>
+              Nosotros, hacia la derecha · desliza de lado y toca un nombre para su ficha
+            </p>
+            <button
+              type="button"
+              onClick={() => setGrande(false)}
+              className="shrink-0 rounded-full border px-3 py-1 text-[13px] font-semibold"
+              style={{ color: ORO_CAMPO, borderColor: "rgba(200,169,107,0.5)" }}
+            >
+              Cerrar
+            </button>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div style={{ width: 960 }}>{lienzo(false, true)}</div>
+          </div>
+        </div>
+      </div>
+    )}
     {/* En el móvil, sólo el número en la ficha y debajo las parejas con su cifra (16/11/2026, ronda 17). */}
     {estrecho && (
       <ul className="order-first mb-3 space-y-1.5 text-[13px] text-white/80">

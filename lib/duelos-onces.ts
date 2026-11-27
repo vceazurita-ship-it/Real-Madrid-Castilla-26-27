@@ -13,6 +13,7 @@ import type { FilaJugador } from "@/lib/data-analisis/leer";
 import { esNuestro } from "@/lib/data-analisis/individual";
 import { HUECOS, casaNombre, proponeOnce, sitioDe } from "@/lib/data-analisis/once";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { asignaPerfiles } from "@/lib/rivals/perfil-wyscout";
 import { playerKey } from "@/lib/rivals/once";
 import { conTildes } from "@/lib/rivals/tildes";
 import { bajaDe } from "@/lib/rivals/bajas";
@@ -146,13 +147,19 @@ function conNombreCompletoSiSeRepite(lista: JugadorDuelo[]): JugadorDuelo[] {
 /** Los suyos: la plantilla de la hoja RIVALES, cada uno con su fila de Wyscout si se encuentra. */
 export function suyosDe(filasHoja: Fila[], equipo: string, jugadores: FilaJugador[]): JugadorDuelo[] {
   const filasWy = jugadores.filter((j) => j.temporada === "actual" && mismoClub(j.equipo, equipo));
-  return conNombreCompletoSiSeRepite(filasHoja
-    .filter((f) => texto(f.NOMBRE_EQUIPO) === equipo)
+  const fichas = filasHoja.filter((f) => texto(f.NOMBRE_EQUIPO) === equipo);
+  /*
+  | 27/11/2026 (ronda 10, fútbol): la fila de Wyscout de cada ficha, con la
+  | MISMA función que Plantillas rivales (`asignaPerfiles`): la plantilla entera
+  | a la vez, misma inicial y nadie con la fila de un compañero. Con
+  | `casaNombre` suelto, «Jeremy José» casaba por «José» con otro jugador y
+  | Duelos le daba 855′ frente a los 415′ de /rivals.
+  */
+  const casados = asignaPerfiles(fichas, filasWy, (f) => playerKey(f as never));
+  return conNombreCompletoSiSeRepite(fichas
     .map((f) => {
       const nombre = conTildes(comoNombre(texto(f["NOMBRE DEPORTIVO"]) || texto(f.JUGADOR)));
-      const wy =
-        casaNombre(nombre, filasWy, (r) => r.jugador) ??
-        (texto(f.JUGADOR) && texto(f.JUGADOR) !== nombre ? casaNombre(comoNombre(texto(f.JUGADOR)), filasWy, (r) => r.jugador) : null);
+      const wy = casados.get(playerKey(f as never)) ?? null;
       const sitio = sitioDe(texto(f["POSICIÓN"]), wy?.posicion ?? null);
       return {
         clave: playerKey(f as never),

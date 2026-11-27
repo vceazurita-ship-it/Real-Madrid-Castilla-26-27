@@ -23,6 +23,8 @@ import { useRemoteDoc } from "@/hooks/useRemoteDoc";
 import { DOC_GOLES, GOLES_VACIO, type GolesDoc } from "@/lib/goles/analisis";
 import { SelloDeFechas } from "@/components/data/SelloJornada";
 import { AccesosVideo } from "@/components/video-partido/AccesosVideo";
+import { useOrdenadorPrincipal } from "@/hooks/useOrdenadorPrincipal";
+import { enlacesDelDia } from "@/lib/video-partido/enlaces";
 import { ConmutadorVista, TituloConclusion, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { useEtiquetadoEnVideo, type Etiquetado } from "@/hooks/useEtiquetadoEnVideo";
 import { enlaceConPartido, urlPostDelPartido } from "@/lib/post-partido";
@@ -639,19 +641,22 @@ export default function Page() {
                 | repetían lo mismo que la curva, cuyos puntos llevan a cada
                 | tarjeta (fútbol).
                 */
-                <>
-                  <p className="mt-3 text-lg font-semibold text-white sm:text-xl">
-                    {(() => {
-                      const pts = metrics.todos.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
-                      const ult = metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
-                      return `${pts} de ${metrics.played * 3} puntos${metrics.lastFive.length >= 3 ? `, ${ult} de ${metrics.lastFive.length * 3} en los últimos ${metrics.lastFive.length}` : ""}`;
-                    })()}
-                  </p>
-                  <p className="mt-1 text-[13px] text-white/65">
-                    {metrics.wins > 0 ? `Ganamos ${metrics.wins}` : "No ganamos ninguno"}, empatamos {metrics.draws} y perdimos {metrics.losses} de {metrics.played} de liga
-                    {matches.some((m) => !m.esLiga) ? " (sin la pretemporada)" : ""} · resultados del calendario de BeSoccer.
-                  </p>
-                </>
+                /*
+                | 27/11/2026 (jueces, ronda 10): una sola formulación. Los puntos
+                | de la temporada y el reparto V/E/D ya los dicen el titular de la
+                | curva y sus puntos (V, E, D); aquí, sólo lo que la curva no dice
+                | en palabras: la racha de los últimos cinco.
+                */
+                <p className="mt-3 text-lg font-semibold text-white sm:text-xl">
+                  {(() => {
+                    const pts = metrics.todos.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
+                    const ult = metrics.lastFive.reduce((s, m) => s + (m.outcome === "W" ? 3 : m.outcome === "D" ? 1 : 0), 0);
+                    return metrics.lastFive.length >= 3
+                      ? `${ult} de ${metrics.lastFive.length * 3} puntos en los últimos ${metrics.lastFive.length} partidos de liga`
+                      : `${pts} de ${metrics.played * 3} puntos en liga`;
+                  })()}
+                  {metrics.lastFive.length >= 3 ? <span className="ml-2 align-middle text-[12px] font-normal text-white/55">tendencia</span> : null}
+                </p>
               ) : null}
 
               {/* 17/11/2026 (ronda 20): en el móvil, fuera, para que la curva de puntos se vea sin bajar. */}
@@ -941,20 +946,33 @@ function MetricsPanel({
       <div className="mb-3 flex min-w-0 flex-wrap items-start justify-between gap-2">
         {/* 17/11/2026 (ronda 20): los puntos y la racha ya son el titular de la
             página; aquí, la conclusión del gráfico: frente a un equipo medio. */}
-        <TituloConclusion pregunta="¿Cómo va la temporada?" fuente={`Calendario de BeSoccer · ${metrics.played} de liga`}>
-          {(() => {
-            const medio = ligaPuntosPP !== null ? ligaPuntosPP * metrics.played : null;
-            if (medio === null) return `${totalPuntos} de ${metrics.played * 3} puntos (${Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)`;
-            const d = Math.round((totalPuntos - medio) * 10) / 10;
-            /* 20/11/2026 (jueces, ronda 5): con menos de 20 partidos, «tendencia», junto a la comparación. */
-            const base = `${coma1(medio)}, media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? `, J1–J${ligaBase.jornadas}` : ""}${metrics.played < 20 ? ` · ${metrics.played} ${metrics.played === 1 ? "partido" : "partidos"}, tendencia` : ""}`;
-            /* 27/11/2026 (ronda 9, análisis): la misma unidad que el Histórico (por partido) junto al total, para que las dos pantallas se lean igual. */
-            const pp = `${coma1(totalPuntos / Math.max(1, metrics.played))} por partido frente a ${coma1(medio / Math.max(1, metrics.played))}`;
-            return Math.abs(d) < 0.5
-              ? `${totalPuntos} puntos (${pp}), lo que suma un equipo medio de la liga (${base})`
-              : `${totalPuntos} puntos (${pp}), ${coma1(Math.abs(d))} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio de la liga (${base})`;
-          })()}
-        </TituloConclusion>
+        {/*
+        | 27/11/2026 (jueces, ronda 10): titular corto con la conclusión y, en
+        | la línea pequeña, la base entera (los puntos, por partido, qué es la
+        | media y hasta qué jornada). Antes eran tres renglones de titular.
+        */}
+        {(() => {
+          const medio = ligaPuntosPP !== null ? ligaPuntosPP * metrics.played : null;
+          if (medio === null) {
+            return (
+              <TituloConclusion pregunta="¿Cómo va la temporada?" fuente={`Calendario de BeSoccer · ${metrics.played} de liga`}>
+                {`${totalPuntos} de ${metrics.played * 3} puntos (${Math.round((totalPuntos / Math.max(1, metrics.played * 3)) * 100)} %)`}
+              </TituloConclusion>
+            );
+          }
+          const d = Math.round((totalPuntos - medio) * 10) / 10;
+          /* 27/11/2026 (ronda 9, análisis): la misma unidad que el Histórico (por partido) junto al total. */
+          const pp = `${coma1(totalPuntos / Math.max(1, metrics.played))} por partido frente a ${coma1(medio / Math.max(1, metrics.played))}`;
+          /* 20/11/2026 (jueces, ronda 5): con menos de 20 partidos, «tendencia», junto a la comparación. */
+          const base = `${totalPuntos} puntos (${pp}) · un equipo medio: ${coma1(medio)}, la media de los ${ligaBase?.equipos ?? 20} equipos${ligaBase ? ` tras la J${ligaBase.jornadas}` : ""}${metrics.played < 20 ? ` · ${metrics.played} ${metrics.played === 1 ? "partido" : "partidos"}, tendencia` : ""} · calendario de BeSoccer`;
+          return (
+            <TituloConclusion pregunta="¿Cómo va la temporada?" fuente={base}>
+              {Math.abs(d) < 0.5
+                ? "Vamos como un equipo medio de la liga"
+                : `Vamos ${coma1(Math.abs(d))} ${Math.abs(d) === 1 ? "punto" : "puntos"} ${d > 0 ? "por encima" : "por debajo"} de un equipo medio`}
+            </TituloConclusion>
+          );
+        })()}
         <ConmutadorVista vista={vista} onCambia={setVista} />
       </div>
       {vista === "visual" && puntos.length >= 2 ? <CurvaPuntos puntos={puntos} partidos={metrics.todos} ligaPuntosPP={ligaPuntosPP} equipos={ligaBase?.equipos ?? 0} jornadas={ligaBase?.jornadas ?? 0} /> : null}
@@ -1133,7 +1151,8 @@ function CurvaPuntos({ puntos, partidos, ligaPuntosPP, equipos, jornadas }: { pu
         {liga ? (
           <span className="inline-flex items-center gap-1.5">
             <span className="inline-block w-5 border-t-2 border-dashed" style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / .5)" }} aria-hidden />
-            Media de los {equipos || 20} equipos{jornadas ? ` (J1–J${jornadas})` : ""}, {liga[liga.length - 1].toFixed(1).replace(".", ",")}
+            {/* 27/11/2026 (jueces, ronda 10): qué es la raya, en puntos acumulados como la nuestra. */}
+            Equipo medio (media de los {equipos || 20} equipos{jornadas ? ` tras la J${jornadas}` : ""}), {liga[liga.length - 1].toFixed(1).replace(".", ",")} puntos
           </span>
         ) : null}
       </p>
@@ -1234,6 +1253,22 @@ function MatchCard({
      fuera del botón de la tarjeta (un enlace no puede ir dentro de un botón). */
   const dia = match.date ? diaClave(match.date) : "";
 
+  /*
+  | 27/11/2026 (jueces, ronda 10): en un partido jugado, a la vista sólo «Post
+  | del partido» y «Goles»; Coding, Hudl, la grabación táctica y el resumen
+  | pasan a «Análisis (n)» con robos, pérdidas y faltas. Se cuentan con la
+  | misma regla con la que AccesosVideo decide qué pinta.
+  */
+  const principal = useOrdenadorPrincipal();
+  const conFila = Boolean(dia) && match.outcome !== null;
+  const enlacesVideo = dia ? enlacesDelDia(dia) : null;
+  const deVideo = conFila
+    ? (match.enCoding ? 1 : 0) +
+      (enlacesVideo?.hudl || (match.esLiga && match.outcome !== null) ? 1 : 0) +
+      (principal && enlacesVideo?.tactica ? 1 : 0) +
+      (enlacesVideo?.resumen ? 1 : 0)
+    : 0;
+
   return (
     <div
       id={`partido-${match.id}`}
@@ -1331,7 +1366,7 @@ function MatchCard({
       {/* 16/11/2026 (expertos, ronda 18): los accesos abajo del todo, para que
           las tarjetas de una fila queden alineadas aunque a una le falte un botón. */}
       <div className="mt-auto">
-      {dia ? (
+      {conFila ? null : dia ? (
         <AccesosVideo
           dia={dia}
           jugado={match.esLiga && match.outcome !== null}
@@ -1365,10 +1400,20 @@ function MatchCard({
               etiquetado?.perdidas(del) ? { href: enlaceConPartido("/laboratorio/perdidas", del), texto: "Pérdidas" } : null,
               etiquetado?.faltas(del) ? { href: enlaceConPartido("/laboratorio/faltas", del), texto: "Faltas" } : null,
             ].filter((x): x is { href: string; texto: string } => x !== null);
-            if (!analisis.length) return null;
+            const cuantos = analisis.length + deVideo;
+            if (!cuantos) return null;
             return (
-              <details className="min-w-0">
-                <summary className={`${BOTON_TARJETA} cursor-pointer list-none`}>Análisis ({analisis.length}) ▾</summary>
+              <details className="min-w-0 open:basis-full">
+                <summary className={`${BOTON_TARJETA} cursor-pointer list-none`}>Análisis ({cuantos}) ▾</summary>
+                {deVideo > 0 ? (
+                  <AccesosVideo
+                    dia={dia}
+                    jugado={match.esLiga && match.outcome !== null}
+                    coding={match.enCoding ? "/coding?ambito=partido" : undefined}
+                    completos
+                    className="mt-1.5"
+                  />
+                ) : null}
                 <span className="mt-1.5 flex flex-wrap gap-1.5">
                   {analisis.map((a) => (
                     <Link key={a.texto} href={a.href} className={BOTON_TARJETA}>

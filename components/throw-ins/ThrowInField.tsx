@@ -368,13 +368,14 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                 {/* 17/11/2026 (jueces, ronda 19): cada zona dice «n saques · % conservados» (o recuperados), hacia dentro del campo.
                     Ronda 20: sobre una píldora oscura, que sobre el césped claro del modo día no se leía. */}
                 {(() => {
-                  const rotulo = `${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`;
-                  const ancho = rotulo.length * 2.05 + 2.4;
+                  /* 27/11/2026 (jueces, ronda 10): con su base («17/44 · 39 %»), no sólo el %. */
+                  const rotulo = `${node.favorables}/${node.count} · ${Math.round((node.favorables / node.count) * 100)} %`;
+                  const ancho = rotulo.length * 1.7 + 2.2;
                   const yTexto = y < 50 ? y + radius + 4.4 : y - radius - 2.2;
                   return (
                     <g pointerEvents="none">
                       <rect x={x - ancho / 2} y={yTexto - 3.4} width={ancho} height={4.6} rx={2.3} style={{ fill: "#07111F", fillOpacity: 0.82 }} />
-                      <text x={x} y={yTexto} textAnchor="middle" fontSize="3.4" fontWeight="700" style={{ fill: "#FFFFFF" }}>
+                      <text x={x} y={yTexto} textAnchor="middle" fontSize="2.9" fontWeight="700" style={{ fill: "#FFFFFF" }}>
                         {rotulo}
                       </text>
                     </g>
@@ -492,7 +493,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
       {nodes.length ? (
         <>
         <p className="mt-3 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55 sm:hidden">
-          Por zona · saques · % {isOffensive ? "conservados" : "recuperados"}
+          Por zona · {isOffensive ? "conservados" : "recuperados"} de los saques · %
         </p>
         <ul className="mt-1.5 grid gap-1.5 sm:hidden">
           {[...nodes]
@@ -514,7 +515,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
                       {BANDA_LABEL[node.banda]} · {zonaLabel(node.zona, mode)}
                     </span>
                     <span className="shrink-0 tabular-nums text-white/90">
-                      {node.count} · <b>{Math.round((node.favorables / node.count) * 100)} %</b>
+                      {node.favorables} de {node.count} · <b>{Math.round((node.favorables / node.count) * 100)} %</b>
                     </span>
                   </button>
                 </li>
@@ -533,7 +534,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar }: ThrowInFieldPro
         <p className="min-w-0">
           {isOffensive ? "Atacamos hacia la derecha: nuestra portería, a la izquierda." : "El rival ataca hacia la izquierda, hacia nuestra portería."}
           {nodes.length
-            ? ` Junto a cada disco: saques · % ${isOffensive ? "conservados" : "recuperados"}. Tamaño del disco = saques; grosor de la flecha = cuántos van en esa dirección.`
+            ? ` Dentro del disco, los saques de la zona; junto a él, ${isOffensive ? "los que conservamos" : "los que recuperamos"} de esos saques y su % (p. ej. «17/44 · 39 %»). El color del disco es otra medida: el % que ${isOffensive ? "llega" : "le llega"} a último tercio o más. Tamaño del disco = saques; grosor de la flecha = cuántos van en esa dirección.`
             : ""}
           {sinUbicar ? ` ${sinUbicar} ${sinUbicar === 1 ? "saque" : "saques"} sin banda o zona apuntada, fuera del campo.` : ""}
         </p>

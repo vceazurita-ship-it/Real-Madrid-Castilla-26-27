@@ -8,6 +8,7 @@ import { esPortero } from "@/lib/seguimiento";
 import { nombreVisible } from "@/lib/nombreJugador";
 import { useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { EnlacesJugador, NombreJugador } from "@/components/individual/EnlacesJugador";
 import {
   Area,
@@ -193,10 +194,6 @@ function LeyendaColorNota() {
   );
 }
 
-function plural(n: number, uno: string, varios: string) {
-  return `${n} ${n === 1 ? uno : varios}`;
-}
-
 function sortValue(entry: RankedPlayer, key: SortKey) {
   const { summary } = entry;
 
@@ -214,6 +211,7 @@ export function TeamPanel({
   matchSummaries: MatchSummary[];
   onSelectPlayer: (playerId: string) => void;
 }) {
+  const router = useRouter();
   const [sortKey, setSortKey] = useState<SortKey>("avg");
   const [minMatches, setMinMatches] = useState(1);
   const [todasCols, setTodasCols] = useState(false);
@@ -344,7 +342,14 @@ export function TeamPanel({
     () =>
       matchSummaries
         .filter((item) => item.rated > 0)
-        .map((item) => ({
+        .map((item, i, lista) => ({
+          /* 27/11/2026 (marketing, ronda 10): tocar el punto abre el partido:
+             el último, su análisis post (el único que se pide por dirección);
+             los demás, su rival ya elegido, como en «Partido a partido». */
+          href:
+            i === lista.length - 1
+              ? "/data-analisis?area=post"
+              : `/rivals?equipo=${encodeURIComponent(item.match.opponent)}`,
           name: formatMatchDateShort(item.match),
           label: matchLabel(item.match),
           result: (() => {
@@ -516,53 +521,59 @@ export function TeamPanel({
           decisivo» (muestra pequeña) no van en titular grande: una línea
           secundaria con su base. */}
       {(mostImproved || (decisivoClaro && topScorer)) && (
-        <p className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2 text-xs text-white/65">
+        /* 27/11/2026 (marketing, ronda 10): de una línea densa a dos tarjetas
+           con el top 3 en filas (nombre, cifra y base en PJ). */
+        <div className="grid min-w-0 gap-3 sm:grid-cols-2">
           {mostImproved && (
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <span className="font-semibold uppercase tracking-[0.12em] text-white/50">Progresión (tendencia)</span>
-              <NombreJugador jugador={{ id: mostImproved.player.id, nombre: mostImproved.player.nombre }} className="font-semibold text-white">
-                {nombreVisible(mostImproved.player.nombre)}
-              </NombreJugador>
-              <span className="tabular-nums">{formatSigned(mostImproved.summary.trend)} · {desdeHasta(mostImproved)}3 últimas frente a 3 anteriores · {mostImproved.summary.played} PJ</span>
-              {siguenProgresion.map((entry, i) => (
-                <span key={entry.player.id} className="inline-flex items-center gap-1 tabular-nums">
-                  · {i + 2}.º
-                  <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="text-white/85">
-                    {nombreVisible(entry.player.nombre)}
-                  </NombreJugador>
-                  {formatSigned(entry.summary.trend)}
-                </span>
-              ))}
-            </span>
+            <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/55">Progresión (tendencia)</p>
+              <p className="mt-0.5 text-xs text-white/55">3 últimas notas frente a las 3 anteriores; más es mejor</p>
+              <ol className="mt-2 space-y-1">
+                {[mostImproved, ...siguenProgresion].map((entry, i) => (
+                  <li key={entry.player.id} className="flex min-w-0 items-baseline gap-2 text-sm">
+                    <span className="w-5 shrink-0 tabular-nums text-white/50">{i + 1}.º</span>
+                    <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="min-w-0 truncate font-semibold text-white">
+                      {nombreVisible(entry.player.nombre)}
+                    </NombreJugador>
+                    <span className="ml-auto shrink-0 font-semibold tabular-nums text-white">{formatSigned(entry.summary.trend)}</span>
+                    <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/55">
+                      {desdeHasta(entry).replace(/,\s*$/, "")} · {entry.summary.played} PJ
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
           {decisivoClaro && topScorer && (
-            <span className="inline-flex flex-wrap items-center gap-1.5">
-              <span className="font-semibold uppercase tracking-[0.12em] text-white/50">Goles + asist.</span>
-              <NombreJugador jugador={{ id: topScorer.player.id, nombre: topScorer.player.nombre }} className="font-semibold text-white">
-                {nombreVisible(topScorer.player.nombre)}
-              </NombreJugador>
-              <span className="tabular-nums">
-                {plural(topScorer.summary.goals, "gol", "goles")} · {plural(topScorer.summary.assists, "asistencia", "asistencias")} · {topScorer.summary.played} PJ
-              </span>
-              {siguenGA.map((entry, i) => (
-                <span key={entry.player.id} className="inline-flex items-center gap-1 tabular-nums">
-                  · {i + 2}.º
-                  <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="text-white/85">
-                    {nombreVisible(entry.player.nombre)}
-                  </NombreJugador>
-                  {entry.summary.goals}+{entry.summary.assists}
-                </span>
-              ))}
-            </span>
+            <div className="min-w-0 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2.5">
+              <p className="text-xs font-semibold uppercase tracking-[0.12em] text-white/55">Goles + asistencias</p>
+              <p className="mt-0.5 text-xs text-white/55">anotados en Valoraciones, con los partidos jugados</p>
+              <ol className="mt-2 space-y-1">
+                {[topScorer, ...siguenGA].map((entry, i) => (
+                  <li key={entry.player.id} className="flex min-w-0 items-baseline gap-2 text-sm">
+                    <span className="w-5 shrink-0 tabular-nums text-white/50">{i + 1}.º</span>
+                    <NombreJugador jugador={{ id: entry.player.id, nombre: entry.player.nombre }} className="min-w-0 truncate font-semibold text-white">
+                      {nombreVisible(entry.player.nombre)}
+                    </NombreJugador>
+                    <span className="ml-auto shrink-0 font-semibold tabular-nums text-white">
+                      {entry.summary.goals + entry.summary.assists}
+                    </span>
+                    <span className="shrink-0 whitespace-nowrap text-right text-xs tabular-nums text-white/55">
+                      {entry.summary.goals} G · {entry.summary.assists} A · {entry.summary.played} PJ
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
           )}
-        </p>
+        </div>
       )}
 
       {/* EVOLUCIÓN */}
 
       <Panel
         title="Evolución del equipo"
-        subtitle="Media de las notas de cada partido · un punto por partido · lleno, en casa; hueco, fuera · línea de puntos, la media de la temporada"
+        subtitle="Media de las notas de cada partido · un punto por partido · lleno, en casa; hueco, fuera · línea de puntos, la media de la temporada · toca un punto para abrir el partido"
         lectura={
           <LecturaGrafico
             serie={evolution.map((punto) => ({
@@ -682,6 +693,8 @@ export function TeamPanel({
                         key={index}
                         cx={cx}
                         cy={cy}
+                        style={{ cursor: "pointer" }}
+                        onClick={() => router.push(payload.href)}
                         r={payload.casa ? 3.5 : 3.8}
                         fill={payload.casa ? "#C8A96B" : "none"}
                         stroke="#C8A96B"
@@ -700,7 +713,8 @@ export function TeamPanel({
 
       {/* TOPS */}
 
-      <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+      {/* 27/11/2026 (marketing, ronda 10): cada panel a su altura, sin hueco bajo el gráfico. */}
+      <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
         <Panel
           title={`Nota y minutos · ${topChart.length} de ${ranked.filter((e) => e.summary.played > 0).length} con ${MIN_FIABLE}+ PJ`}
           subtitle={`cada punto, un jugador con ${MIN_FIABLE} o más partidos con nota · arriba, mejor nota; a la derecha, más minutos${topChart.some((p) => !p.rotulo) ? " · el punto sin nombre, al tocarlo" : ""}`}
@@ -1103,7 +1117,7 @@ export function TeamPanel({
 
       <Panel
         title="Ranking de la plantilla"
-        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia (fila atenuada) · Pond. = media por minutos · Forma = últimos 5 · Tend. = 3 últimas frente a las 3 anteriores · el nombre abre su ficha y el resto de la fila, sus notas · Min = minutos de Valoraciones (90′ por partido completo, de BeSoccer): por eso no coincide al minuto con el Dashboard de plantilla, que usa Wyscout`}
+        subtitle={`Media del equipo ${formatRating(teamAverage)} · con menos de ${MIN_FIABLE} partidos, tendencia (fila atenuada) · Pond. = media por minutos · Forma = últimos 5 · Media (n) = media sobre 0-10, más es mejor, con su número de notas · Tend. = 3 últimas frente a las 3 anteriores (con menos de 8 notas, «tend.») · Ir a = seguimiento, comparativa y vídeos, con él ya elegido · el nombre abre su ficha y el resto de la fila, sus notas · Min = minutos de Valoraciones (90′ por partido completo, de BeSoccer): por eso no coincide al minuto con el Dashboard de plantilla, que usa Wyscout`}
         icon={ArrowDownWideNarrow}
         bodyClassName="p-0"
         action={
@@ -1220,6 +1234,10 @@ export function TeamPanel({
                       {/* Con pocos partidos la media es tendencia: se atenúa y lleva sus PJ al lado. */}
                       <div className="flex min-w-0 flex-1 items-center gap-2">
                         <RatingBadge value={entry.summary.avg} size="sm" />
+                        {/* 27/11/2026 (análisis, ronda 10): la base de la media, en la propia celda. */}
+                        <span className="shrink-0 text-[11px] tabular-nums text-white/55" title={`Media de ${entry.summary.played} notas`}>
+                          ({entry.summary.played})
+                        </span>
                         <RatingBar value={entry.summary.avg} />
                       </div>
                       {/* 17/11/2026 (ronda 20, jueces): «tendencia» en la propia fila, junto a la media. */}
@@ -1238,7 +1256,12 @@ export function TeamPanel({
                   </td>
 
                   <td className="px-2 py-2.5 text-center">
-                    <TrendPill value={entry.summary.trend} />
+                    {/* 27/11/2026 (análisis, ronda 10): con menos de 8 notas, 3 contra 3
+                        apenas tiene base: la flecha va con «tend.». */}
+                    <span className="inline-flex items-center gap-1 whitespace-nowrap" title={entry.summary.played < 8 ? `Tendencia: ${entry.summary.played} notas, 3 últimas frente a 3 anteriores` : "3 últimas frente a 3 anteriores"}>
+                      <TrendPill value={entry.summary.trend} />
+                      {entry.summary.played < 8 && entry.summary.trend ? <span className="text-[10px] text-white/55">tend.</span> : null}
+                    </span>
                   </td>
 
                   <td className={`${colSec} px-2 py-2.5 text-center tabular-nums text-emerald-300/80`}>
@@ -1259,8 +1282,11 @@ export function TeamPanel({
                     {/* 20/11/2026 (ronda 4, tres jueces): tres botones con rótulo en
                         las 21 filas ensuciaban la tabla: sólo iconos, con su
                         nombre al pasar el ratón y para el lector de pantalla. */}
+                    {/* 27/11/2026 (ronda 10, análisis y marketing): con rótulo visible en
+                        pantalla ancha; en el móvil, icono con su nombre al pasar. */}
                     <EnlacesJugador
-                      soloIconos
+                      compacto
+                      rotuloAncho
                       className="flex-nowrap"
                       jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
                       destinos={["seguimiento", "comparativa", "videos"]}

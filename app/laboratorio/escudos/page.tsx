@@ -813,13 +813,16 @@ export default function EscudosPage() {
                                     >
                                       Ficha
                                     </Link>
-                                    <BotonGolesEnVideo
-                                      equipo={uno.equipo}
-                                      title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}
-                                      className="inline-flex min-h-8 items-center text-center text-[12px] font-bold text-[#F7D98B] underline underline-offset-2"
-                                    >
-                                      ▶ Sus goles
-                                    </BotonGolesEnVideo>
+                                    {/* 27/11/2026 (marketing, ronda 9): el color va en línea como en Ficha, ABP y Plan; con la clase, el modo día lo apagaba y parecía desactivado. */}
+                                    <span className="inline-flex" style={{ color: "#F7D98B" }}>
+                                      <BotonGolesEnVideo
+                                        equipo={uno.equipo}
+                                        title={`Goles de ${uno.equipo} en vídeo, de seguido o uno a uno`}
+                                        className="inline-flex min-h-8 items-center text-center text-[12px] font-bold underline underline-offset-2"
+                                      >
+                                        ▶ Sus goles
+                                      </BotonGolesEnVideo>
+                                    </span>
                                     <Link
                                       href={`/scout-rival-abp?equipo=${encodeURIComponent(uno.equipo)}`}
                                       title={`El balón parado de ${uno.equipo}`}

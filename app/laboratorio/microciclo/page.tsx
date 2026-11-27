@@ -122,6 +122,7 @@ import { CamposCognitivos } from "@/components/registro/CamposCognitivos";
 import { propuestaCognitiva } from "@/lib/registro/propuesta";
 import type { RegistroTarea } from "@/lib/abp/registro";
 import { comaDecimal, cuentaMicros, esFilaDePartido, rivalDelMicro, type CuentaMicro, type FilaCuenta } from "@/lib/microciclo/cuenta";
+import { mediasDeCargaPorMd, type DiaConCarga } from "@/lib/microciclo/carga-md";
 import { Sidebar } from "@/components/ui/sidebar";
 import { Topbar } from "@/components/ui/topbar";
 import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
@@ -379,6 +380,7 @@ function TiraDias({
     /* max-md:pr-12 (17/11/2026, jueces): el botón flotante ⋮ caía sobre una casilla en el móvil. */
     /* 20/11/2026 (jueces): a 390 px «Entreno / Libre» se salía de la tarjeta y a 1440 el sábado se cortaba: una columna en el móvil y rejilla que envuelve (3-4 por fila). */
     /* 20/11/2026 (fútbol, ronda 5): sin el pr-12 del móvil, que dejaba una franja vacía a la derecha; casillas a todo lo ancho. */
+    <div className="w-full min-w-0 space-y-1.5">
     <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
@@ -418,9 +420,10 @@ function TiraDias({
                   <div className="h-full rounded-full bg-[#C8A96B]" style={{ width: `${(100 * carga.ua) / maxCarga}%` }} />
                 </div>
                 {/* 17/11/2026 (r20, jueces): contra qué se compara, en la propia tarjeta. */}
-                <p className="mt-0.5 text-[11px] tabular-nums text-white/55">
+                <p className="mt-0.5 text-[12px] tabular-nums text-white/60">
                   {/* 27/11/2026 (jueces): «19 de 19» y «media de 20 MD-1» no son la misma población; se dice cuál es cada una. */}
-                  ≈ {carga.ua} UA <span className="text-white/45">· media de {carga.n} {uno.md} con carga, de toda la temporada (también fuera de liga)</span>
+                  {/* 27/11/2026 (marketing, ronda 9): la base, una vez debajo de la rejilla; aquí sólo la cifra y cuántos días. */}
+                  ≈ {carga.ua} UA <span className="text-white/50">· {carga.n} {uno.md}</span>
                 </p>
               </div>
             ) : null}
@@ -457,6 +460,12 @@ function TiraDias({
           </div>
         );
       })}
+    </div>
+    {cargaMd && cargaMd.size > 0 ? (
+      <p className="text-[12px] text-white/55">
+        La barra de cada día es la carga media de su MD (UA = minutos × intensidad), con los días ya entrenados de toda la temporada que tienen carga apuntada (también fuera de liga); la misma cuenta que el calendario de contenidos.
+      </p>
+    ) : null}
     </div>
   );
 }
@@ -1740,31 +1749,23 @@ export default function EditorMicrocicloPage() {
   | lleva cifra.
   */
   const cargaMd = useMemo(() => {
-    const porDia = new Map<string, { md: string; ua: number }>();
+    const porDia = new Map<string, DiaConCarga>();
 
     for (const t of registro?.tareas ?? []) {
       if (!t.md.trim() || !(t.carga > 0)) continue;
       if (esFilaDePartido({ md: t.md, fase: t.fase, tipo: t.tipoTarea, contenidoPrincipal: t.contenidoPrincipal })) continue;
 
-      const clave = `${t.micro}|${t.fecha}`;
-      const uno = porDia.get(clave) ?? { md: normalizaMd(t.md), ua: 0 };
+      const fecha = fechaIsoDeHoja(t.fecha);
+      const clave = `${t.micro}|${fecha || t.fecha}`;
+      const uno = porDia.get(clave) ?? { fecha, md: normalizaMd(t.md), ua: 0 };
 
       uno.ua += t.carga;
       porDia.set(clave, uno);
     }
 
-    const suma = new Map<string, { ua: number; n: number }>();
-
-    for (const d of porDia.values()) {
-      const s = suma.get(d.md) ?? { ua: 0, n: 0 };
-
-      s.ua += d.ua;
-      s.n += 1;
-      suma.set(d.md, s);
-    }
-
-    return new Map([...suma.entries()].filter(([, s]) => s.n >= 3).map(([md, s]) => [md, { ua: Math.round(s.ua / s.n), n: s.n }]));
-  }, [registro]);
+    /* 27/11/2026 (fútbol, ronda 9): la misma regla que /micro_calendar (lib/microciclo/carga-md.ts): sólo días ya pasados. */
+    return mediasDeCargaPorMd(porDia.values(), hoy || undefined);
+  }, [registro, hoy]);
 
   /* La carga de la semana con los días marcados de entreno, a la media de su MD. */
   const cargaSemana = useMemo(() => {

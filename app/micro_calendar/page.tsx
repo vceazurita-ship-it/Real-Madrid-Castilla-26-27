@@ -37,6 +37,7 @@ import { nombreCorto } from "@/lib/abp/informe-graficos";
 import { useCalendario } from "@/hooks/useCalendario";
 import { useSemanaDeHoy } from "@/hooks/useSemanaDeHoy";
 import { comoNuestro, horaDelCalendarioLocal, soloDia } from "@/lib/castilla/calendario";
+import { mdParaMedia, mediasDeCargaPorMd, type DiaConCarga } from "@/lib/microciclo/carga-md";
 
 /** Nombre con el que sale el Castilla en la lista de escudos de BeSoccer. */
 const NOSOTROS = "RM Castilla";
@@ -754,20 +755,22 @@ export default function MicroCalendar() {
     | sábado (día después del partido) salía con la media de los MD-1, que ya
     | había pasado: dos bases mezcladas en una frase.
     */
+    /*
+    | 27/11/2026 (fútbol, ronda 9): aquí salía «159 UA, la media de 20 MD-1» y
+    | en Crear o editar microciclo «≈ 170 UA»; las dos cuentas salen ahora de
+    | lib/microciclo/carga-md.ts, con la misma población: lo apuntado en la
+    | hoja hasta hoy (sin el partido).
+    */
     const mediaDe = (etiqueta: string, antesDe: string) => {
-      let carga = 0;
-      let dias = 0;
+      const dias: DiaConCarga[] = [];
       tasksByDay.forEach((tareas, key) => {
-        if (key >= antesDe) return;
-        const entreno = hechasDe(key, tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t))));
-        const md = String(entreno[0]?.MD ?? "").trim().toUpperCase().replace(/\s+/g, "");
+        const entreno = tareas.filter((t) => !esFilaDePartido(filaDeCuenta(t)));
+        const md = String(entreno[0]?.MD ?? "");
         const c = entreno.reduce((s, t) => s + (Number(t["Carga Ponderada"]) || 0), 0);
-        if (md === etiqueta && c > 0) {
-          carga += c;
-          dias += 1;
-        }
+        dias.push({ fecha: key, md, ua: c });
       });
-      return dias >= 3 ? { ua: Math.round(carga / dias), dias } : null;
+      const m = mediasDeCargaPorMd(dias, hoyComun && hoyComun < antesDe ? hoyComun : antesDe).get(mdParaMedia(etiqueta));
+      return m ? { ua: m.ua, dias: m.n } : null;
     };
     /* 20/11/2026 (fútbol, ronda 5): sólo los días que vienen; el 20/11 citaba aún el jueves 19 (MD-1). */
     const viene = (iso: string) => Boolean(iso) && Boolean(hoyComun) && iso > (hoyComun ?? "");

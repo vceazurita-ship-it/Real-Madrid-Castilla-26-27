@@ -10,6 +10,8 @@ import { asignaPerfiles } from "@/lib/rivals/perfil-wyscout";
 import { conRivalEnUrl } from "@/lib/rivals/rival-en-curso";
 import { fichaRivalPath, playerKey } from "@/lib/rivals/once";
 import { BANDAS, TIPOS_ACCION, type PorDondeAtaca as Datos } from "@/lib/rivals/por-donde-ataca";
+import { nombrePropio } from "@/lib/rivals/dano";
+import { conTildes } from "@/lib/rivals/tildes";
 
 /*
 | «Por dónde ataca» (13/11/2026): sus centros, regates, pases al área y
@@ -71,8 +73,10 @@ export function PorDondeAtaca({
   const enlaces = useMemo(() => {
     const mapa = new Map<string, string>();
     const puestos = new Map<string, string>();
+    /* El nombre de su ficha (27/11/2026, ronda 10, fútbol): «Jeremy José», no el «Jeremy Jorge» de Wyscout. */
+    const vistos = new Map<string, string>();
 
-    if (!datos?.nombres?.length || !plantilla.length) return { mapa, puestos };
+    if (!datos?.nombres?.length || !plantilla.length) return { mapa, puestos, vistos };
 
     const asignados = asignaPerfiles(
       plantilla,
@@ -88,10 +92,12 @@ export function PorDondeAtaca({
         /* El puesto de su plantilla, el mismo de todas las pantallas (`puestoDelRival`, 16/11/2026). */
         const origen = puestoDelRival(String(ficha["POSICIÓN"] ?? "")).origen;
         if (origen) puestos.set(casado.jugador, origen);
+        const suyo = String(ficha["NOMBRE DEPORTIVO"] ?? "").trim() || String(ficha.JUGADOR ?? "").trim();
+        if (suyo) vistos.set(casado.jugador, conTildes(nombrePropio(suyo)));
       }
     }
 
-    return { mapa, puestos };
+    return { mapa, puestos, vistos };
   }, [datos, plantilla, equipo]);
 
   if (!datos) return null;
@@ -144,10 +150,11 @@ export function PorDondeAtaca({
       : "";
 
   /* Su vídeo en Scout individual, con el jugador ya elegido (16/11/2026, ronda 18, fútbol). */
+  const visto = (jugador: string) => enlaces.vistos.get(jugador) ?? jugador;
   const botonVideo = (jugador: string, rotulo = "▶ Su vídeo") => (
     <Link
       key={jugador}
-      href={`/scout-rival-individual?${new URLSearchParams({ equipo, jugador }).toString()}`}
+      href={`/scout-rival-individual?${new URLSearchParams({ equipo, jugador: visto(jugador) }).toString()}`}
       className="ml-1 inline-flex items-center rounded-full border border-sky-400/30 px-1.5 py-px align-middle text-[11px] font-semibold text-sky-300 hover:border-sky-300"
       title={`Los cortes de ${jugador} en Scout individual`}
     >
@@ -162,7 +169,7 @@ export function PorDondeAtaca({
     const puesto = enlaces.puestos.get(jugador) || puestoEnPalabras(posicion.split(",")[0]) || posicion.split(",")[0].trim();
     const texto = (
       <>
-        {jugador}
+        {visto(jugador)}
         {/* En castellano (16/11/2026, jueces de fútbol): «lateral izquierdo», no «LB». */}
         {/* Con espacio de verdad (17/11/2026, ronda 20): con sólo margen se copiaba «Javi Moreno(extremo derecho)». */}
         {puesto && <>{" "}<span className="text-[12px] font-normal text-white/60">({puesto})</span></>}
@@ -226,7 +233,7 @@ export function PorDondeAtaca({
             : dominante
               ? `Carga la banda ${dominante}`
               : carga
-                ? `El ${carga.parte} % ${carga.tipo.deQue} es de ${carga.lider!.jugador}`
+                ? `El ${carga.parte} % ${carga.tipo.deQue} es de ${visto(carga.lider!.jugador)}`
                 : masCargado
                   ? `Su ataque pasa por ${nombreCarril(masCargado.key)}`
                   : ""}
@@ -299,7 +306,7 @@ export function PorDondeAtaca({
 
                 return jugadores.length > 0 ? (
                   <p className="mt-2 flex flex-wrap gap-1.5 border-t border-white/[0.08] pt-2">
-                    {jugadores.map((j) => botonVideo(j, `▶ ${j}`))}
+                    {jugadores.map((j) => botonVideo(j, `▶ ${visto(j)}`))}
                   </p>
                 ) : null;
               })()}

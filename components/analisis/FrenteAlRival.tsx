@@ -161,7 +161,10 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
     ? "Elige con quién comparar"
     : !juzgadas.length
       ? `Castilla frente a ${nombreRival}`
-      : `${ganamos.length > pierde.length ? "Salimos mejor" : ganamos.length < pierde.length ? "Sale mejor el rival" : "Igualados"} frente a ${nombreRival}: ${ganamos.length} de ${juzgadas.length} cifras a nuestro favor`;
+      : juzgadas.length === 1
+        ? /* 27/11/2026 (jueces, ronda 10, saque de banda): con UNA sola cifra que se juzga, «0 de 1 cifras» con un marcador enorme no sostiene nada. */
+          `Sin diferencia clara con ${nombreRival}: sólo una cifra comparable, ${juzgadas[0].m.nombre.toLowerCase()} (${textoFrente(juzgadas[0].m, juzgadas[0].nuestro)} frente a ${textoFrente(juzgadas[0].m, juzgadas[0].rival)}; ${nNuestros} partidos del Castilla y ${nSuyos} ${rivales.length > 1 ? "de esos rivales" : "del rival"})`
+        : `${ganamos.length > pierde.length ? "Salimos mejor" : ganamos.length < pierde.length ? "Sale mejor el rival" : "Igualados"} frente a ${nombreRival}: ${ganamos.length} de ${juzgadas.length} cifras a nuestro favor`;
   const matiz = [
     masNuestra ? `lo más claro, ${masNuestra.m.nombre.toLowerCase()} (${textoFrente(masNuestra.m, masNuestra.nuestro)} frente a ${textoFrente(masNuestra.m, masNuestra.rival)})` : "",
     masSuya ? `donde más nos saca, ${masSuya.m.nombre.toLowerCase()} (${textoFrente(masSuya.m, masSuya.nuestro)} frente a ${textoFrente(masSuya.m, masSuya.rival)})` : "",
@@ -183,7 +186,7 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
       >
         {titulo}
       </TituloConclusion>
-      {matiz.length ? <p className="-mt-1.5 mb-3 text-[13px] leading-snug text-white/70">{matiz.join("; ")}.</p> : null}
+      {matiz.length && juzgadas.length !== 1 ? <p className="-mt-1.5 mb-3 text-[13px] leading-snug text-white/70">{matiz.join("; ")}.</p> : null}
 
       {/* ---------------- con quién y cuándo ---------------- */}
       <div className="flex flex-wrap items-center gap-1.5">
@@ -258,6 +261,8 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
       ) : (
         <>
           {/* ---------------- el marcador ---------------- */}
+          {/* 27/11/2026 (ronda 10): el marcador sólo con dos cifras o más que se juzguen; con una, lo dice el titular. */}
+          {juzgadas.length >= 2 && (
           <Marcador
             nuestros={ganamos.length}
             suyos={pierde.length}
@@ -266,6 +271,7 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
             nombreRival={nombreRival}
             escudoDe={escudoDe}
           />
+          )}
 
           <div className={`mt-4 grid min-w-0 gap-4 ${filas.length >= 3 ? "lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]" : ""}`}>
             {filas.length >= 3 && (

@@ -336,11 +336,28 @@ function PorTipo({ filas, categorias }: { filas: FilaVisualAbp[]; categorias: Ca
 | de 15 acciones («falta indirecta en zona 4, 3 de 3»): sólo se elige entre los
 | que tienen muestra; si ninguno la tiene, se dice «tendencia».
 */
-function tituloTipo(filas: FilaVisualAbp[], exito: ExitoVisual): string {
+function tituloTipo(filas: FilaVisualAbp[], exito: ExitoVisual, frenteAlResto = false): string {
   const grupos = gruposPorTipo(filas).filter(([t]) => !t.startsWith("otras ("));
   if (grupos.length < 2) return "";
   const tasa = (fs: FilaVisualAbp[]) => fs.filter((f) => f.exito).length / fs.length;
   const conMuestra = grupos.filter(([, fs]) => fs.length >= MUESTRA_HALLAZGO);
+  /*
+  | 27/11/2026 (jueces, ronda 10, ABP): si sólo un tipo tiene muestra, «lo que
+  | más rinde» no compara nada: ese tipo frente al resto, como la conclusión.
+  | Sólo en las pantallas que lo piden (frenteAlResto).
+  */
+  if (frenteAlResto && conMuestra.length === 1) {
+    const [tipo, fs] = conMuestra[0];
+    const resto = filas.filter((f) => f.tipo && !fs.includes(f));
+    if (resto.length) {
+      const k = fs.filter((f) => f.exito).length;
+      const kR = resto.filter((f) => f.exito).length;
+      const p = pc(k, fs.length);
+      const pR = pc(kR, resto.length);
+      const lado = p === pR ? "igual que" : p > pR ? "por encima del" : "por debajo del";
+      return `${mayuscula(tipo.toLowerCase())}, el único tipo con muestra: ${k} de ${fs.length} (${p} %) ${exito.varios}, ${lado} ${pR} % del resto (${kR} de ${resto.length}${resto.length < MUESTRA_HALLAZGO ? ", tendencia" : ""})`;
+    }
+  }
   const elegido = [...conMuestra].sort((a, b) => tasa(b[1]) - tasa(a[1]))[0];
   const que = exito.mejorAlto ? "Lo que más rinde" : "Lo que más peligro da";
   if (elegido && tasa(elegido[1]) > 0) {
@@ -538,6 +555,7 @@ export function VisualAbp({
   acciones,
   marca,
   repartoArriba = false,
+  tipoFrenteAlResto = false,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -560,6 +578,8 @@ export function VisualAbp({
   marca?: string | null;
   /** «¿Cómo acaban?» ya va en la conclusión de arriba: aquí no se repite. */
   repartoArriba?: boolean;
+  /** 27/11/2026 (ronda 10): con un solo tipo con muestra, «¿Qué hace más daño?» lo compara con el resto. */
+  tipoFrenteAlResto?: boolean;
 }) {
   if (!filas.length) return null;
 
@@ -576,7 +596,7 @@ export function VisualAbp({
   const partidos = [...porJornada.values()].filter((p) => p.jornada.clave).sort((a, b) => comparaCronologico(a.jornada, b.jornada));
   const tituloJornadas = tituloTendencia(partidos, unidad, exito);
   const tituloMapa = mapa ? tituloDondeAbp(filas, unidad, exito, mapa.ambito, mapa.porPeligro) : "";
-  const tituloTipos = tituloTipo(filas, exito);
+  const tituloTipos = tituloTipo(filas, exito, tipoFrenteAlResto);
 
   const filasComparadas = comparativa
     ? comparativa.metricas.map((m) => juzgaFila(m, comparativa.muestraMinima)).filter((f): f is FilaComparada => f !== null)

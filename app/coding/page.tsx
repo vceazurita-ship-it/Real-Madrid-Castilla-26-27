@@ -4199,22 +4199,31 @@ function Coding() {
   const contraElRival = partidoContraElRival ? { fecha: partidoContraElRival.cuando.slice(0, 10), rival: partidoContraElRival.rival } : null;
   /* Y el jugador del último corte, a su ficha de vídeos con él ya elegido. */
   const ultimoJugadorRival =
-    ambito === "rival" ? ([...sesion.sesion.clips].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0]?.jugadorNombre ?? "") : "";
+    /* 27/11/2026 (jueces, ronda 10): sin los «Vídeo completo», que no son de nadie (salía «Ficha de Vídeo completo»). */
+    ambito === "rival"
+      ? ([...sesion.sesion.clips]
+          .filter((c) => c.jugadorId !== SUJETO_VIDEO_COMPLETO.id && c.sujeto !== "colectivo")
+          .sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0]?.jugadorNombre ?? "")
+      : "";
+  /* 27/11/2026 (jueces, ronda 10): los cortes de comportamiento de verdad, sin los «Vídeo completo». */
+  const cortesDeComportamiento = clips.filter((c) => c.sujeto === "colectivo" && c.jugadorId !== SUJETO_VIDEO_COMPLETO.id).length;
   const enlacesCoding =
     ambito === "rival"
       ? nombreRival
         ? [
             /* 18/11/2026: los dos vídeos, en el pop-up de la portada; aparte, «Cómo son sus goles» en Análisis de goles. */
+            /* 27/11/2026 (jueces, ronda 10): delante, los cinco que más se usan
+               (goles en vídeo, plan, ABP, plantilla y el post); el resto, en «Más». */
             { golesEnVideo: { equipo: nombreRival, lado: "favor" as const }, texto: "Sus goles en vídeo", icono: Video },
-            { golesEnVideo: { equipo: nombreRival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
-            { href: urlGolesDelEquipo(nombreRival), texto: "Cómo son sus goles", title: `Todos los goles de ${nombreRival}, en el campo (Análisis de goles)` },
             /* 17/11/2026 (ronda 19, los tres jueces): el plan siempre, con el rival puesto;
                su scout individual y, si ya jugamos contra él, el post de ese partido. */
             { href: conRivalEnUrl("/match-preparation", { equipo: nombreRival }), texto: esElDeLaSemana ? "Plan de partido" : "Su plan de partido", icono: ClipboardList },
             { href: `/scout-rival-abp?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su ABP" },
             { href: `/rivals?equipo=${encodeURIComponent(nombreRival)}`, texto: "Su plantilla" },
-            { href: `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}`, texto: "Sus jugadores, uno a uno" },
             postContraElRival ? { href: postContraElRival, texto: "Post de nuestro partido contra él" } : { texto: "" },
+            { golesEnVideo: { equipo: nombreRival, lado: "contra" as const }, texto: "Cómo le marcan", icono: Video },
+            { href: urlGolesDelEquipo(nombreRival), texto: "Cómo son sus goles", title: `Todos los goles de ${nombreRival}, en el campo (Análisis de goles)` },
+            { href: `/scout-rival-individual?equipo=${encodeURIComponent(nombreRival)}`, texto: "Sus jugadores, uno a uno" },
             contraElRival && etiquetado?.robos(contraElRival) ? { href: enlaceConPartido("/laboratorio/transiciones", contraElRival), texto: "Robos de ese partido" } : { texto: "" },
             contraElRival && etiquetado?.perdidas(contraElRival) ? { href: enlaceConPartido("/laboratorio/perdidas", contraElRival), texto: "Pérdidas" } : { texto: "" },
             contraElRival && etiquetado?.faltas(contraElRival) ? { href: enlaceConPartido("/laboratorio/faltas", contraElRival), texto: "Faltas" } : { texto: "" },
@@ -4353,7 +4362,7 @@ function Coding() {
               );
             })()}
 
-            <EnlacesRapidos enlaces={enlacesCoding} className="mt-3" />
+            <EnlacesRapidos enlaces={enlacesCoding} className="mt-3" aLaVista={5} />
 
             {/* ===================== QUÉ SE CODIFICA ==================== */}
 
@@ -4569,22 +4578,26 @@ function Coding() {
             </div>
 
             {rivalEnConflicto && rival ? (
-              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2.5">
+              <div className="mt-4 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[#C8A96B]/35 bg-[#C8A96B]/[0.08] px-3.5 py-2">
                 {/* 08/11/2026: el rival por defecto es el del último partido
-                    jugado (no el próximo): el texto lo dice así, y las dos
-                    salidas van en botones, la del rival por defecto primero. */}
+                    jugado (no el próximo).
+                    27/11/2026 (jueces, ronda 10): una línea y un solo botón; quedarse
+                    con el de por defecto es la equis (fija el rival y el aviso se va). */}
                 <p className="min-w-0 flex-1 text-[13px] leading-snug text-white/75">
-                  <b className="text-white">Un vídeo abierto lleva el nombre de {rivalEnConflicto.nombre}.</b>{" "}
-                  Los cortes se guardarán con {rival.nombre}, el rival del último partido, salvo que elijas otro.
+                  <b className="text-white">El vídeo se llama {rivalEnConflicto.nombre}</b> y los cortes van con {rival.nombre}.
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  <Button tone="primary" onClick={() => cambiaUrl("equipo", rival.clave)} title={`Fijar ${rival.nombre} como rival de estos vídeos`}>
-                    Usar {rival.nombre}
-                  </Button>
-                  <Button onClick={() => cambiaUrl("equipo", rivalEnConflicto.clave)} title={`Fijar ${rivalEnConflicto.nombre} como rival de estos vídeos`}>
-                    Codificar como {rivalEnConflicto.nombre}
-                  </Button>
-                </div>
+                <Button tone="primary" onClick={() => cambiaUrl("equipo", rivalEnConflicto.clave)} title={`Fijar ${rivalEnConflicto.nombre} como rival de estos vídeos`}>
+                  Pasar a {rivalEnConflicto.nombre}
+                </Button>
+                <button
+                  type="button"
+                  onClick={() => cambiaUrl("equipo", rival.clave)}
+                  aria-label={`Seguir con ${rival.nombre}`}
+                  title={`Seguir con ${rival.nombre} y quitar el aviso`}
+                  className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/55 transition hover:bg-white/[0.06] hover:text-white"
+                >
+                  <X size={15} aria-hidden />
+                </button>
               </div>
             ) : null}
 
@@ -4844,9 +4857,15 @@ function Coding() {
                           const ultimo = [...sesion.sesion.clips].sort((a, b) => b.creadoEn.localeCompare(a.creadoEn))[0];
                           const categoria = config.categorias.find((una) => una.id === ultimo.categoriaId)?.nombre ?? "";
                           const dia = ultimo.creadoEn ? new Date(ultimo.creadoEn).toLocaleDateString("es-ES", { day: "numeric", month: "short" }).replace(".", "") : "";
+                          /* 27/11/2026 (jueces, ronda 10): salía «Último corte de Vídeo completo»; ése no es de nadie. */
+                          const entero = ultimo.jugadorId === SUJETO_VIDEO_COMPLETO.id;
+                          const quien = entero ? "" : ultimo.jugadorNombre;
                           return (
                             <span className="font-normal text-white/70">
-                              Último corte{ultimo.jugadorNombre ? ` de ${ultimo.jugadorNombre}` : ""}{categoria ? ` (${categoria})` : ""}{dia ? `, guardado el ${dia}` : ""}
+                              {entero ? "Último corte: un vídeo entero" : `Último corte${quien ? ` de ${quien}` : ""}`}
+                              {categoria ? ` (${categoria})` : ""}
+                              {dia ? `, guardado el ${dia}` : ""}
+                              {ultimo.video ? <span className="block text-[11px] text-white/50">{ultimo.video} · ábrelo en «Vídeos» para seguir</span> : null}
                             </span>
                           );
                         })()}
@@ -5457,7 +5476,18 @@ function Coding() {
                   </Panel>
                 ) : (
                 <Panel
-                  title="Cortes"
+                  /* 27/11/2026 (jueces, ronda 10): el titular dice lo que hay, no sólo «Cortes». */
+                  title={(() => {
+                    const n = clipsDeLaLista.length;
+                    if (n === 0) return "Cortes";
+                    const enteros = clipsDeLaLista.filter((c) => c.jugadorId === SUJETO_VIDEO_COMPLETO.id).length;
+                    const ms = totalCodificadoMs(clipsDeLaLista);
+                    const seg = Math.round(ms / 1000);
+                    const cuanto = seg < 60 ? `${seg} s` : formateaTotal(ms);
+                    const cortes = `${n} ${n === 1 ? "corte" : "cortes"}`;
+                    if (enteros === n) return `${cortes}: ${cuanto} de ${n === 1 ? "vídeo entero" : "vídeos enteros"}`;
+                    return `${cortes}: ${cuanto} de vídeo${enteros ? ` (${enteros} ${enteros === 1 ? "vídeo entero" : "vídeos enteros"})` : ""}`;
+                  })()}
                   subtitle={
                     listaGuardada
                       ? `${clipsDeLaLista.length} ${clipsDeLaLista.length === 1 ? "corte" : "cortes"} · ${etiquetaFiltro} · en el orden de la lista`
@@ -6343,10 +6373,12 @@ function Coding() {
                 )}
 
                 {/* Sólo cuando hay algo: una tabla vacía más es ruido. */}
-                {porColectivo(clips).length > 0 && (
-                  <Panel title="Por comportamiento" bodyClassName="p-3 sm:p-3">
+                {/* 27/11/2026 (jueces, ronda 10): sin los «Vídeo completo» (salía la
+                    fila «Vídeo completo · 1») y a partir de 3 cortes, con la base en el título. */}
+                {cortesDeComportamiento >= 3 && (
+                  <Panel title={`Por comportamiento · ${cortesDeComportamiento} cortes`} bodyClassName="p-3 sm:p-3">
                     <TablaResumen
-                      filas={porColectivo(clips, config.descriptores)}
+                      filas={porColectivo(clips.filter((c) => c.jugadorId !== SUJETO_VIDEO_COMPLETO.id), config.descriptores)}
                       vacio="Se llena al marcar el primer corte."
                       activa={filtroSujeto}
                       onElegir={(clave) =>

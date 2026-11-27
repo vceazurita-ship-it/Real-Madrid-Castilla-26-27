@@ -1067,6 +1067,9 @@ export default function DashboardSeguimiento() {
       tone: string;
       text: string;
       jugadores?: { id: string; nombre: string; detalle: string }[];
+      /** 27/11/2026 (marketing, ronda 10): los jugadores, en su propia tarjeta con título. */
+      tituloJugadores?: string;
+      baseJugadores?: string;
     }[] = [];
 
     if (!totalSessions) return out;
@@ -1208,10 +1211,15 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Target,
         tone: "text-sky-400",
-        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}${
-          sinObjetivo.length ? `. Sin objetivo ${menor.name.toLowerCase()} en sus últimos registros (hasta 3) · ${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"}${aCero.length > 0 ? `, sin contar a los ${aCero.length} sin seguimiento del aviso de arriba` : ""}: anótalo en el próximo` :`: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}`
-        }.`,
+        /* 27/11/2026 (marketing, ronda 10): una frase; los jugadores, en su tarjeta. */
+        text: `${menor.name} sólo aparece en el ${cm(menor.percentage)} % de los seguimientos, frente al ${cm(mayor.percentage)} % de ${mayor.name.toLowerCase()}: en el próximo registro de cada jugador, anota también un objetivo ${menor.name.toLowerCase()}.`,
         jugadores: sinObjetivo.length ? sinObjetivo : undefined,
+        tituloJugadores: sinObjetivo.length
+          ? `${sinObjetivo.length} ${sinObjetivo.length === 1 ? "jugador" : "jugadores"} sin objetivo ${menor.name.toLowerCase()} en sus últimos registros`
+          : undefined,
+        baseJugadores: sinObjetivo.length
+          ? `hasta sus 3 últimos registros${aCero.length > 0 ? ` · sin contar a los ${aCero.length} sin seguimiento del aviso de arriba` : ""}`
+          : undefined,
       });
     }
 
@@ -1392,7 +1400,7 @@ export default function DashboardSeguimiento() {
                             weeklyData[weeklyData.length - 1]?.week === semanaDeHoy && diaDeSemana < 7
                               ? ` · la última va en curso, día ${diaDeSemana} de 7`
                               : ""
-                          } · pulsa una barra para filtrar${notaDelPico ? `. ${notaDelPico}` : ""}`
+                          } · pulsa una barra para filtrar`
                     }
                   >
                     {/* 30/10/2026: con una o dos semanas, una barra por semana y la
@@ -1429,6 +1437,9 @@ export default function DashboardSeguimiento() {
                          contenedor medía 0 al montar, el mismo fallo del anillo
                          de estrategias); estas se pintan siempre y se pulsan
                          igual en el móvil. */
+                      <div title={notaDelPico || undefined}>
+                      {/* 27/11/2026 (marketing, ronda 10): la frase del pico, al pasar el ratón y para el lector; en el gráfico, la anotación sobre la barra. */}
+                      {notaDelPico && <p className="sr-only">{notaDelPico}</p>}
                       <BarrasSemanales
                         datos={weeklyData}
                         media={weeklyMean}
@@ -1436,6 +1447,7 @@ export default function DashboardSeguimiento() {
                         activa={filters.week ? `S${filters.week}` : ""}
                         onSelect={(w) => updateFilter("week", filters.week === w.replace("S", "") ? "" : w.replace("S", ""))}
                       />
+                      </div>
                     )}
                   </Panel>
               </div>
@@ -1634,7 +1646,9 @@ export default function DashboardSeguimiento() {
                   /* 20/11/2026 (ronda 4, jueces): una línea con la base; la
                      explicación, al pasar el ratón. Y todos los autores sin
                      feedback, no los tres primeros (sumaban 111 de 118). */
-                  base={`${withFeedback} de ${totalSessions} con feedback${totalSessions > 0 ? ` · ${cm((withFeedback / totalSessions) * 100)} %` : ""}${
+                  /* 27/11/2026 (análisis, ronda 10): el porcentaje primero y su base
+                     entre paréntesis, para que «261 de 381» y «68,5 %» se lean juntos. */
+                  base={`${totalSessions > 0 ? `${cm((withFeedback / totalSessions) * 100)} % con feedback (${withFeedback} de ${totalSessions})` : "con feedback: 0"}${
                     totalSessions > 0 && totalSessions < 15 ? " · tendencia" : ""
                   }`}
                   hint={`registros de la temporada de los jugadores de campo del Castilla · ${withFeedback} de ${totalSessions} con feedback escrito${
@@ -1650,7 +1664,8 @@ export default function DashboardSeguimiento() {
                   icon={Users}
                   title="Con seguimiento"
                   value={`${cubiertos} de ${squadSize}`}
-                  base={`${cm(avgPerPlayer)} registros por jugador · mediana ${cm(medianaPorJugador)}`}
+                  /* 27/11/2026 (marketing, ronda 10): una línea; la media, al pasar el ratón. */
+                  base={`mediana de ${cm(medianaPorJugador)} registros por jugador`}
                   hint={`jugadores de campo del Castilla con algún registro en la temporada · ${cm(avgPerPlayer)} registros por jugador con seguimiento (mediana ${cm(medianaPorJugador)})`}
                   accent="#6E7F99"
                 />
@@ -1673,7 +1688,9 @@ export default function DashboardSeguimiento() {
                   value={cm(semanasCerradas.length >= 1 && weeklyData.length > 1 ? weeklyMean : averageWeek)}
                   base={
                     semanasCerradas.length >= 1 && weeklyData.length > 1
-                      ? `registros por semana, de lunes a domingo${mediaUltimas7 !== null && semanasCerradas.length > ultimas7.length ? ` · últimas ${ultimas7.length} cerradas: ${cm(mediaUltimas7)}` : ""}`
+                      ? mediaUltimas7 !== null && semanasCerradas.length > ultimas7.length
+                        ? `por semana · últimas ${ultimas7.length}: ${cm(mediaUltimas7)}`
+                        : "registros por semana, de lunes a domingo"
                       : undefined
                   }
                   hint={
@@ -1794,7 +1811,15 @@ export default function DashboardSeguimiento() {
                                 {i.text}
                               </p>
                               {i.jugadores && i.jugadores.length > 0 && (
-                                <JugadoresDeLectura jugadores={i.jugadores} />
+                                i.tituloJugadores ? (
+                                  <div className="mt-2 min-w-0 rounded-xl border border-white/10 bg-white/[0.03] p-3">
+                                    <p className="text-sm font-semibold text-white/85">{i.tituloJugadores}</p>
+                                    {i.baseJugadores && <p className="text-xs text-white/55">{i.baseJugadores}</p>}
+                                    <JugadoresDeLectura jugadores={i.jugadores} />
+                                  </div>
+                                ) : (
+                                  <JugadoresDeLectura jugadores={i.jugadores} />
+                                )
                               )}
                             </div>
                           </div>
@@ -1823,6 +1848,8 @@ export default function DashboardSeguimiento() {
                                 {f.value}
                               </span>{" "}
                               con objetivo {f.name.toLowerCase()} · {cm(f.percentage)} %
+                              {/* 27/11/2026 (análisis, ronda 10): con menos de 15 registros, tendencia. */}
+                              {f.value < 15 ? " · tendencia" : ""}
                             </span>
                           </div>
 
@@ -2694,10 +2721,13 @@ function JugadoresDeLectura({ jugadores }: { jugadores: { id: string; nombre: st
       key={j.id}
       className="inline-flex min-w-0 flex-wrap items-center gap-1.5 rounded-2xl border border-[#C8A96B]/30 bg-white/[0.04] py-1 pl-2.5 pr-1"
     >
-      <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white" />
+      {/* 27/11/2026 (marketing, ronda 9): también su ficha, a un toque.
+          Ronda 10 (marketing y análisis): tres iconos sin rótulo eran ilegibles en
+          el móvil: el nombre, subrayado, abre su ficha y queda un solo botón con
+          su texto, «Registrar seguimiento», con él ya elegido. */}
+      <NombreJugador jugador={{ id: j.id, nombre: j.nombre }} className="text-xs font-semibold text-white underline decoration-white/30" />
       {!comun && <span className="text-[11px] tabular-nums text-white/60">{j.detalle}</span>}
-      {/* 27/11/2026 (marketing, ronda 9): también su ficha, a un toque. */}
-      <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["ficha", "calendario", "registrar"]} compacto />
+      <EnlacesJugador jugador={{ id: j.id, nombre: j.nombre }} destinos={["registrar"]} />
     </li>
   );
   const TOPE = 6;
@@ -2781,7 +2811,13 @@ function BarrasSemanales({
   activa: string;
   onSelect: (week: string) => void;
 }) {
-  const tope = Math.max(...datos.map((d) => d.value), media, 1);
+  const maximo = Math.max(...datos.map((d) => d.value), media, 1);
+  /* 27/11/2026 (análisis, ronda 10): una semana atípica (el pico grupal de 69)
+     aplastaba al resto. Si pasa de 1,6 veces la segunda, el eje se corta: la
+     barra llega arriba con una marca de corte y su cifra real encima. */
+  const segunda = [...datos.map((d) => d.value)].sort((a, b) => b - a)[1] ?? 0;
+  const corta = datos.length >= 3 && segunda > 0 && maximo >= segunda * 1.6 && maximo >= media * 1.5;
+  const tope = corta ? Math.max(segunda * 1.25, media * 1.3, 1) : maximo;
   const alto = 220;
   const rayado = "repeating-linear-gradient(135deg, rgb(var(--rmcf-ink-rgb) / 0.22) 0 4px, transparent 4px 8px)";
 
@@ -2791,7 +2827,8 @@ function BarrasSemanales({
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm" style={{ background: GOLD }} />Individuales</span>
         <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm bg-[#6E7F99]" />Grupales</span>
         {media > 0 && <span className="inline-flex items-center gap-1.5"><span className="w-4 border-t-2 border-dashed border-white/50" />Media {String(media).replace(".", ",")}</span>}
-        {semanaEnCurso && datos.some((d) => d.week === semanaEnCurso) && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-white/30" style={{ background: rayado }} />En curso</span>}
+        {semanaEnCurso && datos.some((d) => d.week === semanaEnCurso) && <span className="inline-flex items-center gap-1.5"><span className="h-2.5 w-2.5 rounded-sm border border-white/30" style={{ background: rayado }} />En curso (fuera de la media)</span>}
+        {corta && <span className="inline-flex items-center gap-1.5"><span className="h-2 w-3 border-y-2" style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.7)" }} />Eje cortado en la semana pico</span>}
       </div>
       <div className="overflow-x-auto pb-1">
         <div className="relative flex items-end gap-1 sm:gap-1.5" style={{ height: alto + 58, minWidth: datos.length * 26 }}>
@@ -2801,12 +2838,15 @@ function BarrasSemanales({
           {datos.map((d, i) => {
             const enCurso = d.week === semanaEnCurso;
             /* 20/11/2026 (ronda 4, jueces): la semana atípica, marcada en el propio gráfico. */
-            const pico = media > 0 && d.value === tope && d.value >= media * 1.5;
+            const pico = media > 0 && d.value === maximo && d.value >= media * 1.5;
+            const cortada = corta && d.value > tope;
             const elegida = activa === d.week;
             const atenuada = Boolean(activa) && !elegida;
             const lunes = d.desde.split(" – ")[0].replace(/^lun /, "");
-            const hInd = (d.individual / tope) * alto;
-            const hGru = (d.grupal / tope) * alto;
+            /* La barra cortada llega al techo y conserva el reparto individual/grupal. */
+            const escala = cortada ? alto / Math.max(1, d.value) : alto / tope;
+            const hInd = d.individual * escala;
+            const hGru = d.grupal * escala;
 
             return (
               <button
@@ -2820,9 +2860,22 @@ function BarrasSemanales({
               >
                 <span className="mb-0.5 text-[11px] font-bold tabular-nums text-white/85">
                   {d.value}
-                  {pico && <span className="block whitespace-nowrap text-[11px] font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">pico · {d.grupal >= d.value / 2 ? "grupal" : "individual"}</span>}
+                  {/* 27/11/2026 (marketing, ronda 10): la explicación del pico, aquí y no en el titular. */}
+                  {pico && (
+                    <span className="block whitespace-nowrap text-[11px] font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">
+                      pico · {d.grupal >= d.value / 2 ? `${d.grupal} grupales` : `${d.individual} individuales`}
+                    </span>
+                  )}
                 </span>
                 <span className={`flex w-full max-w-[48px] flex-col overflow-hidden rounded-t-md ${elegida ? "ring-2 ring-[#C8A96B]" : ""}`}>
+                  {cortada && (
+                    <span
+                      aria-hidden
+                      title="Eje cortado: la barra pasa del techo del gráfico"
+                      className="block h-[7px] w-full border-y-2"
+                      style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.7)", background: "rgb(var(--rmcf-ink-rgb) / 0.08)" }}
+                    />
+                  )}
                   <span className="block w-full bg-[#6E7F99]" style={{ height: hGru, backgroundImage: enCurso ? rayado : undefined }} />
                   <span className="block w-full" style={{ height: hInd, background: GOLD, backgroundImage: enCurso ? rayado : undefined }} />
                 </span>
@@ -2905,7 +2958,7 @@ function StatCard({
 
       <div className="mt-2.5 flex items-center gap-2">
         {visible && (
-          <span className="min-w-0 break-words text-[11px] leading-snug text-white/55">{visible}</span>
+          <span className="min-w-0 break-words text-xs leading-snug text-white/60">{visible}</span>
         )}
 
         {showDelta && (
@@ -3046,8 +3099,9 @@ function DonutWithLegend({
 
             <span className="text-sm font-semibold">{item.value}</span>
 
-            <span className="w-12 text-right text-xs text-white/40">
-              {cm(item.percentage)} %
+            {/* 27/11/2026 (análisis, ronda 10): con menos de 15 registros, el % es tendencia. */}
+            <span className="shrink-0 text-right text-xs tabular-nums text-white/55">
+              {cm(item.percentage)} %{item.value < 15 ? " · tend." : ""}
             </span>
           </button>
         ))}

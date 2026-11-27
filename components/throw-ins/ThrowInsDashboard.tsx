@@ -486,8 +486,9 @@ function metaDePartidos(
   };
 }
 
-const textoMeta = (meta: MetaBanda) =>
-  `${meta.pct} % (lo ${meta.logrados === 1 ? "logramos en 1" : `logramos en ${meta.logrados}`} de ${meta.partidos} partidos)`;
+/* 27/11/2026 (jueces, ronda 10): el objetivo dice de dónde sale en la misma frase: el nivel de nuestro mejor tercio de partidos. */
+const textoMeta = (meta: MetaBanda, que = "") =>
+  `${meta.pct} %${que ? ` ${que}` : ""}, el nivel de nuestro mejor tercio de partidos (uno de cada tres; lo ${meta.logrados === 1 ? "logramos en 1" : `logramos en ${meta.logrados}`} de ${meta.partidos} partidos con 2 saques o más)`;
 
 /**
  * Las conclusiones de la pantalla de banda.
@@ -593,6 +594,21 @@ function conclusionesDe(
       );
     }
   } else {
+    /*
+    | 27/11/2026 (jueces, ronda 10): el titular repetía el total (46 de 231).
+    | Ahora señala el sitio: la zona de saque donde menos recuperamos (con 5
+    | saques o más), frente a lo que recuperamos en todos, y la orden.
+    */
+    const zonasSaque = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.n >= 5);
+    if (zonasSaque.length >= 2) {
+      const peorRobo = extremo(zonasSaque, retencionDe, false);
+      if (retencionDe(peorRobo) < favorables / total) {
+        titular = `${mayuscula(nombre(peorRobo.key, peorRobo.valor))}: sólo recuperamos ${peorRobo.favorables} de ${peorRobo.n} (${pctTexto(peorRobo.favorables, peorRobo.n)}), frente al ${pctTexto(favorables, total)} de todos sus saques → salto al receptor y vigilancia a la espalda del lateral${
+          peorRobo.n < MUESTRA_BANDA ? " · tendencia" : ""
+        }`;
+      }
+    }
+
     /* La zona de más peligro concedido se calcula antes: si es la misma que la
        de más robos, las dos cosas van en una sola frase y no se contradicen. */
     const zonasPeligro = gruposDe(rows, "Zona_Saque", mode).filter((g) => g.produccion > 0 && g.n >= 3);
@@ -754,7 +770,7 @@ function conclusionesDe(
       pctAntes !== null && pctAntes >= hoyDebil + 3
         ? ` · objetivo: ${pctUno(pctAntes)} conservados en ${nombre(debil.key, debil.valor)} (${fuenteMedia}, ${mismoAntes!.favorables} de ${mismoAntes!.n})`
         : meta
-          ? ` · objetivo: ${textoMeta(meta).replace(" (", ` conservados ahí (`)}`
+          ? ` · objetivo: ${textoMeta(meta, "conservados ahí")}`
           : camino >= hoyDebil + 3
             ? ` · objetivo: ${camino} % conservados ahí, la mitad del camino hasta el ${pctTexto(favorables, total)} de todos los saques`
             : "";
@@ -2057,7 +2073,7 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
     <div className="flex min-h-screen bg-[#0B0F14] text-white">
       <Sidebar />
 
-      <main className="min-w-0 flex-1">
+      <main className="laminas-quietas min-w-0 flex-1">
         <Topbar />
 
         <div className="px-4 py-7 md:px-8 md:py-10">
@@ -2116,6 +2132,20 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                         ¿Cómo acaban? · {filters.JORNADA ? filters.JORNADA : `la temporada, ${filtered.length} saques`}
                       </p>
                       <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
+                      {/* 27/11/2026 (jueces, ronda 10): qué cuenta cada palabra, junto a la barra. */}
+                      <p className="mt-2 text-[12px] leading-snug text-white/65">
+                        {isOffensive ? (
+                          <>
+                            <b className="font-semibold text-white/85">Conservamos</b>: la jugada del saque acaba con el balón para nosotros (llegue o no arriba).{" "}
+                            <b className="font-semibold text-white/85">Llegan a último tercio</b>: acaba cerca de su área, en ocasión o en gol.
+                          </>
+                        ) : (
+                          <>
+                            <b className="font-semibold text-white/85">Recuperamos</b>: la jugada del saque rival acaba con el balón para nosotros.{" "}
+                            <b className="font-semibold text-white/85">Le llega a último tercio</b>: su jugada acaba cerca de nuestra área, en ocasión o en gol.
+                          </>
+                        )}
+                      </p>
                       {!filters.JORNADA && jornadaPorDefecto ? (
                         <button
                           type="button"
