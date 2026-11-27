@@ -321,7 +321,16 @@ function clipsDe(id) {
 
 const FUENTE = ["C:/Windows/Fonts/arialbd.ttf", "C:/Windows/Fonts/arial.ttf"].find((f) => fs.existsSync(f));
 const ESCALA = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=25,setsar=1";
-const SALIDA = ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-maxrate", "450k", "-bufsize", "900k", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+/*
+| CALIDAD (27/11/2026, el analista: «los vídeos no pueden perder tanta calidad»):
+| antes cada corte se comprimía DOS veces a ~400-450 kb/s (al cortar y al
+| pintar la marca), y en 720p eso es papilla. Ahora se corta a un intermedio
+| casi sin pérdida (INTERMEDIO) y se comprime UNA sola vez al final, a CRF 20
+| con techo de 2,5 Mb/s (≈ 18 MB por minuto como mucho; en la práctica bastante
+| menos, el césped comprime bien). Vigilar el hueco de B2 con --ver.
+*/
+const SALIDA = ["-an", "-c:v", "libx264", "-preset", "medium", "-tune", "film", "-crf", "20", "-maxrate", "2500k", "-bufsize", "5000k", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+const INTERMEDIO = ["-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "12", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
 const corta = (t, n) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 const texto = (fichero, x, y, tam, color, borde = 12) =>
   `drawtext=expansion=none:fontfile=fuente.ttf:textfile=${fichero}:x=${x}:y=${y}:fontsize=${tam}:fontcolor=${color}:box=1:boxcolor=0x0B0F14@0.72:boxborderw=${borde}`;
@@ -489,7 +498,7 @@ for (const j of elegidos) {
     fs.writeFileSync(path.join(TMP, `a${k}.txt`), corta(c.que, 46));
     fs.writeFileSync(path.join(TMP, `b${k}.txt`), corta(`${j.nombre} · vs ${partido.rival} · ${fechaCorta} · ${minutoDe(c.segundo)}`, 80));
     const vf = [ESCALA, texto(`a${k}.txt`, 36, "h-132", 36, "0xC8A96B", 14), texto(`b${k}.txt`, 36, "h-72", 24, "0xD7DEE6", 10)].join(",");
-    const error = await ffmpeg(["-ss", String(salta), "-i", bruto, "-t", String(c.antes + c.despues), "-vf", vf, ...SALIDA, "-movflags", "+faststart", `k${k}.mp4`], TMP);
+    const error = await ffmpeg(["-ss", String(salta), "-i", bruto, "-t", String(c.antes + c.despues), "-vf", vf, ...INTERMEDIO, `k${k}.mp4`], TMP);
     fs.rmSync(path.join(TMP, bruto), { force: true });
     if (error) {
       console.log(`      ${minutoDe(c.segundo)} ${c.que}: ${error.split(/\r?\n/)[0]}`);
@@ -515,6 +524,9 @@ for (const j of elegidos) {
   const buenos = [];
   for (const { c, k } of cortados) {
     const m = await pinta({ dir: TMP, entrada: `k${k}.mp4`, salida: `m${k}.mp4`, json: `a${k}.json`, nombre: j.nombre, kit, ffmpeg: FFMPEG, salidaFfmpeg: [...SALIDA, "-movflags", "+faststart"] });
+    /* Sin marca, pinta deja una copia del intermedio: se comprime aquí (la única vez). */
+    if (!m.marcado) await ffmpeg(["-i", `k${k}.mp4`, ...SALIDA, "-movflags", "+faststart", `m${k}.mp4`], TMP);
+    fs.rmSync(path.join(TMP, `k${k}.mp4`), { force: true });
     const fichero = `m${k}.mp4`;
     const real = await duracion(TMP, fichero);
     if (real != null && real < 1) continue;

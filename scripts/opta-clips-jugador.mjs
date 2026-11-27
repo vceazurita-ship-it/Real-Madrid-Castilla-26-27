@@ -466,8 +466,16 @@ function ffmpeg(args, cwd, tope = 180_000) {
 
 /* Los rótulos van en ficheros de texto (textfile): así no hay que escapar tildes, comillas ni dos puntos. */
 const ESCALA = "scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2:color=black,fps=25,setsar=1";
-/* Topado a ~400 kb/s (25/11/2026): 2 minutos ≈ 6 MB como mucho, para no llenar los 10 GB de B2. */
-const SALIDA = ["-an", "-c:v", "libx264", "-preset", "veryfast", "-crf", "29", "-maxrate", "400k", "-bufsize", "800k", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+/*
+| CALIDAD (27/11/2026, el analista: «los vídeos no pueden perder tanta calidad»):
+| antes cada corte se comprimía DOS veces a ~400-450 kb/s (al cortar y al
+| pintar la marca), y en 720p eso es papilla. Ahora se corta a un intermedio
+| casi sin pérdida (INTERMEDIO) y se comprime UNA sola vez al final, a CRF 20
+| con techo de 2,5 Mb/s (≈ 18 MB por minuto como mucho; en la práctica bastante
+| menos, el césped comprime bien). Vigilar el hueco de B2 con --ver.
+*/
+const SALIDA = ["-an", "-c:v", "libx264", "-preset", "medium", "-tune", "film", "-crf", "20", "-maxrate", "2500k", "-bufsize", "5000k", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
+const INTERMEDIO = ["-an", "-c:v", "libx264", "-preset", "ultrafast", "-crf", "12", "-pix_fmt", "yuv420p", "-video_track_timescale", "12800"];
 const corta = (t, n) => (t.length > n ? `${t.slice(0, n - 1).trimEnd()}…` : t);
 const texto = (fichero, x, y, tam, color, borde = 12) =>
   `drawtext=expansion=none:fontfile=fuente.ttf:textfile=${fichero}:x=${x}:y=${y}:fontsize=${tam}:fontcolor=${color}:box=1:boxcolor=0x0B0F14@0.72:boxborderw=${borde}`;
@@ -514,7 +522,7 @@ async function corte(dir, n, hls, c, jugador, contra, salta = 0, dura = c.antes 
   fs.writeFileSync(path.join(dir, `b${n}.txt`), corta(`${c.que ? `${c.que} · ` : ""}${contra ? `vs ${contra} · ` : ""}${c.fecha.split("-").reverse().slice(0, 2).join("/")} · ${min}`, 80));
   fs.writeFileSync(path.join(dir, `c${n}.txt`), jugador);
   const vf = [ESCALA, texto(`c${n}.txt`, 36, "h-200", 26, "white", 10), texto(`a${n}.txt`, 36, "h-142", 40, "0xC8A96B", 14), texto(`b${n}.txt`, 36, "h-76", 26, "0xD7DEE6", 10)].join(",");
-  return ffmpeg([...(salta ? ["-ss", String(salta)] : []), "-i", hls, "-t", String(dura), "-vf", vf, ...SALIDA, `k${n}.mp4`], dir);
+  return ffmpeg([...(salta ? ["-ss", String(salta)] : []), "-i", hls, "-t", String(dura), "-vf", vf, ...INTERMEDIO, `k${n}.mp4`], dir);
 }
 
 /* ------------------------------------------------------------------ */
@@ -732,6 +740,8 @@ for (const r of rivales) {
     for (const { c, n } of cortados) {
       const m = await pinta({ dir: tmp, entrada: `k${n}.mp4`, salida: `m${n}.mp4`, json: `a${n}.json`, nombre, kit: kits.get(c.partido), ffmpeg: FFMPEG, salidaFfmpeg: SALIDA });
       if (m.marcado) marcados++;
+      /* Sin marca, pinta deja una copia del intermedio: se comprime aquí (la única vez). */
+      else await ffmpeg(["-i", `k${n}.mp4`, ...SALIDA, `m${n}.mp4`], tmp);
       const fichero = `m${n}.mp4`;
       const real = await duracion(tmp, fichero);
       if (real != null && real < 1) continue;
