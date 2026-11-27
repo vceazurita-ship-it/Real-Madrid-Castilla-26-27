@@ -1078,6 +1078,8 @@ export const AYUDAS: AyudaDePagina[] = [
           },
           { que: "Cara a cara con la élite", es: "Hasta 3 jugadores de Primera o Premier sobre su radiografía. Dos buscadores: «Añadir: nombre o equipo», entre los de su puesto y edad (la vara), y al lado «Cualquier jugador de Primera o Premier», por nombre, de cualquier puesto y edad. En la lista, el nombre va entero y en grande; debajo, equipo, liga, puesto, edad y minutos (18/11/2026)", cuenta: "El del buscador libre se mide igual que los demás: con las métricas del puesto de nuestro jugador y contra la misma vara; si es de otro puesto lo dice su chapa («otro puesto»). Entran los que llevan 180′ o más en la descarga de Wyscout de esa liga" },
           { que: "Tendencia", es: "Nota partido a partido, Wyscout semana a semana y 26/27 frente a 25/26" },
+          { que: "Opta: radiografía y mapa de su puesto (27/11/2026)", es: "Debajo de lo de Wyscout, el bloque de Opta trae ahora también su radiografía (la misma pizza, con las métricas de Opta que tienen volumen, dos por grupo) y el mapa de su puesto con todos los de la categoría en Opta: centrales defender/sacar el balón, laterales defender/aportar arriba, mediocentros recuperar/crear y circular, banda creación/gol, delanteros juego/gol. Sirve sobre todo a quien Wyscout no tiene o tiene con poca muestra", cuenta: "opta:jugadores, los dos grupos de Primera RFEF con 270′ o más; cada eje, la media de percentiles de sus grupos, re-escalada dentro del mapa" },
+          { que: "Quién es quién en Wyscout (27/11/2026)", es: "Se busca primero entre los del Castilla y, con dos del mismo apellido, decide la inicial: Sergio Martínez («S. Martínez») y Javi Navarro ya tienen sus datos. Fuera del Castilla sólo si el nombre de pila empieza igual (antes Adrián Pérez salía con el del Águilas, Diego Arroyo con uno del Racing de Ferrol y Fran Santamaría con uno del Avilés)" },
         ],
       },
       {
@@ -1107,7 +1109,7 @@ export const AYUDAS: AyudaDePagina[] = [
       },
     ],
     ojo: ["Cada evento de Opta (saque, remate, penalti, acción, gol) lleva su vídeo (18/11/2026): si el ordenador del club ya bajó su corte a B2 (opta:goles-video, los goles; opta:acciones-video, las acciones del Castilla; 10 s antes y 6 s después), se ve aquí mismo, en un pop-up y sin sesión de Opta; si no, abre el Event Log de ProVision filtrado a esa parte y ese segundo, con el vídeo abierto (8 s antes y después), y hace falta la sesión de Opta (lib/opta-cortes.ts, lib/opta-video.ts). Sin reloj no hay enlace: el segundo no se inventa. Se comprueba con node scripts/opta-clips-comprueba.mjs (sólo lectura)."],
-    revisada: "2026-11-26",
+    revisada: "2026-11-27",
   },
   {
     ruta: "/individual_proc",

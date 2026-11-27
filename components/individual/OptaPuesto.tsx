@@ -14,10 +14,21 @@
 | de menos de 15 intentos tampoco).
 |
 | Si Opta no le tiene, el bloque no se pinta.
+|
+| 27/11/2026 (el analista: «en áreas de mejora de algunos jugadores faltan
+| datos y entonces no hay comparativas; enriquecerlas con Opta»): el bloque
+| trae también su RADIOGRAFÍA de Opta (la misma pizza que la de Wyscout, con
+| las métricas juzgables, dos por grupo como mucho) y el MAPA de su puesto
+| (dos ejes por puesto, cada uno la media de percentiles de sus grupos, con
+| todos los del puesto en la categoría). Con o sin Wyscout: a quien Wyscout no
+| tiene (o le tiene con otro nombre) le quedan así sus comparativas.
 */
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowDownRight, ArrowUpRight, BarChart3 } from "lucide-react";
+
+import { RadiografiaPercentiles, type CunaPercentil } from "@/components/data/visual/RadiografiaPercentiles";
+import { MapaDosEjes, type PuntoMapa } from "@/components/data/visual/MapaDosEjes";
 
 import { CASTILLA_OPTA, DOCS_OPTA, aObjetos, num, percentil, traeOpta, type TablaOpta } from "@/lib/opta";
 import {
@@ -30,6 +41,7 @@ import {
   valorFicha,
   type FilaOpta,
   type MetricaFicha,
+  type PuestoOpta,
 } from "@/lib/opta-ficha";
 
 const MINUTOS_OPTA = 270;
@@ -41,6 +53,17 @@ const ORO = "#D8B45A";
 const ROJO = "#E5484D";
 
 const colorDe = (p: number) => (p >= 66 ? VERDE : p >= 40 ? ORO : ROJO);
+
+/* Los dos ejes del mapa de cada puesto: grupos de métricas de Opta (media de sus percentiles). */
+const EJES_OPTA: Partial<Record<PuestoOpta, { x: string; y: string; gx: string[]; gy: string[]; rotulos: { ambos: string; soloX: string; soloY: string; nada: string; nadaCorto: string } }>> = {
+  CEN: { x: "Defender", y: "Sacar el balón", gx: ["Defensa", "Duelos"], gy: ["Circulación"], rotulos: { ambos: "COMPLETOS", soloX: "DEFENSORES", soloY: "CONSTRUCTORES", nada: "POR DEBAJO EN LAS DOS", nadaCorto: "POR DEBAJO" } },
+  LAT: { x: "Defender", y: "Aportar arriba", gx: ["Defensa", "Duelos"], gy: ["Centros y regate", "Creación"], rotulos: { ambos: "COMPLETOS", soloX: "DEFENSIVOS", soloY: "OFENSIVOS", nada: "POR DEBAJO EN LAS DOS", nadaCorto: "POR DEBAJO" } },
+  MED: { x: "Recuperar", y: "Crear y circular", gx: ["Defensa", "Duelos"], gy: ["Circulación", "Creación"], rotulos: { ambos: "COMPLETOS", soloX: "DESTRUCTORES", soloY: "CREADORES", nada: "POR DEBAJO EN LAS DOS", nadaCorto: "POR DEBAJO" } },
+  BAN: { x: "Creación", y: "Gol", gx: ["Creación", "Centros y regate"], gy: ["Gol"], rotulos: { ambos: "COMPLETOS", soloX: "CREADORES", soloY: "FINALIZADORES", nada: "POR DEBAJO EN LAS DOS", nadaCorto: "POR DEBAJO" } },
+  DEL: { x: "Juego", y: "Gol", gx: ["Creación", "Circulación", "Duelos"], gy: ["Gol"], rotulos: { ambos: "COMPLETOS", soloX: "ASOCIATIVOS", soloY: "REMATADORES", nada: "POR DEBAJO EN LAS DOS", nadaCorto: "POR DEBAJO" } },
+};
+/* En la pizza: con balón a la derecha, sin balón a la izquierda. */
+const CON_BALON = new Set(["Gol", "Creación", "Circulación", "Centros y regate", "Portería"]);
 
 type Linea = { m: MetricaFicha; valor: number; mediana: number | null; p: number; juzgable: boolean; puesto: number; de: number };
 
@@ -117,6 +140,51 @@ export function OptaPuesto({ nombre, apodo }: { nombre: string; apodo?: string }
     }
 
     const juzgables = lineas.filter((l) => l.juzgable).sort((a, b) => b.p - a.p);
+
+    /* La radiografía: las juzgables, dos por grupo como mucho, en el orden de los grupos. */
+    const cunas: CunaPercentil[] = [];
+    for (const g of GRUPOS_FICHA) {
+      const delGrupo = lineas.filter((l) => l.juzgable && l.m.grupo === g).slice(0, 2);
+      for (const l of delGrupo) cunas.push({ nombre: l.m.nombre + (l.m.mejorAlto ? "" : " ↓"), valor: textoFicha(l.m, l.valor), percentil: l.p, lado: CON_BALON.has(g) ? "con" : "sin", ayuda: `${l.puesto}º de ${l.de}` });
+    }
+
+    /* El mapa de su puesto: cada uno, la media de sus percentiles por grupo (contra los mismos pares) en cada eje. */
+    const ejes = EJES_OPTA[puesto];
+    let mapa: { puntos: PuntoMapa[]; ejes: NonNullable<typeof ejes> } | null = null;
+    if (ejes && pares.length >= 10) {
+      const metricas = metricasDelPuesto(puesto).filter((m) => ejes.gx.includes(m.grupo) || ejes.gy.includes(m.grupo));
+      const muestras = new Map(metricas.map((m) => [m.a, pares.map((f) => valorFicha(m, f)).filter((v): v is number => v != null)]));
+      const ejeDe = (f: FilaOpta, gs: string[]) => {
+        const ps: number[] = [];
+        for (const m of metricas) {
+          if (!gs.includes(m.grupo)) continue;
+          const v = valorFicha(m, f);
+          const mu = muestras.get(m.a) ?? [];
+          if (v == null || mu.length < 10) continue;
+          const p = percentil(v, mu, !m.mejorAlto);
+          if (p != null) ps.push(p);
+        }
+        return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : null;
+      };
+      const conEl = pares.includes(yo) ? pares : [...pares, yo];
+      const crudos = conEl
+        .map((f) => ({ f, x: ejeDe(f, ejes.gx), y: ejeDe(f, ejes.gy) }))
+        .filter((c): c is { f: FilaOpta; x: number; y: number } => c.x != null && c.y != null);
+      /* Re-escalado a percentil dentro del mapa (como el de Wyscout). */
+      const rango = (xs: number[]) => (v: number) => (xs.filter((o) => o < v).length / Math.max(1, xs.length - 1)) * 100;
+      const rx = rango(crudos.map((c) => c.x)), ry = rango(crudos.map((c) => c.y));
+      mapa = {
+        ejes,
+        puntos: crudos.map((c) => ({
+          id: String(c.f.playerId ?? c.f.jugador),
+          nombre: String(c.f.jugador ?? ""),
+          x: rx(c.x),
+          y: ry(c.y),
+          propio: c.f === yo || c.f.teamId === CASTILLA_OPTA,
+          detalle: `${String(c.f.equipo ?? "")} · ${num(c.f.Age) ?? "?"} años · ${num(c.f.Min) ?? 0}′`,
+        })),
+      };
+    }
     const unoPorGrupo = (xs: Linea[]) => xs.filter((l, i) => xs.findIndex((o) => o.m.grupo === l.m.grupo) === i);
 
     return {
@@ -126,6 +194,8 @@ export function OptaPuesto({ nombre, apodo }: { nombre: string; apodo?: string }
       minutos,
       n: pares.length,
       lineas,
+      cunas,
+      mapa,
       fuertes: unoPorGrupo(juzgables).filter((l) => l.p >= 60).slice(0, 3),
       mejora: unoPorGrupo([...juzgables].reverse()).filter((l) => l.p < 40).slice(0, 3),
       indice: Math.round(juzgables.reduce((s, l) => s + l.p, 0) / Math.max(1, juzgables.length)),
@@ -170,6 +240,25 @@ export function OptaPuesto({ nombre, apodo }: { nombre: string; apodo?: string }
               <ul className="space-y-2">{analisis.mejora.map((l) => <Tarjeta key={l.m.a} l={l} bien={false} />)}</ul>
             </div>
           )}
+        </div>
+      )}
+
+      {analisis.cunas.length >= 6 && (
+        <div className="mb-4">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">Su radiografía en Opta · percentil frente a los {analisis.n} {pz.varios}</p>
+          <RadiografiaPercentiles cunas={analisis.cunas} acento={ORO} />
+        </div>
+      )}
+
+      {analisis.mapa && (
+        <div className="mb-4">
+          <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/50">
+            {analisis.mapa.ejes.x} frente a {analisis.mapa.ejes.y.toLowerCase()} · los {analisis.mapa.puntos.length} {pz.varios} de la categoría en Opta
+          </p>
+          <MapaDosEjes puntos={analisis.mapa.puntos} ejeX={`${analisis.mapa.ejes.x.toUpperCase()} · PERCENTIL`} ejeY={`${analisis.mapa.ejes.y.toUpperCase()} · PERCENTIL`} rotulos={analisis.mapa.ejes.rotulos} />
+          <p className="mt-1 text-[11px] text-white/45">
+            Cada eje es la media de sus percentiles en {analisis.mapa.ejes.gx.join(", ").toLowerCase()} (horizontal) y {analisis.mapa.ejes.gy.join(", ").toLowerCase()} (vertical), re-escalada dentro del mapa. En dorado, los del Castilla.
+          </p>
         </div>
       )}
 

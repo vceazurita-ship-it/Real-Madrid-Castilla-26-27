@@ -213,7 +213,18 @@ export function AreaMejora({
     if (!jugadores?.length) return null;
 
     const actuales = jugadores.filter((j) => j.temporada === "actual");
-    const fila = casaNombre(nombre, actuales, (j) => j.jugador) ?? (apodo ? casaNombre(apodo, actuales, (j) => j.jugador) : null);
+    /*
+     * Primero entre los del Castilla (27/11/2026): buscando en toda la categoría,
+     * Adrián Pérez casaba con el del Águilas, Diego Arroyo con uno del Racing de
+     * Ferrol y Fran Santamaría con uno del Avilés. Fuera, sólo si en el Castilla
+     * no está (un fichaje que aún sale con su equipo anterior).
+     */
+    const delCastilla = actuales.filter((j) => /castilla|real madrid ii\b/i.test(String(j.equipo)));
+    const busca = (lista: FilaJugador[]) => casaNombre(nombre, lista, (j) => j.jugador) ?? (apodo ? casaNombre(apodo, lista, (j) => j.jugador) : null);
+    /* Fuera del Castilla, además, el nombre de pila tiene que empezar igual (Diego Arroyo no es Roberto Arroyo). */
+    const fuera = busca(actuales);
+    const pila = (n: string) => n.trim().normalize("NFD").replace(/[̀-ͯ]/g, "").charAt(0).toLowerCase();
+    const fila = busca(delCastilla) ?? (fuera && [nombre, apodo ?? ""].some((n) => n && pila(n) === pila(fuera.jugador)) ? fuera : null);
 
     if (!fila) return null;
 

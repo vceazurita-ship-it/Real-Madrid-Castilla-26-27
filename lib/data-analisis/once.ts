@@ -522,6 +522,20 @@ export function casaNombre<T>(
 
     /* Sólo si no hay duda: dos «Martínez» no se resuelven solos. */
     if (porApellido.length === 1) return porApellido[0];
+
+    /*
+    | Salvo por la inicial (27/11/2026): Wyscout escribe «S. Martínez» y en el
+    | Castilla también está Joan Martínez; el nombre de pila (o su inicial) que
+    | empieza igual deja uno. Sólo si el nuestro trae nombre de pila.
+    */
+    const inicial = palabras.length > 1 ? palabras[0].charAt(0) : "";
+    if (inicial && porApellido.length > 1) {
+      const conInicial = porApellido.filter((uno) => {
+        const pila = de(uno).split(" ")[0] ?? "";
+        return pila.charAt(0) === inicial && (pila.replace(/\.$/, "").length === 1 || pila === palabras[0]);
+      });
+      if (conInicial.length === 1) return conInicial[0];
+    }
   }
 
   return null;
