@@ -430,7 +430,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Microciclos",
     resumen: "Cada tarea de cada sesión, con su contenido, su carga y su valoración, micro a micro.",
     origen: "Hoja de microciclos, una fila por tarea (la escribe el cuerpo técnico). Los equipos del día, de Jugadores sesión; lo medido en la sesión, del análisis de entrenamiento. El micro de hoy y el MD de cada día, de la regla común de las cuatro pantallas de planificación (lib/microciclo/semana-de-hoy.ts).",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
@@ -2214,7 +2214,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Pizarra Táctica",
     resumen: "Dibujar una idea con fichas, flechas y escenas, presentarla moviéndose y montar el once de la semana, que usa toda la app.",
     origen: "Las fichas propias salen de la plantilla (con su nombre corto, el mismo de Duelos y del Plan) y las rivales de Plantillas rivales, con sus tildes. El tablero «Once 4-2-3-1» se rellena solo cada semana con nuestro último once (Valoraciones) y el teórico del rival (Duelos → Plantillas → BeSoccer). Pizarras, bajas y once se guardan en Supabase.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
@@ -3154,7 +3154,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Desplazamiento de Partido",
     resumen: "El dossier del viaje y el horario de cada día, para el cuerpo técnico y para los jugadores.",
     origen: "Se escribe aquí y se guarda solo. Fecha y hora, del calendario de BeSoccer; estadio, medidas, foto y escudo, de BeSoccer y OpenStreetMap; la distancia y el tiempo de Valdebebas al estadio, de la ruta de OSRM (o de la memoria de trayectos del analista).",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
@@ -3339,7 +3339,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Identidad de Juego",
     resumen: "Los principios ofensivos y defensivos del modelo, por fase, bloque y apartado, y cómo se cumplen en el último partido los que se pueden medir.",
     origen: "Los principios: la hoja del modelo de juego del cuerpo técnico (se edita aquí y se escribe en la hoja). Las cifras de cada principio: Wyscout de nuestros partidos y de la categoría, el mismo cálculo que /identidad-campo; la jornada, del calendario de BeSoccer.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
@@ -3478,7 +3478,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Los nueve partidos de la jornada —la liga sin el Castilla—, el 1-X-2 de cada uno y el ranking de acierto del cuerpo técnico.",
     origen:
       "El calendario de Primera RFEF grupo 2 viaja con la aplicación —38 jornadas que no cambian—. Los pronósticos los escribe cada uno aquí y viven en el documento «quiniela» de Supabase. Los resultados los baja de BeSoccer el trabajo nocturno o los pone alguien a mano; no salen de ninguna hoja.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
@@ -3568,7 +3568,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Uno lanza una predicción y dice qué se juega; los demás se ponen a favor o en contra, y el día señalado se comprueba quién tenía razón.",
     origen:
       "Las escribe el cuerpo técnico aquí mismo, con la misma cuenta que la quiniela. Viven en un documento propio de Supabase («apuestas-staff»); no salen de ninguna hoja.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026, tercera vuelta): repaso de los expertos",
@@ -3808,7 +3808,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Objetivos por jugador medidos en el vídeo de la sesión: cuántas acciones salieron bien y cuántas hay que mejorar, con clips, su evolución día a día y el mensaje para cada jugador.",
     origen:
       "Los objetivos y las validaciones los escribe el cuerpo técnico aquí (documento «entreno:AAAA-MM-DD» de Supabase, se guarda solo). El análisis lo hace el ordenador del club al pedirlo y lo deja en «entreno-analisis:AAAA-MM-DD»: el vídeo es la cámara táctica de la carpeta SESIONES o, si no está, el entrenamiento subido a Hudl con la fecha en el título. Las tareas salen del registro de tareas (hoja) y los equipos, de Jugadores sesión. Se entra con la cuenta del staff (la de la quiniela).",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
@@ -3929,7 +3929,7 @@ export const AYUDAS: AyudaDePagina[] = [
     resumen: "El próximo partido, lo que toca hoy, el rival y el equipo en cifras de un vistazo, y la puerta a todas las áreas.",
     origen:
       "El calendario y la clasificación de BeSoccer (se ponen al día cada noche), la hoja RIVALES (para abrir cada pantalla con el rival puesto), la hoja de registro del microciclo, Opta (xG, PPDA, balón parado y momentum), los informes de Wyscout (Data Análisis) y la hoja de seguimiento. Ninguna cifra se escribe aquí.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
@@ -4587,7 +4587,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Los documentos publicados con la web no se borran desde aquí: se corrigen subiendo uno con el mismo identificador, y al borrar el subido vuelve el original.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 
   /* ==================== CALENDARIO DE SEGUIMIENTO (12/11/2026) ==================== */
@@ -4725,7 +4725,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si una fuente no llega en 15 s se ofrece reintentar; lo que sí llegó se pinta igual.",
       "Entrenos y partidos se cuentan igual que en /micro_calendar: la fila de competición no es sesión.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
   /* ==================== CALENDARIO CONDICIONAL (12/11/2026) ==================== */
   {
@@ -4763,7 +4763,7 @@ export const AYUDAS: AyudaDePagina[] = [
     titulo: "Contenidos Microciclo",
     resumen: "Cada día de entreno con su MD, sus minutos y sus contenidos, y la carga del mes contra el anterior.",
     origen: "Hoja de microciclos, una fila por tarea (la misma de /microcycles): lo hecho, de la copia del Apps Script; lo planificado que aún no está en ella, de la hoja publicada (la fuente común de las pantallas de planificación). Hora, lado y resultado del partido: calendario de BeSoccer.",
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
     bloques: [
       {
         titulo: "Lo nuevo (27/11/2026, segunda vuelta): repaso de los expertos",
@@ -4927,7 +4927,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "La hoja publicada tarda minutos en refrescarse: lo recién escrito se enseña encima desde este aparato.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 
   /* ==================== LABORATORIO · DEL SCOUTING AL PLAN (12/11/2026) ==================== */
@@ -5100,7 +5100,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el documento del informe no está bajado al día, puede faltar algún equipo: la caja ámbar dice cuáles.",
       "Los nombres van como en la quiniela (lib/equipos/nombres.ts), no como los escribe BeSoccer.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 
   /* ==================== ANÁLISIS DE FALTAS (12/11/2026) ==================== */
@@ -5496,7 +5496,7 @@ export const AYUDAS: AyudaDePagina[] = [
     ojo: [
       "Las cifras de arriba siguen a los filtros: con un microciclo o «Victorias» elegidos, cuentan sólo esos partidos.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 
   /* ==================== PIZARRA DE COMPETICIÓN (12/11/2026) ==================== */
@@ -5776,7 +5776,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Si el guardado no llega a la hoja, se sigue en edición y se reintenta solo.",
       "«¿Quién lo ejecuta mejor?» compara perfiles estadísticos con los del puesto, no cómo rindió jugando allí; los porteros no entran y hacen falta al menos dos contenidos medidos.",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 ];
 
