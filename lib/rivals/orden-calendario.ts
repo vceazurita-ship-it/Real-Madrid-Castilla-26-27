@@ -93,6 +93,14 @@ export type OrdenRivales = {
    * primero. Se guarda entero para no volver a leer la hoja.
    */
   partidos: Enfrentamiento[];
+  /**
+   * Los rivales que ya se han jugado (28/11/2026, el analista: «no puedo ver
+   * los equipos anteriores a la jornada actual»): a cada uno, el último partido
+   * que se le jugó, del más reciente al más antiguo. En `partidos` esos
+   * equipos salen con su partido de la vuelta y al final de la fila, y no se
+   * reconocían como rivales ya jugados.
+   */
+  jugados?: Enfrentamiento[];
 };
 
 /** Lo que se enseña mientras la hoja no ha contestado: el orden de siempre. */
@@ -268,7 +276,43 @@ export function ordenaPorCalendario(
     jornada: anunciable ? primero.jornada : "",
     fecha: anunciable ? primero.fecha : "",
     partidos: enfrentamientos,
+    jugados: yaJugados(jornadas, hoy, jugadaHasta),
   };
+}
+
+/**
+ * Los rivales ya jugados, cada uno con el último partido que se le jugó, del
+ * más reciente al más antiguo. «Jugado» con la misma regla que
+ * `proximosEnfrentamientos`: con la jornada de BeSoccer manda ella; si no, la
+ * fecha (anterior a hoy).
+ */
+export function yaJugados(jornadas: JornadaRival[], hoy: string, jugadaHasta = 0): Enfrentamiento[] {
+  const jugado = (partido: JornadaRival) => {
+    const numero = Number(partido.jornada || 0);
+
+    if (jugadaHasta > 0 && numero > 0) return numero <= jugadaHasta;
+
+    return Boolean(partido.fecha) && partido.fecha < hoy;
+  };
+  const ultimo = new Map<string, JornadaRival>();
+
+  for (const partido of jornadas) {
+    if (!partido.equipo || !jugado(partido)) continue;
+
+    const clave = normaliza(partido.equipo);
+    const antes = ultimo.get(clave);
+
+    if (!antes || Number(partido.jornada || 0) > Number(antes.jornada || 0)) ultimo.set(clave, partido);
+  }
+
+  return [...ultimo.values()]
+    .map((partido): Enfrentamiento => ({ id: partido.id, equipo: partido.equipo, jornada: partido.jornada, fecha: partido.fecha, local: partido.local, grupo: JUGADO }))
+    .sort((a, b) => Number(b.jornada || 0) - Number(a.jornada || 0) || (b.fecha || "").localeCompare(a.fecha || ""));
+}
+
+/** ¿Es el mismo rival? El nombre normalizado y, si no, sin las siglas del club (las dos hojas se escriben a mano). */
+export function mismoRival(a: string, b: string) {
+  return normaliza(a) === normaliza(b) || mismoEquipo(a, b);
 }
 
 /**
@@ -388,7 +432,7 @@ function conFechaDeBeSoccer(orden: OrdenRivales, calendario: PartidoCastilla[]):
   /* Sólo esta temporada: la ficha de BeSoccer trae dos y la J13 de la pasada no es la nuestra. */
   const porJornada = new Map(calendario.filter((p) => (p.cuando || "") >= DESDE).map((p) => [String(p.jornada), p.cuando]));
 
-  const partidos = orden.partidos.map((partido) => {
+  const ajusta = (partido: Enfrentamiento): Enfrentamiento => {
     /* También la de los ya jugados (21/11/2026): la J13, jugada el viernes 20/11, seguía con el domingo 22 de la hoja. */
     const cuando = porJornada.get(partido.jornada);
 
@@ -397,11 +441,13 @@ function conFechaDeBeSoccer(orden: OrdenRivales, calendario: PartidoCastilla[]):
     const hora = cuando.slice(11, 16);
 
     return { ...partido, fecha: cuando.slice(0, 10), ...(/^\d{2}:\d{2}$/.test(hora) && hora !== "00:00" ? { hora } : {}) };
-  });
+  };
+  const partidos = orden.partidos.map(ajusta);
+  const jugados = orden.jugados?.map(ajusta);
 
   const actual = partidos.find((p) => p.equipo === orden.actual && p.jornada === orden.jornada);
 
-  return { ...orden, partidos, fecha: orden.fecha && actual ? actual.fecha : orden.fecha };
+  return { ...orden, partidos, ...(jugados ? { jugados } : {}), fecha: orden.fecha && actual ? actual.fecha : orden.fecha };
 }
 
 const DIAS = ["dom", "lun", "mar", "mié", "jue", "vie", "sáb"];

@@ -2423,6 +2423,12 @@ export const AYUDAS: AyudaDePagina[] = [
         ],
       },
       {
+        titulo: "Lo nuevo (28/11/2026): rivales ya jugados",
+        filas: [
+          { que: "Ya jugados", es: "Debajo de la fila de próximos, los rivales que ya se han jugado, del más reciente al más antiguo, con la jornada en que se les jugó (J13, J12…); al pasar, si fue en casa o fuera. En «Ir a rival…» van en su propio grupo, «Ya jugados». La fila de arriba sigue ordenada por el próximo partido contra cada uno (los ya jugados de la ida tienen allí su jornada de la vuelta)." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (28/11/2026): visualización, usabilidad y estilo",
         filas: [
           { que: "Quién crea la amenaza · xT/90 (carga)", es: "Mientras llega el evento a evento de Opta se ve un esqueleto con la altura del bloque. A los 8 s se vuelve a pedir lo que falta («Opta tarda más de lo normal») y a los 20 s la sección deja de verse; si los datos llegan después, aparece sola." },

@@ -94,6 +94,7 @@ import {
   etiquetaDelProximo,
   jornadaDeEquipo,
   JUGADO,
+  mismoRival,
   SIN_ORDEN,
   type OrdenRivales,
 } from "@/lib/rivals/orden-calendario";
@@ -980,6 +981,24 @@ export default function RivalPlayersPage() {
       .map(([name, count]) => ({ name, count }))
       .sort((a, b) => compara(a.name, b.name));
   }, [players, ordenRivales]);
+
+  /*
+  | Los rivales ya jugados (28/11/2026, el analista: «no puedo ver los equipos
+  | anteriores a la jornada actual»). En la fila mandan los próximos y los ya
+  | jugados se iban al final con la jornada de la vuelta: aquí van aparte, del
+  | más reciente al más antiguo y con la jornada en que se les jugó.
+  */
+  const anteriores = useMemo(
+    () =>
+      (ordenRivales.jugados ?? [])
+        .map((partido) => {
+          const team = teams.find((t) => mismoRival(t.name, partido.equipo));
+
+          return team ? { team, jornada: partido.jornada, local: partido.local } : null;
+        })
+        .filter((x): x is { team: (typeof teams)[number]; jornada: string; local: boolean } => x !== null),
+    [ordenRivales, teams],
+  );
 
   /*
   | El escudo de un club rival.
@@ -4481,12 +4500,23 @@ export default function RivalPlayersPage() {
                       className="hidden h-9 shrink-0 rounded-full border border-[#C8A96B]/60 bg-[#C8A96B]/10 px-3 text-[13px] font-semibold text-[#C8A96B] outline-none transition hover:bg-[#C8A96B]/20 sm:block"
                     >
                       <option value="">{`Ir a rival… (${teams.length})`}</option>
-                      {teams.map((team) => (
-                        <option key={team.name} value={team.name}>
-                          {team.name}
-                          {jornadaDeEquipo(ordenRivales, team.name) ? ` · ${jornadaDeEquipo(ordenRivales, team.name)!.etiqueta}` : ""}
-                        </option>
-                      ))}
+                      <optgroup label="Por jugar (su próximo partido)">
+                        {teams.map((team) => (
+                          <option key={team.name} value={team.name}>
+                            {team.name}
+                            {jornadaDeEquipo(ordenRivales, team.name) ? ` · ${jornadaDeEquipo(ordenRivales, team.name)!.etiqueta}` : ""}
+                          </option>
+                        ))}
+                      </optgroup>
+                      {anteriores.length > 0 && (
+                        <optgroup label="Ya jugados (del más reciente)">
+                          {anteriores.map(({ team, jornada }) => (
+                            <option key={`ya-${team.name}`} value={team.name}>
+                              {team.name} · J{jornada} jugada
+                            </option>
+                          ))}
+                        </optgroup>
+                      )}
                     </select>
                   </>
                 );
@@ -4502,6 +4532,34 @@ export default function RivalPlayersPage() {
                 <span className="hidden sm:inline">Añadir jugador</span>
               </button>
             </div>
+
+            {/* Los ya jugados, aparte (28/11/2026): del más reciente al más antiguo, con su jornada. */}
+            {anteriores.length > 0 && (
+              <div className={`mt-2 flex min-w-0 flex-wrap items-center gap-1.5 ${selectedTeam && !cambiandoEquipo ? "hidden sm:flex" : "flex"}`}>
+                <span className="mr-1 text-[12px] font-semibold uppercase tracking-[0.14em] text-white/55">Ya jugados</span>
+                {anteriores.map(({ team, jornada, local }, i) => (
+                  <button
+                    key={`ya-${team.name}`}
+                    aria-pressed={selectedTeam === team.name}
+                    title={`Jornada ${jornada} · ${local ? "en casa" : "fuera"}`}
+                    onClick={() => {
+                      setSelectedTeam(team.name);
+                      setCambiandoEquipo(false);
+                      setSearch("");
+                    }}
+                    className={`${i >= 6 ? "hidden sm:flex" : "flex"} shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border px-2.5 py-1 text-[12px] transition ${
+                      selectedTeam === team.name
+                        ? "border-[#C8A96B] bg-[#C8A96B]/10 text-[#C8A96B]"
+                        : "border-white/10 bg-white/[0.02] text-white/60 hover:border-white/30"
+                    }`}
+                  >
+                    <EscudoEquipo nombre={team.name} escudo={escudoDe(team.name)} lado={16} />
+                    {team.name}
+                    <span className="rounded-full border border-white/15 px-1.5 text-[11px] tabular-nums text-white/55">J{jornada}</span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             {/* Una sola convención de jornada (16/11/2026, jueces de análisis): la J de cada chapa es la nuestra. */}
             <p className={`mt-1 text-[12px] text-white/55 ${selectedTeam && !cambiandoEquipo ? "hidden sm:block" : ""}`}>
