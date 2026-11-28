@@ -37,6 +37,14 @@ const partes = (codigo) => {
   return m ? { dorsal: m[1], nombre: m[2].trim() } : { dorsal: "", nombre: String(codigo).trim() };
 };
 
+/*
+| Jugadores de la casa (RM C, Juvenil) que juegan con el Castilla pero no
+| salen en su plantilla de Wyscout. Su nombre es bueno tal cual. Confirmado
+| por el analista: «Jorge Rajado es del Real Madrid C» (28/11/2026, el 34 del
+| Sant Andreu).
+*/
+const DE_LA_CASA = ["Jorge Rajado"];
+
 /* Los jugadores del Castilla en Wyscout: el nombre bueno. */
 function deWyscout() {
   try {
@@ -45,9 +53,11 @@ function deWyscout() {
 
     for (const fila of j.jugadores ?? []) if (fila?.equipo === NOSOTROS && fila.jugador) nombres.add(fila.jugador);
 
+    for (const n of DE_LA_CASA) nombres.add(n);
+
     return [...nombres];
   } catch {
-    return [];
+    return [...DE_LA_CASA];
   }
 }
 
