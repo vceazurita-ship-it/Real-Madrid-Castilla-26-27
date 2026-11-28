@@ -447,7 +447,10 @@ async function main() {
       balonparado: ["experto-futbol", "experto-analisis", "experto-marketing"],
       analisis: ["experto-futbol", "experto-analisis", "experto-marketing"],
       cinco: ["experto-futbol", "experto-analisis", "experto-marketing", "guionista"],
+      estilo: ["experto-analisis", "experto-marketing", "experto-futbol"],
     };
+    /* 28/11/2026: --enfoque «texto» pide una revisión dirigida (p. ej. visualización, usabilidad, estilo y tecnología) y la guarda aparte (critica-<juez>-enfoque.json): no pisa las notas de las rondas. */
+    const enfoque = valor("enfoque");
     const solo = valor("grupo")?.split(",");
     const trabajos = [];
     for (const [g, rutas] of Object.entries(GRUPOS)) {
@@ -468,7 +471,7 @@ async function main() {
       const rel = path.relative(RAIZ, carpeta).replace(/\\/g, "/");
       for (const nombre of JUECES[g]) {
         trabajos.push(() => agente({
-          nombre, salida: path.join(carpeta, `critica-${nombre}.json`), esquemaDe: "critica-area", entradas,
+          nombre, salida: path.join(carpeta, enfoque ? `critica-${nombre}-enfoque.json` : `critica-${nombre}.json`), esquemaDe: "critica-area", entradas,
           encargo: [
             `Juzga el área «${g}» de la plataforma del Real Madrid Castilla como herramienta de trabajo del cuerpo técnico. Pantallas: ${rutas.join(", ")}.`,
             `Material en ${rel}/: por pantalla, <nombre>-escritorio.jpg (1440 px, modo día, hasta 3 pantallas de alto), <nombre>-movil.jpg (390 px), <nombre>.txt (su texto visible) y medidas.json (errores de JS, desborde en el móvil, textos con contraste < 2,5). Las capturas se hacen con la sesión del cuerpo técnico y sin escribir nada (verás botones de administrador; no cuentan ni a favor ni en contra): un «cargando» eterno o un hueco sin datos SÍ cuenta como fallo; que falten botones de administrador, no.`,
@@ -479,6 +482,7 @@ async function main() {
                 ]
               : []),
             "Juzga también (16/11/2026, petición del analista) que la pantalla sea usable, funcional, visual y moderna (lo primero que se ve es visual: gráficos con su conclusión, no tablas) y que esté bien relacionada con el resto de la app: desde cada pantalla se llega a un toque a lo que la completa (el rival → sus goles en vídeo, su ABP, el plan; un jugador → su ficha, su seguimiento; un partido → su análisis), con el rival o el jugador ya elegido. Un enlace que falta donde el cuerpo técnico lo buscaría va en «para_notable».",
+            ...(enfoque ? [`ENFOQUE DE ESTA REVISIÓN (manda sobre lo demás): ${enfoque}`] : []),
             "El código de cada pantalla está en app/<ruta>/ y lo que usa en components/ y lib/; mira el código sólo si hace falta para concretar el arreglo.",
             "Contexto: AGENTS.md. Reglas del usuario: lo que no tiene dato no se nombra; español de España; todo gratis.",
             "Pon la nota con la escala fija del esquema, con medios puntos. Sé el juez más exigente (30/10/2026, lo pidió el usuario): el objetivo es un 9,5 en cada pantalla, el nivel de las mejores herramientas profesionales (Hudl, Wyscout, StatsBomb, Second Spectrum). Para cada pantalla con menos de 9,5, «para_notable» es la lista cerrada y mínima de lo imprescindible para llegar a 9,5, programable y con el fichero. No subas el listón entre rondas: si lo que pediste en la ronda anterior está hecho y no hay errores nuevos, es un 9,5. Un 9,5 exige rigor de dato (cada cifra con su base y su fuente), diseño visual y usabilidad de primer nivel (jerarquía, legibilidad, modo día, móvil a 390 px sin desbordes, estados de carga y vacíos, acciones claras, nada redundante): si algo falla, va en «para_notable».",
