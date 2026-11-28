@@ -37,6 +37,7 @@ import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
+import { PeligroPorJornada } from "@/components/abp/PeligroPorJornada";
 import { zonaFaltaEnPalabras } from "@/lib/abp/informe-micro";
 
 /*
@@ -3126,12 +3127,15 @@ const categoriasVisual: CategoriaVisual[] = [
         ]}
       />
     </FilterDrawer>
-<div className="mt-5">
-  <p className="text-sm text-zinc-400 mb-3">
+{/* 28/11/2026 (jueces, estilo): los chips de rivales, plegados (cerrados de entrada): en el móvil ocupaban una pantalla entera antes de la conclusión. */}
+<details className="group mt-5 min-w-0">
+  <summary className="mb-3 flex min-h-9 cursor-pointer list-none items-center gap-2 text-sm text-zinc-400">
     {equiposVisualizados.length === 1
       ? `Rival${jornada !== "ALL" ? ` · ${jornadas.find((una) => una.clave === jornada)?.etiqueta ?? ""}` : ""}`
       : `Rivales (${equiposVisualizados.length})`}
-  </p>
+  {rival !== "ALL" ? <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>· {tituloEquipo(rival)}</span> : null}
+    <span aria-hidden className="text-[12px] font-semibold transition group-open:rotate-90" style={{ color: "var(--rmcf-gold-ink)" }}>›</span>
+  </summary>
 
   <div className="flex flex-wrap gap-2">
   {equiposVisualizados.map((equipo) => {
@@ -3175,11 +3179,12 @@ const categoriasVisual: CategoriaVisual[] = [
     );
   })}
 </div>
-</div>
+</details>
     {/* Las conclusiones antes que las tarjetas, también en el ordenador (10/11/2026, jueces). */}
     {/* 17/11/2026 (jueces, ronda 19): en Visual, primero el gráfico de cómo
         acaban, luego el titular y la orden; el resto de frases, plegado. */}
     {enVisual ? (
+      <>
       <ConclusionPlegada
         items={conclusionesVista}
         titular={titularConclusiones}
@@ -3188,7 +3193,11 @@ const categoriasVisual: CategoriaVisual[] = [
           filasVisual.length ? (
             <>
               <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/55">
-                ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"}
+                ¿Cómo acaban? · {jornada === "ALL" ? "la temporada" : etiquetaAnalizada ?? "lo filtrado"} · {filasVisual.length} {filasVisual.length === 1 ? "acción del rival" : "acciones del rival"}
+                {/* 28/11/2026 (jueces, estilo): el sentido, fijo junto a la barra. */}
+                <span className="ml-1.5 rounded-full px-1.5 py-0.5 normal-case tracking-normal" style={{ color: "var(--rmcf-gold-ink)", background: "rgb(var(--rmcf-ink-rgb) / .07)" }}>
+                  naranja: menos es mejor
+                </span>
               </p>
               <BarraReparto filas={filasVisual} categorias={categoriasVisual} />
             </>
@@ -3197,6 +3206,9 @@ const categoriasVisual: CategoriaVisual[] = [
         enlace={{ href: "/abp-microciclo", rotulo: "Ver la tarea en el microciclo" }}
         className="mt-5"
       />
+      {/* 28/11/2026 (jueces, estilo): el mismo «partido a partido» que ABP ofensivo, con las ocasiones del rival y «menos es mejor». */}
+      <PeligroPorJornada defensivo filas={filasVisual} marca={jornada === "ALL" ? jornadaMarca : null} todas={jornada === "ALL" && rival === "ALL" ? jornadas : []} />
+      </>
     ) : vista === "resumen" ? (
       <Conclusiones
         items={conclusionesVista}
@@ -3322,6 +3334,8 @@ const categoriasVisual: CategoriaVisual[] = [
                 marca={jornada === "ALL" ? jornadaMarca : null}
                 repartoArriba
                 tipoFrenteAlResto
+                /* 28/11/2026 (jueces, estilo): el partido a partido ya va arriba, bajo la conclusión. */
+                tendenciaEnUnaLinea
                 unidad={{ uno: "acción del rival", varios: "acciones del rival", genero: "f" }}
                 exito={{ uno: "acaba en gol u ocasión suya", varios: "acaban en gol u ocasión suya", mejorAlto: false }}
                 fuente="Hoja de ABP defensivo · con los filtros de arriba"

@@ -10,8 +10,10 @@
 | Al lado del percentil va uno «ajustado», que lo acerca a 50 (la media del
 | puesto) cuantos menos minutos tiene: es como sumarle 270′ (tres partidos) de
 | un jugador medio. Con 180′ se queda en el 40 % de lo que se separa de 50;
-| con 900′, en el 77 %. «Destaca pese a jugar poco» = menos de 900′ y 60 o más
-| AJUSTADO: lo que sigue alto después de descontar el ruido.
+| con 900′, en el 77 %. «Destaca pese a jugar poco» = menos de la MITAD de
+| los minutos posibles del Castilla (28/11/2026, fútbol: antes era «menos de
+| 900′» y marcaba a quien jugaba el 70 %), 60 o más AJUSTADO y comparables
+| suficientes (no una tendencia): lo que sigue alto después de descontar el ruido.
 |
 | En centrales sólo cuentan los duelos defensivos y los aéreos ganados (%); en
 | el resto, las métricas de su puesto, como el índice de arriba. Si el ajuste
@@ -79,7 +81,7 @@ export function PorMinutos({
 }) {
   const [franjaSel, setFranjaSel] = useState<Franja | "todas">("todas");
 
-  const { filas, sinFranja, sinComparables } = useMemo(() => {
+  const { filas, sinFranja, sinComparables, posibles } = useMemo(() => {
     const edad = REFERENCIAS.find((r) => r.key === refe)?.edad ?? 21;
     const actuales = jugadores.filter((j) => j.temporada === "actual" && j.minutos > 0);
     const grupos = new Map<string, FilaJugador[]>();
@@ -97,6 +99,9 @@ export function PorMinutos({
     const nuestros = actuales.filter(
       (j) => esNuestro(j) && (filtroPuesto === "todos" || puestoDe(j.posicion) === filtroPuesto),
     );
+    /* Los minutos posibles: los partidos del Castilla (el que más ha jugado de
+       la plantilla entera, no sólo del puesto filtrado) a 90′. */
+    const posiblesDelEquipo = Math.max(0, ...actuales.filter((j) => esNuestro(j)).map((j) => j.partidos)) * 90;
     const salen: Fila[] = [];
     const fuera: string[] = [];
     /* 27/11/2026 (fútbol, ronda 10): quien tiene franja pero no sale (sin
@@ -134,12 +139,17 @@ export function PorMinutos({
       });
     }
     salen.sort((a, b) => b.ajustado - a.ajustado || b.bruto - a.bruto);
-    return { filas: salen, sinFranja: fuera, sinComparables: sinComp };
+    return { filas: salen, sinFranja: fuera, sinComparables: sinComp, posibles: posiblesDelEquipo };
   }, [jugadores, refe, filtroPuesto, nombreDe]);
 
   const vistas = franjaSel === "todas" ? filas : filas.filter((f) => f.franja === franjaSel);
-  const destacan = filas.filter((f) => f.minutos < 900 && f.ajustado >= DESTACA);
-  const ruido = filas.filter((f) => f.minutos < 900 && f.bruto >= BRUTO_ALTO && f.ajustado < DESTACA);
+  /* «Juega poco»: menos de la mitad de los minutos posibles (sin el dato, los
+     900′ de antes). Con menos comparables que FRANJA_CORTA es tendencia y no
+     se presenta como fortaleza (28/11/2026, fútbol). */
+  const juegaPoco = (minutos: number) => (posibles > 0 ? minutos < posibles / 2 : minutos < 900);
+  const destacan = filas.filter((f) => juegaPoco(f.minutos) && f.ajustado >= DESTACA && f.comparables >= FRANJA_CORTA);
+  const ruido = filas.filter((f) => juegaPoco(f.minutos) && f.bruto >= BRUTO_ALTO && f.ajustado < DESTACA);
+  const umbralPoco = posibles > 0 ? `menos de ${Math.round(posibles / 2).toLocaleString("es-ES")}′ (la mitad de los ${posibles.toLocaleString("es-ES")}′ posibles)` : "menos de 900′";
 
   if (!filas.length) return null;
 
@@ -150,12 +160,14 @@ export function PorMinutos({
         Por minutos jugados, contra los de su puesto con minutos parecidos
         {destacan.length > 0
           ? ` · destacan pese a jugar poco: ${destacan.map((d) => d.nombre).join(", ")}`
-          : " · nadie con menos de 900′ pasa de 60 ajustado"}
+          : ` · nadie con ${umbralPoco.split(" (")[0]} pasa de ${DESTACA} ajustado`}
       </h3>
       <p className="mt-1 text-xs text-white/55">
         Cada uno contra los de su puesto que han jugado lo mismo que él. «Ajustado» acerca el percentil a 50 (la media del
         puesto) cuantos menos minutos tiene, como si sumara {MINUTOS_PRIOR}′ de un jugador medio. En centrales, sólo duelos
-        defensivos y aéreos ganados.
+        defensivos y aéreos ganados: por eso su índice de la franja no es comparable con el del ranking de arriba, que usa
+        todas las métricas del puesto contra toda la categoría (un central puede tener 56 arriba y 21 aquí). «Destaca pese a
+        jugar poco»: {umbralPoco}, {DESTACA} o más ajustado y {FRANJA_CORTA} o más comparables.
       </p>
 
       <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label="Franja de minutos">

@@ -26,16 +26,34 @@ export type PerfilesRival = PerfilesDeEquipo & {
   sistemas?: { partidos: number; lista: { sistema: string; veces: number }[] };
 };
 
+/** Lo que se espera a Wyscout antes de pintar con lo que haya (la copia del aparato suele contestar al momento). */
+const PLAZO_PERFILES_MS = 10_000;
+
 export function useRivalPerfiles(equipo: string) {
+  return useRivalPerfilesEstado(equipo).datos;
+}
+
+/**
+ * Lo mismo con «ya ha contestado» (28/11/2026, Plantillas rivales): sin esto,
+ * «aún no ha llegado» y «no hay Wyscout de este rival» se leían igual y la
+ * pantalla pintaba una cosa antes y otra después (el dibujo con base
+ * BeSoccer y luego Wyscout; «El once de un vistazo» vacío).
+ */
+export function useRivalPerfilesEstado(equipo: string): { datos: PerfilesRival | null; listo: boolean } {
   const [estado, setEstado] = useState<{ equipo: string; datos: PerfilesRival | null }>({
     equipo: "",
     datos: null,
   });
+  /* El equipo cuya espera ya pasó del plazo: la pantalla deja de esperar y pinta con lo que tiene (si llega luego, se pone al día). */
+  const [sinEsperarA, setSinEsperarA] = useState("");
 
   useEffect(() => {
     if (!equipo) return;
 
     let cancelado = false;
+    const plazo = window.setTimeout(() => {
+      if (!cancelado) setSinEsperarA(equipo);
+    }, PLAZO_PERFILES_MS);
 
     traeJson<{ ok?: boolean } & Partial<PerfilesRival>>(
       `/api/data-analisis?perfiles=${encodeURIComponent(equipo)}&v=4`,
@@ -55,11 +73,14 @@ export function useRivalPerfiles(equipo: string) {
 
     return () => {
       cancelado = true;
+      window.clearTimeout(plazo);
     };
   }, [equipo]);
 
   /* Lo de otro equipo no se enseña mientras llega lo de éste. */
-  return estado.equipo === equipo ? estado.datos : null;
+  const listo = !equipo || estado.equipo === equipo || sinEsperarA === equipo;
+
+  return { datos: estado.equipo === equipo ? estado.datos : null, listo };
 }
 
 export default useRivalPerfiles;

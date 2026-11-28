@@ -370,13 +370,33 @@ export default function Calendar() {
      del mes de al lado y una «Charla» del 29/10 se quedaba sin leyenda. */
   const legend = useMemo<CalendarLegendItem[]>(() => {
     const hay = new Set(visibleData.map((s) => strategyKey(s.ESTRATEGIA)));
+    /* 28/11/2026 (fútbol, estilo): la cifra de cada tipo con la MISMA
+       población que el resto de la pantalla y el Dashboard Seguimiento: sin
+       filtro, los de campo del Castilla y hasta hoy (antes sumaba toda la
+       hoja, con los de otros equipos y lo programado: 510 frente a 381). */
+    const base = visibleData.filter((s) => {
+      const key = recordDateKey(s.FECHA);
+      return Boolean(key) && (key as string) <= hoyKey && (playerFilter ? true : nuestrosIds.has(s.ID_JUGADOR));
+    });
 
-    /* 27/11/2026 (análisis, ronda 10): cada tipo con cuántos registros son
-       (de lo que enseña el calendario, con el filtro de jugador). */
-    return TIPOS.filter((tipo) => hay.has(tipo)).map((tipo) => ({
-      label: `${STRATEGY_STYLES[tipo].label} · ${visibleData.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length}`,
-      color: STRATEGY_STYLES[tipo].dot,
-    }));
+    /* 27/11/2026 (análisis, ronda 10): cada tipo con cuántos registros son. */
+    return TIPOS.filter((tipo) => hay.has(tipo)).map((tipo) => {
+      const n = base.filter((s) => strategyKey(s.ESTRATEGIA) === tipo).length;
+      return { label: n > 0 ? `${STRATEGY_STYLES[tipo].label} · ${n}` : STRATEGY_STYLES[tipo].label, color: STRATEGY_STYLES[tipo].dot };
+    });
+  }, [visibleData, hoyKey, playerFilter, nuestrosIds]);
+
+  /* 28/11/2026 (análisis y marketing, estilo): qué son las iniciales de cada
+     tarjeta («JM») y la barra de colores bajo los días llenos. */
+  const autores = useMemo(() => {
+    const mapa = new Map<string, string>();
+    visibleData.forEach((s) => {
+      const quien = s.QUIEN?.trim();
+      if (!quien) return;
+      const ini = quien.split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join("").toUpperCase();
+      if (ini && !mapa.has(ini)) mapa.set(ini, quien);
+    });
+    return [...mapa.entries()].sort((a, b) => a[0].localeCompare(b[0], "es"));
   }, [visibleData]);
 
   /* Jugadores de campo del Castilla sin ningún seguimiento en los últimos 14
@@ -462,6 +482,24 @@ export default function Calendar() {
       loading={loading}
       keyboardEnabled={!selectedKey}
       legend={legend}
+      legendTitle={playerFilter ? "Temporada hasta hoy" : castillaTotal ? `Temporada hasta hoy · ${castillaTotal} de campo` : "Temporada hasta hoy · de campo"}
+      legendNote={
+        <>
+          {autores.length > 0 && (
+            <span className="mr-3">
+              Iniciales, quién registra: {autores.map(([ini, quien]) => `${ini} ${quien}`).join(" · ")}
+            </span>
+          )}
+          <span className="inline-flex items-center gap-1.5">
+            <span aria-hidden className="inline-flex h-1.5 w-8 overflow-hidden rounded-full">
+              <span className="w-1/2 bg-sky-400" />
+              <span className="w-1/4 bg-yellow-400" />
+              <span className="w-1/4 bg-emerald-400" />
+            </span>
+            bajo un día lleno: su reparto por tipo
+          </span>
+        </>
+      }
       statsColumnas={!playerFilter && semanas.lista.some((s) => s.n > 0) ? 5 : 3}
       franja={
         /* La alerta va ENCIMA del calendario (26/10/2026): al final de la
@@ -597,14 +635,14 @@ export default function Calendar() {
                     <span aria-hidden className="pointer-events-none absolute inset-x-0" style={{ bottom: `${(semanas.media / semanas.max) * 78}%` }}>
                       <span className="block border-t border-dashed" style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.55)" }} />
                       <span className="absolute -top-4 right-0 rounded bg-[#11161D] px-1 tabular-nums text-white/75">
-                        media {semanas.media.toFixed(1).replace(".", ",")}
+                        media {semanas.media.toFixed(1).replace(".", ",")} · sin la parcial
                       </span>
                     </span>
                   </span>
                   <span aria-hidden className="mt-1 flex gap-1.5 text-white/55">
                     {semanas.lista.map((s) => (
-                      <span key={s.desde} className="min-w-0 flex-1 truncate text-center tabular-nums">
-                        {s.etiqueta}
+                      <span key={s.desde} title={s.enCurso ? `Semana del ${s.etiqueta}, en curso: parcial, no entra en la media` : undefined} className="min-w-0 flex-1 truncate text-center tabular-nums">
+                        {s.enCurso ? "parcial" : s.etiqueta}
                       </span>
                     ))}
                   </span>
@@ -814,8 +852,17 @@ export default function Calendar() {
                   ))}
                   {/* 27/11/2026 (marketing, ronda 11): los dos primeros nombres y «+N», no sólo los tipos. */}
                   <span className="block truncate pt-0.5 text-[11px] font-semibold text-white/85">
-                    {grupos.slice(0, 2).map((g) => nombreVisible(playersMap[g.session.ID_JUGADOR]?.nombre || g.session.NOMBRE?.trim() || "")).filter(Boolean).join(", ")}
-                    {grupos.length > 2 ? ` +${grupos.length - 2}` : ""}
+                    {/* 28/11/2026 (fútbol, estilo): por jugador, no por jugador y tipo
+                        («Á. Leiva, Á. Leiva +3» el 18/11): «Á. Leiva ×2, …». */}
+                    {(() => {
+                      const porNombre = new Map<string, number>();
+                      daySessions.forEach((x) => {
+                        const nom = nombreVisible(playersMap[x.ID_JUGADOR]?.nombre || x.NOMBRE?.trim() || "");
+                        if (nom) porNombre.set(nom, (porNombre.get(nom) ?? 0) + 1);
+                      });
+                      const lista = [...porNombre.entries()];
+                      return `${lista.slice(0, 2).map(([nom, n]) => (n > 1 ? `${nom} ×${n}` : nom)).join(", ")}${lista.length > 2 ? ` +${lista.length - 2}` : ""}`;
+                    })()}
                   </span>
                   <span className="block pt-0.5 text-center text-[11px] font-medium text-[#C8A96B]">ver el día</span>
                 </button>
@@ -945,13 +992,29 @@ export default function Calendar() {
                   <p className="mt-1 text-lg font-semibold">{rotuloPartido(p)}</p>
                   {/* El post de Análisis de datos abre en el último partido y
                       deja elegir el resto en su desplegable. */}
+                  {/* 28/11/2026 (análisis y marketing, estilo): por jugar, la previa
+                      (la semana en Microciclos) y el análisis del rival, a un toque. */}
                   {!p.jugado && (
-                    <Link
-                      href={`/rivals?equipo=${encodeURIComponent(p.rival)}`}
-                      className="mt-2 inline-flex items-center gap-1 text-sm font-semibold text-[#C8A96B] hover:underline"
-                    >
-                      El rival: goles, ABP y su once <ArrowRight size={14} aria-hidden />
-                    </Link>
+                    <span className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                      <Link
+                        href={`/rivals?equipo=${encodeURIComponent(p.rival)}`}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+                      >
+                        El rival: goles, ABP y su once <ArrowRight size={14} aria-hidden />
+                      </Link>
+                      <Link
+                        href={`/data-analisis?area=equipo&equipo=${encodeURIComponent(p.rival)}`}
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+                      >
+                        Cómo juega, de un vistazo <ArrowRight size={14} aria-hidden />
+                      </Link>
+                      <Link
+                        href="/microcycles"
+                        className="inline-flex items-center gap-1 text-sm font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+                      >
+                        La previa: su semana en Microciclos <ArrowRight size={14} aria-hidden />
+                      </Link>
+                    </span>
                   )}
                   {p.jugado && (
                     <Link

@@ -657,11 +657,14 @@ export const PERCENTIL_MANTENER = 95;
 | sesión. Se dice en la unidad de la tarea: con P95 o más, «mantener su acierto
 | de pase (91,2 %)»; por debajo, no bajar de su cifra de hoy.
 */
+/* «su acierto de pase», «sus pases recibidos» (28/11/2026, errata vista por los jueces). */
+const posesivo = (que: string) => ((que.trim().split(/\s+/)[0] ?? "").toLowerCase().endsWith("s") ? "sus" : "su");
+
 function objetivoAFavor(quien: string, m: Medida, columnaWy: string, metrica: string): string {
   const cifra = cifraDeColumna(columnaWy, m.valor);
   const que = metrica || "cifra";
   return m.percentil >= PERCENTIL_MANTENER
-    ? `que ${quien} mantenga su ${que} (${cifra})`
+    ? `que ${quien} mantenga ${posesivo(que)} ${que} (${cifra})`
     : `que ${quien} no baje de ${cifra} en ${que}; hoy está en P${m.percentil}`;
 }
 

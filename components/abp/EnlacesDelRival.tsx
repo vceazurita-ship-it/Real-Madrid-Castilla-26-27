@@ -35,6 +35,7 @@ export function EnlacesDelRival({
   className = "",
   rotulo,
   extra,
+  golesComoChip = false,
 }: {
   equipo: string;
   /** El ID de la hoja RIVALES (`RIV-NN`), sin el prefijo `riv-`. */
@@ -45,6 +46,8 @@ export function EnlacesDelRival({
   rotulo?: ReactNode;
   /** 27/11/2026 (ronda 11): botones propios de la pantalla que van en la misma fila (p. ej. «Quién marca a quién»). */
   extra?: ReactNode;
+  /** 28/11/2026 (jueces de estilo, Pizarra ABP): «Cómo son sus goles» como un chip más de la fila, no como texto suelto. Opcional. */
+  golesComoChip?: boolean;
 }) {
   const nombre = equipo.trim();
   if (!nombre) return null;
@@ -83,7 +86,8 @@ export function EnlacesDelRival({
         ),
       )}
       {extra}
-      {enlaces.some((uno) => uno.lado) && <EnlaceComoSonSusGoles equipo={nombre} />}
+      {enlaces.some((uno) => uno.lado) &&
+        (golesComoChip ? <EnlaceComoSonSusGoles equipo={nombre} texto="Cómo son sus goles" className={CLASE} /> : <EnlaceComoSonSusGoles equipo={nombre} />)}
     </nav>
   );
 }

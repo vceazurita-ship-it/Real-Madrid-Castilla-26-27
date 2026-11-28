@@ -639,10 +639,23 @@ export function VideosDelCanal({
 
   /* Lo traído sólo vale si es de la lista que se está mirando. La identidad
      tiene que ser estable o el reparto por jugador se rehace en cada render. */
-  const videos = useMemo(
-    () => (traidos.listaId === listaId ? traidos.videos : []),
-    [listaId, traidos],
-  );
+  /*
+  | 28/11/2026 (jueces de fútbol): Yoshimura salía con dos fichas idénticas
+  | («lista J14 · 1:22»). El mismo vídeo dos veces en la lista de YouTube (o
+  | subido dos veces con el mismo título y la misma duración) es un solo corte.
+  */
+  const videos = useMemo(() => {
+    if (traidos.listaId !== listaId) return [];
+    const vistos = new Set<string>();
+    return traidos.videos.filter((video) => {
+      /* Sin duración no se puede decir que dos títulos iguales sean el mismo corte: sólo cuenta el id. */
+      const firma = video.duracion ? `${video.titulo}|${video.duracion}` : "";
+      if (vistos.has(`id:${video.id}`) || (firma && vistos.has(firma))) return false;
+      vistos.add(`id:${video.id}`);
+      if (firma) vistos.add(firma);
+      return true;
+    });
+  }, [listaId, traidos]);
 
   const cargandoVideos = Boolean(listaId) && traidos.listaId !== listaId;
 

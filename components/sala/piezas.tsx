@@ -183,10 +183,14 @@ export function Marcador({
     const e = l === "L" ? p.local : p.visitante;
     const yo = l === "L" ? c.L : c.V;
     const color = e.color;
-    /* Los goles siempre (el 26/11 los cinco cambios del Murcia los echaban de la lista); luego tarjetas y cambios hasta 7. */
+    /* Los goles siempre (el 26/11 los cinco cambios del Murcia los echaban de la lista).
+       28/11/2026 (jueces de estilo): ya no hay tope de 7, que dejaba fuera el cambio del 84′ que
+       «Cómo se movió el partido» sí nombraba (las dos piezas leen las mismas marcas de Opta). Para que
+       quepa, con 3 amarillas o más van todas en una sola línea. */
     const delLado = marcas.filter((h) => h.lado === l);
-    const peso = (h: Hito) => (h.tipo === "gol" ? 0 : h.tipo === "roja" ? 1 : h.tipo === "amarilla" ? 2 : 3);
-    const suyas = [...delLado].sort((a, b) => peso(a) - peso(b) || a.min - b.min).slice(0, 7).sort((a, b) => a.min - b.min);
+    const amarillas = delLado.filter((h) => h.tipo === "amarilla");
+    const juntas = amarillas.length >= 3;
+    const suyas = delLado.filter((h) => !(juntas && h.tipo === "amarilla"));
     const derecha = l === "L";
     return (
       <div className={`flex min-w-0 flex-col ${derecha ? "items-end text-right" : "items-start text-left"}`}>
@@ -207,7 +211,7 @@ export function Marcador({
           <span className="whitespace-nowrap">· {aPuertaDe(yo, l === "L" ? k.aPuerta?.L : k.aPuerta?.V)} a puerta</span>
         </span>
         {/* Goles, tarjetas y cambios (estos dos, en los documentos desde el 26/11/2026). */}
-        {suyas.length > 0 && (
+        {(suyas.length > 0 || juntas) && (
           <ul className={`mt-2 grid gap-0.5 text-[12px] sm:text-[13px] ${derecha ? "justify-items-end" : ""}`} style={{ color: S.suave }}>
             {suyas.map((h, i) => (
               <li key={i} className="flex max-w-full items-center gap-1 truncate sm:gap-1.5">
@@ -223,6 +227,14 @@ export function Marcador({
                 </span>
               </li>
             ))}
+            {juntas && (
+              <li className="flex max-w-full items-center gap-1 truncate sm:gap-1.5" title={amarillas.map((h) => `${reloj(h.min, h.parte)} ${h.jugador}`).join(" · ")}>
+                <span aria-label="Amarillas" className="inline-block h-3 w-2 rounded-[2px]" style={{ background: "#F5D547" }} />
+                <span className="min-w-0 truncate font-mono text-[11px] tabular-nums sm:text-[13px]" style={{ color: S.texto }}>
+                  {amarillas.length} amarillas<span className="hidden sm:inline"> · {amarillas.map((h) => reloj(h.min, h.parte)).join(" ")}</span>
+                </span>
+              </li>
+            )}
           </ul>
         )}
       </div>
@@ -293,6 +305,9 @@ export function Marcador({
         <span aria-hidden className="mx-auto mt-2 block h-[2px] w-24 rounded-full" style={{ background: `linear-gradient(90deg, transparent, ${S.oro}, transparent)` }} />
       </div>
 
+      {/* 28/11/2026 (jueces de estilo): el primer gráfico, la escalera del xG acumulado con los goles. */}
+      <EscaleraXg p={p} t={t} hitos={hitos} />
+
       {/* LA FICHA DE CADA GOL (experto de fútbol): de dónde nace, cuánto tarda y desde dónde se remata. */}
       {fichas.length > 0 && (
         <ul className="relative mx-auto mt-3 grid max-w-[58rem] gap-1.5" aria-label="Cómo llegó cada gol">
@@ -355,6 +370,71 @@ export function Marcador({
 }
 
 /* ------------------------------------------------------------------ */
+/*  LA ESCALERA DEL xG (28/11/2026)                                    */
+/* ------------------------------------------------------------------ */
+
+/*
+| Bajo el marcador, el desarrollo del partido de un vistazo: cada remate sube
+| la escalera de su equipo lo que vale su xG, y cada gol es un balón sobre ella.
+| Sin cifras al final: el xG del partido ya va en grande en el marcador (el
+| oficial de Opta, que junta los remates de una misma jugada y puede no ser la
+| suma exacta de la escalera).
+*/
+export function EscaleraXg({ p, t, hitos }: { p: Partido; t: number; hitos: Hito[] }) {
+  const xg = useMemo(() => curvaXg(p, t), [p, t]);
+  if (xg.length < 3) return null;
+  const W = 1000, H = 132;
+  const fin = Math.max(DURACION, t);
+  const X = (m: number) => 34 + (m / fin) * (W - 50);
+  const maxXg = Math.max(0.5, ...xg.map((q) => Math.max(q.L, q.V)));
+  const Y = (v: number) => H - 22 - (v / maxXg) * (H - 36);
+  const linea = (k: Lado) => xg.map((q, i) => `${i ? "L" : "M"}${X(q.min)},${Y(q[k])}`).join(" ");
+  const valorEn = (k: Lado, m: number) => {
+    let v = 0;
+    for (const q of xg) {
+      if (q.min > m + 1e-6) break;
+      v = q[k];
+    }
+    return v;
+  };
+  const goles = hitos.filter((h) => h.tipo === "gol");
+  return (
+    <figure className="relative mx-auto mt-4 max-w-[58rem]">
+      <figcaption className="mb-1 flex flex-wrap items-center justify-center gap-x-3 text-[12px] font-semibold uppercase tracking-[0.14em]" style={{ color: S.suave }}>
+        <span>xG acumulado</span>
+        {(["L", "V"] as Lado[]).map((k) => (
+          <span key={k} className="inline-flex items-center gap-1 normal-case tracking-normal">
+            <span className="inline-block h-[3px] w-4 rounded-full" style={{ background: colorDe(p, k) }} />
+            {cortoDe(p, k)}
+          </span>
+        ))}
+        <span className="normal-case tracking-normal">· ⚽ gol</span>
+      </figcaption>
+      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label="Escalera del xG acumulado de cada equipo, con los goles">
+        {[0, 45, 90].map((m) => (
+          <g key={m}>
+            <line x1={X(m)} x2={X(m)} y1={6} y2={H - 20} stroke={S.linea} strokeDasharray={m === 45 ? "4 4" : undefined} />
+            <text x={X(m)} y={H - 4} textAnchor="middle" fontSize="13" style={{ fill: S.tenue }}>
+              {m}′
+            </text>
+          </g>
+        ))}
+        <line x1={X(0)} x2={X(fin)} y1={Y(0)} y2={Y(0)} stroke={S.linea} />
+        {(["L", "V"] as Lado[]).map((k) => (
+          <path key={k} d={linea(k)} fill="none" stroke={colorDe(p, k)} strokeWidth="3.5" strokeLinejoin="round" />
+        ))}
+        {goles.map((g, i) => (
+          <text key={i} x={X(g.min)} y={Y(valorEn(g.lado, g.min)) - 6} textAnchor="middle" fontSize="18">
+            ⚽
+            <title>{`${reloj(g.min, g.parte)} · ${g.jugador}`}</title>
+          </text>
+        ))}
+      </svg>
+    </figure>
+  );
+}
+
+/* ------------------------------------------------------------------ */
 /*  QUÉ TRAMO SE MIRA                                                  */
 /* ------------------------------------------------------------------ */
 
@@ -367,7 +447,8 @@ export function SelectorTramo({ valor, onCambia, disponibles }: { valor: TramoCl
     { k: "cambio", t: "Desde el último cambio", titulo: "Con los cambios en el documento (desde el 26/11/2026)" },
   ];
   return (
-    <div className="flex min-w-0 items-center gap-2 overflow-x-auto pb-1" role="group" aria-label="Qué tramo del partido se mira">
+    /* 28/11/2026 (jueces de estilo): en el móvil se cortaba a la derecha sin aviso; ahora baja de línea. */
+    <div className="flex min-w-0 flex-wrap items-center gap-2" role="group" aria-label="Qué tramo del partido se mira">
       <span className="shrink-0 text-[12px] font-semibold uppercase tracking-[0.16em]" style={{ color: S.suave }}>
         Mirar
       </span>
@@ -863,7 +944,7 @@ export function Campo({ p, t, v, capa, setCapa }: { p: Partido; t: number; v: Ve
       titulo={`El campo · ${v.nombre}`}
       detalle={detalle}
       derecha={
-        <div className="flex max-w-full gap-1 overflow-x-auto pb-1">
+        <div className="flex max-w-full flex-wrap gap-1">
           {opciones.map((o) => (
             <Pastilla key={o.k} activa={capa === o.k} onClick={() => setCapa(o.k)}>
               {o.t}
@@ -1089,13 +1170,15 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
   const o = useMemo(() => oficialEntre(p, v.desde, v.hasta, v.parte), [p, v.desde, v.hasta, v.parte]);
   const of = (l: Lado, m: string) => (l === "L" ? o.L : o.V)[m] ?? null;
   const entero = (m: string) => (o.entero ? { L: of("L", m), V: of("V", m) } : { L: null, V: null });
+  /* 28/11/2026 (jueces de estilo): por importancia, lo que acerca al gol primero
+     (xG, remates, área, llegadas) y luego cómo se juega. */
   const filas: FilaDuelo[] = [
     { nombre: "Goles esperados (xG)", L: of("L", "ExpG"), V: of("V", "ExpG"), d: 2, previa: "ExpG", porMinuto: true },
     { nombre: "Remates", L: of("L", "ShtIncBl"), V: of("V", "ShtIncBl"), d: 0, previa: "ShtIncBl", porMinuto: true },
-    { nombre: "A puerta", L: o.entero ? of("L", "SOG") : aPuertaDe(c.L, k.aPuerta?.L), V: o.entero ? of("V", "SOG") : aPuertaDe(c.V, k.aPuerta?.V), d: 0, previa: "SOG", porMinuto: true },
     { nombre: "Toques en el área rival", L: of("L", "TouchOpBox"), V: of("V", "TouchOpBox"), d: 0, previa: "TouchOpBox", porMinuto: true },
-    { nombre: "Ocasiones creadas", ...entero("Chance"), d: 0, previa: "Chance", porMinuto: true },
     { nombre: "Llegadas al último tercio", ...entero("SeqEndInA3"), d: 0, previa: "SeqEndInA3", porMinuto: true, nota: "posesiones que acaban en el último tercio" },
+    { nombre: "A puerta", L: o.entero ? of("L", "SOG") : aPuertaDe(c.L, k.aPuerta?.L), V: o.entero ? of("V", "SOG") : aPuertaDe(c.V, k.aPuerta?.V), d: 0, previa: "SOG", porMinuto: true },
+    { nombre: "Ocasiones creadas", ...entero("Chance"), d: 0, previa: "Chance", porMinuto: true },
     { nombre: "Posesión", L: of("L", "Poss%"), V: of("V", "Poss%"), d: 0, pct: true, previa: "Poss%" },
     { nombre: "Acierto en el pase", L: o.entero ? of("L", "Pass%") : c.L.pases ? c.L.pasesOk / c.L.pases : null, V: o.entero ? of("V", "Pass%") : c.V.pases ? c.V.pasesOk / c.V.pases : null, d: 0, previa: "Pass%", pct: true },
     { nombre: "PPDA (presión)", L: o.entero ? of("L", "PPDA") : ppda(c.L, k.ppda.L), V: o.entero ? of("V", "PPDA") : ppda(c.V, k.ppda.V), d: 1, previa: "PPDA", menosEsMejor: true, nota: "pases del rival por cada acción defensiva nuestra: menos es presionar más" },
@@ -1118,19 +1201,29 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
     const m = media(l, f);
     if (x == null || m == null || !m) return null;
     const r = x / m - 1;
-    if (Math.abs(r) < 0.15) return { corto: "=", texto: "como siempre", color: S.tenue };
+    if (Math.abs(r) < 0.15) return { corto: "≈ media", texto: "≈ su media", color: S.tenue };
     const mejor = f.menosEsMejor ? r < 0 : r > 0;
     /* Verde = bueno para nosotros; naranja = malo para nosotros (en el rival, al revés). Sin nosotros, neutro. */
     const color = !p.nuestro ? S.suave : (l === p.nuestro) === mejor ? S.favor : S.aviso;
     const n = Math.round(Math.abs(r) * 100);
-    return { corto: `${r > 0 ? "+" : "−"}${n} %`, texto: `${n} % ${r > 0 ? "más" : "menos"} que su media`, color };
+    return { corto: `${r > 0 ? "+" : "−"}${n} %`, texto: `${r > 0 ? "+" : "−"}${n} % frente a su media`, color };
   };
   const base = [p.local.previa?.pj, p.visitante.previa?.pj].filter(Boolean);
   return (
     <Panel
       titulo={`Cara a cara · ${v.nombre}`}
-      detalle={`${o.entero ? "Cifras oficiales de Opta del partido" : `Cifras oficiales de Opta por tramos de 5′${o.tramos ? "" : " (aún sin tramos)"}; ocasiones, centros y duelos, sólo con el partido hasta ahora`}. ${base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos${base.some((n) => (n ?? 0) < 8) ? "; con menos de 8, tendencia" : ""}). Verde, bueno para nosotros; naranja, malo.` : ""}`}
+      detalle={`${o.entero ? "Cifras oficiales de Opta del partido" : `Cifras oficiales de Opta por tramos de 5′${o.tramos ? "" : " (aún sin tramos)"}; ocasiones, centros y duelos, sólo con el partido hasta ahora`}. ${base.length ? `La raya blanca es lo que suele llevar cada uno en ese tiempo: su media de la competición sin este partido (${base.join(" y ")} partidos${base.some((n) => (n ?? 0) < 8) ? "; con menos de 8, tendencia" : ""}).` : ""}`}
     >
+      {/* 28/11/2026 (jueces de estilo): la clave, una vez y fija arriba; el color se lee siempre desde nuestro lado,
+          también en el rival (que pierda menos balones que su media es naranja: malo para nosotros). */}
+      {p.nuestro && (
+        <p className="mb-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 rounded-lg px-3 py-1.5 text-[12px]" style={{ background: "rgba(255,255,255,0.04)", border: `1px solid ${S.borde}`, color: S.suave }}>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: S.favor }} /> bueno para {cortoDe(p, p.nuestro)}</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: S.aviso }} /> malo para {cortoDe(p, p.nuestro)}</span>
+          <span className="inline-flex items-center gap-1.5"><span className="inline-block h-3 w-[3px] rounded" style={{ background: "#fff" }} /> su media</span>
+          <span>«menos es mejor» donde lo dice</span>
+        </p>
+      )}
       <ul className="grid gap-3">
         {filas.map((f) => {
           const a = f.L ?? 0, b = f.V ?? 0;
@@ -1142,6 +1235,11 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
             <li key={f.nombre} className="grid grid-cols-[3.6rem_minmax(0,1fr)_minmax(0,1fr)_3.6rem] items-center gap-x-2 gap-y-0.5">
               <span className="col-span-4 text-center text-[12px] font-semibold uppercase tracking-[0.12em]" style={{ color: S.suave }}>
                 {f.nombre}
+                {f.menosEsMejor && (
+                  <span className="ml-1.5 rounded-full px-1.5 py-px align-middle text-[11px] font-semibold normal-case tracking-normal" style={{ border: `1px solid ${S.borde}`, color: S.tenue }}>
+                    menos es mejor
+                  </span>
+                )}
               </span>
               <span className="text-right font-mono text-[16px] font-bold tabular-nums" style={{ color: gana === "L" ? p.local.color : S.texto }}>
                 {muestra(f.L, f)}
@@ -1160,11 +1258,11 @@ export function Duelo({ p, v, k }: { p: Partido; v: Ventana; k: Calibracion }) {
               {(dL || dV || f.nota) && (
                 <>
                   <span />
-                  <span className="text-right text-[11.5px] leading-tight" style={{ color: dL?.color ?? S.tenue }}>
+                  <span className="text-right text-[12px] font-semibold leading-tight" style={{ color: dL?.color ?? S.tenue }}>
                     <span className="sm:hidden">{dL?.corto ?? ""}</span>
                     <span className="hidden sm:inline">{dL?.texto ?? ""}</span>
                   </span>
-                  <span className="text-[11.5px] leading-tight" style={{ color: dV?.color ?? S.tenue }}>
+                  <span className="text-[12px] font-semibold leading-tight" style={{ color: dV?.color ?? S.tenue }}>
                     <span className="sm:hidden">{dV?.corto ?? ""}</span>
                     <span className="hidden sm:inline">{dV?.texto ?? ""}</span>
                   </span>

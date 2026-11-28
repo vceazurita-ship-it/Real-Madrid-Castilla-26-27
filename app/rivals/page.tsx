@@ -120,7 +120,7 @@ import { conRivalEnUrl, mismoNombreRival } from "@/lib/rivals/rival-en-curso";
 import { AccesosDelRival } from "@/components/rivals/AccesosDelRival";
 import { ClipsHudlJugador } from "@/components/rivals/ClipsDeHudl";
 import { useDuelosClaveConEstado } from "@/hooks/useDuelosClave";
-import { useRivalPerfiles } from "@/hooks/useRivalPerfiles";
+import { useRivalPerfilesEstado } from "@/hooks/useRivalPerfiles";
 import VistazoRival, { fuerteYFlojoDelRival } from "@/components/rivals/VistazoRival";
 import { bajaDe } from "@/lib/rivals/bajas";
 import { LINE_DEFINITIONS, type LineKey } from "@/lib/rivals/lineas-puesto";
@@ -834,7 +834,7 @@ export default function RivalPlayersPage() {
   });
 
   /* Cada suyo contra los de su puesto en la categoría, y el equipo (Wyscout). */
-  const perfilesRival = useRivalPerfiles(selectedTeam);
+  const { datos: perfilesRival, listo: perfilesListos } = useRivalPerfilesEstado(selectedTeam);
 
   /*
   | La lista por puesto, plegada (17/11/2026, jueces de análisis): abierto sólo
@@ -1691,8 +1691,17 @@ export default function RivalPlayersPage() {
   const dibujoDelEquipo =
     once.doc.dibujo || dibujoSuyo || DIBUJO_POR_DEFECTO;
 
+  /*
+  | UNA SOLA FUENTE EN EL AVISO (28/11/2026, jueces de estilo): en el
+  | escritorio salía «Wyscout le da el 4-2-3-1 (9 de 13 · BeSoccer)» y en el
+  | móvil «(11 de 13 · Wyscout)»: era el mismo aviso pintado antes y después
+  | de que llegara Wyscout. Ahora el aviso espera a Wyscout (`perfilesListos`)
+  | y nombra la fuente de la que sale de verdad.
+  */
+  const fuenteDelSistema = sistemaWyscout ? "Wyscout" : "BeSoccer";
+
   /* Cómo se dice de dónde sale su sistema: «7 de 12 · Wyscout» (o BeSoccer, si no hay Wyscout). */
-  const baseDelSistema = sistemaWyscout
+  const baseDelSistema = !perfilesListos ? "" : sistemaWyscout
     ? `${sistemaWyscout.veces} de ${sistemaWyscout.de} · Wyscout${sistemaWyscout.de < 15 ? ", tendencia" : ""}`
     : lecturaTemporada.dibujo
       ? `${lecturaTemporada.veces} de ${lecturaTemporada.alineaciones} · BeSoccer${lecturaTemporada.alineaciones < 15 ? ", tendencia" : ""}`
@@ -4911,7 +4920,7 @@ export default function RivalPlayersPage() {
                     {/* EL ONCE DE UN VISTAZO, en el escritorio: encima del campograma, minicampo y lista lado a lado (20/11/2026, jueces). */}
                     {selectedTeam && (
                       <div className="hidden min-w-0 lg:block">
-                        <ResumenDelOnce equipo={selectedTeam} dibujo={dibujoDelResumen} lineas={resumenDelOnce} abrir={abreDelOnce} cargando={onceSugeridoCargando} ancho />
+                        <ResumenDelOnce equipo={selectedTeam} dibujo={dibujoDelResumen} lineas={resumenDelOnce} abrir={abreDelOnce} cargando={onceSugeridoCargando} leyendo={!perfilesListos} ancho />
                       </div>
                     )}
 
@@ -4954,9 +4963,9 @@ export default function RivalPlayersPage() {
                         )}
 
                         {/* Sin dibujo a mano, pero el analista ve otro tras el cambio de entrenador (27/11/2026, ronda 11, fútbol). */}
-                        {pitchPlayers.length > 0 && dibujoSuyo && dibujoDelEquipo === dibujoSuyo && esperadoAnalista && !casaConAnalista && (
+                        {pitchPlayers.length > 0 && perfilesListos && dibujoSuyo && dibujoDelEquipo === dibujoSuyo && esperadoAnalista && !casaConAnalista && (
                           <p className="mt-1 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
-                            El analista espera el {esperadoAnalista} tras el cambio de entrenador (Scout colectivo); el campo va en el {dibujoDelEquipo} de Wyscout
+                            El analista espera el {esperadoAnalista} tras el cambio de entrenador (Scout colectivo); el campo va en el {dibujoDelEquipo} de {fuenteDelSistema}
                             {baseDelSistema ? ` (${baseDelSistema})` : ""}, casi todo con el entrenador anterior.
                           </p>
                         )}
@@ -4967,7 +4976,7 @@ export default function RivalPlayersPage() {
                           contraste, en el propio campograma, con el botón a la vista
                           (también en el móvil, donde «Volver al…» de la barra no sale).
                         */}
-                        {pitchPlayers.length > 0 && once.doc.dibujo && dibujoSuyo && once.doc.dibujo !== dibujoSuyo && (
+                        {pitchPlayers.length > 0 && perfilesListos && once.doc.dibujo && dibujoSuyo && once.doc.dibujo !== dibujoSuyo && (
                           <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px]" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
                             {/*
                               27/11/2026 (ronda 11, fútbol y análisis): una línea corta con la base y,
@@ -4976,10 +4985,10 @@ export default function RivalPlayersPage() {
                             */}
                             <span>
                               {casaConAnalista
-                                ? `Se espera el ${dibujoConNombre}: lo ve así el analista tras el cambio de entrenador (Scout colectivo). Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}, casi todo con el entrenador anterior.`
+                                ? `Se espera el ${dibujoConNombre}: lo ve así el analista tras el cambio de entrenador (Scout colectivo). ${fuenteDelSistema} le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}, casi todo con el entrenador anterior.`
                                 : esperadoAnalista
-                                  ? `Marcado a mano en ${once.doc.dibujo}; el analista espera el ${esperadoAnalista} tras el cambio de entrenador y Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}.`
-                                  : `Marcado a mano en ${once.doc.dibujo}; Wyscout le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}. Manda lo marcado hasta que se cambie.`}
+                                  ? `Marcado a mano en ${once.doc.dibujo}; el analista espera el ${esperadoAnalista} tras el cambio de entrenador y ${fuenteDelSistema} le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}.`
+                                  : `Marcado a mano en ${once.doc.dibujo}; ${fuenteDelSistema} le da el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}. Manda lo marcado hasta que se cambie.`}
                             </span>
                             <button
                               type="button"
@@ -5051,7 +5060,7 @@ export default function RivalPlayersPage() {
                                 once.doc.dibujo
                                   ? "El dibujo lo ha puesto una persona. Cambiarlo reparte la plantilla de otra forma."
                                   : dibujoSuyo
-                                    ? `Su sistema más usado esta temporada: ${dibujoSuyo} (${baseDelSistema}). Se puede cambiar.`
+                                    ? `Su sistema más usado esta temporada: ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}. Se puede cambiar.`
                                     : "Cómo se reparte la plantilla en el campo"
                               }
                               className={
@@ -5119,7 +5128,7 @@ export default function RivalPlayersPage() {
                                 type="button"
                                 data-export-hide
                                 onClick={() => once.ponDibujo(dibujoSuyo)}
-                                title={`El ${once.doc.dibujo} lo ha elegido una persona. Su sistema más usado es el ${dibujoSuyo} (${baseDelSistema}). Pulsa para volver a él.`}
+                                title={`El ${once.doc.dibujo} lo ha elegido una persona. Su sistema más usado es el ${dibujoSuyo}${baseDelSistema ? ` (${baseDelSistema})` : ""}. Pulsa para volver a él.`}
                                 className="hidden items-center gap-1 rounded-full border border-white/15 bg-white/[0.04] px-2.5 py-1 text-white/70 transition hover:border-[#C8A96B] hover:text-white sm:flex"
                               >
                                 <RotateCcw size={11} aria-hidden />
@@ -5650,7 +5659,10 @@ export default function RivalPlayersPage() {
                   vistazo={
                     /* El dibujo, el mismo dato que el campograma (29/10/2026): antes uno contaba 8 alineaciones y el otro 9. */
                     /* 17/11/2026: el de Wyscout, el mismo con el que se dibuja el once. */
-                    vistazoRival && sistemaWyscout
+                    /* 28/11/2026 (jueces de estilo): mientras Wyscout no contesta, la tarjeta del dibujo espera; antes salía con BeSoccer y cambiaba de cifra al llegar. */
+                    vistazoRival && !perfilesListos
+                      ? { ...vistazoRival, dibujo: null }
+                      : vistazoRival && sistemaWyscout
                       ? { ...vistazoRival, dibujo: { estructura: sistemaWyscout.sistema, veces: sistemaWyscout.veces, de: sistemaWyscout.de } }
                       : vistazoRival && pitchTeam === selectedTeam && lecturaTemporada.estructura
                         ? { ...vistazoRival, dibujo: { estructura: lecturaTemporada.estructura, veces: lecturaTemporada.veces, de: lecturaTemporada.alineaciones } }
@@ -9677,12 +9689,12 @@ function TacticalPitch({
       {clusters.map((cluster) => (
         <div
           key={cluster.key}
-          className="pointer-events-none absolute z-30 flex -translate-x-1/2 -translate-y-full items-center gap-1"
+          className={`pointer-events-none absolute z-30 flex -translate-x-1/2 -translate-y-full items-center ${estrecho ? "gap-0.5" : "gap-1"}`}
           style={{ left: cluster.x, top: cluster.y }}
         >
           <span
             /* A 12 px desde el 27/11/2026 (ronda 11, análisis): a 9 no se leía. */
-            className={`flex items-center gap-1 rounded-full border px-1.5 py-[1px] text-[12px] font-bold uppercase leading-tight ${compact ? "tracking-normal" : "tracking-wider"}`}
+            className={`flex items-center gap-1 rounded-full border py-[1px] text-[12px] font-bold uppercase leading-tight ${estrecho ? "px-1" : "px-1.5"} ${compact ? "tracking-normal" : "tracking-wider"}`}
             style={{
               color: "#0B0F14",
               borderColor: "rgba(8,12,16,0.45)",
@@ -9702,10 +9714,15 @@ function TacticalPitch({
                 aria-expanded={masAbierto === cluster.key}
                 title={cluster.ocultos.map((player) => player["NOMBRE DEPORTIVO"] || player.JUGADOR).join(", ")}
                 aria-label={`Ver los otros ${cluster.ocultos.length} de ${cluster.code}`}
-                className="rounded-full border border-black/30 px-1.5 py-[1px] text-[12px] font-bold leading-tight tabular-nums shadow"
+                className={`rounded-full border border-black/30 py-[1px] text-[12px] font-bold leading-tight tabular-nums shadow ${estrecho ? "px-1" : "px-1.5"}`}
                 style={{ background: cluster.color, color: "#0B0F14" }}
               >
-                +{cluster.ocultos.length} ▾
+                {/*
+                  28/11/2026 (jueces de estilo): a 390 px «MC 4 +3 ▾» medía más
+                  que su caja y se montaba sobre la chapa vecina («+3 MC 3 +2
+                  CAR 3»). En el móvil, sólo «▾»: la chapa ya dice cuántos son.
+                */}
+                {estrecho ? "▾" : `+${cluster.ocultos.length} ▾`}
               </button>
                 {masAbierto === cluster.key && (
                   <ul className="absolute right-0 top-full mt-1 w-44 space-y-0.5 rounded-xl border border-white/15 bg-[#11161D] p-1.5 shadow-xl">

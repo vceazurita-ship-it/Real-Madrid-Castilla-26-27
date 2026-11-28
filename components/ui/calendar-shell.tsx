@@ -85,6 +85,9 @@ type CalendarShellProps = {
   /** Una franja sobre el calendario (p. ej. el próximo partido), antes del resumen del mes. */
   franja?: ReactNode;
   legend?: CalendarLegendItem[];
+  /** Rótulo opcional delante de la leyenda (su base) y una nota detrás (28/11/2026). */
+  legendTitle?: ReactNode;
+  legendNote?: ReactNode;
   /** Acciones extra a la derecha de la cabecera del mes. */
   toolbar?: ReactNode;
   loading?: boolean;
@@ -131,6 +134,8 @@ export function CalendarShell({
   statsColumnas = 4,
   franja,
   legend,
+  legendTitle,
+  legendNote,
   toolbar,
   loading = false,
   keyboardEnabled = true,
@@ -281,6 +286,7 @@ export function CalendarShell({
                   móvil, quedaba tras 30 días de lista. */}
               {listo && legend && legend.length > 0 && (
                 <div className="-mt-2 mb-5 flex flex-wrap items-center gap-x-5 gap-y-2 border-b border-white/10 pb-4">
+                  {legendTitle && <span className="text-[11px] font-semibold uppercase tracking-wide text-white/55">{legendTitle}</span>}
                   {legend.map((item) => (
                     <div key={item.label} className="flex items-center gap-2">
                       <span
@@ -289,6 +295,7 @@ export function CalendarShell({
                       <span className="text-xs text-white/60">{item.label}</span>
                     </div>
                   ))}
+                  {legendNote && <span className="min-w-0 text-xs text-white/55">{legendNote}</span>}
                 </div>
               )}
 

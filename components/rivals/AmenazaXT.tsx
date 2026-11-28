@@ -14,11 +14,11 @@
  */
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ORO, tinta } from "@/components/data/graficas";
 import { useAsoma } from "@/hooks/useAsoma";
-import { useDocsOpta } from "@/hooks/useDocsOpta";
+import { reintentaDocsOpta, useDocsOpta } from "@/hooks/useDocsOpta";
 import { aObjetos, CASTILLA_OPTA, DOCS_OPTA, num, type TablaOpta } from "@/lib/opta";
 import { casaEquipo, pistaDe, rematesDe } from "@/lib/opta-eventos";
 import { leeEventos, leeJugadores } from "@/lib/opta-directo-mapas";
@@ -41,6 +41,11 @@ type DocDirecto = { partido?: string; fecha?: string; eventos?: TablaOpta; jugad
 
 const coma = (v: number, d = 2) => v.toFixed(d).replace(".", ",");
 const A_LA_VISTA = 8;
+/* Plazos del evento a evento (28/11/2026, jueces de estilo): a los 8 s se vuelve a pedir lo que falta; a los 20 s, la sección se aparta (sigue escuchando y sale si llega). */
+const PLAZO_REINTENTO_MS = 8_000;
+const PLAZO_RENDIRSE_MS = 20_000;
+/* Las claves de Opta no llevan saltos de línea (como en useDocsOpta). */
+const SEPARA = "\n";
 
 export function AmenazaXT({ equipo, nombres = [] }: { equipo: string; nombres?: string[] }) {
   const { caja, abierto } = useAsoma<HTMLDivElement>();
@@ -100,18 +105,56 @@ function Bloque({
   suyos: string[];
   nombres: string[];
 }) {
-  const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, ...DocDirecto[]]>(DOCS_OPTA.jugadoresPartidos, DOCS_OPTA.remates, ...ids.map(DOCS_OPTA.directo));
+  const claves = [DOCS_OPTA.jugadoresPartidos, DOCS_OPTA.remates, ...ids.map(DOCS_OPTA.directo)];
+  const firma = claves.join(SEPARA);
+  const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, ...DocDirecto[]]>(...claves);
   const [verTodos, setVerTodos] = useState(false);
+  /* 0 = esperando · 1 = ya se volvió a pedir · 2 = plazo agotado (la sección no sale). */
+  const [espera, setEspera] = useState<{ firma: string; fase: 0 | 1 | 2 }>({ firma: "", fase: 0 });
+  const fase = espera.firma === firma ? espera.fase : 0;
+
+  /*
+  | PLAZO MÁXIMO CON REINTENTO (28/11/2026, jueces de estilo): «Quién crea la
+  | amenaza» se quedaba en «Leyendo el evento a evento…» para siempre cuando
+  | una de las peticiones se colgaba. A los 8 s se vuelve a pedir sólo lo que
+  | falta; a los 20 s la sección se aparta, sin hueco ni aviso. Si los datos
+  | llegan después, sale sola.
+  */
+  useEffect(() => {
+    if (!cargando) return;
+    const lista = firma.split(SEPARA);
+    const t1 = window.setTimeout(() => {
+      reintentaDocsOpta(lista);
+      setEspera({ firma, fase: 1 });
+    }, PLAZO_REINTENTO_MS);
+    const t2 = window.setTimeout(() => setEspera({ firma, fase: 2 }), PLAZO_RENDIRSE_MS);
+    return () => {
+      window.clearTimeout(t1);
+      window.clearTimeout(t2);
+    };
+  }, [cargando, firma]);
 
   /* `docs` es un array nuevo en cada pintada: la cuenta se guarda por documento (misma caché que useDocsOpta). */
   const datos = cargando ? null : calcula(docs as [TablaOpta | null, TablaOpta | null, ...(DocDirecto | null)[]], ids, teamId, suyos);
 
   if (!datos) {
-    if (!cargando) return null;
+    if (!cargando || fase === 2) return null;
+    /* Esqueleto con la altura del bloque ya pintado (titular + 5 barras): lo de debajo no salta al llegar. */
     return (
-      <section aria-label="Quién crea la amenaza" className="portada-tarjeta mt-6 min-w-0 px-4 py-4 sm:px-5">
+      <section aria-label="Cargando quién crea la amenaza" aria-busy="true" className="portada-tarjeta mt-6 min-h-[17rem] min-w-0 px-4 py-4 sm:px-5">
         <p className="text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">Quién crea la amenaza · xT/90</p>
-        <p className="mt-1 text-sm text-white/60">Leyendo el evento a evento de sus últimos {ids.length} partidos…</p>
+        <span aria-hidden className="mt-2 block h-6 w-4/5 max-w-full animate-pulse rounded-md" style={{ background: tinta(0.08) }} />
+        <span aria-hidden className="mt-3 grid min-w-0 gap-2">
+          {[100, 82, 66, 54, 45].map((ancho) => (
+            <span key={ancho} className="grid min-w-0 grid-cols-[minmax(0,9rem)_minmax(0,1fr)] items-center gap-2 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)]">
+              <span className="h-3 w-24 max-w-full animate-pulse rounded-full" style={{ background: tinta(0.08) }} />
+              <span className="h-3 animate-pulse rounded-full" style={{ width: `${ancho}%`, background: tinta(0.1) }} />
+            </span>
+          ))}
+        </span>
+        <p className="mt-3 text-[13px] text-white/60">
+          {fase === 1 ? "Opta tarda más de lo normal: se vuelve a pedir…" : `Leyendo el evento a evento de sus últimos ${ids.length} partidos…`}
+        </p>
       </section>
     );
   }

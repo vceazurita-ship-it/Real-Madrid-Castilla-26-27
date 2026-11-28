@@ -209,9 +209,15 @@ export function TiraJornadas({ equipo }: { equipo: string }) {
         <span className="font-normal text-white/60"> · del más antiguo al más reciente, con su fecha</span>
       </p>
       {/* Rejilla que pasa de fila (16/11/2026): en una tira con scroll la última se cortaba («Alcorcó»). */}
+      {/*
+        28/11/2026 (jueces de fútbol): con 13 partidos, en el escritorio cabían
+        12 por fila y el último se quedaba solo en la segunda. Desde `lg`, filas
+        parejas de 7 como mucho (13 = 7 + 6); en el móvil, la rejilla de siempre.
+      */}
       <ol
         aria-label={`Resultados de ${equipo} partido a partido`}
-        className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(6.25rem,1fr))] gap-1.5"
+        className="grid min-w-0 grid-cols-[repeat(auto-fill,minmax(6.25rem,1fr))] gap-1.5 lg:[grid-template-columns:var(--tira-cols)]"
+        style={{ "--tira-cols": `repeat(${Math.max(1, Math.ceil(partidos.length / Math.max(1, Math.ceil(partidos.length / 7))))}, minmax(0, 1fr))` } as React.CSSProperties}
       >
         {partidos.map((j) => {
           const resumen = j.iso ? resumenDelPartido(resumenes, j.local, j.visitante, j.iso) : null;

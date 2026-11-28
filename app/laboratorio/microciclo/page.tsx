@@ -129,6 +129,7 @@ import { loadRegistro, type RegistroDataset } from "@/lib/abp/registro";
 import { DiaConectado } from "@/components/sesion-dia/DiaConectado";
 import { EnlacesDelRival } from "@/components/rivals/EnlacesDelRival";
 import { nombreCorto } from "@/lib/abp/informe-graficos";
+import { mismoEquipo } from "@/lib/abp/jornada";
 import { useDiasConectados } from "@/hooks/useDiasConectados";
 import { aplicaPropuesta, aplicaTodasLasPropuestas, enlaza, planDeRegistro, planDeSesionNueva, propuestasDeLaSesion, sesionDeFecha, type Propuesta } from "@/lib/sesion-dia/conexion";
 import {
@@ -192,46 +193,143 @@ type DiaVentana = { fecha: string; dia: string; md: string; esPartido: boolean; 
  * MD en la temporada (UA = minutos × intensidad); el libre, vacío; el partido,
  * en oro sin barra. El titular dice el día que más carga.
  */
+/*
+| 28/11/2026 (jueces, estilo): el gráfico lleva su eje (UA) y una referencia:
+| la media de un día de entreno de la temporada (todas las MD, pesadas por sus
+| días), en línea discontinua. Cada barra va en ámbar si su MD carga por encima
+| de esa media y en verde si por debajo. El partido ya no es una barra beige
+| vacía: es un trofeo con «partido». Pulsar una barra pasa el día a entreno o
+| a libre (lo mismo que los interruptores de las tarjetas, que siguen debajo).
+*/
 function BarrasSemana({
   dias,
   cargaMd,
   libres,
+  onCambia,
+  fechaPost,
 }: {
   dias: { fecha: string; md: string; esPartido: boolean }[];
   cargaMd?: Map<string, { ua: number; n: number }> | null;
   libres: Set<string>;
+  /** Si llega, cada barra es un botón: entreno ↔ libre. */
+  onCambia?: (fecha: string, libre: boolean) => void;
+  fechaPost?: string | null;
 }) {
   if (!cargaMd || !dias.length) return null;
 
   const filas = dias.map((d) => {
     const c = !d.esPartido ? cargaMd.get(normalizaMd(d.md)) : undefined;
 
-    return { ...d, libre: libres.has(d.fecha), ua: c && !libres.has(d.fecha) ? c.ua : 0, n: c?.n ?? 0 };
+    return { ...d, libre: libres.has(d.fecha), ua: c && !libres.has(d.fecha) ? c.ua : 0, base: c?.ua ?? 0, n: c?.n ?? 0 };
   });
-  const max = Math.max(1, ...filas.map((f) => f.ua));
   const pico = [...filas].sort((a, b) => b.ua - a.ua)[0];
 
   if (!pico || pico.ua <= 0) return null;
 
+  /* La media de un día de entreno de la temporada: cada MD pesa por sus días. */
+  const valores = [...cargaMd.values()].filter((c) => c.ua > 0 && c.n > 0);
+  const diasBase = valores.reduce((s, c) => s + c.n, 0);
+  const media = diasBase > 0 ? Math.round(valores.reduce((s, c) => s + c.ua * c.n, 0) / diasBase) : 0;
+  /* Holgura arriba para la cifra de la barra más alta. */
+  const tope = Math.max(1, ...filas.map((f) => f.ua), media) * 1.18;
+  const alto = (ua: number) => `${Math.min(100, (100 * ua) / tope)}%`;
+  const diaCorto = (fecha: string) => etiquetaDia(fecha).split(" ")[0].slice(0, 3).toLocaleLowerCase("es");
+
   return (
-    <figure className="mb-3 rounded-xl border border-white/10 bg-white/[0.02] p-3" aria-label="Carga de la semana propuesta">
+    <figure className="mb-3 min-w-0 rounded-xl border border-white/10 bg-white/[0.02] p-3" aria-label="Carga de la semana propuesta">
       <figcaption className="text-[13px] font-semibold text-white">
         Más carga el {etiquetaDia(pico.fecha).split(" ")[0]} ({pico.md}): ≈ {pico.ua} UA
         <span className="ml-1 font-normal text-white/55">· media de {pico.n} {pico.md} de la temporada</span>
       </figcaption>
-      <ul className="mt-2 flex h-28 items-end gap-1.5">
-        {filas.map((f) => (
-          <li key={f.fecha} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={f.esPartido ? "Partido" : f.libre ? `${f.md}: libre` : `${f.md}: ≈ ${f.ua} UA (media de ${f.n} días)`}>
-            {f.ua > 0 ? <span className="text-[10px] tabular-nums text-white/60">{f.ua}</span> : null}
-            <span
-              className={`block w-full max-w-[40px] rounded-t-md ${f.esPartido ? "bg-[#C8A96B]" : "bg-emerald-400/70"}`}
-              style={{ height: f.esPartido ? "100%" : `${(100 * f.ua) / max}%`, opacity: f.esPartido ? 0.35 : 1 }}
-            />
-            {/* 20/11/2026 (jueces): «MD-4» se partía en dos líneas a 390 px. */}
-            <span className="whitespace-nowrap text-[10px] font-semibold text-white/70">{f.esPartido ? "MD" : f.libre ? "libre" : f.md}</span>
-          </li>
-        ))}
-      </ul>
+
+      <div className="mt-2 flex min-w-0 gap-1.5">
+        {/* El eje: la unidad arriba y el cero abajo. */}
+        <div className="flex h-28 w-7 shrink-0 flex-col justify-between text-right text-[10px] tabular-nums text-white/45" aria-hidden>
+          <span className="font-semibold">UA</span>
+          <span>0</span>
+        </div>
+
+        <div className="min-w-0 flex-1">
+          <div className="relative h-28 border-b border-l border-white/15">
+            {media > 0 ? (
+              <div className="pointer-events-none absolute inset-x-0 z-10 border-t border-dashed border-white/45" style={{ bottom: alto(media) }} aria-hidden>
+                <span className="absolute -top-4 right-0 whitespace-nowrap rounded bg-[#11161C] px-1 text-[10px] tabular-nums text-white/70">
+                  media día de entreno ≈ {media} UA
+                </span>
+              </div>
+            ) : null}
+
+            <ul className="absolute inset-0 flex items-end gap-1.5 px-1">
+              {filas.map((f) => {
+                const sobre = media > 0 && f.ua > media;
+                const rotulo = f.esPartido
+                  ? "Partido"
+                  : f.libre
+                    ? `${f.md}: libre${f.base ? ` (de media, ≈ ${f.base} UA)` : ""}`
+                    : `${f.md}: ≈ ${f.ua} UA (media de ${f.n} días)${media ? `, ${sobre ? "por encima" : "por debajo"} de la media de un día de entreno` : ""}`;
+                const barra = f.esPartido ? (
+                  <Trophy size={14} className="mb-1 text-[#C8A96B]" aria-hidden />
+                ) : f.libre ? (
+                  <span className="block h-1.5 w-full max-w-[40px] rounded-t-sm border border-dashed border-white/30" />
+                ) : (
+                  <>
+                    <span className="text-[10px] tabular-nums text-white/70">{f.ua}</span>
+                    <span
+                      className={`block w-full max-w-[40px] rounded-t-md ${sobre ? "bg-amber-400/80" : "bg-emerald-400/70"}`}
+                      style={{ height: alto(f.ua) }}
+                    />
+                  </>
+                );
+
+                return (
+                  <li key={f.fecha} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end" title={rotulo}>
+                    {onCambia && !f.esPartido ? (
+                      <button
+                        type="button"
+                        onClick={() => onCambia(f.fecha, !f.libre)}
+                        aria-pressed={!f.libre}
+                        aria-label={`${etiquetaDia(f.fecha)}, ${rotulo}. Pulsa para pasarlo a ${f.libre ? "entreno" : "libre"}`}
+                        className="flex h-full w-full flex-col items-center justify-end gap-0.5 rounded-t-md transition hover:bg-white/[0.05] focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#C8A96B]"
+                      >
+                        {barra}
+                      </button>
+                    ) : (
+                      <div className="flex h-full w-full flex-col items-center justify-end gap-0.5">{barra}</div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
+          {/* 20/11/2026 (jueces): «MD-4» se partía en dos líneas a 390 px. */}
+          <ul className="mt-1 flex gap-1.5 px-1" aria-hidden>
+            {filas.map((f) => (
+              <li key={f.fecha} className="min-w-0 flex-1 text-center leading-tight">
+                <span className="block truncate text-[10px] text-white/45">{diaCorto(f.fecha)}</span>
+                <span className={`block whitespace-nowrap text-[10px] font-semibold ${f.esPartido ? "text-[#C8A96B]" : "text-white/70"}`}>
+                  {f.esPartido ? "partido" : f.libre ? "libre" : f.fecha === fechaPost ? "MD+1" : f.md}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </div>
+
+      {media > 0 ? (
+        <p className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-white/55">
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2.5 w-2.5 rounded-sm bg-amber-400/80" aria-hidden /> por encima de la media
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400/70" aria-hidden /> por debajo
+          </span>
+          <span>
+            Base: {diasBase} días entrenados de la temporada con carga apuntada.
+            {onCambia ? " Pulsa una barra para pasar el día a entreno o libre." : ""}
+          </span>
+        </p>
+      ) : null}
     </figure>
   );
 }
@@ -361,7 +459,10 @@ function TiraDias({
   fechaPost,
   uso,
   cargaMd,
+  plegableEnMovil = false,
 }: {
+  /** 28/11/2026 (jueces, estilo): en el móvil las tarjetas se pliegan; el gráfico de encima ya cambia entreno/libre. */
+  plegableEnMovil?: boolean;
   /** UA media de cada MD en la temporada (17/11/2026): una barra por día. */
   cargaMd?: Map<string, { ua: number; n: number }>;
   dias: { fecha: string; md: string; esPartido: boolean }[];
@@ -372,6 +473,9 @@ function TiraDias({
   /** En cuántas semanas de liga se entrena cada MD (con base suficiente). */
   uso?: UsoDeMd | null;
 }) {
+  const [abiertas, setAbiertas] = useState(false);
+  const plegadas = plegableEnMovil && !abiertas;
+
   return (
     /* Tantas casillas como días haya: nueve de viernes a domingo, siete de
        domingo a domingo. En móvil, de dos en dos. 16/11/2026 (jueces): con
@@ -381,7 +485,18 @@ function TiraDias({
     /* 20/11/2026 (jueces): a 390 px «Entreno / Libre» se salía de la tarjeta y a 1440 el sábado se cortaba: una columna en el móvil y rejilla que envuelve (3-4 por fila). */
     /* 20/11/2026 (fútbol, ronda 5): sin el pr-12 del móvil, que dejaba una franja vacía a la derecha; casillas a todo lo ancho. */
     <div className="w-full min-w-0 space-y-1.5">
-    <div className="grid w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+    {plegableEnMovil ? (
+      <button
+        type="button"
+        onClick={() => setAbiertas((v) => !v)}
+        aria-expanded={abiertas}
+        className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-white/15 px-3 py-1 text-[13px] font-semibold text-white/80 sm:hidden"
+      >
+        {abiertas ? <ChevronDown size={14} aria-hidden /> : <ChevronRight size={14} aria-hidden />}
+        {abiertas ? "Plegar los días" : `Día a día (${dias.length})`}
+      </button>
+    ) : null}
+    <div className={`${plegadas ? "hidden sm:grid" : "grid"} w-full grid-cols-1 gap-2 min-[480px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-4`}>
       {dias.map((uno) => {
         const libre = libres.has(uno.fecha);
         const carga = !uno.esPartido ? cargaMd?.get(normalizaMd(uno.md)) : undefined;
@@ -462,7 +577,7 @@ function TiraDias({
       })}
     </div>
     {cargaMd && cargaMd.size > 0 ? (
-      <p className="text-[12px] text-white/55">
+      <p className={`${plegadas ? "hidden sm:block" : ""} text-[12px] text-white/55`}>
         La barra de cada día es la carga media de su MD (UA = minutos × intensidad), con los días ya entrenados de toda la temporada que tienen carga apuntada (también fuera de liga); la misma cuenta que el calendario de contenidos.
       </p>
     ) : null}
@@ -1610,6 +1725,26 @@ export default function EditorMicrocicloPage() {
   );
 
   /*
+  | 28/11/2026 (jueces, estilo): el último micro de la hoja contra este mismo
+  | rival (la ida), para abrir su análisis desde el paso 1.
+  */
+  const microContraRival = useMemo(() => {
+    const rival = proximo?.rival?.trim();
+
+    if (!rival) return null;
+
+    return (
+      microsDeLaHoja.find(
+        (uno) =>
+          uno.tareas > 0 &&
+          uno.rival &&
+          (!uno.temporada?.trim() || uno.temporada.trim() === temporadaHoja) &&
+          mismoEquipo(rivalLargo(uno.rival), rival),
+      ) ?? null
+    );
+  }, [microsDeLaHoja, proximo, temporadaHoja]);
+
+  /*
   | El último CERRADO con tareas: del que se parte por defecto al crear
   | (17/11/2026, r20, jueces). El micro en curso tiene la valoración a medias
   | (4 de 15) y tareas que aún no se han hecho; se queda como opción.
@@ -1740,6 +1875,16 @@ export default function EditorMicrocicloPage() {
     () => new Set(libresPlan ?? libresPorDefecto(diasPlan, usoMd)),
     [libresPlan, diasPlan, usoMd],
   );
+
+  /* Un día a entreno o a libre: desde la tarjeta o pulsando su barra (28/11/2026). */
+  const cambiaLibrePlan = (fecha: string, libre: boolean) => {
+    const siguiente = new Set(libresMarcados);
+
+    if (libre) siguiente.add(fecha);
+    else siguiente.delete(fecha);
+
+    setLibresPlan([...siguiente]);
+  };
 
   /*
   | LA CARGA DE CADA MD EN LA TEMPORADA (17/11/2026, jueces): para ver el
@@ -2934,6 +3079,7 @@ export default function EditorMicrocicloPage() {
 
             {!micro && proximo && !cargando && !sinHoja && (
               <Panel
+                className="!overflow-visible"
                 title="1 · La semana: marca los días libres"
                 subtitle={`Microciclo ${ultimoMicro + 1} · contra ${proximo.rival} · J${proximo.jornada}, ${diaLargoDelCalendario(proximo.cuando)}`}
                 icon={CalendarClock}
@@ -2961,6 +3107,15 @@ export default function EditorMicrocicloPage() {
                       {anterior?.rival ? ` · ${rivalLegible(anterior.rival)}` : ""} →
                     </Link>
                   ) : null}
+                  {/* 28/11/2026 (jueces, estilo): nuestro último partido contra él (su análisis) y Duelos, con el rival ya elegido. */}
+                  {microContraRival && microContraRival.micro !== ultimoMicro ? (
+                    <Link href={`/microcycles?micro=${microContraRival.micro}`} className="font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
+                      Su análisis · micro {microContraRival.micro} →
+                    </Link>
+                  ) : null}
+                  <Link href={`/duelos?equipo=${encodeURIComponent(proximo.rival)}`} className="font-semibold text-[#C8A96B] underline-offset-4 hover:underline">
+                    Duelos · {proximo.rival} →
+                  </Link>
                   <Link href="/calendar_general" className="inline-flex min-h-9 items-center rounded-lg border border-white/20 px-3 py-1 font-semibold text-white/80 transition hover:border-[#C8A96B]/60 hover:text-white">
                     Calendario operativo →
                   </Link>
@@ -2970,7 +3125,7 @@ export default function EditorMicrocicloPage() {
                   {propuestaDias ?? "Libre el MD+1 (el día después del partido); el resto, entreno."}
                 </p>
 
-                <BarrasSemana dias={diasPlan} cargaMd={cargaMd} libres={libresMarcados} />
+                <BarrasSemana dias={diasPlan} cargaMd={cargaMd} libres={libresMarcados} fechaPost={fechaPost} onCambia={cambiaLibrePlan} />
 
                 {cargaSemana ? (
                   <p className="mb-2 text-[13px] text-white/75">
@@ -2988,14 +3143,8 @@ export default function EditorMicrocicloPage() {
                   uso={usoMd && usoMd.base >= BASE_USO_MD ? usoMd : null}
                   fechaPost={fechaPost}
                   libres={libresMarcados}
-                  onCambia={(fecha, libre) => {
-                    const siguiente = new Set(libresMarcados);
-
-                    if (libre) siguiente.add(fecha);
-                    else siguiente.delete(fecha);
-
-                    setLibresPlan([...siguiente]);
-                  }}
+                  onCambia={cambiaLibrePlan}
+                  plegableEnMovil={Boolean(cargaMd && cargaMd.size > 0)}
                 />
 
                 <div className="mt-4 max-w-3xl">
@@ -3058,7 +3207,8 @@ export default function EditorMicrocicloPage() {
                 | días de entreno» sólo cambian los libres de la tira, así que van
                 | como atajos, en texto, y no compiten con «Crear».
                 */}
-                <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
+                {/* 28/11/2026 (jueces, estilo): fijo al pie mientras se baja por el paso 1, en el móvil y en el ordenador. */}
+                <div className="sticky bottom-0 z-20 -mx-4 -mb-4 mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-white/10 bg-[#11161C] px-4 py-3 shadow-[0_-8px_24px_rgba(0,0,0,.25)] rounded-b-2xl sm:-mx-5 sm:-mb-5 sm:px-5">
                   <Button tone="primary" icon={Sparkles} onClick={creaMicro}>
                     Crear el microciclo {ultimoMicro + 1}
                   </Button>

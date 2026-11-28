@@ -341,7 +341,8 @@ export function PartidoDeLaSemana({
           </BotonGolesEnVideo>
         )}
 
-        {nombre && <EnlaceComoSonSusGoles equipo={nombre} />}
+        {/* 28/11/2026 (jueces, estilo): un chip más, con el mismo aspecto que los demás, no texto suelto. */}
+        {nombre && <EnlaceComoSonSusGoles equipo={nombre} texto="Cómo son sus goles" className={enlaceClase} />}
 
         {enlaces.plan && (
           <Link href={enlaces.plan} className={enlaceClase}>

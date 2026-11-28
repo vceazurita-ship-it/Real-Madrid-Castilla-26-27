@@ -33,11 +33,12 @@ import {
   AnalisisSeccion,
   type LectorAnalisis,
 } from "@/components/abp/AnalisisSeccion";
-import { comparaCronologico, hablado, type ClaveMetrica } from "@/lib/abp/analisis";
+import { hablado, type ClaveMetrica } from "@/lib/abp/analisis";
 import { ConmutadorVista, useVistaAnalisis } from "@/components/ui/VistaVisual";
 import { FrenteAlRival } from "@/components/analisis/FrenteAlRival";
 import { BarraReparto, COLOR_DESENLACE, VisualAbp, type CategoriaVisual, type FilaVisualAbp } from "@/components/abp/VisualAbp";
 import { ConclusionPlegada } from "@/components/abp/ConclusionPlegada";
+import { PeligroPorJornada } from "@/components/abp/PeligroPorJornada";
 import { lecturaRapida } from "@/lib/abp/lectura-rapida";
 import { patronEnvio } from "@/lib/abp/accionFrase";
 import { LecturaRapida, MUESTRA_FIRME } from "@/components/abp/LecturaRapida";
@@ -451,118 +452,6 @@ const tituloEquipo = (equipo: string) => {
     : corto;
 };
 
-/** 27/11/2026 (jueces, ronda 10): por debajo, la columna de un partido se pinta en gris, como tendencia. */
-const MUESTRA_COLUMNA = 10;
-
-function PeligroPorJornada({ filas, marca, todas = [] }: { filas: FilaVisualAbp[]; marca: string | null; todas?: FilaVisualAbp["jornada"][] }) {
-  const porJornada = new Map<string, { jornada: FilaVisualAbp["jornada"]; n: number; k: number }>();
-  const competiciones = new Set(filas.map((f) => f.jornada.competicion));
-  for (const j of todas) {
-    if (j.clave && competiciones.has(j.competicion)) porJornada.set(j.clave, { jornada: j, n: 0, k: 0 });
-  }
-  for (const f of filas) {
-    if (!f.jornada.clave) continue;
-    const g = porJornada.get(f.jornada.clave) ?? { jornada: f.jornada, n: 0, k: 0 };
-    g.n += 1;
-    if (f.exito) g.k += 1;
-    porJornada.set(f.jornada.clave, g);
-  }
-  const partidos = [...porJornada.values()].sort((x, y) => comparaCronologico(x.jornada, y.jornada));
-  const conAcciones = partidos.filter((p) => p.n > 0);
-  if (conAcciones.length < 3) return null;
-  const totalN = partidos.reduce((t, p) => t + p.n, 0);
-  const totalK = partidos.reduce((t, p) => t + p.k, 0);
-  const media = totalN ? (totalK / totalN) * 100 : 0;
-  const tope = Math.max(media, ...conAcciones.map((p) => (p.k / p.n) * 100), 1);
-  const alto = (v: number) => `${(v / tope) * 100}%`;
-  /* 27/11/2026 (jueces, ronda 9): un decimal, como la conclusión (26,6 %, no 27 % en la raya). */
-  const pcTxt = (v: number) => `${(Math.round(v * 10) / 10).toLocaleString("es-ES", { maximumFractionDigits: 1 })} %`;
-  return (
-    <figure className="mt-3 min-w-0 rounded-2xl border border-white/10 bg-white/[0.02] px-3 py-3 sm:px-4">
-      <figcaption className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
-        <span className="text-[11px] font-semibold uppercase tracking-[0.16em] text-white/60">Gol u ocasión, partido a partido</span>
-        <span className="text-[12px] text-white/70">
-          Raya discontinua: la media, {pcTxt(media)} ({totalK} de {totalN} acciones)
-        </span>
-      </figcaption>
-      <div className="min-w-0 overflow-x-auto">
-        <div
-          className="relative mt-2 flex h-24 items-end gap-1"
-          /* 27/11/2026 (jueces, ronda 10): a 390 px se cortaba en J10 y la J13 en oro no se veía; 20 px por columna caben las 13. */
-          style={{ minWidth: partidos.length * 20 }}
-          role="img"
-          aria-label={`Gol u ocasión por partido: ${partidos.map((p) => (p.n ? `${p.jornada.corto} ${p.k} de ${p.n}` : `${p.jornada.corto} sin acciones`)).join(", ")}; media ${pcTxt(media)} (${totalK} de ${totalN})`}
-        >
-          <span
-            aria-hidden
-            className="pointer-events-none absolute inset-x-0 border-t border-dashed"
-            style={{ bottom: `calc(${alto(media)} * 0.8)`, borderColor: "rgb(var(--rmcf-ink-rgb) / .5)" }}
-          />
-          {partidos.map((p) => {
-            const v = p.n ? (p.k / p.n) * 100 : 0;
-            const marcada = marca === p.jornada.clave;
-            /* 27/11/2026 (jueces, ronda 10): con menos de 10 acciones el % es tendencia: en gris, no igual que J01–J05. */
-            const corta = p.n > 0 && p.n < MUESTRA_COLUMNA;
-            return (
-              <div
-                key={p.jornada.clave}
-                className="flex h-full min-w-0 flex-1 flex-col items-center justify-end"
-                title={p.n ? `${p.jornada.etiqueta}: ${p.k} de ${p.n} (${pcTxt(v)})${corta ? " · tendencia, pocas acciones" : ""}` : `${p.jornada.etiqueta}: sin acciones con estos filtros`}
-              >
-                <span
-                  className={`mb-0.5 whitespace-nowrap text-[10px] leading-none tabular-nums ${marcada ? "font-bold" : corta ? "text-white/45" : "text-white/70"}`}
-                  style={marcada ? { color: "var(--rmcf-gold-ink)" } : undefined}
-                >
-                  {/* 27/11/2026 (jueces, ronda 11): «a/b» sólo encima de las columnas con 10 acciones o más (y la del último partido); el resto, al pasar por encima: a 390 px se pisaban. */}
-                  {!p.n ? "sin acc." : p.n >= MUESTRA_COLUMNA || marcada ? `${p.k}/${p.n}` : " "}
-                </span>
-                <div
-                  className="w-full max-w-[28px] rounded-t-[3px]"
-                  style={{
-                    height: v > 0 ? `calc(${alto(v)} * 0.8)` : "2px",
-                    background: v > 0 ? (marcada ? COLOR_DESENLACE.oro : corta ? "rgb(var(--rmcf-ink-rgb) / .3)" : COLOR_DESENLACE.mejor) : p.n ? "rgb(var(--rmcf-ink-rgb) / .25)" : "transparent",
-                    borderTop: p.n ? undefined : "1px dashed rgb(var(--rmcf-ink-rgb) / .3)",
-                    outline: marcada ? "2px solid var(--rmcf-gold-ink)" : undefined,
-                    outlineOffset: 1,
-                  }}
-                />
-              </div>
-            );
-          })}
-        </div>
-        <div className="mt-1 flex gap-1" style={{ minWidth: partidos.length * 20 }} aria-hidden>
-          {partidos.map((p) => (
-            <span
-              key={p.jornada.clave}
-              className={`min-w-0 flex-1 text-center text-[10.5px] tabular-nums ${marca === p.jornada.clave ? "font-bold" : "text-white/55"}`}
-              style={marca === p.jornada.clave ? { color: "var(--rmcf-gold-ink)" } : undefined}
-            >
-              {p.jornada.corto}
-            </span>
-          ))}
-        </div>
-      </div>
-      <p className="mt-1.5 text-[12px] leading-snug text-white/65">
-        Cada columna, el % de un partido; encima, «a/b»: las que acaban en gol u ocasión (a) de las del partido (b), en los de {MUESTRA_COLUMNA} acciones o más (el resto, al pasar por encima).{" "}
-        <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.mejor }} aria-hidden />{MUESTRA_COLUMNA} acciones o más</span>
-        {conAcciones.some((p) => p.n < MUESTRA_COLUMNA) ? (
-          <>
-            {" · "}
-            <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: "rgb(var(--rmcf-ink-rgb) / .3)" }} aria-hidden />gris: menos de {MUESTRA_COLUMNA}, tendencia (un 0/2 no es una carencia)</span>
-          </>
-        ) : null}
-        {marca && partidos.some((p) => p.jornada.clave === marca) ? (
-          <>
-            {" · "}
-            <span className="inline-flex items-center gap-1 align-middle"><span className="inline-block h-2 w-2 rounded-sm" style={{ background: COLOR_DESENLACE.oro }} aria-hidden />dorado: el último partido</span>
-          </>
-        ) : null}
-        . La tendencia de los 3 últimos, en «¿Va a mejor?».
-      </p>
-    </figure>
-  );
-}
-
 export default function Page() {
 
   const [isMobile, setIsMobile] =
@@ -968,6 +857,8 @@ const dimension = (clave: string) =>
 const sin = (...claves: string[]) => filtraFilas(rows, dimensiones, claves);
 
 const filtered = sin();
+/* 28/11/2026 (jueces, estilo): los partidos de lo filtrado, para la cifra por partido de las tarjetas. */
+const partidosVistos = new Set(filtered.map((r) => r.contexto.jornada.clave).filter(Boolean)).size;
 
 /* Acción a acción (04/11/2026): lo que dejan los filtros, contado como en el vídeo post de ABP y con su corte. */
 const ordenJornada = new Map(jornadas.map((j, i) => [j.clave, i]));
@@ -3300,13 +3191,16 @@ const categoriasVisual: CategoriaVisual[] = [
       />
 
     </FilterDrawer>
-<div className="mt-5">
+{/* 28/11/2026 (jueces, estilo): los chips de rivales, plegados (cerrados de entrada): en el móvil ocupaban una pantalla entera antes de la conclusión. */}
+<details className="group mt-5 min-w-0">
   {/* 07/11/2026 (jueces): «Nuestro ABP contra (1)» → «Rival · Jornada 10». */}
-  <p className="text-sm text-zinc-400 mb-3">
+  <summary className="mb-3 flex min-h-9 cursor-pointer list-none items-center gap-2 text-sm text-zinc-400">
     {new Set(filasRival.map((r) => r.rival)).size === 1
       ? `Rival${jornada !== "ALL" ? ` · ${jornadas.find((una) => una.clave === jornada)?.etiqueta ?? ""}` : ""}`
       : `Rivales (${new Set(filasRival.map((r) => r.rival)).size})`}
-  </p>
+  {rival !== "ALL" ? <span className="font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>· {tituloEquipo(rival)}</span> : null}
+    <span aria-hidden className="text-[12px] font-semibold transition group-open:rotate-90" style={{ color: "var(--rmcf-gold-ink)" }}>›</span>
+  </summary>
 
   <div className="flex flex-wrap gap-2">
     {/* 17/11/2026 (jueces, ronda 20): por calendario (la jornada en que se le jugó) y con el nombre bien escrito. */}
@@ -3342,7 +3236,7 @@ const categoriasVisual: CategoriaVisual[] = [
 </button>
       ))}
   </div>
-</div>
+</details>
     {/* 29/10/2026: 40 px a la derecha en el móvil para el botón flotante, que tapaba la tarjeta de la esquina. */}
     {/* Las conclusiones antes que las tarjetas, también en el ordenador y con
         un titular con verbo y dato (10/11/2026, jueces). */}
@@ -3394,11 +3288,12 @@ const categoriasVisual: CategoriaVisual[] = [
         alto desigual dejaban la última sola y estrecha).
         27/11/2026 (jueces, ronda 11): la misma rejilla que ABP defensivo, dos
         por fila en el móvil; si queda una sola al final, ocupa la fila entera. */}
+    {/* 28/11/2026 (jueces, estilo): cada tarjeta, con su cifra por partido junto al total (los partidos de lo filtrado). */}
     <div className="mt-5 grid min-w-0 grid-cols-2 gap-3 sm:mt-6 sm:gap-5 lg:grid-cols-4 [&>*]:min-w-0 [&>*:last-child:nth-child(odd)]:col-span-2 lg:[&>*:last-child:nth-child(odd)]:col-span-1">
       <Card
         title="Acciones lanzadas"
         value={metrics.total}
-        hint="Córners y faltas a favor"
+        hint={partidosVistos > 1 ? `Córners y faltas a favor · ${cifra(metrics.total / partidosVistos, 1)} por partido en ${partidosVistos}` : "Córners y faltas a favor"}
         referencia={temporada ? `Temporada: ${temporada.n} en ${temporada.jornadas} ${temporada.jornadas === 1 ? "jornada" : "jornadas"} (${cifra(temporada.n / Math.max(1, temporada.jornadas), 1)} por partido)` : undefined}
       />
 
@@ -3420,7 +3315,7 @@ const categoriasVisual: CategoriaVisual[] = [
       <Card
         title="Goles esperados"
         value={unDecimal(metrics.xg)}
-        hint="Acumulados en todas las acciones"
+        hint={partidosVistos > 1 ? `Acumulados · ${dosDecimales(metrics.xg / partidosVistos)} por partido en ${partidosVistos}` : "Acumulados en todas las acciones"}
         muestra={{ n: metrics.total, de: metrics.total, unidad: "acciones", soloBase: true }}
         referencia={temporada ? `Temporada, ${temporada.n} acciones: ${cifra(temporada.xgAccion, 2)} por acción` : undefined}
       />

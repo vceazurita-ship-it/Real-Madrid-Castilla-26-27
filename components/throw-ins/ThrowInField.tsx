@@ -229,6 +229,19 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = 
       .filter((node) => node.count >= MUESTRA_PEOR)
       .sort((a, b) => a.favorables / a.count - b.favorables / b.count)[0] ?? null;
   const enConclusion = (node: FieldNode) => zonaConclusion != null && node.zona === zonaConclusion;
+  /*
+  | 28/11/2026 (jueces, estilo): la conclusión habla del tercio entero (las dos
+  | bandas juntas), así que su rótulo lleva la suma de los dos discos
+  | («nuestro tercio · 18/46 · 39 %») y va en el disco que no es «el que menos».
+  */
+  const nodosConclusion = nodes.filter(enConclusion);
+  const favConclusion = nodosConclusion.reduce((t, n) => t + n.favorables, 0);
+  const nConclusion = nodosConclusion.reduce((t, n) => t + n.count, 0);
+  const rotuloConclusion =
+    nodosConclusion.length && nConclusion
+      ? `${zonaLabel(nodosConclusion[0].zona, mode).split(" · ")[1] ?? "la conclusión"} · ${favConclusion}/${nConclusion} · ${Math.round((favConclusion / nConclusion) * 100)} %`
+      : "la conclusión";
+  const nodoRotuloConclusion = nodosConclusion.find((n) => !(peor && peor.key === n.key)) ?? nodosConclusion[0] ?? null;
 
   return (
     <section className="mb-7 rounded-3xl border border-white/10 bg-white/[0.03] p-4 shadow-xl md:p-7">
@@ -248,9 +261,10 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = 
       {/* 20/11/2026 (jueces, ronda 5): una línea también a 390 px, y el campo un tercio más bajo en escritorio (900 px de ancho como mucho). */}
       <p className="mx-auto mb-2 flex w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] items-center justify-between gap-2 whitespace-nowrap text-[11px] font-semibold uppercase tracking-[0.1em] text-white/70 sm:text-[12px] sm:tracking-[0.14em]">
         <span>{isOffensive ? "Nuestra portería" : <>← Atacan hacia aquí<span className="hidden sm:inline"> (el rival)</span></>}</span>
-        <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Su portería"}</span>
+        <span style={{ color: "var(--rmcf-gold-ink)" }}>{isOffensive ? "Atacamos →" : "Portería del rival"}</span>
       </p>
-      <div className="relative mx-auto aspect-[16/10] w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
+      {/* 28/11/2026 (jueces, estilo): «pitch-photo» + el velo de día, como las pizarras: el césped casi negro chocaba en la página clara y con el campo claro de ABP. */}
+      <div className="pitch-photo relative mx-auto aspect-[16/10] w-full max-w-[min(900px,calc((100dvh-300px)*1.6))] overflow-hidden rounded-2xl border border-emerald-200/20 shadow-inner">
         {/* 27/11/2026 (jueces, ronda 11): sin los mandos de zoom en el móvil, que tapaban los discos de la derecha (debajo va la lista «Por zona»). */}
         <BoardViewport className="absolute inset-0" label="Mapa de saques de banda" mandosClassName="hidden sm:flex">
         {/*
@@ -262,6 +276,7 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = 
           className="absolute inset-0"
           style={{ backgroundImage: "url(/emotional-field-bg.webp)", backgroundSize: "cover", backgroundPosition: "center" }}
         />
+        <div aria-hidden className="pitch-photo-wash" />
 
         <svg
           viewBox="0 0 100 100"
@@ -395,8 +410,15 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = 
                   const ancho = rotulo.length * 1.95 + 2.4;
                   const yTexto = y < 50 ? y + radius + 4.9 : y - radius - 2.4;
                   /* La marca de la conclusión y la del disco que menos conserva o recupera, por fuera del rótulo. */
-                  const marca = peor && peor.key === node.key ? (isOffensive ? "menos conservamos" : "menos recuperamos") : enConclusion(node) ? "la conclusión" : "";
-                  const anchoMarca = marca.length * 1.75 + 2.4;
+                  const marca =
+                    peor && peor.key === node.key
+                      ? isOffensive ? "menos conservamos" : "menos recuperamos"
+                      : nodoRotuloConclusion && nodoRotuloConclusion.key === node.key
+                        ? rotuloConclusion
+                        : enConclusion(node) ? "la conclusión" : "";
+                  const anchoMarca = marca.length * 1.6 + 2.4;
+                  /* Que el rótulo largo no se salga del dibujo por los lados. */
+                  const xMarca = Math.max(anchoMarca / 2 + 0.5, Math.min(99.5 - anchoMarca / 2, x));
                   const yMarca = y < 50 ? yTexto + 5.6 : yTexto - 6;
                   return (
                     <g pointerEvents="none">
@@ -406,8 +428,8 @@ export function ThrowInField({ rows, mode, filtros, onFiltrar, zonaConclusion = 
                       </text>
                       {marca ? (
                         <>
-                          <rect x={x - anchoMarca / 2} y={yMarca - 3.3} width={anchoMarca} height={4.5} rx={2.25} style={{ fill: "#C8A96B", fillOpacity: 0.95 }} />
-                          <text x={x} y={yMarca} textAnchor="middle" fontSize="2.9" fontWeight="800" style={{ fill: "#07111F" }}>
+                          <rect x={xMarca - anchoMarca / 2} y={yMarca - 3.3} width={anchoMarca} height={4.5} rx={2.25} style={{ fill: "#C8A96B", fillOpacity: 0.95 }} />
+                          <text x={xMarca} y={yMarca} textAnchor="middle" fontSize="2.7" fontWeight="800" style={{ fill: "#07111F" }}>
                             {marca}
                           </text>
                         </>

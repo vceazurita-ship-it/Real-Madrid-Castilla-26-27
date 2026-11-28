@@ -47,6 +47,7 @@ import {
 import { BocetoDialog } from "@/components/abp/microciclo/BocetoDialog";
 import { InformeMicroDialog, type DatosDelMicro, type ResultadoIncrustado } from "@/components/abp/InformeMicroDialog";
 import { objetivoDeLaSemana } from "@/lib/abp/informe-micro";
+import { nombreCorto } from "@/lib/abp/informe-graficos";
 import {
   VIDEO_JUGADORES_KEY,
   eligeVideoJugadores,
@@ -1736,11 +1737,10 @@ export default function AbpMicrocicloPage() {
                       className="bg-[#11161C]"
                     >
                       {/* La jornada junto al micro: el título dice «Jornada 9» y la lista «Micro 18». */}
-                      {`Micro ${micro.micro}${
-                        jornadaDeMicro.has(micro.clave)
-                          ? ` (J${jornadaDeMicro.get(micro.clave)})`
-                          : ""
-                      } · ${micro.rival ? nombreMicro(micro.rival) : "sin rival"}`}
+                      {/* 28/11/2026 (jueces, estilo): corta, como en /abp-pizarra («J14 · Majadahonda · M18»): a 390 px se cortaba el rival. */}
+                      {jornadaDeMicro.has(micro.clave)
+                        ? `J${jornadaDeMicro.get(micro.clave)} · ${micro.rival ? nombreMicro(nombreCorto(micro.rival)) : "sin rival"} · M${micro.micro}`
+                        : `Micro ${micro.micro} · ${micro.rival ? nombreMicro(nombreCorto(micro.rival)) : "sin rival"}`}
                       {cerrado ? " ✓" : ""}
                       {micro.enRegistro ? "" : " (nuevo)"}
                     </option>
@@ -2004,16 +2004,28 @@ export default function AbpMicrocicloPage() {
                   {/* De qué partido viene y a cuál va: en la tarjeta del partido
                       de la semana, arriba (21/10/2026). */}
 
+                  {/* 28/11/2026 (jueces, estilo): el aviso de los días era un bloque ámbar entero antes de la semana; ahora una línea (el primero, a la vista) y el resto al abrir. */}
                   {ventana.avisos.length > 0 && (
-                    <div className="mb-3">
-                      <Notice tone="warn" title="Ojo con los días de este microciclo">
-                        <ul className="space-y-1">
-                          {ventana.avisos.map((aviso) => (
-                            <li key={aviso}>{aviso}</li>
-                          ))}
-                        </ul>
-                      </Notice>
-                    </div>
+                    <details className="mb-3 min-w-0 rounded-xl border px-3 py-1.5 text-[12px]" style={{ borderColor: "rgb(245 158 11 / .35)", background: "rgb(245 158 11 / .06)" }}>
+                      <summary className="flex min-h-8 min-w-0 cursor-pointer list-none items-center gap-2">
+                        <span aria-hidden className="h-2 w-2 shrink-0 rounded-full bg-amber-500" />
+                        <span className="min-w-0 flex-1 truncate text-white/80">{ventana.avisos[0]}</span>
+                        {ventana.avisos.length > 1 ? (
+                          <span className="shrink-0 font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                            Ver {ventana.avisos.length}
+                          </span>
+                        ) : (
+                          <span className="shrink-0 font-semibold" style={{ color: "var(--rmcf-gold-ink)" }}>
+                            Ver
+                          </span>
+                        )}
+                      </summary>
+                      <ul className="mt-1.5 space-y-1 pb-1 leading-snug text-white/75">
+                        {ventana.avisos.map((aviso) => (
+                          <li key={aviso}>{aviso}</li>
+                        ))}
+                      </ul>
+                    </details>
                   )}
 
                   {/* 29/10/2026: las siglas de las fichas, explicadas una sola vez. */}
@@ -2039,6 +2051,7 @@ export default function AbpMicrocicloPage() {
                     orden={ordenDias}
                     etiquetas={etiquetasDia}
                     hoy={diaDeHoy}
+                    plegarVaciosMovil
                     datoDe={datoDeTrabajo}
                     detalle={vistaSemana === "auto" ? "auto" : vistaSemana === "completa"}
                     onCambiaTipo={cambiaTipo}

@@ -19,6 +19,7 @@ import { aJornada, type FilaRival } from "@/lib/abp/jornada";
 import { mismoClub } from "@/lib/rivals/mismoClub";
 import { nombreEquipo } from "@/lib/rivals/nombre-equipo";
 import { MapaDosEjes } from "@/components/data/visual/MapaDosEjes";
+import { veredictoCentros } from "@/lib/rivals/veredicto-centros";
 import { lecturaDePuesto, type LecturaPuesto } from "@/lib/rivals/puesto-liga";
 import { cargaDatosMarcas } from "@/lib/abp/marcas-datos";
 import { motivoAtacante, ordenaAtacantes, ordenaMarcadores, type Atacante, type Marcador } from "@/lib/abp/marcas-corner";
@@ -1306,8 +1307,25 @@ export function AbpWyscoutRival({
     /* La base del titular de arriba, aquí (17/11/2026): un solo titular con su «60 precisos de 208». */
     const filaAcierto = aspectos.flatMap((a) => a.filas).find((f) => /centros precisos/i.test(f.nombre) && f.base);
     const baseAcierto = filaAcierto?.base ? ` (${Math.round(filaAcierto.base.arriba)} precisos de ${Math.round(filaAcierto.base.abajo)}${filaAcierto.partidos ? ` en ${filaAcierto.partidos} partidos` : ""})` : "";
+    /*
+    | 28/11/2026 (jueces de fútbol): el titular decía «centra poco y MAL (12.º en
+    | acierto)» y la barra, «en la media de la liga». El adjetivo del acierto
+    | sale ahora de la regla común (`veredictoCentros`: bueno o malo sólo a más
+    | de 2 puntos de la mediana y sin ser tendencia), la misma de la barra y de
+    | las demás pantallas; el puesto en el mapa se queda como dato.
+    */
+    const comun = veredictoCentros(aspectos.flatMap((a) => a.filas));
+    const deAcierto = comun
+      ? comun.bien
+        ? "con buen acierto"
+        : comun.mal
+          ? "con poco acierto"
+          : "con acierto normal"
+      : py[con.indexOf(suyo ?? con[0])] >= 50
+        ? "bien"
+        : "mal";
     const conclusion = suyo
-      ? `${nombreEquipo(suyo.equipo)} centra ${px[con.indexOf(suyo)] >= 50 ? "mucho" : "poco"} y ${py[con.indexOf(suyo)] >= 50 ? "bien" : "mal"}: ${puestoEn(suyo.x, con.map((p) => p.x))}.º de ${con.length} en volumen y ${puestoEn(suyo.y, con.map((p) => p.y))}.º en acierto${baseAcierto}`
+      ? `${nombreEquipo(suyo.equipo)} centra ${(comun ? comun.muchos : px[con.indexOf(suyo)] >= 50) ? "mucho" : "poco"} y ${deAcierto}: ${puestoEn(suyo.x, con.map((p) => p.x))}.º de ${con.length} en volumen y ${puestoEn(suyo.y, con.map((p) => p.y))}.º en acierto${baseAcierto}`
       : `Cuánto centra y con qué acierto, frente a los ${con.length} de la liga`;
     return (
       <div className="mb-4 min-w-0 border-b border-white/10 pb-4">
@@ -1795,7 +1813,29 @@ export function AbpWyscoutRival({
         </Panel>
       )}
 
-      {hayGoles && golesOpta && (
+      {/*
+        UNA SOLA COPIA (28/11/2026, los tres jueces): en Área del rival el
+        bloque de goles a balón parado salía entero, igual que en ABP del
+        rival. Aquí, una línea con la cifra y el enlace; el bloque, en ABP.
+      */}
+      {ambito === "area" && hayGoles && (golesOpta ?? goles) && (() => {
+        const favor = golesOpta ? golesOpta.aFavor : goles!.aFavor;
+        const contra = golesOpta ? golesOpta.enContra : goles!.enContra;
+        return (
+          <p className="rounded-xl border border-white/10 bg-white/[0.03] px-4 py-3 text-[13px] leading-snug text-white/75">
+            <b className="font-semibold text-white">A balón parado:</b>{" "}
+            {favor.goles > 0 ? `${favor.abp} de sus ${favor.goles} goles` : `${favor.abp} goles a favor`}
+            {" · "}
+            {contra.goles > 0 ? `${contra.abp} de los ${contra.goles} que encaja` : `${contra.abp} en contra`}
+            {golesOpta ? ` (Opta, ${golesOpta.partidos} ${golesOpta.partidos === 1 ? "partido" : "partidos"})` : ""}.{" "}
+            <Link href={`/scout-rival-abp?equipo=${encodeURIComponent(equipo)}`} className="font-semibold hover:underline" style={{ color: "var(--rmcf-gold-ink, #C8A96B)" }}>
+              Cómo y de qué, en ABP del rival ›
+            </Link>
+          </p>
+        );
+      })()}
+
+      {ambito !== "area" && hayGoles && golesOpta && (
         <Panel
           title="Goles a balón parado esta temporada"
           subtitle="De Opta: cada gol, clasificado por la jugada de la que nace. Es dato, no estimación"
@@ -1847,6 +1887,8 @@ export function AbpWyscoutRival({
 
                 {grupo.equipos > 1 && g.abp > 0 && (
                   <p className="mt-2 inline-flex items-center rounded-full border px-2.5 py-0.5 text-[11px] font-semibold" style={{ borderColor: `${acento}66`, color: acento }}>
+                    {/* 28/11/2026 (jueces de fútbol): con la cifra por partido delante, «50 %» y «14.º de 20» no parecen contradecirse (uno es la cuota; el otro, el volumen). */}
+                    {golesOpta.partidos > 0 && `${(g.abp / golesOpta.partidos).toFixed(1).replace(".", ",")} por partido · `}
                     {grupo.puesto}.º de {grupo.equipos} que más {aFavor ? "marca" : "encaja"} a balón parado por partido
                   </p>
                 )}
@@ -1898,7 +1940,7 @@ export function AbpWyscoutRival({
       )}
 
       {/* Respaldo: el equipo no está en Opta (o aún no ha llegado): la cuenta de Wyscout con su estimación. */}
-      {hayGoles && !golesOpta && goles && (
+      {ambito !== "area" && hayGoles && !golesOpta && goles && (
         <Panel
           title="Goles a balón parado esta temporada"
           subtitle="Los goles y los penaltis son dato del marcador; el reparto entre córner y falta es una estimación calibrada con Opta"

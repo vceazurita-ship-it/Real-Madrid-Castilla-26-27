@@ -130,6 +130,7 @@ export function ResumenDelOnce({
   lineas,
   abrir,
   cargando = false,
+  leyendo = false,
   ancho = false,
 }: {
   equipo: string;
@@ -140,6 +141,8 @@ export function ResumenDelOnce({
   abrir: (clave: string) => void;
   /** El once (marcado o sugerido) aún no ha llegado: esqueleto en vez de nada (20/11/2026). */
   cargando?: boolean;
+  /** Las fichas están pero Wyscout (de donde salen peligro y explotable) aún no ha contestado (28/11/2026). */
+  leyendo?: boolean;
   /** En el escritorio, encima del campograma: minicampo y lista lado a lado (20/11/2026, jueces). */
   ancho?: boolean;
 }) {
@@ -167,6 +170,39 @@ export function ResumenDelOnce({
   if (conGente.length === 0) return null;
 
   const fichas = conGente.flatMap((linea) => linea.fichas);
+  const conVeredicto = fichas.some((f) => f.veredicto);
+
+  /*
+  | 28/11/2026 (jueces de estilo): en el escritorio el bloque salía con su
+  | cabecera y la leyenda, y ningún jugador: las fichas estaban, pero los
+  | veredictos de Wyscout aún no. Sin minicampo (escritorio), mientras llegan,
+  | esqueleto de filas; si al final no hay ninguno, el bloque no sale.
+  */
+  if (ancho && !conVeredicto) {
+    if (!leyendo) return null;
+
+    return (
+      <section
+        aria-label={`Leyendo el once probable de ${equipo} en Wyscout`}
+        aria-busy="true"
+        className="min-w-0 overflow-hidden rounded-2xl border border-white/10 bg-white/[0.025]"
+      >
+        <header className="border-b border-white/10 px-4 py-3">
+          <h2 className="text-xs font-semibold uppercase tracking-[0.25em] text-[#C8A96B]">El once de un vistazo</h2>
+          <p className="mt-0.5 text-[13px] text-white/60">{dibujo}</p>
+        </header>
+        <ul aria-hidden className="space-y-2 px-4 py-3">
+          {[72, 64, 58, 66, 52, 60].map((largo, i) => (
+            <li key={i} className="flex min-w-0 items-center gap-2">
+              <span className="h-4 w-20 shrink-0 animate-pulse rounded-full bg-white/10" />
+              <span className="h-3 animate-pulse rounded-full bg-white/[0.07]" style={{ width: `${largo}%` }} />
+            </li>
+          ))}
+        </ul>
+      </section>
+    );
+  }
+
   const rotulos = rotulosDelOnce(fichas);
   /* Con su cifra (18/11/2026, ronda 23): «Flakus (xG 0,6 por 90′, mejor que 9 de cada 10 delanteros)». */
   const conCifra = (f: FichaResumen) => `${f.nombre} (${f.veredicto?.porque ?? ""})`;

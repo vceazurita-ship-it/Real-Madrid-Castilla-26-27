@@ -4036,6 +4036,14 @@ export default function MatchPreparation() {
 function BaseDeLaIdea({ texto }: { texto: string }) {
   const fuente = texto.match(/\s*\(([^()]*(?:Wyscout|Opta|BeSoccer|Hudl|analista|hoja)[^()]*)\)\.?\s*$/i);
   const dato = fuente ? texto.slice(0, fuente.index).trim() : texto;
+  /*
+  | 28/11/2026 (jueces de fútbol): la tarjeta de Manin ponía «Fuente: Wyscout» a
+  | un xG que es de Opta (y lo dice el dato). Las fuentes que nombra el dato y
+  | no están en la del final se añaden a la línea de la fuente.
+  */
+  const otras = fuente
+    ? ["Opta", "Wyscout", "BeSoccer", "Hudl"].filter((f) => dato.toLowerCase().includes(f.toLowerCase()) && !fuente[1].toLowerCase().includes(f.toLowerCase()))
+    : [];
 
   return (
     <>
@@ -4043,7 +4051,7 @@ function BaseDeLaIdea({ texto }: { texto: string }) {
         <b className="font-semibold text-white/80">Dato: </b>
         {dato}
       </p>
-      {fuente && <p className="mt-0.5 text-[12px] leading-snug text-white/60">Fuente: {fuente[1]}</p>}
+      {fuente && <p className="mt-0.5 text-[12px] leading-snug text-white/60">{otras.length > 0 ? "Fuentes" : "Fuente"}: {fuente[1]}{otras.length > 0 ? ` · ${otras.join(" y ")}, donde lo dice el dato` : ""}</p>}
     </>
   );
 }

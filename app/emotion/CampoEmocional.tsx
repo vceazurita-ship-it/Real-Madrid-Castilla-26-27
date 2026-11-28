@@ -21,6 +21,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { ArrowDown, ArrowUp, ArrowUpRight, Pencil, X } from "lucide-react";
 
 import { usePlayers } from "@/hooks/usePlayers";
@@ -810,6 +811,9 @@ const punto = (i: number, v: number) => {
 const poligono = (valores: number[]) => valores.map((v, i) => punto(i, v).join(",")).join(" ");
 
 const NEUTRO = "#62E8FF";
+/* 28/11/2026 (análisis y marketing, estilo): con menos de 3 evaluados la línea
+   no lleva el color de su nivel, va en gris (tendencia). */
+const GRIS_TENDENCIA = "#8A97A6";
 
 function RadarLinea({
   titulo,
@@ -830,12 +834,23 @@ function RadarLinea({
   const mediaEje = evaluados.length > 0 ? AXES.map((a) => evaluados.reduce((s, c) => s + c.dato[a.key], 0) / evaluados.length) : null;
   const media = mediaEje ? media4(mediaEje) : null;
   const banda = media !== null ? bandFor(media) : null;
-  const tono = banda?.tone ?? NEUTRO;
+  const corta = evaluados.length > 0 && evaluados.length < 3;
+  const tono = corta ? GRIS_TENDENCIA : banda?.tone ?? NEUTRO;
+  /* 28/11/2026 (los tres jueces, estilo): el radar se abre en grande al pulsarlo. */
+  const [ampliado, setAmpliado] = useState(false);
+  useEffect(() => {
+    if (!ampliado) return;
+    const alTeclear = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setAmpliado(false);
+    };
+    window.addEventListener("keydown", alTeclear);
+    return () => window.removeEventListener("keydown", alTeclear);
+  }, [ampliado]);
   const resaltado = evaluados.find((c) => c.clave === elegido);
   const barras = mediaEje ? (
     <div className="space-y-1.5" aria-label={`Media de ${titulo} por eje`}>
       {AXES.map((a, i) => {
-        const tonoEje = bandFor(mediaEje[i]).tone;
+        const tonoEje = corta ? GRIS_TENDENCIA : bandFor(mediaEje[i]).tone;
         const ref = teamAverage?.[a.key];
 
         return (
@@ -862,6 +877,85 @@ function RadarLinea({
       </p>
     </div>
   ) : null;
+
+  const lienzo = (clase: string, grande = false) => (
+  <svg viewBox="-90 -57 180 114" style={{ opacity: corta && !grande ? 0.6 : 1 }} className={`mx-auto w-full ${clase}`} role="img" aria-label={`Radar de ${titulo}`}>
+    {[2.5, 5, 7.5, 10].map((v) => (
+      <polygon
+        key={v}
+        points={poligono([v, v, v, v])}
+        style={{ fill: v === 10 ? "rgba(54,218,255,.04)" : "none", stroke: "var(--ce-rejilla, rgba(98,232,255,.22))" }}
+        strokeWidth={v === 10 ? 0.6 : 0.4}
+        strokeDasharray={v === 10 ? undefined : "1.5 1.5"}
+      />
+    ))}
+    {AXES.map((a, i) => {
+      const [x, y] = punto(i, 10);
+      return <line key={a.key} x1={0} y1={0} x2={x} y2={y} style={{ stroke: "var(--ce-eje, rgba(98,232,255,.2))" }} strokeWidth={0.4} />;
+    })}
+
+    {teamAverage && (
+      <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" style={{ stroke: "var(--ce-media-plantilla, rgba(228,201,119,.9))" }} strokeWidth={0.9} strokeDasharray="2 1.6" />
+    )}
+
+    {mediaEje && evaluados.length > 1 && <polygon points={poligono(mediaEje)} fill={`${tono}26`} stroke="none" />}
+
+    {evaluados.map((c, i) => {
+      const color = SERIES_COLORS[i % SERIES_COLORS.length];
+      return (
+        <polygon
+          key={c.clave}
+          points={poligono(AXES.map((a) => c.dato[a.key]))}
+          fill={evaluados.length === 1 ? `${color}33` : "none"}
+          stroke={color}
+          strokeWidth={resaltado === c ? 1.9 : 1.25}
+          strokeDasharray={c.dato.estimado ? "2.5 1.8" : undefined}
+          strokeLinejoin="round"
+          opacity={resaltado && resaltado !== c ? 0.25 : 1}
+          style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2.5px ${color}))`, transition: "opacity .3s" }}
+        />
+      );
+    })}
+
+    {mediaEje?.map((v, i) => {
+      const [x, y] = punto(i, v);
+      return <circle key={AXES[i].key} cx={x} cy={y} r={1.5} fill={tono} style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2px ${tono}))` }} />;
+    })}
+
+    {AXES.map((a, i) => {
+      const [x, y] = punto(i, 10);
+      const dx = i === 1 ? 3 : i === 3 ? -3 : 0;
+      /* 27/11/2026 (marketing, ronda 11): las cifras salen del radar a las
+         barras de debajo, en 12 px; en el lienzo, sólo el nombre del eje. */
+      const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : 2;
+      return (
+        <text
+          key={a.key}
+          x={x + dx}
+          y={y + dy}
+          textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
+          /* 08/11/2026: 8,6 sobre 180 de lienzo y 248 px de ancho mínimo
+             en escritorio: ~11,8 px, legible a 1440 (antes ~10). */
+          /* 17/11/2026 (ronda 19): un punto más y más blanco; en modo
+             día el tablero sigue oscuro y los ejes se leían flojos. */
+          fontSize={9.6}
+          fontWeight={700}
+          style={{ fill: "var(--ce-tinta, rgba(240,250,255,.95))" }}
+        >
+          {a.corto}
+          {/* Ampliado, con su cifra: en los lados, en un segundo renglón para no salirse. */}
+          {grande && mediaEje ? (
+            i === 1 || i === 3 ? (
+              <tspan x={x + dx} dy={10.5}>{coma(mediaEje[i])}</tspan>
+            ) : (
+              ` ${coma(mediaEje[i])}`
+            )
+          ) : null}
+        </text>
+      );
+    })}
+  </svg>
+  );
 
   return (
     <div
@@ -915,74 +1009,16 @@ function RadarLinea({
 
       {/* 01/11/2026: lienzo más ancho y los ejes de los lados en dos renglones
           (nombre y cifra): «Controlar 8,3» y «Ejecutar 9,0» se cortaban por el borde. */}
-      <svg viewBox="-90 -57 180 114" style={{ opacity: evaluados.length > 0 && evaluados.length < 3 ? 0.6 : 1 }} className={`mx-auto w-full ${tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[248px]" : "max-w-[300px] sm:max-w-[286px]"}`} role="img" aria-label={`Radar de ${titulo}`}>
-        {[2.5, 5, 7.5, 10].map((v) => (
-          <polygon
-            key={v}
-            points={poligono([v, v, v, v])}
-            style={{ fill: v === 10 ? "rgba(54,218,255,.04)" : "none", stroke: "var(--ce-rejilla, rgba(98,232,255,.22))" }}
-            strokeWidth={v === 10 ? 0.6 : 0.4}
-            strokeDasharray={v === 10 ? undefined : "1.5 1.5"}
-          />
-        ))}
-        {AXES.map((a, i) => {
-          const [x, y] = punto(i, 10);
-          return <line key={a.key} x1={0} y1={0} x2={x} y2={y} style={{ stroke: "var(--ce-eje, rgba(98,232,255,.2))" }} strokeWidth={0.4} />;
-        })}
-
-        {teamAverage && (
-          <polygon points={poligono(AXES.map((a) => teamAverage[a.key]))} fill="none" style={{ stroke: "var(--ce-media-plantilla, rgba(228,201,119,.9))" }} strokeWidth={0.9} strokeDasharray="2 1.6" />
-        )}
-
-        {mediaEje && evaluados.length > 1 && <polygon points={poligono(mediaEje)} fill={`${tono}26`} stroke="none" />}
-
-        {evaluados.map((c, i) => {
-          const color = SERIES_COLORS[i % SERIES_COLORS.length];
-          return (
-            <polygon
-              key={c.clave}
-              points={poligono(AXES.map((a) => c.dato[a.key]))}
-              fill={evaluados.length === 1 ? `${color}33` : "none"}
-              stroke={color}
-              strokeWidth={resaltado === c ? 1.6 : 0.9}
-              strokeDasharray={c.dato.estimado ? "2.5 1.8" : undefined}
-              strokeLinejoin="round"
-              opacity={resaltado && resaltado !== c ? 0.25 : 1}
-              style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2.5px ${color}))`, transition: "opacity .3s" }}
-            />
-          );
-        })}
-
-        {mediaEje?.map((v, i) => {
-          const [x, y] = punto(i, v);
-          return <circle key={AXES[i].key} cx={x} cy={y} r={1.5} fill={tono} style={{ filter: `var(--ce-sin-brillo, drop-shadow(0 0 2px ${tono}))` }} />;
-        })}
-
-        {AXES.map((a, i) => {
-          const [x, y] = punto(i, 10);
-          const dx = i === 1 ? 3 : i === 3 ? -3 : 0;
-          /* 27/11/2026 (marketing, ronda 11): las cifras salen del radar a las
-             barras de debajo, en 12 px; en el lienzo, sólo el nombre del eje. */
-          const dy = i === 0 ? -3.5 : i === 2 ? 7.5 : 2;
-          return (
-            <text
-              key={a.key}
-              x={x + dx}
-              y={y + dy}
-              textAnchor={i === 1 ? "start" : i === 3 ? "end" : "middle"}
-              /* 08/11/2026: 8,6 sobre 180 de lienzo y 248 px de ancho mínimo
-                 en escritorio: ~11,8 px, legible a 1440 (antes ~10). */
-              /* 17/11/2026 (ronda 19): un punto más y más blanco; en modo
-                 día el tablero sigue oscuro y los ejes se leían flojos. */
-              fontSize={9.6}
-              fontWeight={700}
-              style={{ fill: "var(--ce-tinta, rgba(240,250,255,.95))" }}
-            >
-              {a.corto}
-            </text>
-          );
-        })}
-      </svg>
+      {/* 28/11/2026 (estilo): el radar es un botón que lo abre en grande. */}
+      <button
+        type="button"
+        onClick={() => setAmpliado(true)}
+        title={`Ampliar el radar de ${titulo.toLowerCase()}`}
+        aria-label={`Ampliar el radar de ${titulo.toLowerCase()}`}
+        className="block w-full cursor-zoom-in rounded-xl"
+      >
+        {lienzo(tumbada ? "max-w-[300px] sm:max-w-[260px] xl:max-w-[248px]" : "max-w-[300px] sm:max-w-[286px]")}
+      </button>
 
       {/* 27/11/2026 (análisis y marketing, ronda 11): debajo del radar, cada eje
           en barra con su cifra a 12 px y la raya dorada de la media de la
@@ -994,6 +1030,48 @@ function RadarLinea({
       <div className={tumbada ? "xl:hidden" : ""}>
         <Nombres jugadores={jugadores} evaluados={evaluados} elegido={elegido} onElegir={onElegir} />
       </div>
+
+      {ampliado && typeof document !== "undefined" && createPortal(
+        <div
+          className="modal-veil fixed inset-0 z-[80] flex items-center justify-center bg-black/75 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label={`Radar de ${titulo.toLowerCase()}, ampliado`}
+          onClick={() => setAmpliado(false)}
+          data-export-hide
+        >
+          <div
+            className="max-h-[92vh] w-full max-w-2xl overflow-y-auto rounded-2xl p-4 sm:p-6"
+            style={{ background: "var(--ce-tarjeta, linear-gradient(160deg, rgba(4,18,32,.97), rgba(3,10,20,.95)))", border: `1px solid ${tono}66` }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="mb-2 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-semibold uppercase tracking-[.12em]" style={{ color: "var(--ce-titulo, #9FE9FF)" }}>{titulo}</p>
+                <p className="mt-0.5 text-xs" style={{ color: "var(--ce-tinta-apagada, rgba(226,246,255,.6))" }}>
+                  {media !== null ? `Media ${coma(media)} · ` : ""}n = {evaluados.length} {evaluados.length === 1 ? "jugador" : "jugadores"}
+                  {corta ? " · tendencia, en gris" : ""} · raya dorada: media de la plantilla
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setAmpliado(false)}
+                aria-label="Cerrar"
+                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border"
+                style={{ borderColor: "var(--ce-tab-borde, rgba(98,232,255,.3))", color: "var(--ce-tinta, rgba(240,250,255,.95))" }}
+              >
+                <X size={16} />
+              </button>
+            </div>
+            {lienzo("max-w-[560px]", true)}
+            {barras && <div className="mt-3">{barras}</div>}
+            <div className="mt-3">
+              <Nombres jugadores={jugadores} evaluados={evaluados} elegido={elegido} onElegir={onElegir} />
+            </div>
+          </div>
+        </div>,
+        document.body,
+      )}
     </div>
   );
 }
@@ -1353,6 +1431,10 @@ function LecturaDelOnce({
             </span>
           </p>
         )}
+        {/* 28/11/2026 (análisis y marketing, estilo): de la propuesta a la semana, a un toque. */}
+        <Link href="/microcycles" className="mt-1.5 inline-flex items-center gap-1 text-xs font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline" data-export-hide>
+          Meter la tarea en la semana (Microciclos) <ArrowUpRight size={12} aria-hidden />
+        </Link>
       </div>
 
       {alertas.length > 0 && (

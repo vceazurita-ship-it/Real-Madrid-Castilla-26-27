@@ -1093,7 +1093,17 @@ export default function DashboardSeguimiento() {
       out.push({
         icon: Layers,
         tone: "text-sky-400",
-        text: `«${nombre}» es la estrategia más usada (${cm(strategyData[0].percentage)} % de los registros que la anotan).`,
+        /* 28/11/2026 (análisis y marketing, estilo): con su «qué hacemos», como la
+           lectura de los objetivos: la menos usada, en el próximo registro. */
+        text: (() => {
+          const menos = strategyData.length > 1 ? strategyData[strategyData.length - 1] : null;
+          const nombreMenos = menos ? menos.name.charAt(0) + menos.name.slice(1).toLowerCase() : "";
+          return `«${nombre}» es la estrategia más usada (${cm(strategyData[0].percentage)} % de los registros que la anotan).${
+            menos && menos.percentage < strategyData[0].percentage
+              ? ` Qué hacemos: «${nombreMenos}» se queda en el ${cm(menos.percentage)} %; a quien sólo tiene registros de ${nombre.toLowerCase()}, el próximo, de ${nombreMenos.toLowerCase()}.`
+              : ""
+          }`;
+        })(),
       });
     }
 
@@ -1832,8 +1842,8 @@ export default function DashboardSeguimiento() {
                 {/* 27/11/2026 (fútbol y análisis, ronda 9): la evolución semanal sube arriba, junto al aviso. */}
                 <div className="grid grid-cols-1 gap-6">
                   <Panel
-                    title="Foco de los objetivos"
-                    subtitle={`De ${totalSessions} registros, cuántos llevan objetivo de cada tipo (uno puede llevar varios)`}
+                    title="Foco de los objetivos · un registro puede llevar varios"
+                    subtitle={`De ${totalSessions} registros, cuántos llevan objetivo de cada tipo: por eso las tres barras suman más del 100 %`}
                   >
                     <div className="space-y-4 py-2">
                       {focusData.map((f) => (
@@ -1869,18 +1879,36 @@ export default function DashboardSeguimiento() {
 
                   <Panel
                     title="Estrategias utilizadas"
-                    subtitle={`${conEstrategia}${conEstrategia < totalSessions ? ` de ${totalSessions}` : ""} registros con estrategia anotada · pulsa un segmento para filtrar`}
+                    subtitle={`${conEstrategia}${conEstrategia < totalSessions ? ` de ${totalSessions}` : ""} registros con estrategia anotada · pulsa una barra para filtrar`}
                   >
-                    <DonutWithLegend
-                      data={strategyData}
-                      active={filters.strategy}
-                      onSelect={(name: string) =>
-                        updateFilter(
-                          "strategy",
-                          filters.strategy === name ? "" : name
-                        )
-                      }
-                    />
+                    {/* 28/11/2026 (los tres jueces, estilo): barras ordenadas, como
+                        «Foco de los objetivos», en lugar del anillo de 4 trozos; se
+                        sigue filtrando al pulsar. */}
+                    <div className="space-y-2 py-2">
+                      {strategyData.map((f) => {
+                        const activa = filters.strategy === f.name;
+                        return (
+                          <button
+                            key={f.name}
+                            type="button"
+                            onClick={() => updateFilter("strategy", activa ? "" : f.name)}
+                            aria-pressed={activa}
+                            title={activa ? "Quitar el filtro" : `Filtrar por ${f.name.toLowerCase()}`}
+                            className={`block w-full rounded-xl px-2 py-1.5 text-left transition hover:bg-white/[0.04] ${activa ? "ring-1 ring-[#C8A96B]/60" : ""} ${filters.strategy && !activa ? "opacity-50" : ""}`}
+                          >
+                            <span className="mb-1 flex items-baseline justify-between gap-3 text-sm">
+                              <span className="min-w-0 truncate font-medium text-white/80">{f.name.charAt(0) + f.name.slice(1).toLowerCase()}</span>
+                              <span className="shrink-0 tabular-nums text-white/60">
+                                <span className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]">{f.value}</span> · {cm(f.percentage)} %
+                              </span>
+                            </span>
+                            <span className="block h-2.5 w-full overflow-hidden rounded-full bg-white/10">
+                              <span className="block h-full rounded-full" style={{ width: `${Math.min(100, f.percentage)}%`, background: GOLD }} />
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </Panel>
 
                   {/* 16/11/2026 (jueces): el segundo anillo pasa a ser el

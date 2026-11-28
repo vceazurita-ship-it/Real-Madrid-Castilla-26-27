@@ -645,6 +645,22 @@ export default function DataAnalisisPage() {
     };
   }, [intento]);
 
+  /*
+  | 28/11/2026 (estilo, análisis y marketing): si la carpeta de Wyscout no
+  | llega, se vuelve a pedir sola en segundo plano (hasta dos veces, a los
+  | 20 s) sin quitar lo que ya se ve; el estado va en la cabecera, junto a
+  | «Actualizar datos», y no en la zona de lectura.
+  */
+  const [reintentosSolos, setReintentosSolos] = useState(0);
+  useEffect(() => {
+    if (cargando || !datos || datos.ok || reintentosSolos >= 2) return;
+    const reloj = window.setTimeout(() => {
+      setReintentosSolos((n) => n + 1);
+      setIntento((n) => n + 1);
+    }, 20_000);
+    return () => window.clearTimeout(reloj);
+  }, [cargando, datos, reintentosSolos]);
+
   const partidos = useMemo(() => datos?.partidos ?? [], [datos]);
 
   /* --------------------------- TEMPORADAS -------------------------- */
@@ -1738,6 +1754,13 @@ export default function DataAnalisisPage() {
                 </Explicativo>
               }
               aside={
+                <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+                {/* 28/11/2026 (estilo): el estado de Wyscout, aquí y corto; el aviso ya no va en el cuerpo del post. */}
+                {!cargando && datos && !datos.ok ? (
+                  <span className="text-[12px] text-white/60" role="status">
+                    {reintentosSolos < 2 ? "Wyscout tarda: se vuelve a pedir solo" : "Wyscout no responde: «Actualizar datos»"}
+                  </span>
+                ) : null}
                 <Button
                   icon={RefreshCw}
                   onClick={() => {
@@ -1751,6 +1774,7 @@ export default function DataAnalisisPage() {
                 >
                   Actualizar datos
                 </Button>
+                </div>
               }
             />
 

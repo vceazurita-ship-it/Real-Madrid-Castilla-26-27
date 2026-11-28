@@ -269,7 +269,7 @@ export function MapaRemates({
       {lectura ? (
         <LecturaRemates visibles={visibles} r={r} enContra={enContra} rotuloGoles={rotuloGoles} referencia={delPartido ? null : referenciaXgRemate ?? null} />
       ) : (
-      <div className="grid gap-2 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         {/* 10/11/2026: con un solo partido, «17,0 por partido» no decía nada. */}
         <Cifra rotulo="Remates" valor={String(r.remates)} detalle={r.partidos && r.partidos > 1 ? `${dec(r.remates / r.partidos, 1)} por partido` : undefined} />
         {/* 27/11/2026 (ronda 9, fútbol): la jerga, explicada la primera vez y con su sentido. */}

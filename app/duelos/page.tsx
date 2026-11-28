@@ -975,7 +975,8 @@ export default function DuelosPage() {
                           m.balance >= UMBRAL_DUELO ? "gana el Castilla" : m.balance <= -UMBRAL_DUELO ? `gana ${equipoVisto || "el rival"}` : `parejo: hace falta ±${UMBRAL_DUELO} para que gane alguien`;
                         return (
                           <span className="basis-full">
-                            Centro del campo {firmaN(m.balance)}: nuestro doble pivote contra el suyo, diferencia de percentil (+ a favor nuestro, − a favor de {equipoVisto || "ellos"}); {quien}.
+                            {/* 28/11/2026 (jueces de fútbol): «+11» al lado de «+42» y «−15» parecía otra cuenta; se dice de qué sale. */}
+                            Centro del campo {firmaN(m.balance)}: nuestro doble pivote contra el suyo, {modo === "nuestro" ? "con el balón nuestro" : modo === "suyo" ? `con el balón de ${equipoVisto || "ellos"}` : "media de los dos momentos"}, en diferencia de percentil (+ a favor nuestro, − a favor de {equipoVisto || "ellos"}); {quien}.{modo !== "nuestro" && modo !== "suyo" ? " En «Qué hacemos», cada duelo va con la cifra del momento que decide (con o sin balón): por eso puede no coincidir." : ""}
                           </span>
                         );
                       })()}

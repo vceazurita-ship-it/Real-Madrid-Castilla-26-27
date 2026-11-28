@@ -31,6 +31,22 @@ export function olvidaDocsOpta() {
   if (typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_RECARGA));
 }
 
+/**
+ * Vuelve a pedir SÓLO las claves que aún no han llegado (28/11/2026, Plantillas
+ * rivales): una petición colgada dejaba el bloque en «Leyendo…» para siempre,
+ * porque la promesa en vuelo se reutilizaba. Lo ya bajado no se toca.
+ */
+export function reintentaDocsOpta(claves: string[]) {
+  let alguna = false;
+  for (const c of claves) {
+    if (!listos.has(c) && enVuelo.has(c)) {
+      enVuelo.delete(c);
+      alguna = true;
+    }
+  }
+  if (alguna && typeof window !== "undefined") window.dispatchEvent(new Event(EVENTO_RECARGA));
+}
+
 function trae(clave: string): Promise<unknown> {
   let p = enVuelo.get(clave);
   if (!p) {

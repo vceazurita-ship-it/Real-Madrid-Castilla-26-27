@@ -32,7 +32,7 @@
  * a mano —arrastrar seis bloques de un día a otro— caben más días a la vez.
  */
 
-import { useState, type CSSProperties } from "react";
+import { Fragment, useState, type CSSProperties } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -707,7 +707,14 @@ export function SemanaGrid({
   onMover,
   onDuplicar,
   onBorrar,
+  plegarVaciosMovil = false,
 }: {
+  /**
+   * 28/11/2026 (jueces, estilo): en el móvil, los días sin balón parado se
+   * pliegan en una línea («Lun 23 · MD-6 · sesión · sin ABP») que se abre al
+   * tocarla. Opcional: sin él, como siempre (lo usa también el horario del viaje).
+   */
+  plegarVaciosMovil?: boolean;
   /** 20/11/2026 (jueces, ronda 4): el día de hoy, resaltado y con atajo en el móvil. */
   hoy?: DiaKey | null;
   /** La carencia que ataca cada tarea, con su dato (de las hojas de ABP). */
@@ -746,6 +753,8 @@ export function SemanaGrid({
 }) {
   /* Lo que se está arrastrando, sólo para pintar el fantasma. */
   const [arrastrando, setArrastrando] = useState<Trabajo | null>(null);
+  /* Los días plegados que se han abierto a mano (sólo en el móvil). */
+  const [abiertos, setAbiertos] = useState<Set<DiaKey>>(() => new Set());
 
   /*
   | Los días del microciclo, y si no se saben, la semana entera.
@@ -838,9 +847,32 @@ export function SemanaGrid({
             } as CSSProperties
           }
         >
-          {columnas.map((clave) => (
+          {columnas.map((clave) => {
+            const plegado =
+              plegarVaciosMovil &&
+              dias[clave].trabajos.length === 0 &&
+              hoy !== clave &&
+              dias[clave].tipo !== "partido" &&
+              !abiertos.has(clave);
+            const info = DIAS.find((item) => item.key === clave);
+            return (
+            <Fragment key={clave}>
+            {plegado ? (
+              <button
+                type="button"
+                onClick={() => setAbiertos((antes) => new Set(antes).add(clave))}
+                className="flex min-h-10 w-full min-w-0 items-center gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-1.5 text-left text-[12px] text-white/65 md:hidden"
+                aria-label={`Abrir ${info?.label ?? clave}`}
+              >
+                <span className="min-w-0 flex-1 truncate">
+                  <b className="font-semibold text-white/85">{info?.corto}{etiquetas?.[clave] ? ` ${etiquetas[clave]}` : ""}</b>
+                  {dias[clave].md ? ` · ${dias[clave].md}` : ""} · {dias[clave].tipo === "descanso" ? "libre" : "sesión"} · sin ABP
+                </span>
+                <Plus aria-hidden className="h-3.5 w-3.5 shrink-0" />
+              </button>
+            ) : null}
+            <div className={plegado ? "max-md:hidden md:contents" : "contents"}>
             <DiaColumna
-              key={clave}
               dia={clave}
               plan={dias[clave]}
               detalle={detalle === "auto" ? dias[clave].trabajos.length < 3 : detalle}
@@ -855,7 +887,10 @@ export function SemanaGrid({
               onDuplicar={(trabajo) => onDuplicar(clave, trabajo)}
               onBorrar={(trabajo) => onBorrar(clave, trabajo)}
             />
-          ))}
+            </div>
+            </Fragment>
+            );
+          })}
         </div>
       </div>
 

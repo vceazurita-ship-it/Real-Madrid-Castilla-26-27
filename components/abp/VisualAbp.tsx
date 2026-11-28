@@ -205,6 +205,8 @@ export function BarraReparto({
             <span key={t.clave} className="inline-flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: t.color }} aria-hidden />
               {t.rotulo}
+              {/* 28/11/2026 (jueces, estilo): los tramos que en la barra no llevan su % (los pequeños: «7», «gol 1 %»), con la cifra en la leyenda. */}
+              {t.n / total < 0.1 ? <span className="tabular-nums text-white/55">· {t.n} ({pc(t.n, total)} %)</span> : null}
             </span>
           ))}
         </p>
@@ -228,10 +230,31 @@ export function BarraReparto({
 type Partido = { jornada: JornadaAbp; filas: FilaVisualAbp[] };
 
 /** Una columna apilada por partido, en orden de calendario. */
-function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Partido[]; categorias: CategoriaVisual[]; exito: ExitoVisual; marca?: string | null }) {
-  const tope = Math.max(...partidos.map((p) => p.filas.length), 1);
+function ColumnasJornada({
+  partidos,
+  categorias,
+  exito,
+  marca,
+  enPorcentaje = false,
+}: {
+  partidos: Partido[];
+  categorias: CategoriaVisual[];
+  exito: ExitoVisual;
+  marca?: string | null;
+  /**
+   * 28/11/2026 (jueces de estilo, saque de banda): todas las columnas a la
+   * misma altura (100 % del partido) y la raya en la media del % de éxito, para
+   * que el gráfico mida lo mismo que el titular. Sólo vale si las categorías de
+   * éxito van primero (abajo en la pila). Opcional: sin él, como siempre.
+   */
+  enPorcentaje?: boolean;
+}) {
+  const tope = enPorcentaje ? 1 : Math.max(...partidos.map((p) => p.filas.length), 1);
   /* 17/11/2026 (jueces, ronda 20): la media por partido, como raya de referencia. */
-  const mediaN = partidos.length >= 3 ? partidos.reduce((a, p) => a + p.filas.length, 0) / partidos.length : null;
+  const mediaN = enPorcentaje ? null : partidos.length >= 3 ? partidos.reduce((a, p) => a + p.filas.length, 0) / partidos.length : null;
+  const totalFilas = partidos.reduce((a, p) => a + p.filas.length, 0);
+  const totalExitos = partidos.reduce((a, p) => a + p.filas.filter((f) => f.exito).length, 0);
+  const mediaPc = enPorcentaje && totalFilas && partidos.length >= 3 ? (totalExitos / totalFilas) * 100 : null;
   return (
     <div className="min-w-0 overflow-x-auto">
       <div className="relative flex h-44 items-end gap-1.5" style={{ minWidth: partidos.length * 26 }}>
@@ -239,6 +262,13 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
           <span
             className="pointer-events-none absolute inset-x-0 border-t border-dashed"
             style={{ bottom: `${(mediaN / tope) * 100 * 0.88}%`, borderColor: "rgb(var(--rmcf-ink-rgb) / .45)" }}
+            aria-hidden
+          />
+        ) : null}
+        {mediaPc !== null ? (
+          <span
+            className="pointer-events-none absolute inset-x-0 border-t-2 border-dashed"
+            style={{ bottom: `${mediaPc * 0.88}%`, borderColor: "rgb(var(--rmcf-ink-rgb) / .6)" }}
             aria-hidden
           />
         ) : null}
@@ -253,7 +283,7 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
               </span>
               <div
                 className="flex w-full max-w-[34px] flex-col-reverse overflow-hidden rounded-t-[4px]"
-                style={{ height: `${(n / tope) * 100}%`, outline: marcada ? "2px solid #C8A96B" : undefined, outlineOffset: 1 }}
+                style={{ height: enPorcentaje ? "88%" : `${(n / tope) * 100}%`, outline: marcada ? "2px solid #C8A96B" : undefined, outlineOffset: 1 }}
               >
                 {categorias.map((c) => {
                   const k = p.filas.filter((f) => f.cat === c.clave).length;
@@ -277,6 +307,7 @@ function ColumnasJornada({ partidos, categorias, exito, marca }: { partidos: Par
       </div>
       <p className="mt-2 text-[12px] leading-snug text-white/60">
         Encima de cada columna, «a/b»: las que {exito.varios} (a) de las del partido (b). Orden de calendario.
+        {mediaPc !== null ? ` Cada columna es el 100 % del partido; abajo, las que ${exito.varios}. Raya discontinua: la media, ${mediaPc.toLocaleString("es-ES", { maximumFractionDigits: 1 })} % (${totalExitos} de ${totalFilas}).` : ""}
         {mediaN !== null ? ` Raya discontinua: la media de acciones por partido, ${mediaN.toLocaleString("es-ES", { maximumFractionDigits: 1 })} (la altura de cada columna es su número de acciones).` : ""}
         {marca && partidos.some((p) => p.jornada.clave === marca) ? " En oro, el último partido." : ""}
       </p>
@@ -611,6 +642,7 @@ export function VisualAbp({
   repartoArriba = false,
   tipoFrenteAlResto = false,
   tendenciaEnUnaLinea = false,
+  tendenciaEnPorcentaje = false,
 }: {
   filas: FilaVisualAbp[];
   categorias: CategoriaVisual[];
@@ -637,6 +669,8 @@ export function VisualAbp({
   tipoFrenteAlResto?: boolean;
   /** 27/11/2026 (ronda 11, ABP ofensivo): «¿Va a mejor?» sin las columnas (la pantalla ya pinta el partido a partido arriba). */
   tendenciaEnUnaLinea?: boolean;
+  /** 28/11/2026 (jueces de estilo, saque de banda): las columnas de «¿Va a mejor?» en % del partido, con la raya en la media. */
+  tendenciaEnPorcentaje?: boolean;
 }) {
   if (!filas.length) return null;
 
@@ -706,7 +740,7 @@ export function VisualAbp({
               {tituloJornadas}
             </TituloConclusion>
             {/* 27/11/2026 (jueces, ronda 11): con el gráfico de partido a partido ya arriba, aquí sólo la tendencia en una línea. */}
-            {tendenciaEnUnaLinea ? null : <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} marca={marca} />}
+            {tendenciaEnUnaLinea ? null : <ColumnasJornada partidos={partidos} categorias={categorias} exito={exito} marca={marca} enPorcentaje={tendenciaEnPorcentaje} />}
           </Lamina>
         ) : null}
       </div>

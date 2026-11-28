@@ -1431,7 +1431,7 @@ export default function ScoutRivalAbpPage() {
               )}
 
               {/* Cómo marca de córner (23/11/2026): primer toque, rechace o en corto, de Opta; en Visual y en Detalle. */}
-              {vista === "resumen" && equipo && grupo === "liga" && <ComoMarcaCorner equipo={equipo} />}
+              {vista === "resumen" && equipo && grupo === "liga" && <ComoMarcaCorner equipo={equipo} nombres={nombresPlantilla} />}
 
               {/* -------------------- estaturas --------------------- */}
 

@@ -19,6 +19,7 @@ import {
   ComposedChart,
   LabelList,
   Line,
+  ReferenceArea,
   ReferenceLine,
   Scatter,
   ScatterChart,
@@ -47,6 +48,7 @@ import {
   round,
 } from "@/lib/ratings/compute";
 import { formatMatchDateShort, matchLabel } from "@/lib/ratings/matches";
+import { urlPostDelPartido } from "@/lib/post-partido";
 
 /** «vs JUVENTUD DE TORREMOLINOS CF»: el rival siempre en mayúsculas. */
 function rivalEnMayusculas(match: Parameters<typeof matchLabel>[0]) {
@@ -346,8 +348,11 @@ export function TeamPanel({
           /* 27/11/2026 (marketing, ronda 10): tocar el punto abre el partido:
              el último, su análisis post (el único que se pide por dirección);
              los demás, su rival ya elegido, como en «Partido a partido». */
-          href:
-            i === lista.length - 1
+          /* 28/11/2026 (los tres jueces, estilo): cada punto, el análisis post
+             de SU partido (Data análisis lo abre con fecha y rival). */
+          href: item.match.date
+            ? urlPostDelPartido(item.match.date, item.match.opponent)
+            : i === lista.length - 1
               ? "/data-analisis?area=post"
               : `/rivals?equipo=${encodeURIComponent(item.match.opponent)}`,
           name: formatMatchDateShort(item.match),
@@ -400,10 +405,14 @@ export function TeamPanel({
     const puestos: { minutes: number; y: number }[] = [];
     const cabe = (minutes: number, y: number) =>
       !puestos.some((q) => Math.abs(q.minutes - minutes) / maxMin < 0.13 && Math.abs(q.y - y) < 0.4);
+    /* 28/11/2026 (análisis y marketing, estilo): como mucho 8 nombres fijos
+       (los de prioridad primero); el resto, al tocar el punto o con «Todos». */
+    const TOPE_ROTULOS = 8;
     for (const p of [...puntos].sort((a, b) => a.prioridad - b.prioridad)) {
       const arriba = p.value + 0.25;
       const debajo = p.value - 0.3;
-      if (cabe(p.minutes, arriba)) puestos.push({ minutes: p.minutes, y: arriba });
+      if (!todosNombres && puestos.length >= TOPE_ROTULOS) p.rotulo = "";
+      else if (cabe(p.minutes, arriba)) puestos.push({ minutes: p.minutes, y: arriba });
       else if (cabe(p.minutes, debajo)) {
         p.abajo = true;
         puestos.push({ minutes: p.minutes, y: debajo });
@@ -431,6 +440,15 @@ export function TeamPanel({
     const ticks: number[] = [];
     for (let v = 0; v <= techo; v += paso) ticks.push(v);
     return { techo, ticks };
+  }, [topChart]);
+
+  /* 28/11/2026 (estilo): la zona de los referentes (más minutos que la mediana
+     y nota por encima de la media del equipo), pintada dentro del gráfico. */
+  const medianaMinutos = useMemo(() => {
+    const m = topChart.map((p) => p.minutes).sort((a, b) => a - b);
+    if (!m.length) return 0;
+    const mitad = Math.floor(m.length / 2);
+    return m.length % 2 ? m[mitad] : (m[mitad - 1] + m[mitad]) / 2;
   }, [topChart]);
 
   const ticksNota = useMemo(() => {
@@ -658,6 +676,8 @@ export function TeamPanel({
                           ...(point.result
                             ? [{ label: "Resultado (Castilla primero)", value: point.result }]
                             : []),
+                          /* 28/11/2026 (estilo): qué abre el punto, dicho. */
+                          { label: "Al tocar el punto", value: point.href.startsWith("/data-analisis") ? "su análisis post" : "el rival" },
                         ]}
                       />
                     );
@@ -766,6 +786,20 @@ export function TeamPanel({
                     axisLine={false}
                   />
 
+                  {teamAverage > 0 && medianaMinutos > 0 && (
+                    <ReferenceArea
+                      x1={medianaMinutos}
+                      x2={ejeMinutos.techo}
+                      y1={teamAverage}
+                      y2={dominioNota[1]}
+                      fill="#1B9E77"
+                      fillOpacity={0.09}
+                      stroke="none"
+                      ifOverflow="hidden"
+                      label={{ value: "referentes", position: "insideTopRight", fontSize: 11, fill: "#1B9E77" }}
+                    />
+                  )}
+
                   {teamAverage > 0 && (
                     <ReferenceLine
                       y={teamAverage}
@@ -854,7 +888,7 @@ export function TeamPanel({
                     className="inline-block w-5 border-t-2 border-dashed"
                     style={{ borderColor: "rgb(var(--rmcf-ink-rgb) / 0.45)" }}
                   />
-                  media del equipo · arriba a la derecha, más nota y más minutos: los referentes; abajo a la derecha, mucho minuto con nota baja: a revisar
+                  media del equipo · en verde, arriba a la derecha (más minutos que la mediana, {Math.round(medianaMinutos)}′, y nota por encima de la media): los referentes; abajo a la derecha, mucho minuto con nota baja: a revisar
                 </p>
               )}
             </>
@@ -1289,7 +1323,10 @@ export function TeamPanel({
                       rotuloAncho
                       className="flex-nowrap"
                       jugador={{ id: entry.player.id, nombre: entry.player.nombre }}
-                      destinos={["seguimiento", "comparativa", "videos"]}
+                      /* 28/11/2026 (los tres jueces, estilo): uno a la vista y el resto
+                         en «Más», en vez de tres botones en cada una de las 21 filas. */
+                      destinos={["seguimiento"]}
+                      mas={["comparativa", "videos"]}
                     />
                   </td>
                 </tr>
@@ -1342,8 +1379,13 @@ export function TeamPanel({
                       {/* 16/11/2026: el último partido abre su análisis post
                           (Data análisis abre por defecto el último jugado; los
                           anteriores no se pueden pedir por la dirección). */}
-                      {index === 0 && (
-                        <Link href="/data-analisis?area=post" className="font-semibold text-[#C8A96B] hover:underline">
+                      {/* 28/11/2026 (fútbol, estilo): en todas las filas, con el
+                          partido ya elegido (fecha y rival), no sólo en el último. */}
+                      {(item.match.date || index === 0) && (
+                        <Link
+                          href={item.match.date ? urlPostDelPartido(item.match.date, item.match.opponent) : "/data-analisis?area=post"}
+                          className="font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline"
+                        >
                           Análisis post →
                         </Link>
                       )}

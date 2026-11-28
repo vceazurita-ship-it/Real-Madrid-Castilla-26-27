@@ -73,7 +73,11 @@ const VALORACIONES_FIRMES = 25;
 
 /* Hoy, como «AAAA-MM-DD», leído fuera del render (regla de pureza del linter). */
 const nadaQueOir = () => () => {};
-const hoyIso = () => new Date().toISOString().slice(0, 10);
+/* 28/11/2026: el día LOCAL (con toISOString, de madrugada era aún ayer en UTC). */
+const hoyIso = () => {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+};
 
 
 const EMPTY_GROUPS: Record<GroupKey, string[]> = {
@@ -233,9 +237,15 @@ export default function EmotionPage() {
     const md2 = d.toISOString().slice(0, 10);
     const corto = (iso: string) => `${iso.slice(8, 10)}/${iso.slice(5, 7)}`;
 
-    return hoy && hoy > md2
-      ? `antes del partido ante ${proximo.rival} (${corto(proximo.fecha)})`
-      : `antes del MD-2 del partido ante ${proximo.rival}: el ${corto(md2)}`;
+    /* 28/11/2026 (fútbol, estilo): pasado el MD-2, el aviso dice que está
+       vencida y desde cuándo, no la fecha como si estuviera por venir. */
+    if (hoy && hoy > md2) {
+      return {
+        vencida: true,
+        texto: `Vencida desde el ${corto(md2)} (MD-2 ante ${proximo.rival}): valorar ${hoy >= proximo.fecha ? "hoy, el día del partido" : `hoy, antes del partido del ${corto(proximo.fecha)}`}.`,
+      };
+    }
+    return { vencida: false, texto: `Valorar de nuevo antes del MD-2 del partido ante ${proximo.rival}: el ${corto(md2)}.` };
   }, [proximo, hoy]);
 
   const [editando, setEditando] = useState(false);
@@ -573,11 +583,11 @@ export default function EmotionPage() {
                       caducada, un banner arriba con el día límite y «Valorar
                       ahora» como acción principal. */}
                   {caducada && (
-                    <div className="mt-3 flex max-w-2xl flex-col gap-2 rounded-2xl border border-amber-500/50 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
-                      <p className="min-w-0 text-sm leading-snug text-amber-200 [:root[data-theme=light]_&]:text-amber-900">
+                    <div className={`mt-3 flex max-w-2xl flex-col gap-2 rounded-2xl border px-4 py-3 sm:flex-row sm:items-center sm:justify-between ${limiteValorar?.vencida ? "border-red-500/60 bg-red-500/10" : "border-amber-500/50 bg-amber-500/10"}`}>
+                      <p className={`min-w-0 text-sm leading-snug ${limiteValorar?.vencida ? "text-red-200 [:root[data-theme=light]_&]:text-red-900" : "text-amber-200 [:root[data-theme=light]_&]:text-amber-900"}`}>
                         {/* 27/11/2026 (marketing, ronda 10): una línea, con el día límite. */}
                         <span className="font-semibold">A revisar: valoración del {fechaCorta}, hace {diasDesdeValoracion} días.</span>{" "}
-                        {limiteValorar ? `Valorar de nuevo ${limiteValorar}.` : "Valorar de nuevo antes del próximo partido."}
+                        {limiteValorar ? limiteValorar.texto : "Valorar de nuevo antes del próximo partido."}
                         {/* 27/11/2026 (los dos jueces, ronda 11): el único sitio con la fecha; los gráficos, en gris hasta renovar. */}
                         <span className="block text-xs opacity-80">Hasta renovarla, los gráficos van en gris y sus cifras se leen como referencia.</span>
                       </p>
@@ -768,7 +778,7 @@ export default function EmotionPage() {
             {/* ---------------------------------------------- Escala */}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <p className="text-[11px] uppercase tracking-[.25em] text-white/40">
-                Perfiles por línea
+                Perfiles por línea · quién entra en cada radar
               </p>
 
               <div className="flex flex-wrap items-center gap-3">

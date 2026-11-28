@@ -270,11 +270,109 @@ function parteNombreVideo(
 | LO CODIFICADO, DE UN VISTAZO (27/11/2026, ronda 9). Dos columnas de barras
 | —por categoría y por jugador— con su base y una frase de lectura. Los clips
 | de jugador sueltos («Vídeo completo») no son una acción: se cuentan aparte,
-| en la frase. Con menos de 2 cortes de partido no sale (no hay reparto).
+| en la frase. Con menos de 2 cortes de partido no hay reparto: sale la guía
+| de cuatro pasos (GuiaPasos, justo debajo).
 */
-function ResumenCortes({ clips, categorias }: { clips: ClipCoding[]; categorias: CategoriaCoding[] }) {
+/*
+| 28/11/2026 (jueces de estilo): con menos de 2 cortes de partido, en lugar de
+| nada (y de una tabla casi vacía como primera lectura), la guía de cuatro
+| pasos con sus teclas; el paso hecho se marca.
+*/
+function GuiaPasos({ hayVideo, hayCortes }: { hayVideo: boolean; hayCortes: boolean }) {
+  const pasos: { n: number; titulo: string; teclas: string[]; texto: string; hecho: boolean }[] = [
+    { n: 1, titulo: "Abrir el vídeo", teclas: [], texto: "«Elegir vídeo»: de la carpeta de partidos, un enlace o el ordenador.", hecho: hayVideo },
+    { n: 2, titulo: "Marcar la acción", teclas: ["I", "O"], texto: "Inicio y cierre, o Intro para un corte de un toque. Espacio reproduce o para.", hecho: hayCortes },
+    { n: 3, titulo: "Quién y qué", teclas: ["⇧"], texto: "La tecla del jugador y la de la categoría (⇧ + letra, un comportamiento del equipo).", hecho: hayCortes },
+    { n: 4, titulo: "Sacar los vídeos", teclas: [], texto: "Se guarda solo. Abajo, «Sacar los vídeos» corta de verdad (ZIP, unificado o YouTube).", hecho: false },
+  ];
+  return (
+    <section className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3" aria-label="Cómo se codifica, en cuatro pasos">
+      <p className="text-[13px] font-semibold leading-snug text-white">Codificar en cuatro pasos</p>
+      <ol className="mt-2.5 grid min-w-0 grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        {pasos.map((p) => (
+          <li key={p.n} className={`min-w-0 rounded-xl border px-3 py-2 ${p.hecho ? "border-[#C8A96B]/45 bg-[#C8A96B]/[0.08]" : "border-white/10"}`}>
+            <p className="flex min-w-0 items-center gap-2 text-[12px] font-semibold text-white">
+              <span className="grid h-5 w-5 shrink-0 place-items-center rounded-full border border-[#C8A96B]/60 text-[11px] tabular-nums" style={{ color: "var(--rmcf-gold-ink)" }}>
+                {p.hecho ? "✓" : p.n}
+              </span>
+              <span className="min-w-0 truncate">{p.titulo}</span>
+              {p.teclas.map((k) => (
+                <kbd key={k} className="rounded border border-white/20 bg-white/[0.06] px-1.5 py-0.5 font-mono text-[11px] text-white/85">{k}</kbd>
+              ))}
+            </p>
+            <p className="mt-1 text-[12px] leading-snug text-white/60">{p.texto}</p>
+          </li>
+        ))}
+      </ol>
+    </section>
+  );
+}
+
+/** mm:ss de unos milisegundos. */
+const mmss = (ms: number) => {
+  const s = Math.max(0, Math.round(ms / 1000));
+  return `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+};
+
+/*
+| 28/11/2026 (jueces de estilo, «al estilo de Sportscode»): la línea de tiempo
+| de cada vídeo con sus cortes, coloreados por categoría. Un vídeo por fila (un
+| corte sólo significa algo dentro de SU vídeo); la escala va de 00:00 al cierre
+| del último corte, que es lo que se sabe sin abrir el vídeo.
+*/
+function LineaDeCortes({ cortes, categorias, primerVideo }: { cortes: ClipCoding[]; categorias: CategoriaCoding[]; primerVideo?: string }) {
+  const porVideo = new Map<string, ClipCoding[]>();
+  for (const c of cortes) {
+    const v = c.video || primerVideo || "";
+    porVideo.set(v, [...(porVideo.get(v) ?? []), c]);
+  }
+  const filas = [...porVideo.entries()].sort((a, b) => b[1].length - a[1].length).slice(0, 3);
+  const colorDe = (id: string) => categorias.find((c) => c.id === id)?.color || "#C8A96B";
+  const usadas = categorias.filter((cat) => cortes.some((c) => c.categoriaId === cat.id)).slice(0, 8);
+  return (
+    <div className="mt-2.5 min-w-0 space-y-2" aria-label="Los cortes en la línea de tiempo de cada vídeo">
+      {filas.map(([video, lista]) => {
+        const fin = Math.max(1, ...lista.map((c) => c.codingFinMs || c.finMs));
+        return (
+          <div key={video || "video"} className="min-w-0">
+            <p className="flex min-w-0 items-baseline justify-between gap-2 text-[11px] text-white/55">
+              <span className="min-w-0 truncate">{video || "Vídeo"} · {lista.length} {lista.length === 1 ? "corte" : "cortes"}</span>
+              <span className="shrink-0 tabular-nums">00:00 – {mmss(fin)}</span>
+            </p>
+            <div className="relative mt-1 h-5 min-w-0 overflow-hidden rounded-md bg-white/[0.06]">
+              {lista.map((c) => {
+                const a = c.codingInicioMs || c.inicioMs;
+                const b = c.codingFinMs || c.finMs;
+                return (
+                  <span
+                    key={c.id}
+                    className="absolute inset-y-0.5 rounded-[2px]"
+                    style={{ left: `${(a / fin) * 100}%`, width: `max(3px, ${((b - a) / fin) * 100}%)`, background: colorDe(c.categoriaId) }}
+                    title={`${mmss(a)} · ${c.jugadorNombre || ""} · ${categorias.find((x) => x.id === c.categoriaId)?.nombre ?? "Sin categoría"}`}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
+      {usadas.length > 0 && (
+        <p className="flex min-w-0 flex-wrap gap-x-3 gap-y-1 text-[11px] text-white/60" aria-label="Leyenda de categorías">
+          {usadas.map((cat) => (
+            <span key={cat.id} className="inline-flex items-center gap-1">
+              <span className="inline-block h-2.5 w-2.5 rounded-[2px]" style={{ background: cat.color || "#C8A96B" }} />
+              {cat.nombre}
+            </span>
+          ))}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function ResumenCortes({ clips, categorias, hayVideo = false, primerVideo }: { clips: ClipCoding[]; categorias: CategoriaCoding[]; hayVideo?: boolean; primerVideo?: string }) {
   const cortes = clips.filter((c) => c.jugadorId !== SUJETO_VIDEO_COMPLETO.id);
-  if (cortes.length < 2) return null;
+  if (cortes.length < 2) return <GuiaPasos hayVideo={hayVideo} hayCortes={cortes.length > 0} />;
   const sueltos = clips.length - cortes.length;
   const porCat = porCategoria(cortes, categorias).filter((f) => f.clave !== "sin-categoria").slice(0, 5);
   const porJug = porJugador(cortes).slice(0, 5);
@@ -290,6 +388,7 @@ function ResumenCortes({ clips, categorias }: { clips: ClipCoding[]; categorias:
   return (
     <section className="mt-4 min-w-0 rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3" aria-label="Lo codificado de un vistazo">
       <p className="text-[13px] font-semibold leading-snug text-white">{frase}</p>
+      <LineaDeCortes cortes={cortes} categorias={categorias} primerVideo={primerVideo} />
       <div className={`mt-2.5 grid min-w-0 gap-4 ${columnas.length > 1 ? "sm:grid-cols-2" : ""}`}>
         {columnas.map((col) => {
           const tope = Math.max(1, ...col.filas.map((f) => f.n));
@@ -1673,8 +1772,25 @@ function Coding() {
 
     const nombre = apodoSinSiglas(rival.nombre);
 
-    return !videosSesion.some((video) => apodoCoding(video.nombre).includes(nombre));
-  }, [ambito, rival, equipoRival, videosSesion]);
+    if (videosSesion.some((video) => apodoCoding(video.nombre).includes(nombre))) return false;
+
+    /* 28/11/2026 (jueces de estilo): un rival se codifica con SUS partidos, y
+       el fichero de un partido suyo lleva el nombre del otro equipo
+       («rayo-majadahonda-todo-el-partido» es un partido del Murcia). Si algún
+       vídeo de la sesión nombra a un jugador de su plantilla («6 D. Bosilj Gol
+       de cabeza»), los cortes son de este rival y no hay nada que preguntar. */
+    const apellidos = (plantilla?.jugadores ?? [])
+      .map((uno) => apodoCoding(uno.nombre).split("-").filter((trozo) => trozo.length >= 4).at(-1) ?? "")
+      .filter(Boolean);
+
+    if (apellidos.length > 0 && videosSesion.some((video) => {
+      const trozos = apodoCoding(video.nombre).split("-");
+
+      return apellidos.some((apellido) => trozos.includes(apellido));
+    })) return false;
+
+    return true;
+  }, [ambito, rival, equipoRival, videosSesion, plantilla]);
 
   /* 29/10/2026: el aviso sólo sale si un vídeo abierto lleva el nombre de OTRO
      equipo del calendario; si ninguno nombra a nadie, el desplegable ya viene
@@ -4666,7 +4782,7 @@ function Coding() {
 
             {/* 27/11/2026 (ronda 9, los tres jueces): lo codificado de un vistazo,
                 antes del vídeo y de la tabla: cortes por categoría y por jugador. */}
-            <ResumenCortes clips={sesion.sesion.clips} categorias={config.categorias} />
+            <ResumenCortes clips={sesion.sesion.clips} categorias={config.categorias} hayVideo={Boolean(src)} primerVideo={videosSesion[0]?.nombre} />
 
             {/* ========================= EL TABLERO ===================== */}
 
@@ -6151,9 +6267,12 @@ function Coding() {
               {/* 27/11/2026 (ronda 9, fútbol): sólo «El vídeo» sube en el móvil;
                   «Jugadores, categorías…» y «Por jugador» quedan detrás del
                   reproductor y de los cortes (la columna se deshace en la rejilla). */}
+              {/* 28/11/2026 (jueces de estilo): sólo sube si la sesión no tiene ningún
+                  vídeo. Con vídeos ya abiertos, el reproductor va primero y debajo sus
+                  vídeos con «Reabrir»; «Elegir vídeo» baja hasta este panel. */}
               <div className={`min-w-0 space-y-4 ${!src ? "max-xl:contents max-xl:space-y-0" : ""}`}>
                 {(!src || cambiandoVideo) && (
-                  <div id="coding-el-video" className={`scroll-mt-24 ${!src ? "max-xl:order-first" : ""}`}>
+                  <div id="coding-el-video" className={`scroll-mt-24 ${!src && videosSesion.length === 0 ? "max-xl:order-first" : ""}`}>
                     <Panel title="El vídeo" icon={Video}>
                       <SelectorFuente
                         fuente={sesion.sesion.fuente}

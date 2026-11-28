@@ -99,6 +99,17 @@ function BarraClasificacion({ tabla, proximoRival }: { tabla: TablaJornada; prox
   const cerca = yo < 0 ? [] : tabla.filas.slice(desde, desde + 5);
   const nuestros = yo < 0 ? 0 : tabla.filas[yo].puntos;
   const hayRival = Boolean(proximoRival) && tabla.filas.some((f) => mismoClub(f.nombre, proximoRival));
+  /*
+  | 28/11/2026 (estilo, análisis y marketing): de los 20, por defecto el
+  | líder, los cinco de alrededor y el próximo rival; «Ver los 20» abre la
+  | tabla entera. Los huecos se marcan con «⋯».
+  */
+  const [losVeinte, setLosVeinte] = useState(false);
+  const esClave = (i: number) =>
+    i === 0 || (yo >= 0 && i >= desde && i < desde + 5) || (Boolean(proximoRival) && mismoClub(tabla.filas[i].nombre, proximoRival));
+  const claves = tabla.filas.map((_, i) => i).filter(esClave);
+  const plegable = claves.length < tabla.filas.length - 1;
+  const indices = losVeinte || !plegable ? tabla.filas.map((_, i) => i) : claves;
   return (
     <div className="min-w-0">
       <div className="mb-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-white/70">
@@ -136,11 +147,15 @@ function BarraClasificacion({ tabla, proximoRival }: { tabla: TablaJornada; prox
         </table>
       ) : null}
       <ol className="grid gap-[3px]">
-        {tabla.filas.map((f) => {
+        {indices.map((i, k) => {
+          const f = tabla.filas[i];
           const rival = Boolean(proximoRival) && mismoClub(f.nombre, proximoRival);
           const color = f.nuestro ? "#C8A96B" : rival ? AZUL_RIVAL : "rgb(var(--rmcf-ink-rgb) / .22)";
+          const hueco = k > 0 && i - indices[k - 1] > 1;
           return (
-            <li key={f.puesto} className="grid min-w-0 grid-cols-[1.6rem_minmax(0,9.5rem)_minmax(0,1fr)_1.8rem] items-center gap-2 text-[12px] leading-tight">
+            <li key={f.puesto} className="contents">
+            {hueco ? <span aria-hidden className="pl-8 text-[12px] leading-none text-white/40">⋯</span> : null}
+            <span className="grid min-w-0 grid-cols-[1.6rem_minmax(0,9.5rem)_minmax(0,1fr)_1.8rem] items-center gap-2 text-[12px] leading-tight">
               <span className="text-right tabular-nums text-white/60">{f.puesto}º</span>
               <span className={`min-w-0 break-words ${f.nuestro ? "font-semibold" : rival ? "font-semibold" : "text-white/75"}`} style={f.nuestro ? { color: "var(--rmcf-gold-ink)" } : rival ? { color: AZUL_RIVAL } : undefined}>
                 {f.nuestro ? "RM Castilla" : f.nombre}
@@ -149,10 +164,21 @@ function BarraClasificacion({ tabla, proximoRival }: { tabla: TablaJornada; prox
                 <span className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${(f.puntos / max) * 100}%`, background: color }} />
               </span>
               <span className="text-right font-semibold tabular-nums text-white/85">{f.puntos}</span>
+            </span>
             </li>
           );
         })}
       </ol>
+      {plegable ? (
+        <button
+          type="button"
+          onClick={() => setLosVeinte((v) => !v)}
+          aria-expanded={losVeinte}
+          className="mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-[12px] font-semibold text-white/80 transition hover:border-[#C8A96B]/50"
+        >
+          {losVeinte ? "Ver sólo los de arriba, alrededor y el rival" : `Ver los ${tabla.filas.length}`}
+        </button>
+      ) : null}
       <p className="mt-2 text-[11px] text-white/60">
         Puntos tras la J{tabla.jornada}, con todos los partidos de la liga; en oro, el Castilla{proximoRival ? "; en azul, el próximo rival" : ""}. Desempate: diferencia de goles y goles a favor.
       </p>
@@ -188,6 +214,15 @@ function GraficaPuesto({
   if (serie.length < 2) return null;
   const tope = Math.max(equipos || 20, ...serie.map((x) => x.p));
   const marcas = [1, 5, 10, 15, 20].filter((v) => v <= tope);
+  /*
+  | 28/11/2026 (estilo, análisis y marketing): con un puesto escrito en cada
+  | punto, J5-J7 se pisaban. Ahora sólo llevan rótulo la primera, la última,
+  | la mejor y la peor jornada (el resto, al pasar por encima), y una banda
+  | tenue marca la zona de ascenso y promoción (1º a 5º).
+  */
+  const mejor = serie.reduce((k, x, i) => (x.p < serie[k].p ? i : k), 0);
+  const peor = serie.reduce((k, x, i) => (x.p > serie[k].p ? i : k), 0);
+  const conRotulo = (i: number) => i === 0 || i === serie.length - 1 || i === mejor || i === peor;
   const abre = (s: { cuando: string; rival: string }) => {
     if (s.cuando) router.push(urlPostDelPartido(s.cuando, s.rival));
   };
@@ -201,6 +236,14 @@ function GraficaPuesto({
         {Array.from({ length: tope }, (_, k) => k + 1).map((v) => (
           <line key={v} x1={m.izq} x2={ancho - m.der} y1={y(v)} y2={y(v)} stroke="currentColor" strokeOpacity={marcas.includes(v) ? 0.16 : 0.05} />
         ))}
+        {tope >= 5 && (
+          <g>
+            <rect x={m.izq} y={y(1) - letra * 0.5} width={ancho - m.izq - m.der} height={y(5) - y(1) + letra} fill="#C8A96B" fillOpacity={0.08} />
+            <text x={ancho - m.der - 4} y={y(5) + letra * 0.35} textAnchor="end" fontSize={letra * 0.8} fill="currentColor" fillOpacity={0.55}>
+              ascenso y promoción
+            </text>
+          </g>
+        )}
         {marcas.map((v) => (
           <text key={v} x={m.izq - 6} y={y(v) + letra / 3} textAnchor="end" fontSize={letra} fill="currentColor" fillOpacity={0.65}>
             {v}º
@@ -221,6 +264,7 @@ function GraficaPuesto({
             <title>{`J${s.j} · ${nombreEquipo(s.rival)}: ${s.p}º. Abrir su post`}</title>
             <circle cx={x(i)} cy={y(s.p)} r={letra} fill="transparent" />
             <circle cx={x(i)} cy={y(s.p)} r={i === serie.length - 1 ? letra / 2.4 : letra / 3.6} fill="#C8A96B" />
+            {conRotulo(i) && (
             <text
               x={x(i)}
               y={y(s.p) - letra * 0.7}
@@ -231,6 +275,7 @@ function GraficaPuesto({
             >
               {s.p}º
             </text>
+            )}
             {i % Math.ceil(serie.length / 12) === 0 || i === serie.length - 1 ? (
               <text x={x(i)} y={alto - letra / 3} textAnchor="middle" fontSize={letra} fill="currentColor" fillOpacity={0.65}>
                 J{s.j}

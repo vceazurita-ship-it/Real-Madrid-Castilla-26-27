@@ -49,7 +49,12 @@ const AZUL = COMPARADO;
 const VERDE = "#1B9E77";
 const NARANJA = "#D95F02";
 
-export function FrenteAlRival(props: { area: AreaFrente; rivalFiltro?: string; rivalPartido?: string; className?: string }) {
+/*
+| 28/11/2026 (estilo, análisis y marketing): `radarPlegado` deja las barras con
+| puntos como vista principal y el radar, que dice lo mismo, en un plegable
+| debajo. Sin la prop, como siempre (ABP y banda no cambian).
+*/
+export function FrenteAlRival(props: { area: AreaFrente; rivalFiltro?: string; rivalPartido?: string; className?: string; radarPlegado?: boolean }) {
   const { caja, abierto } = useAsoma<HTMLDivElement>(1500);
   return (
     <div ref={caja} className={`min-w-0 ${props.className ?? ""}`}>
@@ -58,7 +63,7 @@ export function FrenteAlRival(props: { area: AreaFrente; rivalFiltro?: string; r
   );
 }
 
-function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrente; rivalFiltro?: string; rivalPartido?: string }) {
+function Bloque({ area, rivalFiltro = "", rivalPartido = "", radarPlegado = false }: { area: AreaFrente; rivalFiltro?: string; rivalPartido?: string; radarPlegado?: boolean }) {
   const { opta, cargando } = useOptaLigero();
   const proximo = useProximoRival();
   const escudoDe = useEscudos();
@@ -299,8 +304,8 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
           />
           )}
 
-          <div className={`mt-4 grid min-w-0 gap-4 ${filas.length >= 3 ? "lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]" : ""}`}>
-            {filas.length >= 3 && (
+          <div className={`mt-4 grid min-w-0 gap-4 ${filas.length >= 3 && !radarPlegado ? "lg:grid-cols-[minmax(0,360px)_minmax(0,1fr)]" : ""}`}>
+            {filas.length >= 3 && !radarPlegado && (
               <div className="min-w-0">
                 <Radar filas={filas} nombreRival={nombreRival} enfocada={enfocada} onEnfoca={setEnfocada} />
               </div>
@@ -324,6 +329,18 @@ function Bloque({ area, rivalFiltro = "", rivalPartido = "" }: { area: AreaFrent
               </p>
             </div>
           </div>
+
+          {radarPlegado && filas.length >= 3 && (
+            <details className="group mt-3 min-w-0 rounded-xl border border-white/10 bg-white/[0.02]">
+              <summary className="cursor-pointer list-none px-3 py-2 text-[12px] font-semibold text-white/70 [&::-webkit-details-marker]:hidden">
+                <span className="group-open:hidden">Ver en radar de percentiles</span>
+                <span className="hidden group-open:inline">Ocultar el radar</span>
+              </summary>
+              <div className="mx-auto max-w-[380px] px-3 pb-3">
+                <Radar filas={filas} nombreRival={nombreRival} enfocada={enfocada} onEnfoca={setEnfocada} />
+              </div>
+            </details>
+          )}
 
           {filaEnfocada && (
             <Evolucion

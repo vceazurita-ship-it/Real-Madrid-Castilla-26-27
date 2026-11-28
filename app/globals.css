@@ -2702,7 +2702,8 @@ body:has(.sala-raiz) [data-menu-flotante] { bottom: 12px; right: 10px; }
   .sala-tv .sala-contenido { zoom: 1.12; }
 }
 .sala-tv .sala-barra { transition: opacity 0.4s ease, transform 0.4s ease; }
-.sala-tv.sala-quieta .sala-barra { opacity: 0; transform: translateY(100%); pointer-events: none; }
+/* 28/11/2026: la barra va pegada arriba (antes al pie): se esconde hacia arriba. */
+.sala-tv.sala-quieta .sala-barra { opacity: 0; transform: translateY(-100%); pointer-events: none; }
 @media (prefers-reduced-motion: reduce) {
   .sala-destello { animation: none; }
 }

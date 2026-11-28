@@ -1556,7 +1556,19 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     if (segundo && ((top.n - segundo.n) / robos.length) * 100 < 5) {
       return `Reparto parejo: ${zonas.map((x) => `${pct(x.n, robos.length)} % en ${dicho(x.z)}`).join(", ")} (${robos.length} ${robos.length === 1 ? T.unidadUna : T.unidad})`;
     }
-    return `${modo === "robos" ? "Robamos" : "Perdemos el balón"} sobre todo en ${dicho(top.z)}: ${pct(top.n, robos.length)} % (${top.n} de ${robos.length})${enOtros}${resto ? `, por ${resto}` : ""}`;
+    /* 28/11/2026 (estilo, análisis y marketing): la cifra en grande («42,9 % en
+       medio campo») y una frase corta; la base y el resto, en una línea menor. */
+    return (
+      <>
+        <span className="block text-2xl font-black leading-tight text-[var(--rmcf-gold-ink)] sm:text-3xl">
+          {pct(top.n, robos.length)} % en {dicho(top.z)}
+        </span>
+        <span className="block">{modo === "robos" ? "Es donde más robamos" : "Es donde más balones perdemos"}</span>
+        <span className="mt-0.5 block text-[12px] font-normal leading-snug text-white/60">
+          {top.n} de {robos.length}{enOtros ? ` · ${enOtros.trim().replace(/^\(|\)$/g, "")}` : ""}{resto ? ` · ${resto}` : ""}
+        </span>
+      </>
+    );
   })();
 
   /* 16/11/2026 (expertos, ronda 18): quién más roba o pierde en lo que se ve, para su ficha a un toque. */
@@ -1574,8 +1586,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
       texto: modo === "robos" ? "Pérdidas de este partido" : "Robos de este partido",
       icono: modo === "robos" ? ArrowLeftRight : Crosshair,
     },
-    { href: partidoElegido ? enlaceConPartido("/laboratorio/faltas", partidoElegido) : "/laboratorio/faltas", texto: partidoElegido ? "Sus faltas" : "Faltas", icono: Timer },
     partidoElegido ? { href: urlPostDelPartido(partidoElegido.fecha, partidoElegido.rival), texto: `Post del partido · ${partidoElegido.jornada}`, icono: BarChart3 } : { texto: "" },
+    /* 28/11/2026 (estilo): el plan contra el próximo rival, entre los cuatro a la vista. */
+    proximoRivalLab ? { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalLab)}`, texto: `Plan contra el ${proximoRivalLab}`, icono: FileText } : { texto: "" },
     masDeTodos
       ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}`, texto: `${masDeTodos[0]}, el que más ${modo === "robos" ? "roba" : "pierde"} (${masDeTodos[1]} de ${robos.length})`, icono: Users }
       : { texto: "" },
@@ -1583,8 +1596,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
     masDeTodos ? { href: `/individual?nombre=${encodeURIComponent(masDeTodos[0])}&pestana=seguimiento`, texto: "Su seguimiento", icono: ClipboardList } : { texto: "" },
     masDeTodos ? { href: `/data-analisis?area=individual&jugador=${encodeURIComponent(masDeTodos[0])}`, texto: "Sus percentiles", icono: BarChart3 } : { texto: "" },
     /* 20/11/2026 (ronda 4): el balón parado y el plan del próximo rival, en el mismo orden que en faltas. */
+    { href: partidoElegido ? enlaceConPartido("/laboratorio/faltas", partidoElegido) : "/laboratorio/faltas", texto: partidoElegido ? "Sus faltas" : "Faltas", icono: Timer },
     proximoRivalLab ? { href: `/scout-rival-abp?equipo=${encodeURIComponent(proximoRivalLab)}`, texto: `ABP del ${proximoRivalLab}`, icono: Shield } : { texto: "" },
-    proximoRivalLab ? { href: `/match-preparation?equipo=${encodeURIComponent(proximoRivalLab)}`, texto: `Plan contra el ${proximoRivalLab}`, icono: FileText } : { texto: "" },
     /* El próximo rival, en su ficha de goles: cómo le marcan (17/11/2026). */
     /* 18/11/2026: en el pop-up de la portada, sin salir del laboratorio. */
     proximoRivalLab ? { golesEnVideo: { equipo: proximoRivalLab, lado: modo === "robos" ? ("contra" as const) : ("favor" as const) }, texto: modo === "robos" ? `Cómo le marcan al ${proximoRivalLab}` : `Cómo marca el ${proximoRivalLab}`, icono: Video } : { texto: "" },
@@ -1595,6 +1608,48 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
   | lo primero, antes del texto de «qué entrenamos»; en «Detalle» sigue en su
   | pestaña «En el campo».
   */
+  /* 28/11/2026 (estilo, análisis y marketing): «lo que pide esta semana», en
+     Visual justo bajo el campo (iba tras el bloque frente al rival y las barras). */
+  const bloqueQueToca = (
+      queToca && !queToca.alarma ? (
+              <p className="mt-5 text-[13px] leading-snug text-white/65">
+                <span className="font-semibold text-white/80">{queToca.rotulo}: </span>
+                {queToca.titular}. Sin tarea nueva; se vigila en el próximo partido.
+              </p>
+            ) : queToca ? (
+              <div className={`mt-5 rounded-2xl border px-4 py-3 ${queToca.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]"}`}>
+                <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${queToca.alarma ? "text-amber-300" : "text-white/60"}`}>{queToca.rotulo}</p>
+                <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
+                {queToca.lineas.map((l, i) => (
+                  <p key={i} className={`mt-1 text-sm leading-relaxed ${i === 0 ? "text-white/85" : "text-white/75"}`}>
+                    {l}
+                  </p>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => {
+                    limpia();
+                    if (queToca.filtro.length) alternaVarios(queToca.filtro);
+                    setVista("lista");
+                    setVistaPantalla("detalle");
+                  }}
+                  className="mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                >
+                  {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
+                </button>
+                {/* 11/11/2026 (expertos, ronda 2): de la tarea al microciclo, donde se programa. */}
+                {queToca.alarma && (
+                <Link
+                  href="/microcycles"
+                  className="ml-2 mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
+                >
+                  Llevarla al microciclo
+                </Link>
+                )}
+              </div>
+            ) : null
+  );
+
   const bloqueCampo = (
     <div className="mt-5">
       {enVisual && tituloCampo ? (
@@ -1717,7 +1772,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">
+          {/* 28/11/2026 (estilo, los tres jueces): `laminas-quietas`, como en faltas; «¿Y frente al rival?» salía al 35 % (revelado al hacer scroll). */}
+          <div className="laminas-quietas min-w-0 px-4 py-6 sm:px-6 lg:px-10">
             <AbpHeader
               area="RMCF Castilla · Análisis del partido"
               title={T.titulo}
@@ -1750,7 +1806,8 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
               </p>
             ) : null}
 
-            <EnlacesRapidos enlaces={enlacesRapidos} className="mt-3" />
+            {/* 28/11/2026 (estilo): cuatro a la vista (el espejo, el post, el plan y el jugador), el resto en «Más»; en el móvil ocupaban medio pantallazo. */}
+            <EnlacesRapidos enlaces={enlacesRapidos} aLaVista={4} className="mt-3" />
 
             {/* ---------------- mandos ---------------- */}
 
@@ -1857,8 +1914,9 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {(vista === "resumen" || enVisual) && (
             <>
             {enVisual && bloqueCampo}
+            {enVisual && bloqueQueToca}
             {/* 22/11/2026: el Castilla frente al rival o rivales que se elijan (Opta). */}
-            {enVisual && <FrenteAlRival area={modo === "robos" ? "robos" : "perdidas"} rivalPartido={partidoElegido?.rival ?? ""} className="mt-5" />}
+            {enVisual && <FrenteAlRival area={modo === "robos" ? "robos" : "perdidas"} rivalPartido={partidoElegido?.rival ?? ""} className="mt-5" radarPlegado />}
             {/* 17/11/2026 (ronda 19, análisis): en Visual, cada cifra frente a la media en barras, antes de «qué entrenamos». */}
             {enVisual && comparativa ? (
               <BarrasFrenteAMedia
@@ -1877,43 +1935,7 @@ export function PantallaTransiciones({ modo }: { modo: ModoTransiciones }) {
             {/* 08/11/2026: lo que pide trabajo, como titular encima de la tabla
                 (antes era un renglón más de la tabla y la última conclusión). */}
             {/* 20/11/2026 (jueces, ronda 5): sin alarma, una línea; el bloque repetía una fila de las barras. */}
-            {queToca && !queToca.alarma ? (
-              <p className="mt-5 text-[13px] leading-snug text-white/65">
-                <span className="font-semibold text-white/80">{queToca.rotulo}: </span>
-                {queToca.titular}. Sin tarea nueva; se vigila en el próximo partido.
-              </p>
-            ) : queToca ? (
-              <div className={`mt-5 rounded-2xl border px-4 py-3 ${queToca.alarma ? "border-amber-400/40 bg-amber-400/[0.06]" : "border-white/10 bg-white/[0.03]"}`}>
-                <p className={`text-[11px] font-semibold uppercase tracking-[0.16em] ${queToca.alarma ? "text-amber-300" : "text-white/60"}`}>{queToca.rotulo}</p>
-                <p className="mt-1 text-base font-semibold text-white sm:text-lg">{queToca.titular}</p>
-                {queToca.lineas.map((l, i) => (
-                  <p key={i} className={`mt-1 text-sm leading-relaxed ${i === 0 ? "text-white/85" : "text-white/75"}`}>
-                    {l}
-                  </p>
-                ))}
-                <button
-                  type="button"
-                  onClick={() => {
-                    limpia();
-                    if (queToca.filtro.length) alternaVarios(queToca.filtro);
-                    setVista("lista");
-                    setVistaPantalla("detalle");
-                  }}
-                  className="mt-2 rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
-                >
-                  {modo === "robos" ? "Ver esos robos, uno a uno" : "Ver esas pérdidas, una a una"}
-                </button>
-                {/* 11/11/2026 (expertos, ronda 2): de la tarea al microciclo, donde se programa. */}
-                {queToca.alarma && (
-                <Link
-                  href="/microcycles"
-                  className="ml-2 mt-2 inline-block rounded-xl border border-white/15 bg-white/[0.04] px-3 py-1.5 text-sm text-white/80 transition hover:border-[#C8A96B]/40"
-                >
-                  Llevarla al microciclo
-                </Link>
-                )}
-              </div>
-            ) : null}
+            {!enVisual && bloqueQueToca}
 
             {comparativa && !enVisual && (
               <div className="pr-12 sm:pr-0">

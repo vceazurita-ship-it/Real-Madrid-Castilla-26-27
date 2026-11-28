@@ -58,6 +58,7 @@ import {
   Send,
   SlidersHorizontal,
   Presentation,
+  Activity,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -230,6 +231,7 @@ function Chip({
   onPointerDown,
   onQuitar,
   enlaceFicha,
+  enlaceSeguimiento,
   destino,
   encima = false,
   conQuien,
@@ -258,6 +260,8 @@ function Chip({
   onQuitar?: () => void;
   /** Su ficha en /individual (sólo los de la plantilla). */
   enlaceFicha?: string;
+  /** 28/11/2026 (jueces, estilo): su seguimiento (pestaña de /individual), en otra pestaña. */
+  enlaceSeguimiento?: string;
 }) {
   return (
     <div
@@ -295,7 +299,8 @@ function Chip({
         <span className="h-2 w-2 shrink-0 rounded-full" style={{ background: "rgba(255,255,255,0.25)" }} />
       )}
       <span className="min-w-0 flex-1 basis-[7rem] break-words leading-tight">{jugador.nombre}</span>
-      {puesto && (
+      {/* 28/11/2026 (jueces, estilo): un solo rótulo de puesto; si hay demarcación aprendida o fijada («EI»), manda ella y la línea va en su título. */}
+      {puesto && !(aprendido?.corto && onCorrige && puesto !== "POR") && (
         <span
           title={nombreDePuesto(puesto)}
           className={`shrink-0 rounded px-1 text-[11px] font-bold ${
@@ -320,7 +325,7 @@ function Chip({
           role="button"
           tabIndex={0}
           aria-label={`${aprendido.texto}. Corregir el puesto de ${jugador.nombre}`}
-          title={`${aprendido.texto}. Toca para corregirlo`}
+          title={`${aprendido.texto}${puesto ? ` (${nombreDePuesto(puesto)})` : ""}. Toca para corregirlo`}
           onPointerDown={(e) => e.stopPropagation()}
           onClick={(e) => {
             e.stopPropagation();
@@ -366,6 +371,22 @@ function Chip({
         >
           <UserRound size={11} aria-hidden />
           Ficha
+        </a>
+      )}
+      {enlaceSeguimiento && (
+        <a
+          href={enlaceSeguimiento}
+          target="_blank"
+          rel="noreferrer"
+          aria-label={`Seguimiento de ${jugador.nombre}`}
+          title="Su seguimiento: carga y minutos de la semana (otra pestaña)"
+          onPointerDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+          className="relative inline-flex h-5 shrink-0 items-center gap-0.5 rounded border border-white/15 px-1 text-[10px] font-bold normal-case tracking-normal text-white/60 transition hover:border-[#C8A96B]/60 hover:bg-[#C8A96B]/15 hover:text-[#C8A96B] max-md:h-6 max-md:after:absolute max-md:after:-inset-1.5 max-md:after:content-['']"
+        >
+          <Activity size={11} aria-hidden />
+          Seg.
         </a>
       )}
       {onQuitar && (
@@ -706,9 +727,22 @@ const ORDEN_PUESTOS: Puesto[] = ["POR", "DEF", "MED", "EXT", "DEL"];
  * Cuántos hay de cada puesto en un equipo (08/10/2026): de un vistazo se ve
  * si un equipo se ha quedado sin defensas o con todos los delanteros.
  */
-function ResumenPuestos({ jugadores, puestoDe, color }: { jugadores: JugadorSesion[]; puestoDe: PuestoDe; color: string }) {
-  if (!jugadores.length) return null;
-
+function ResumenPuestos({
+  jugadores,
+  puestoDe,
+  color,
+  ideal,
+}: {
+  jugadores: JugadorSesion[];
+  puestoDe: PuestoDe;
+  color: string;
+  /**
+   * 28/11/2026 (jueces, estilo): lo que tocaría a este equipo por línea si el
+   * reparto fuese parejo. Con él, el resumen es un gráfico de equilibrio
+   * (DEF/MED/EXT/DEL) que se ve aunque el equipo esté vacío y cambia al soltar.
+   */
+  ideal?: Partial<Record<Puesto, number>>;
+}) {
   const cuenta = new Map<string, number>();
 
   for (const j of jugadores) {
@@ -716,20 +750,79 @@ function ResumenPuestos({ jugadores, puestoDe, color }: { jugadores: JugadorSesi
     cuenta.set(p, (cuenta.get(p) ?? 0) + 1);
   }
 
-  const partes = [...ORDEN_PUESTOS.filter((p) => cuenta.has(p)), ...(cuenta.has("?") ? ["?"] : [])];
+  const lineas = ideal ? ORDEN_PUESTOS.filter((p) => p !== "POR" && ((ideal[p] ?? 0) > 0 || cuenta.has(p))) : [];
+
+  if (!jugadores.length && !lineas.length) return null;
+
+  /* Sin el ideal (o sin líneas que medir): las chapas de siempre. */
+  if (!lineas.length) {
+    const partes = [...ORDEN_PUESTOS.filter((p) => cuenta.has(p)), ...(cuenta.has("?") ? ["?"] : [])];
+
+    return (
+      <div className="flex flex-wrap items-center gap-1 border-b border-white/[0.06] px-3 py-1.5" style={{ background: `${color}14` }}>
+        {partes.map((p) => (
+          <span
+            key={p}
+            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${p === "POR" ? "bg-[#C8A96B]/20 text-[#E9D5A8]" : p === "?" ? "bg-white/[0.04] text-white/35" : "bg-white/[0.06] text-white/70"}`}
+            title={p === "?" ? "Sin puesto: ponlo en «Plantilla del día»" : PUESTOS.find((x) => x.clave === p)?.nombre}
+          >
+            {p === "?" ? "SIN PUESTO" : p}
+            <span className="tabular-nums text-white">{cuenta.get(p)}</span>
+          </span>
+        ))}
+      </div>
+    );
+  }
+
+  const extra = [...(cuenta.has("POR") ? ["POR"] : []), ...(cuenta.has("?") ? ["?"] : [])];
 
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-white/[0.06] px-3 py-1.5" style={{ background: `${color}14` }}>
-      {partes.map((p) => (
-        <span
-          key={p}
-          className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${p === "POR" ? "bg-[#C8A96B]/20 text-[#E9D5A8]" : p === "?" ? "bg-white/[0.04] text-white/35" : "bg-white/[0.06] text-white/70"}`}
-          title={p === "?" ? "Sin puesto: ponlo en «Plantilla del día»" : PUESTOS.find((x) => x.clave === p)?.nombre}
-        >
-          {p === "?" ? "SIN PUESTO" : p}
-          <span className="tabular-nums text-white">{cuenta.get(p)}</span>
-        </span>
-      ))}
+    <div className="border-b border-white/[0.06] px-3 py-1.5" style={{ background: `${color}14` }} aria-label="Equilibrio por líneas">
+      <div className="grid min-w-0 gap-x-3 gap-y-1" style={{ gridTemplateColumns: `repeat(${Math.min(lineas.length, 2)}, minmax(0, 1fr))` }}>
+        {lineas.map((p) => {
+          const n = cuenta.get(p) ?? 0;
+          const meta = ideal?.[p] ?? 0;
+          const escala = Math.max(1, Math.ceil(meta * 1.5), n);
+          /* Más de uno por debajo o por encima de lo parejo, con el equipo ya empezado: en ámbar (vacío, neutro). */
+          const fuera = jugadores.length > 0 && Math.abs(n - meta) >= 1.5;
+          const metaTexto = Number.isInteger(meta) ? String(meta) : meta.toFixed(1).replace(".", ",");
+
+          return (
+            <div
+              key={p}
+              className="flex min-w-0 items-center gap-1.5 text-[10px] font-bold tracking-wide"
+              title={`${PUESTOS.find((x) => x.clave === p)?.nombre ?? p}: ${n} en este equipo; parejo serían ${metaTexto}`}
+            >
+              <span className="w-7 shrink-0 text-white/70">{p}</span>
+              <span className="relative h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-white/[0.08]">
+                <span
+                  className={`absolute inset-y-0 left-0 rounded-full transition-[width] duration-300 ${fuera ? "bg-amber-400" : "bg-emerald-400/80"}`}
+                  style={{ width: `${(100 * n) / escala}%` }}
+                />
+                {meta > 0 ? <span className="absolute inset-y-0 w-0.5 bg-white/70" style={{ left: `calc(${(100 * meta) / escala}% - 1px)` }} aria-hidden /> : null}
+              </span>
+              <span className={`shrink-0 tabular-nums ${fuera ? "text-amber-300" : "text-white/85"}`}>
+                {n}
+                <span className="font-normal text-white/45">/{metaTexto}</span>
+              </span>
+            </div>
+          );
+        })}
+      </div>
+      {extra.length ? (
+        <div className="mt-1 flex flex-wrap gap-1">
+          {extra.map((p) => (
+            <span
+              key={p}
+              className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 text-[10px] font-bold tracking-wide ${p === "POR" ? "bg-[#C8A96B]/20 text-[#E9D5A8]" : "bg-white/[0.04] text-white/35"}`}
+              title={p === "?" ? "Sin puesto: ponlo en «Plantilla del día»" : PUESTOS.find((x) => x.clave === p)?.nombre}
+            >
+              {p === "?" ? "SIN PUESTO" : p}
+              <span className="tabular-nums text-white">{cuenta.get(p)}</span>
+            </span>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -2656,6 +2749,23 @@ export default function JugadoresSesionPage() {
 
   const reparto = sesion && tarea ? repartoDe(tarea, sesion.jugadores) : null;
 
+  /*
+  | 28/11/2026 (jueces, estilo): lo parejo por línea en cada equipo —los de
+  | los equipos más los que faltan por colocar, sin porteros ni comodines,
+  | entre el número de equipos—. Es la marca de las barras de equilibrio.
+  */
+  const idealPorLinea: Partial<Record<Puesto, number>> = {};
+
+  if (reparto && tarea && tarea.equipos.length > 0) {
+    for (const j of [...Object.values(reparto.porEquipo).flat(), ...reparto.sinSitio]) {
+      const p = puestoDe(j);
+
+      if (p && p !== "POR") idealPorLinea[p] = (idealPorLinea[p] ?? 0) + 1;
+    }
+
+    for (const p of Object.keys(idealPorLinea) as Puesto[]) idealPorLinea[p] = (idealPorLinea[p] ?? 0) / tarea.equipos.length;
+  }
+
   /* Con el mismo enlace que el microciclo (24/10/2026): antes la diapositiva casaba por su cuenta, sólo por el nombre. */
   const contexto = useMemo<ContextoSesion | null>(() => (planSesion[0] ? { micro: planSesion[0].micro, rival: planSesion[0].rival, md: planSesion[0].md } : null), [planSesion]);
   /*
@@ -2908,7 +3018,7 @@ export default function JugadoresSesionPage() {
       const propuesta = porEquipo.map((_, i) => base + (i < resto % porEquipo.length ? 1 : 0)).join("v") + (comodines ? `+${comodines} comodines` : "");
       const texto = `La tarea pide ${esperados} (${formato.trim()}) y hay ${disponibles} disponibles: ajustarla a ${propuesta}.`;
 
-      return [{ nivel: "aviso", texto, titular: texto }];
+      return [{ nivel: "aviso", texto, titular: texto, ajustaFormato: { equipos: porEquipo.length, comodines, texto: `Ajustar a ${propuesta}` } }];
     }
     if (tarea.equipos.length !== porEquipo.length) return [];
     const tamanos = tarea.equipos.map((e) => (reparto.porEquipo[e.id] ?? []).length);
@@ -3144,6 +3254,27 @@ export default function JugadoresSesionPage() {
     setExplicacion({ tarea: tarea.id, fase, criterio: rotuloCriterio(criterio), lineas: p.lineas, aviso: p.aviso });
     toast.success(`${habia > 0 ? "Otra propuesta" : "Equipos propuestos"} · ${rotuloCriterio(criterio)}`, {
       description: p.aviso ?? "Por qué va cada uno donde va, debajo de los botones. Pulsa otra vez (o P) para otra.",
+      action: { label: "Deshacer", onClick: deshazPropuesta },
+    });
+  };
+
+  /*
+  | 28/11/2026 (jueces, estilo): un solo botón arriba para todas las tareas
+  | que aún no tienen a nadie colocado, con el criterio elegido. Un único paso
+  | de deshacer para todas.
+  */
+  const tareasSinEquipos = sesion ? sesion.tareas.filter((t) => t.equipos.length > 0 && !Object.values(t.sitio).some((d) => d !== FUERA)) : [];
+
+  const proponFaltan = () => {
+    if (!sesion || !tareasSinEquipos.length) return;
+
+    const nuevas = new Map(tareasSinEquipos.map((t) => [t.id, proponCon(t).tarea]));
+    const cuantas = nuevas.size;
+
+    cambiaSesion(sesion.id, (s) => ({ ...s, tareas: s.tareas.map((t) => nuevas.get(t.id) ?? t) }));
+    setExplicacion(null);
+    toast.success(`Equipos propuestos en ${cuantas === 1 ? "1 tarea" : `${cuantas} tareas`} · ${rotuloCriterio(criterio)}`, {
+      description: "Repasa cada una: en cada tarea, «Otra propuesta» (o P) da otra.",
       action: { label: "Deshacer", onClick: deshazPropuesta },
     });
   };
@@ -3456,8 +3587,10 @@ export default function JugadoresSesionPage() {
         }}
         onPointerDown={(e) => empiezaArrastre(j, colorDe(donde), e)}
         onQuitar={enEquipo ? () => coloca(j.id, null) : undefined}
-        /* 16/11/2026 (jueces): su ficha, en otra pestaña, sólo si está en la plantilla. */
-        enlaceFicha={enEquipo && puestosAuto[j.id] ? `/individual?nombre=${encodeURIComponent(limpiaJugador(j).nombre)}` : undefined}
+        /* 16/11/2026 (jueces): su ficha, en otra pestaña, sólo si está en la plantilla.
+           28/11/2026 (jueces, estilo): también sin colocar, y su seguimiento al lado. */
+        enlaceFicha={puestosAuto[j.id] ? `/individual?nombre=${encodeURIComponent(limpiaJugador(j).nombre)}` : undefined}
+        enlaceSeguimiento={puestosAuto[j.id] ? `/individual?nombre=${encodeURIComponent(limpiaJugador(j).nombre)}&pestana=seguimiento` : undefined}
         destino={`jug:${j.id}`}
         encima={sobre === `jug:${j.id}`}
         aprendido={puestoAprendidoDe(j)}
@@ -3512,12 +3645,27 @@ export default function JugadoresSesionPage() {
                       `${(enlacePlan[activa] != null && planSesion[enlacePlan[activa] as number]?.codigo) || `Tarea ${activa + 1}`}${tarea.nombre?.trim() ? `, ${tituloTarea(tarea.nombre)}` : ""}`,
                     ]
                       .filter(Boolean)
-                      .join(" · ")}: ${sesion.jugadores.filter((j) => !j.baja).length} disponibles${
-                      enTarea === 0 ? " · sin equipos" : ` · ${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"}`
-                    }`
+                      .join(" · ")}`
                   : "Jugadores sesión"
               }
-              lead="Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen."
+              /* 28/11/2026 (jueces, estilo): el titular en dos niveles; el día y la tarea en grande, y el estado en una píldora. */
+              lead={
+                sesion && tarea ? (
+                  <>
+                    <span
+                      className={`mr-2 inline-flex items-center rounded-full border px-2.5 py-0.5 align-middle text-[12px] font-semibold tabular-nums ${
+                        enTarea === 0 ? "border-amber-400/40 bg-amber-400/10 text-amber-300" : "border-emerald-400/35 bg-emerald-400/10 text-emerald-200"
+                      }`}
+                    >
+                      {sesion.jugadores.filter((j) => !j.baja).length} disponibles
+                      {enTarea === 0 ? " · sin equipos" : ` · ${tarea.equipos.length} ${tarea.equipos.length === 1 ? "equipo" : "equipos"}`}
+                    </span>
+                    Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen.
+                  </>
+                ) : (
+                  "Pega la lista del día y haz los equipos de cada tarea. Una diapositiva por tarea, lista para proyectar o mandar en imagen."
+                )
+              }
               aside={<SaveState status={status} localOnly={localOnly} savedAt={lastSavedAt} sinGuardar={sinGuardar} onGuardar={() => void guardaYa()} />}
             />
 
@@ -3690,6 +3838,19 @@ export default function JugadoresSesionPage() {
                       );
                     })()}
                 </div>
+
+                {/* 28/11/2026 (jueces, estilo): la acción que falta, una vez y arriba, para todas las tareas sin equipos. */}
+                {tareasSinEquipos.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={proponFaltan}
+                    className="inline-flex min-h-11 items-center gap-1.5 rounded-xl border border-[#C8A96B] bg-[#C8A96B]/15 px-3 py-1.5 text-[13px] font-semibold text-[var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/25 sm:min-h-0"
+                    title={`Con el criterio «${rotuloCriterio(criterio)}». Se deshace en un paso.`}
+                  >
+                    <Shuffle size={14} aria-hidden />
+                    {tareasSinEquipos.length === 1 ? "Proponer equipos para la tarea que falta" : `Proponer equipos para las ${tareasSinEquipos.length} tareas que faltan`}
+                  </button>
+                )}
 
                 <span className="flex-1" />
 
@@ -4653,6 +4814,29 @@ export default function JugadoresSesionPage() {
                                   ))}
                               </span>
                             )}
+                            {/* 28/11/2026 (jueces, estilo): la tarea no cabe con los de hoy: ajustarla en un toque (y proponer el reparto). */}
+                            {problemas.some((a) => a.ajustaFormato) && (
+                              <span className="mt-1.5 flex flex-wrap gap-1.5">
+                                {problemas
+                                  .filter((a) => a.ajustaFormato)
+                                  .map((a) => (
+                                    <button
+                                      key={a.ajustaFormato!.texto}
+                                      type="button"
+                                      onClick={() => {
+                                        if (!tarea) return;
+                                        const p = proponCon(conFormato(tarea, a.ajustaFormato!.equipos, a.ajustaFormato!.comodines));
+                                        cambiaTarea(() => p.tarea);
+                                        setExplicacion({ tarea: tarea.id, fase, criterio: rotuloCriterio(criterio), lineas: p.lineas, aviso: p.aviso });
+                                        toast.success(`${a.ajustaFormato!.texto}: equipos propuestos`, { action: { label: "Deshacer", onClick: deshazPropuesta } });
+                                      }}
+                                      className="inline-flex min-h-9 items-center rounded-lg bg-[#C8A96B] px-3 py-1.5 text-[13px] font-semibold text-black transition hover:bg-[#d8bc80]"
+                                    >
+                                      {a.ajustaFormato!.texto}
+                                    </button>
+                                  ))}
+                              </span>
+                            )}
                             {/* Segunda vuelta (16/11/2026): «falta 1» con su solución en un toque. */}
                             {problemas.some((a) => a.mete) && (
                               <span className="mt-1.5 flex flex-wrap gap-1.5">
@@ -4820,7 +5004,7 @@ export default function JugadoresSesionPage() {
                           encima={sobre === `eq:${equipo.id}` || Boolean(sobre?.startsWith(`hueco:${equipo.id}:`))}
                           titulo={equipo.nombre}
                           color={equipo.color}
-                          resumen={<ResumenPuestos jugadores={reparto.porEquipo[equipo.id] ?? []} puestoDe={puestoDe} color={equipo.color} />}
+                          resumen={<ResumenPuestos jugadores={reparto.porEquipo[equipo.id] ?? []} puestoDe={puestoDe} color={equipo.color} ideal={tarea.equipos.length > 1 ? idealPorLinea : undefined} />}
                           cuenta={reparto.porEquipo[equipo.id]?.length ?? 0}
                           /* Dos o más por debajo del equipo más largo: la caja avisa en ámbar (02/11/2026). */
                           alerta={Math.max(...tarea.equipos.map((x) => reparto.porEquipo[x.id]?.length ?? 0)) - (reparto.porEquipo[equipo.id]?.length ?? 0) >= 2}

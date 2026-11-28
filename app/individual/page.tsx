@@ -1710,12 +1710,19 @@ function MapaAtender({
       return [...acc, { f, nombres: [nombreVisible(f.jugador.name)] }];
     }, []);
   /* Rótulos sólo de los que hay que atender, sin pisarse: de arriba abajo, 11 unidades como mínimo entre uno y otro. */
-  const rotulos = grupos.reduce<{ f: (typeof atender)[number]; texto: string; xx: number; yy: number; izquierda: boolean }[]>(
+  /* 28/11/2026 (análisis y marketing, estilo): seguían rozándose (Óscar Naasei
+     sobre Izan Regueira · Rachad). Ahora van en una columna dentro de la
+     franja, a 13 unidades como mínimo, y con una guía hasta su punto. */
+  const columna = Math.max(xRaya + 6, Math.min(xRaya + 34, W - M.r - 130));
+  const rotulos = grupos.reduce<{ f: (typeof atender)[number]; texto: string; px: number; py: number; xx: number; yy: number; izquierda: boolean }[]>(
     (acc, { f, nombres }) => {
       const previo = acc.length ? acc[acc.length - 1].yy : -Infinity;
-      const yy = Math.max(y(f.jugador.score) + 3.5, previo + 11);
-      const xx = x(f.dias);
-      return [...acc, { f, texto: nombres.join(" · "), xx, yy, izquierda: xx > W * 0.55 }];
+      const px = x(f.dias);
+      const py = y(f.jugador.score);
+      const yy = Math.max(py + 3.5, previo + 13);
+      const izquierda = px > W * 0.7;
+      const xx = izquierda ? px - 7 : Math.max(px + 7, columna);
+      return [...acc, { f, texto: nombres.join(" · "), px, py, xx, yy, izquierda }];
     },
     [],
   );
@@ -1761,18 +1768,29 @@ function MapaAtender({
             </circle>
           );
         })}
-        {rotulos.map(({ f, texto, xx, yy, izquierda }) => (
-          <text
-            key={f.jugador.idJugador}
-            x={izquierda ? xx - 7 : xx + 7}
-            y={yy}
-            textAnchor={izquierda ? "end" : "start"}
-            fontSize={10.5}
-            fontWeight={600}
-            style={{ fill: "rgb(var(--rmcf-ink-rgb) / .9)" }}
-          >
-            {texto}
-          </text>
+        {rotulos.map(({ f, texto, px, py, xx, yy, izquierda }) => (
+          <g key={f.jugador.idJugador}>
+            {Math.hypot(xx - px, yy - 3.5 - py) > 9 && (
+              <line
+                x1={px + (izquierda ? -4 : 4)}
+                y1={py}
+                x2={izquierda ? xx + 2 : xx - 2}
+                y2={yy - 3.5}
+                style={{ stroke: "rgb(var(--rmcf-ink-rgb) / .35)" }}
+                strokeWidth={0.8}
+              />
+            )}
+            <text
+              x={xx}
+              y={yy}
+              textAnchor={izquierda ? "end" : "start"}
+              fontSize={10.5}
+              fontWeight={600}
+              style={{ fill: "rgb(var(--rmcf-ink-rgb) / .9)" }}
+            >
+              {texto}
+            </text>
+          </g>
         ))}
       </svg>
       {/* 27/11/2026 (análisis, ronda 9): la base y el umbral, en texto, también en el móvil. */}
@@ -1805,7 +1823,8 @@ function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer;
       {hayScout && (
         <span title={detalle} className="inline-flex min-w-0 items-center gap-1 whitespace-nowrap">
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(player.score) }} />
-          <span>scout</span>
+          {/* 28/11/2026 (análisis y marketing, estilo): dos rótulos que no se confunden. */}
+          <span>nota del scout</span>
           <span className="font-semibold text-white">{coma(player.score)}</span>
           {pocas && <span>· tend.</span>}
           {valoradas.length < METRICS.length && <span className="sr-only">, {valoradas.length} de {METRICS.length} competencias</span>}
@@ -1818,7 +1837,7 @@ function LineaNotas({ player, rinde, sinScout = false }: { player: MergedPlayer;
         >
           <span aria-hidden className="h-2 w-2 shrink-0 rounded-full" style={{ background: scoreColorHex(rinde.ultimas3) }} />
           {/* 27/11/2026 (fútbol, ronda 9): que no se confunda con la del scout. */}
-          <span>{`media últ. ${rinde.nUltimas} partidos`}</span>
+          <span>{`media Valoraciones, últ. ${rinde.nUltimas}`}</span>
           <span className="font-semibold text-white">{coma(rinde.ultimas3)}</span>
           {/* 27/11/2026 (análisis, ronda 10): con menos de 4 partidos con nota en la temporada, tendencia. */}
           {rinde.nNotas < 4 && <span title={`${rinde.nNotas} ${rinde.nNotas === 1 ? "partido" : "partidos"} con nota en la temporada: tendencia`}>· tend.</span>}
@@ -1903,9 +1922,13 @@ function AccesosFicha({
   const boton =
     "inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border px-2 text-[12px] font-semibold transition";
 
+  /* 28/11/2026 (análisis y marketing, estilo): toda la tarjeta (y la fila de
+     la lista) ya abre la ficha; a la vista queda sólo «Registrar» y el resto,
+     Ficha y Comparativa incluidas, en «Más». Los porteros, sin «Registrar»,
+     llevan la ficha a la vista. */
   return (
     <nav aria-label={`Accesos de ${jugador.nombre}`} className="flex min-w-0 flex-wrap items-center gap-1">
-      {onSelect && (
+      {onSelect && portero && (
         <button
           type="button"
           onClick={(e) => {
@@ -1933,32 +1956,37 @@ function AccesosFicha({
           Registrar
         </button>
       )}
-      <Link
-          href={hrefJugador("comparativa", jugador)}
-          onClick={(e) => e.stopPropagation()}
-          title={`Contra la categoría, en su puesto · ${jugador.nombre}`}
-          className={`${boton.replace("inline-flex ", "")} hidden border-white/15 bg-white/[0.03] text-white/80 hover:border-[#C8A96B]/50 hover:text-white sm:inline-flex`}
-        >
-          <Scale size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
-          Comparativa
-        </Link>
       {/* Abierto, ocupa la fila entera: los accesos caen debajo sin salirse de la ficha. */}
       <details className="group/mas min-w-0 open:basis-full" onClick={(e) => e.stopPropagation()}>
         <summary
           className={`${boton} w-fit cursor-pointer list-none border-white/10 bg-white/[0.03] text-white/75 hover:text-white [&::-webkit-details-marker]:hidden`}
-          title={`Valoraciones, vídeos, Data${portero ? "" : ", su seguimiento, su calendario"} y Emocional`}
+          title={`${portero ? "" : "Ficha, "}Valoraciones, Comparativa, vídeos, Data${portero ? "" : ", su seguimiento, su calendario"} y Emocional`}
         >
           Más
           <ChevronDown size={12} className="shrink-0 transition group-open/mas:rotate-180" aria-hidden />
         </summary>
-        <div className={`mt-1 grid min-w-0 gap-1 ${enLista ? "grid-cols-3 sm:grid-cols-6" : "grid-cols-2"}`}>
+        <div className={`mt-1 grid min-w-0 gap-1 ${enLista ? "grid-cols-3 sm:grid-cols-4 lg:grid-cols-8" : "grid-cols-2"}`}>
+          {onSelect && !portero && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onSelect(player);
+              }}
+              title={`Abrir la ficha completa de ${jugador.nombre}`}
+              className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-1.5 text-[11px] font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)] transition hover:bg-[#C8A96B]/20"
+            >
+              <UserRound size={12} className="shrink-0" aria-hidden />
+              <span className="min-w-0 break-words leading-tight">Ficha</span>
+            </button>
+          )}
           {accesos.map(({ destino, texto, Icono }) => (
             <Link
               key={destino}
               href={hrefJugador(destino, jugador)}
               title={`${titulo[destino]} · ${jugador.nombre}`}
               onClick={(e) => e.stopPropagation()}
-              className={`inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white ${destino === "comparativa" ? "sm:hidden" : ""}`}
+              className="inline-flex min-h-[30px] min-w-0 items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] px-1.5 text-[11px] font-semibold text-white/75 transition hover:border-[#C8A96B]/50 hover:text-white"
             >
               <Icono size={12} className="shrink-0 text-[#C8A96B]" aria-hidden />
               <span className="min-w-0 break-words leading-tight">{texto}</span>
@@ -2160,7 +2188,7 @@ function FilaListaJugador({
             <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: scoreColor(player.score) }} />
             {coma(player.score)}
           </span>
-          <span className="block text-[11px] text-white/60">{valoradas.length < METRICS.length ? `scout · ${valoradas.length} de ${METRICS.length}` : "scout"}{pocas ? " · tendencia" : ""}</span>
+          <span className="block text-[11px] text-white/60">{valoradas.length < METRICS.length ? `nota del scout · ${valoradas.length} de ${METRICS.length}` : "nota del scout"}{pocas ? " · tendencia" : ""}</span>
         </span>
       )}
     </button>

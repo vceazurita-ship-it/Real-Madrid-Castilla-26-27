@@ -946,7 +946,8 @@ export function PantallaGoles() {
       ];
   const visualGoles = () => delEquipo.length ? (
     <div className="space-y-4">
-      <div className="grid min-w-0 gap-4 xl:grid-cols-2">
+      {/* 28/11/2026 (estilo, análisis y marketing): las dos láminas a ancho completo, una bajo otra; a medio ancho la nube de la liga se leía pequeña y la conclusión quedaba fuera. */}
+      <div className="grid min-w-0 gap-4">
         {tituloFranjas ? (
           <Lamina>
             <TituloConclusion pregunta="¿Cuándo marca y cuándo encaja?" fuente={`BeSoccer · ${poblacion}`}>
@@ -966,6 +967,13 @@ export function PantallaGoles() {
               comparado={rivalEnLista && rivalEnLista !== equipo ? rivalEnLista : undefined}
               alPulsar={(e) => setEquipo(e)}
             />
+            {/* 28/11/2026 (estilo): la frase del resumen, dentro de la tarjeta de la liga. */}
+            {fraseAbre ? (
+              <p className="mt-3 text-[14px] font-semibold leading-snug text-white">
+                {fraseAbre}
+                {nubeLiga.length >= 4 ? <span className="font-normal text-white/65"> «La liga»: media por partido de los {nubeLiga.length} equipos, J{jDesde}–J{jHasta}.</span> : null}
+              </p>
+            ) : null}
             {nube?.vecino ? <p className="mt-2 text-[12px] text-white/60">{nube.vecino}</p> : null}
             {/* 20/11/2026 (ronda 4, marketing): en el campo sólo llevan nombre el elegido, el comparado y los extremos; la lista entera, aquí. */}
             <details className="mt-2">
@@ -987,7 +995,7 @@ export function PantallaGoles() {
         ) : null}
       </div>
       {/* 17/11/2026 (ronda 20, marketing): el gráfico primero y el resumen debajo, con la base de la liga. */}
-      {fraseAbre ? (
+      {fraseAbre && !tituloNube ? (
         <p className="text-[15px] font-semibold leading-snug text-white">
           {fraseAbre}
           {nubeLiga.length >= 4 ? <span className="font-normal text-white/65"> «La liga»: media por partido de los {nubeLiga.length} equipos, J{jDesde}–J{jHasta}.</span> : null}
@@ -1811,7 +1819,8 @@ function Marco({ children }: { children: ReactNode }) {
         <section className="flex min-w-0 flex-1 flex-col">
           <Topbar />
 
-          <div className="min-w-0 px-4 py-6 sm:px-6 lg:px-10">{children}</div>
+          {/* 28/11/2026 (estilo, los tres jueces): `laminas-quietas`; «¿Dónde está en la liga?» salía al 35 %. */}
+          <div className="laminas-quietas min-w-0 px-4 py-6 sm:px-6 lg:px-10">{children}</div>
         </section>
       </div>
     </main>

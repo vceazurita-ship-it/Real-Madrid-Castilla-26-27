@@ -39,6 +39,8 @@ import { AlertTriangle, ExternalLink, RotateCcw, Search, UserRound, X } from "lu
 
 import { Pestanas, usePestanaUrl } from "@/components/analisis/Pestanas";
 import { esPortero } from "@/lib/seguimiento";
+import { useCalendario } from "@/hooks/useCalendario";
+import { proximoPartido } from "@/lib/castilla/calendario";
 import { EnlacesJugador, NombreJugador, type DestinoJugador } from "@/components/individual/EnlacesJugador";
 
 /*
@@ -146,7 +148,12 @@ function rivalCorto(nombre: string) {
   const palabras = limpio.split(" ").filter(Boolean);
   const corto = palabras.length > 1 && palabras[0].length <= 4 ? `${palabras[0]} ${palabras[1]}` : (palabras[0] ?? "");
 
-  return corto.charAt(0).toUpperCase() + corto.slice(1).toLowerCase();
+  /* 28/11/2026 (fútbol, estilo): cada palabra con su mayúscula, como en
+     Valoraciones («Real Murcia», no «Real murcia»). */
+  return corto
+    .split(" ")
+    .map((p, i) => (i > 0 && /^(de|del|la|las|los|el)$/i.test(p) ? p.toLowerCase() : p.charAt(0).toUpperCase() + p.slice(1).toLowerCase()))
+    .join(" ");
 }
 
 const fechaCorta = (iso: string) => iso.split("-").reverse().slice(0, 2).join("/");
@@ -964,6 +971,14 @@ function BloqueMinutos({ jugadores, onAbre }: { jugadores: Jugador[]; onAbre: (i
         )}
         <span>«tendencia»: menos de 3 partidos, el % no es firme</span>
       </p>
+      {/* 28/11/2026 (fútbol, estilo): la fuente a la vista, como en el ranking de
+          Valoraciones: por qué los minutos de aquí no son los de Plantilla. */}
+      {deWyscout && (
+        <p className="-mt-1 mb-3 text-xs text-white/60">
+          Minutos de Wyscout, con el añadido: no coinciden con los de Plantilla y Valoraciones, que salen de Valoraciones a 90′ por
+          partido completo.
+        </p>
+      )}
       <div className="space-y-5">
         {PUESTOS.map((p) => {
           const suyos = conMinutos.filter((j) => j.puesto === p.key);
@@ -1122,6 +1137,11 @@ function BloqueAvisos({
     porJugador.set(a.jugador.ficha.id, { jugador: a.jugador, n: (previo?.n ?? 0) + 1 + (conSinJugar ? 1 : 0), motivos });
   }
   const semaforo = [...porJugador.values()].sort((a, b) => b.n - a.n || nombreDe(a.jugador).localeCompare(nombreDe(b.jugador), "es"));
+  /* 28/11/2026 (análisis y marketing, estilo): «Juega poco» y «Carga alta»
+     llevan a la semana (Microciclos) y al próximo rival, a un toque. */
+  const { partidos: calendario } = useCalendario();
+  const [ahora] = useState(() => Date.now());
+  const proximoRival = proximoPartido(calendario, ahora)?.rival ?? null;
 
   return (
     <Bloque
@@ -1199,10 +1219,17 @@ function BloqueAvisos({
                     </li>
                   ))}
                 </ul>
-                {tipo === "carga" && (
-                  <Link href="/microcycles" className="mt-2 inline-block text-xs font-medium text-[#C8A96B] hover:underline">
-                    Planificar la semana en Microciclos →
-                  </Link>
+                {(tipo === "carga" || tipo === "pocos") && (
+                  <p className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs font-medium">
+                    <Link href="/microcycles" className="text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+                      {tipo === "carga" ? "Dosificar la semana en Microciclos →" : "Buscarle minutos en la semana (Microciclos) →"}
+                    </Link>
+                    {proximoRival && (
+                      <Link href={`/rivals?equipo=${encodeURIComponent(proximoRival)}`} className="text-[color:var(--rmcf-gold-ink,#C8A96B)] hover:underline">
+                        El próximo rival: {proximoRival} →
+                      </Link>
+                    )}
+                  </p>
                 )}
               </div>
             );

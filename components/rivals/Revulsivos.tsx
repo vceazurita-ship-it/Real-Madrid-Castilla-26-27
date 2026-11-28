@@ -71,7 +71,7 @@ function Bloque({ equipo }: { equipo: string }) {
     <section id="x-idea-2122059133062947319-1" aria-label="Revulsivos" className="portada-tarjeta portada-entra mt-6 min-w-0 px-4 py-4 sm:px-5">
       <p className="flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold uppercase tracking-[0.16em] text-[#C8A96B]">
         Revulsivos · el banquillo de {nombre}
-        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[11px] font-semibold normal-case tracking-normal text-white/60">dato · Opta, esta temporada</span>
+        <span className="rounded-full border border-white/15 px-2 py-0.5 text-[12px] font-semibold normal-case tracking-normal text-white/60">dato · Opta, esta temporada</span>
       </p>
       {frase && <h3 className="fuente-club mt-1.5 text-[20px] font-bold leading-[1.15] text-white sm:text-[24px]">{frase}</h3>}
 
@@ -88,7 +88,7 @@ function Bloque({ equipo }: { equipo: string }) {
       <div className="mt-3 overflow-x-auto">
         <table className="w-full min-w-[34rem] border-collapse text-[12px] tabular-nums">
           <thead>
-            <tr className="border-b border-white/10 text-left text-[11px] font-semibold text-white/55">
+            <tr className="border-b border-white/10 text-left text-[12px] font-semibold text-white/55">
               <th className="py-1.5 pr-2 font-semibold">Jugador</th>
               <th className="px-2 py-1.5 text-right font-semibold" title="Partidos que entra desde el banquillo">Entra</th>
               <th className="px-2 py-1.5 text-right font-semibold">Min. suplente</th>
@@ -104,7 +104,7 @@ function Bloque({ equipo }: { equipo: string }) {
               <tr key={j.playerId} className={`border-b border-white/5 ${j.destacado ? "bg-[#C8A96B]/10" : ""}`}>
                 <td className="max-w-[12rem] truncate py-1.5 pr-2 font-semibold text-white">
                   {j.destacado && (
-                    <span className="mr-1.5 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[11px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
+                    <span className="mr-1.5 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[12px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
                       revulsivo
                     </span>
                   )}
@@ -118,7 +118,7 @@ function Bloque({ equipo }: { equipo: string }) {
                 <td className={`px-2 py-1.5 text-right ${j.destacado ? "font-bold text-white" : "text-white/75"}`}>
                   {j.ga90Sup != null ? coma(j.ga90Sup, 1) : ""}
                   {j.ga90Sup != null && j.minSup < 90 && (
-                    <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[11px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
+                    <span className="ml-1 rounded-full border border-white/20 px-1.5 py-px text-[12px] font-semibold text-white/60" title={`Sale de ${Math.round(j.minSup)}′ de suplente: menos de 90′`}>
                       tendencia
                     </span>
                   )}
@@ -159,6 +159,12 @@ function FichaRevulsivo({ j, orden }: { j: Revulsivo; orden: number }) {
     { k: "Entrando", v: j.ga90Sup, color: "var(--rmcf-gold-ink)", nota: j.ga90Sup != null && j.minSup < 90 ? "tendencia" : `${Math.round(j.minSup)}′` },
     { k: "De titular", v: j.ga90Tit, color: tinta(0.35), nota: j.titularidades ? `${Math.round(j.minTit)}′` : "" },
   ];
+  /*
+  | 28/11/2026 (jueces de estilo): Neco Celorio salía con dos barras a 0,0 y
+  | sin altura. Si las dos se leen 0,0 (o no hay ninguna), el gráfico no sale:
+  | lo dice ya «G · A 0 · 0» de la fila de cifras.
+  */
+  const conBarra = barras.filter((b) => b.v != null && Math.round(b.v * 10) > 0).length > 0;
   const cifras = [
     { k: "Entra", v: `${j.entradas}`, sub: j.entradas === 1 ? "vez" : "veces" },
     { k: "G · A", v: `${j.golesSup} · ${j.asistSup}`, sub: "entrando" },
@@ -171,7 +177,7 @@ function FichaRevulsivo({ j, orden }: { j: Revulsivo; orden: number }) {
       <p className="flex min-w-0 items-center gap-2">
         <span className="fuente-club min-w-0 truncate text-[22px] font-bold uppercase leading-none text-white">{j.jugador}</span>
         {j.destacado && (
-          <span className="shrink-0 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[11px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
+          <span className="shrink-0 rounded-full border border-[#C8A96B]/50 px-1.5 py-px text-[12px] font-bold text-[#C8A96B]" title="Rinde mucho más entrando que de titular">
             revulsivo
           </span>
         )}
@@ -179,20 +185,29 @@ function FichaRevulsivo({ j, orden }: { j: Revulsivo; orden: number }) {
       <dl className="mt-2 grid grid-cols-2 gap-1.5 sm:grid-cols-4">
         {cifras.map((c) => (
           <div key={c.k} className="min-w-0 rounded-lg px-2 py-1.5" style={{ background: tinta(0.05) }}>
-            <dt className="truncate text-[11px] font-semibold uppercase tracking-[0.06em] text-white/50">{c.k}</dt>
+            <dt className="truncate text-[12px] font-semibold uppercase tracking-[0.06em] text-white/50">{c.k}</dt>
             <dd className="fuente-club truncate text-[18px] font-bold leading-tight tabular-nums text-white">{c.v}</dd>
-            <dd className="truncate text-[11px] text-white/45">{c.sub}</dd>
+            <dd className="truncate text-[12px] text-white/45">{c.sub}</dd>
           </div>
         ))}
       </dl>
-      <p className="mt-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-white/50">G+A por 90′</p>
-      <div className="mt-1 flex h-24 items-end gap-3" role="img" aria-label={`G+A por 90: entrando ${j.ga90Sup != null ? coma(j.ga90Sup, 1) : "sin minutos"}, de titular ${j.ga90Tit != null ? coma(j.ga90Tit, 1) : "sin minutos"}`}>
+      {conBarra && (
+      <>
+      <p className="mt-2.5 text-[12px] font-semibold uppercase tracking-[0.08em] text-white/50">G+A por 90′</p>
+      <div
+        className="mt-1 flex h-24 items-end gap-3"
+        role="img"
+        aria-label={`G+A por 90′: ${barras
+          .filter((b) => b.v != null)
+          .map((b) => `${b.k.toLowerCase()} ${coma(b.v ?? 0, 1)}`)
+          .join(", ")}`}
+      >
         {barras.map((b) =>
           b.v == null ? null : (
             <div key={b.k} className="flex h-full min-w-0 flex-1 flex-col justify-end text-center">
               <span className="fuente-club text-[18px] font-bold leading-none tabular-nums text-white">{coma(b.v, 1)}</span>
               <div className="portada-entra mx-auto mt-1 w-full max-w-[5rem] rounded-t-md" style={{ height: `${Math.max(4, (b.v / tope) * 60)}px`, background: b.color }} />
-              <span className="mt-1 truncate text-[11px] text-white/55">
+              <span className="mt-1 truncate text-[12px] text-white/55">
                 {b.k}
                 {b.nota && ` · ${b.nota}`}
               </span>
@@ -200,6 +215,8 @@ function FichaRevulsivo({ j, orden }: { j: Revulsivo; orden: number }) {
           ),
         )}
       </div>
+      </>
+      )}
     </li>
   );
 }

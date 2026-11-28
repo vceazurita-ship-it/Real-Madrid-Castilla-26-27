@@ -24,6 +24,7 @@ import { useDocsOpta } from "@/hooks/useDocsOpta";
 import { useEnlaceClipOpta } from "@/hooks/useCortesOpta";
 import { aObjetos, DOCS_OPTA, type TablaOpta } from "@/lib/opta";
 import { gruposDePartidos } from "@/lib/opta-abp";
+import { nombreDeRival } from "@/lib/rivals/nombre-jugador";
 import { casaEquipo, pistaDe, rematesDe, saquesDe } from "@/lib/opta-eventos";
 import {
   GRUPOS_CORNER,
@@ -45,7 +46,8 @@ const fechaCorta = (f: string) => (f.length >= 10 ? `${f.slice(8, 10)}/${f.slice
 /** Con menos córners, la conversión es tendencia. */
 const POCOS_CORNERS = 15;
 
-export function ComoMarcaCorner({ equipo }: { equipo: string }) {
+/* `nombres`: los de su plantilla, para escribir a cada uno como en el resto del área («Sina», no el «Bema Sina» de Opta; 28/11/2026). */
+export function ComoMarcaCorner({ equipo, nombres = [] }: { equipo: string; nombres?: string[] }) {
   const { caja, abierto } = useAsoma<HTMLDivElement>();
 
   return (
@@ -55,7 +57,7 @@ export function ComoMarcaCorner({ equipo }: { equipo: string }) {
         subtitle="Sus córners de liga (Opta): ¿gol al primer toque, en la segunda jugada o en corto?"
         icon={Flag}
       >
-        {abierto ? <Cuerpo equipo={equipo} /> : <Esqueleto />}
+        {abierto ? <Cuerpo equipo={equipo} nombres={nombres} /> : <Esqueleto />}
       </Panel>
     </div>
   );
@@ -70,7 +72,7 @@ function Esqueleto() {
   );
 }
 
-function Cuerpo({ equipo }: { equipo: string }) {
+function Cuerpo({ equipo, nombres }: { equipo: string; nombres: string[] }) {
   const { docs, cargando } = useDocsOpta<[TablaOpta, TablaOpta, TablaOpta, TablaOpta, TablaOpta]>(
     DOCS_OPTA.abpEventos,
     DOCS_OPTA.remates,
@@ -195,7 +197,7 @@ function Cuerpo({ equipo }: { equipo: string }) {
                         r={7 + Math.sqrt(r.xG) * 20}
                         style={{ fill: color, fillOpacity: r.grupo === "segunda" && pesa ? 0.95 : 0.7, stroke: r.gol ? SOBRE_CESPED.gol : "rgba(0,0,0,0.45)", strokeWidth: r.gol ? 4 : 1.5 }}
                       >
-                        <title>{`${fechaCorta(r.fecha)} ${r.minuto}′ · ${r.tirador} · ${GRUPOS_CORNER.find((g) => g.clave === r.grupo)?.rotulo ?? ""} a los ${Math.round(r.tras)} s${r.grupo === "segunda" ? ` · ${zonaRechace(r)}` : ""} · xG ${coma(r.xG, 2)}${r.gol ? " · GOL" : ""}`}</title>
+                        <title>{`${fechaCorta(r.fecha)} ${r.minuto}′ · ${nombreDeRival(r.tirador, nombres)} · ${GRUPOS_CORNER.find((g) => g.clave === r.grupo)?.rotulo ?? ""} a los ${Math.round(r.tras)} s${r.grupo === "segunda" ? ` · ${zonaRechace(r)}` : ""} · xG ${coma(r.xG, 2)}${r.gol ? " · GOL" : ""}`}</title>
                       </circle>
                     </a>
                   );
@@ -222,7 +224,7 @@ function Cuerpo({ equipo }: { equipo: string }) {
                     const zona = (Object.entries(q.zonas) as [string, number][]).sort((a, b) => b[1] - a[1])[0];
                     return (
                       <li key={q.tirador} className="flex min-w-0 items-baseline justify-between gap-2">
-                        <span className={`truncate ${pesa ? "text-amber-300" : "text-white/85"}`}>{q.tirador}</span>
+                        <span className={`truncate ${pesa ? "text-amber-300" : "text-white/85"}`}>{nombreDeRival(q.tirador, nombres)}</span>
                         <span className="shrink-0 text-white/60">
                           {q.remates} {q.remates === 1 ? "remate" : "remates"}
                           {q.goles ? ` · ${q.goles} ${q.goles === 1 ? "gol" : "goles"}` : ""} · sobre todo {zona[0]}

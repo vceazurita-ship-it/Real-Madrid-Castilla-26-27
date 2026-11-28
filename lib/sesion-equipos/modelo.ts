@@ -787,6 +787,8 @@ export type Aviso = {
   pendiente?: boolean;
   /** Meter a este jugador en ese equipo, de un toque (16/11/2026): «falta 1» con uno que no hace la tarea. */
   mete?: { id: string; equipo: string; texto: string };
+  /** 28/11/2026 (jueces, estilo): ajustar la tarea a lo que cabe con los de hoy (equipos y comodines) y proponer el reparto. */
+  ajustaFormato?: { equipos: number; comodines: number; texto: string };
 };
 
 /** El puesto de un jugador: el puesto a mano, si no el de la plantilla. */

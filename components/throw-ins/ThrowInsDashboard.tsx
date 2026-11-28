@@ -903,7 +903,8 @@ function conclusionesDe(
   /* «Qué entrenamos» nunca se queda fuera del recorte; el recuento abre las lecturas. */
   const ordenQue = frases.find((f) => f.startsWith("Qué entrenamos"));
   /* 27/11/2026 (jueces, ronda 11): la tendencia de la semana, la primera de las lecturas (a la vista). */
-  const restoFrases = [...(lineaTendencia ? [lineaTendencia] : []), recuento, ...frases.filter((f) => f !== ordenQue)];
+  /* 28/11/2026 (jueces, estilo): en la defensiva el recuento («231 saques del rival: recuperamos 81…») repetía la barra «¿Cómo acaban?», que va justo encima: fuera. */
+  const restoFrases = [...(lineaTendencia ? [lineaTendencia] : []), ...(ofensivo ? [recuento] : []), ...frases.filter((f) => f !== ordenQue)];
   const zonaConclusion = ofensivo
     ? debil && debil.key === "Zona_Saque"
       ? Number(/(\d)/.exec(debil.valor)?.[1] ?? 0) || null
@@ -2391,6 +2392,8 @@ export function ThrowInsDashboard({ csvUrl, title, mode }: ThrowInsDashboardProp
                       categorias={categoriasVisual}
                       marca={!filters.JORNADA && comparativa ? comparativa.elegida.clave : null}
                       repartoArriba
+                      /* 28/11/2026 (jueces, estilo): «¿Va a mejor?» en % del partido (el titular habla de %), con la raya en la media. */
+                      tendenciaEnPorcentaje
                       unidad={isOffensive ? { uno: "saque", varios: "saques", genero: "m" } : { uno: "saque del rival", varios: "saques del rival", genero: "m" }}
                       exito={
                         isOffensive

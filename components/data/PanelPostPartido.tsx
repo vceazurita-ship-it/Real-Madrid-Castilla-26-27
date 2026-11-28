@@ -44,9 +44,8 @@ import { Momentum } from "@/app/opta/_piezas/Momentum";
 import { MapaRemates, type RefRemates } from "@/app/opta/_piezas/Remates";
 import { Botonera, Elegir } from "@/app/opta/_piezas/comun";
 import { dec, nombreDe, useAcciones, useRemates } from "@/app/opta/_piezas/eventos";
-import { enArea, esProgresivo, type Remate } from "@/lib/opta-eventos";
+import { enArea, esProgresivo, SITUACION, type Remate } from "@/lib/opta-eventos";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
-import { Notice } from "@/components/abp/ui";
 import { PanelCampograma } from "@/components/data/PanelCampograma";
 import { CampoOpta } from "@/components/data/CampoOpta";
 import { RelievePartido } from "@/components/data/RelievePartido";
@@ -187,6 +186,18 @@ export function PanelPostPartido({
 }) {
   const { datos, cargando } = useOpta();
   const calendario = useCalendarioCastilla();
+  /*
+  | 28/11/2026 (estilo, fútbol): tope de 8 s al esqueleto. En el móvil se
+  | quedaba en dos bloques grises para siempre si Opta no contestaba; pasado
+  | el tope se pinta con lo que haya (Wyscout, el laboratorio) y lo de Opta
+  | entra solo cuando llega.
+  */
+  const [esperaAgotada, setEsperaAgotada] = useState(false);
+  useEffect(() => {
+    if (!cargando) return;
+    const reloj = window.setTimeout(() => setEsperaAgotada(true), 8_000);
+    return () => window.clearTimeout(reloj);
+  }, [cargando]);
 
   const optaPartidos = useMemo(() => datos?.partidos ?? [], [datos]);
   const optaEquipos = useMemo(() => datos?.equipos ?? [], [datos]);
@@ -261,7 +272,7 @@ export function PanelPostPartido({
     return `Datos hasta la ${j ? `J${j}` : fechaCorta(ultima.fecha)}: la ${alc.pendientes[alc.pendientes.length - 1]} ya se jugó y entra en cuanto Opta y Wyscout la publiquen.`;
   })();
 
-  if (cargando) {
+  if (cargando && !esperaAgotada) {
     return (
       <div className="mt-5 space-y-4" role="status" aria-label="Cargando el partido">
         <Hueso className="h-24" />
@@ -270,15 +281,11 @@ export function PanelPostPartido({
     );
   }
 
-  const avisoWyscout = wyscoutCaido && (
-    <div className="mt-5">
-      <Notice tone="warn" title="Wyscout no ha cargado">
-        Falta «Partido en el campo»; lo de Opta sale abajo. Pulsa «Actualizar datos» para volver a intentarlo.
-      </Notice>
-    </div>
-  );
+  /* 28/11/2026 (estilo, los tres jueces): sin la caja «Wyscout no ha cargado» en la zona de lectura; lo que no
+     tiene dato no se nombra, y el reintento (solo, en segundo plano) y su estado van en la cabecera de la página. */
+  void wyscoutCaido;
 
-  if (!visto) return avisoWyscout || null;
+  if (!visto) return null;
 
   const enCasa = enCasaDe(visto);
   const jornada = jornadaDe(visto);
@@ -292,7 +299,6 @@ export function PanelPostPartido({
 
   return (
     <>
-      {avisoWyscout}
 
       {/* EL PARTIDO: el único selector, y lo que manda sobre todo lo de abajo. */}
       {/* 20/11/2026 (ronda 7, análisis): el selector ocupaba mucho antes del
@@ -842,11 +848,41 @@ function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
             </span>
             <span className="min-w-0 text-[13px] leading-snug text-white/80">
               <b className="tabular-nums">{g.minuto}′</b> · {g.tirador || nombreDe(g.teamId, g.equipo)}
-              <span className="block text-[11px] text-white/55">▶ preparando el vídeo</span>
+              {/* 28/11/2026 (estilo, análisis y marketing): mientras llega el vídeo, desde dónde fue el tiro y cómo, no «preparando el vídeo». */}
+              <span className="block text-[11px] text-white/55">{dondeFue(g)}</span>
             </span>
           </li>
         ))}
       </ul>
+    </>
+  );
+  /* 28/11/2026 (estilo, fútbol): si el vídeo no llega en 12 s, cada gol con su minuto y su tiro, y a un toque «Análisis de goles», donde se ve en el campo. */
+  const sinVideo = (reintentar: () => void) => (
+    <>
+      {titulo}
+      <ul className="grid min-w-0 gap-2 sm:grid-cols-2" aria-label="Los goles del partido">
+        {lista.map((g, i) => (
+          <li key={`${g.partido}-${g.minuto}-${i}`} className="min-w-0 rounded-xl border border-white/10 bg-white/[0.03] px-3 py-2 text-[13px] leading-snug text-white/80">
+            <b className="tabular-nums">{g.minuto}′</b> · {g.tirador || nombreDe(g.teamId, g.equipo)}
+            <span className="block text-[11px] text-white/55">{dondeFue(g)}</span>
+          </li>
+        ))}
+      </ul>
+      <p className="mt-2 flex min-h-[36px] flex-wrap items-center gap-2 text-[12px] text-white/60" role="status">
+        <Link
+          href="/analisis-goles"
+          className="inline-flex min-h-[32px] items-center rounded-xl border border-white/15 bg-white/[0.04] px-3 text-[12px] font-semibold text-white/80 transition hover:border-[#C8A96B]/50"
+        >
+          Verlos en Análisis de goles
+        </Link>
+        <button
+          type="button"
+          onClick={reintentar}
+          className="inline-flex min-h-[32px] items-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/20"
+        >
+          Volver a pedir el vídeo
+        </button>
+      </p>
     </>
   );
   return (
@@ -860,27 +896,21 @@ function GolesDelPartidoEnVideo({ goles }: { goles: Remate[] }) {
           mientras={cargandoVideo}
           ocultarSinVideo
           /* 20/11/2026 (jueces, ronda 8): a los 12 s sin vídeo, «Reintentar» en vez de «Cargando…» para siempre. */
-          alAgotar={(reintentar) => (
-            <>
-              {titulo}
-              <p className="flex min-h-[36px] flex-wrap items-center gap-2 text-[12px] text-white/60" role="status">
-                El vídeo de los goles no ha llegado.
-                <button
-                  type="button"
-                  onClick={reintentar}
-                  className="inline-flex min-h-[32px] items-center rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 text-[12px] font-semibold text-[#C8A96B] transition hover:bg-[#C8A96B]/20"
-                >
-                  Reintentar
-                </button>
-              </p>
-            </>
-          )}
+          alAgotar={sinVideo}
         />
       ) : (
         cargandoVideo
       )}
     </div>
   );
+}
+
+/** Desde dónde fue el tiro de un gol («dentro del área, a 11 m · de cabeza · córner»), con las coordenadas de Opta (campo de 105 × 68). */
+function dondeFue(g: Remate): string {
+  const metros = Math.round(Math.hypot((100 - g.x) * 1.05, (g.y - 50) * 0.68));
+  const cuerpo = /head/i.test(g.cuerpo) ? "de cabeza" : "";
+  const como = SITUACION[g.situacion] ?? "";
+  return [`${enArea(g.x, g.y) ? "dentro" : "fuera"} del área, a ${metros} m`, cuerpo, como].filter(Boolean).join(" · ");
 }
 
 /* El relieve del partido: lo deja scripts/opta-directo.mjs en opta:directo:<partido>. Si aún no está, el

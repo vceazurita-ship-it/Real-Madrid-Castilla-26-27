@@ -219,7 +219,8 @@ function EscalaIndices({
                       punto con anillo discontinuo. */}
                   {f.comparables !== undefined && f.comparables > 0 && f.comparables < COMPARABLES_FIRMES && (
                     <span className="ml-1 font-semibold text-[color:var(--rmcf-gold-ink,#C8A96B)]" title={`Tendencia: su puesto tiene ${f.comparables} comparables (menos de ${COMPARABLES_FIRMES})`}>
-                      * {f.comparables} comp.
+                      {/* 28/11/2026 (análisis y marketing, estilo): la palabra, no sólo el símbolo. */}
+                      * tendencia · {f.comparables} comparables
                     </span>
                   )}
                 </span>
@@ -252,7 +253,15 @@ function EscalaIndices({
                 </span>
               </button>
               {f.fichaId ? (
-                <EnlacesJugador className="hidden sm:inline-flex" compacto jugador={{ id: f.fichaId, nombre: f.nombre }} destinos={["ficha", "seguimiento", "videos", "valoraciones"]} />
+                <EnlacesJugador
+                  className="hidden sm:inline-flex"
+                  compacto
+                  jugador={{ id: f.fichaId, nombre: f.nombre }}
+                  /* 28/11/2026 (análisis y marketing, estilo): la fila ya abre la ficha;
+                     a la vista, los vídeos, y el resto en «Más» (antes, cuatro iconos). */
+                  destinos={["videos"]}
+                  mas={["ficha", "seguimiento", "valoraciones"]}
+                />
               ) : (
                 <span className="hidden sm:block" />
               )}
@@ -269,7 +278,7 @@ function EscalaIndices({
         {pocosComparables && (
           <span className="inline-flex items-center gap-1.5">
             <i className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: ORO, outline: `2px dashed ${ORO}`, outlineOffset: "2px" }} />
-            * puesto con menos de {COMPARABLES_FIRMES} comparables (tendencia)
+            * tendencia: su puesto tiene menos de {COMPARABLES_FIRMES} comparables (jugadores de su posición y edad en la categoría contra los que se mide)
           </span>
         )}
         <span>Raya: 50, la media de su puesto; más es mejor · al lado de cada uno, su ficha, su seguimiento y sus notas · la tabla entera, en «Detalle»</span>

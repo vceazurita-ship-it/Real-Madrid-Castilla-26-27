@@ -467,7 +467,8 @@ export function ventanaDelMicro(entrada: EntradaVentana): VentanaMicro {
     primero = new Date(aMedioDia(ultimo) - 6 * DIA_MS).toISOString().slice(0, 10);
 
     avisos.push(
-      `Entre el partido anterior y éste hay ${Math.round(largo)} días. Se enseñan los siete últimos: el plan guarda un día por letra y dos lunes no caben en la misma casilla.`,
+      /* 28/11/2026 (jueces, estilo): en lenguaje de vestuario, sin «casillas» ni «letras». */
+      `Del partido anterior a este hay ${Math.round(largo)} días: se ven los 7 últimos.`,
     );
   }
 

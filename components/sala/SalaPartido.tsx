@@ -20,12 +20,14 @@
 
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { ChevronLeft, Maximize2, Minimize2, Pause, Play, Radio, SkipForward } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, Maximize2, Minimize2, Pause, Play, Radio, SkipForward } from "lucide-react";
 
 import { useAdmin } from "@/hooks/useAdmin";
 import { alDia, alertas, calibracion, cifrasHasta, esAcabado, fichasDeGol, queTocar, hitos as hitosDe, inicioSegunda, nombreEquipoCorto, parteEn, partidoDe, probabilidad, reloj, resultadoJusto, titular, tramoDe, type DocPartido, type Partido, type TramoClave } from "@/lib/sala/modelo";
 import { traeJson } from "@/lib/hojaCsv";
 import { mismoClub } from "@/lib/rivals/mismoClub";
+import { urlPostDelPartido } from "@/lib/post-partido";
+import { urlGolesDelEquipo } from "@/lib/rivals/goles-en-video";
 import { filaDelPlan, planEnElCampo, rumbo, type FilaPlan } from "@/lib/sala/rumbo";
 import { AvisoDominio, useTemporadaDescanso } from "./AvisoDominio";
 import { dominioSinPremio } from "@/lib/sala/dominio";
@@ -334,15 +336,30 @@ export function SalaPartido() {
           <div className="mt-4 grid gap-4">
             <Marcador p={partido} t={tVista} c={calculo.c} modo={modo} parte={calculo.parte} prob={calculo.prob} justo={calculo.justo} titular={calculo.titular} hitos={calculo.hitos} fichas={calculo.fichas} k={k} aviso={avisoDominio} />
 
-            {/* En el móvil, los avisos van justo después del marcador (el experto de fútbol: es lo primero que se lee en el banquillo). */}
+            {/* 28/11/2026 (jueces de estilo): «Mirar» sube bajo el marcador, a todo el ancho: manda en
+                todo lo de debajo (campo, cara a cara, lectura) y en el móvil quedaba tras la lectura. */}
+            <SelectorTramo valor={disponibles[tramo] ? tramo : "todo"} onCambia={setTramo} disponibles={disponibles} />
+
+            {/* En el móvil, los avisos van justo después del marcador (el experto de fútbol: es lo primero que se lee en el banquillo).
+                28/11/2026 (jueces de estilo): y el campo, justo después de los avisos; «Hacia dónde va» y la lectura, detrás
+                (la columna derecha se deshace en el móvil con `contents` y cada pieza lleva su orden). */}
             <div className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-              <div className="grid min-w-0 content-start gap-4 xl:col-start-2 xl:row-start-1">
-                <Alertas lista={avisos} p={partido} final={modo === "final"} />
-                {haciaDonde && <HaciaDonde p={partido} r={haciaDonde} final={modo === "final"} />}
-                {lectura && <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} omitir={omitir} tocar={tocar.map((x) => x.texto)} final={modo === "final"} />}
+              <div className="contents min-w-0 content-start gap-4 xl:col-start-2 xl:row-start-1 xl:grid">
+                <div className="order-1 min-w-0 xl:order-none">
+                  <Alertas lista={avisos} p={partido} final={modo === "final"} />
+                </div>
+                {haciaDonde && (
+                  <div className="order-3 min-w-0 xl:order-none">
+                    <HaciaDonde p={partido} r={haciaDonde} final={modo === "final"} />
+                  </div>
+                )}
+                {lectura && (
+                  <div className="order-3 min-w-0 xl:order-none">
+                    <Lectura p={partido} v={lectura.v} titulo={lectura.titulo} omitir={omitir} tocar={tocar.map((x) => x.texto)} final={modo === "final"} />
+                  </div>
+                )}
               </div>
-              <div className="grid min-w-0 content-start gap-3 xl:col-start-1 xl:row-start-1">
-                <SelectorTramo valor={disponibles[tramo] ? tramo : "todo"} onCambia={setTramo} disponibles={disponibles} />
+              <div className="order-2 grid min-w-0 content-start gap-3 xl:order-none xl:col-start-1 xl:row-start-1">
                 <Campo p={partido} t={tVista} v={ventana} capa={capa} setCapa={setCapa} />
               </div>
             </div>
@@ -392,11 +409,11 @@ export function SalaPartido() {
   }, [tv]);
 
   return (
-    <div ref={raiz} className={`sala-raiz siempre-oscuro min-h-screen overflow-y-auto ${tv ? "sala-tv" : ""} ${tv && quieta ? "sala-quieta" : ""}`} style={{ background: `radial-gradient(1200px 600px at 50% -10%, rgba(30,70,150,0.35), transparent), radial-gradient(900px 500px at 100% 100%, rgba(20,120,110,0.12), transparent), ${S.fondo}`, color: S.texto }}>
+    <div ref={raiz} className={`sala-raiz siempre-oscuro min-h-screen ${pantalla ? "overflow-y-auto" : ""} ${tv ? "sala-tv" : ""} ${tv && quieta ? "sala-quieta" : ""}`} style={{ background: `radial-gradient(1200px 600px at 50% -10%, rgba(30,70,150,0.35), transparent), radial-gradient(900px 500px at 100% 100%, rgba(20,120,110,0.12), transparent), ${S.fondo}`, color: S.texto }}>
       {/* Rejilla tenue de fondo: la sala. */}
       <div aria-hidden className="pointer-events-none fixed inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(rgba(140,190,255,1) 1px, transparent 1px), linear-gradient(90deg, rgba(140,190,255,1) 1px, transparent 1px)", backgroundSize: "48px 48px" }} />
 
-      <div className={`sala-contenido relative mx-auto px-3 pb-36 pt-3 sm:pb-28 sm:px-6 ${tv ? "max-w-[1920px]" : "max-w-[1600px]"}`}>
+      <div className={`sala-contenido relative mx-auto px-3 pb-16 pt-3 sm:px-6 ${tv ? "max-w-[1920px]" : "max-w-[1600px]"}`}>
         <header className="flex min-w-0 flex-wrap items-center gap-3">
           {!pantalla && (
             <Link href="/data-analisis?area=directo" className="inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-semibold" style={{ border: `1px solid ${S.borde}`, color: S.suave }}>
@@ -458,6 +475,75 @@ export function SalaPartido() {
           </div>
         </header>
 
+        {/* 28/11/2026 (jueces de estilo): a un toque, con el partido ya elegido (sólo en los del Castilla). */}
+        {partido && fuente === "castilla" && partido.nuestro && !pantalla && (() => {
+          const rivalNombre = partido.nuestro === "L" ? partido.visitante.nombre : partido.local.nombre;
+          const enlaces = [
+            partido.fecha ? { href: urlPostDelPartido(partido.fecha, rivalNombre), texto: "Análisis del partido" } : null,
+            { href: urlGolesDelEquipo(rivalNombre), texto: `Goles de ${nombreLista(rivalNombre)} en vídeo` },
+            { href: `/scout-rival-abp?equipo=${encodeURIComponent(rivalNombre)}`, texto: `ABP de ${nombreLista(rivalNombre)}` },
+          ].filter((x): x is { href: string; texto: string } => x !== null);
+          return (
+            <nav aria-label="A un toque" className="mt-2 flex min-w-0 flex-wrap items-center gap-1.5">
+              {enlaces.map((x) => (
+                <Link key={x.href} href={x.href} className="inline-flex min-h-[32px] items-center gap-1 rounded-full px-3 py-1 text-[12px] font-semibold" style={{ border: `1px solid ${S.borde}`, color: S.suave, background: "rgba(255,255,255,0.03)" }}>
+                  <ArrowUpRight size={13} aria-hidden style={{ color: S.oro }} /> {x.texto}
+                </Link>
+              ))}
+            </nav>
+          );
+        })()}
+
+        {/* LA BARRA DE LA REPETICIÓN (28/11/2026, jueces de estilo): antes iba fija al pie de la ventana y tapaba
+            la parte alta del campo (escritorio) y el rótulo del resultado justo (móvil). Ahora tiene su hueco en el
+            flujo, bajo la cabecera, y se queda pegada arriba al bajar: no se monta sobre nada. */}
+        {partido && calculo && (
+          <div className="sala-barra sticky top-0 z-30 -mx-3 mt-3 sm:-mx-6" style={{ background: "linear-gradient(180deg, #030812 78%, rgba(3,8,18,0.92))", borderBottom: "1px solid rgba(120,170,255,0.14)" }}>
+            {/* En el móvil, dos filas: la línea del tiempo a todo el ancho arriba y los mandos debajo. */}
+            <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-0.5 px-3 pb-2 pt-1 sm:flex-nowrap sm:gap-y-0 sm:px-6 sm:py-2">
+              <button type="button" onClick={alterna} className="grid h-11 w-11 shrink-0 place-items-center rounded-full" style={{ background: "linear-gradient(135deg, #3D8BFF, #2BE3A0)", color: "#031020", boxShadow: "0 0 24px rgba(80,170,255,0.6)" }} aria-label={reproduce ? "Pausa" : "Repetir"} title="Espacio">
+                {reproduce ? <Pause size={18} /> : <Play size={18} />}
+              </button>
+              <select value={velocidad} onChange={(e) => setVelocidad(Number(e.target.value))} aria-label="Velocidad de la repetición" className="rounded-full px-2 py-1 font-mono text-[12px]" style={{ background: "#0A1730", color: S.texto, border: `1px solid ${S.borde}` }}>
+                {VELOCIDADES.map((v) => (
+                  <option key={v} value={v}>
+                    ×{v}
+                  </option>
+                ))}
+              </select>
+              <div className="order-first w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
+                <Linea
+                  p={partido}
+                  t={t}
+                  max={Math.max(partido.ultimo, 1)}
+                  hitos={calculo.hitosTodos}
+                  final={modo === "final"}
+                  onCambia={(m) => {
+                    setSiguiendo(false);
+                    setReproduce(false);
+                    setT(m);
+                  }}
+                />
+              </div>
+              {/* El mismo reloj que el marcador («45+2′», «90+3′»). */}
+              <span className="ml-auto w-16 text-right font-mono text-[14px] font-bold tabular-nums sm:ml-0">{reloj(Math.min(t, partido.ultimo - 0.01), calculo.parte)}</span>
+              {enDirecto && !siguiendo && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setReproduce(false);
+                    setSiguiendo(true);
+                  }}
+                  className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold"
+                  style={{ background: "rgba(255,60,90,0.18)", color: "#FF6B86", border: "1px solid rgba(255,80,110,0.5)" }}
+                >
+                  <SkipForward size={13} aria-hidden /> Al directo
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
         {cargando && <p className="py-24 text-center text-[14px]" style={{ color: S.tenue }}>Abriendo la sala…</p>}
         {!cargando && !lista.length && (
           <p className="py-24 text-center text-[14px]" style={{ color: S.tenue }}>
@@ -469,54 +555,6 @@ export function SalaPartido() {
         {paneles}
       </div>
 
-      {/* La barra de la repetición, siempre a mano. */}
-      {partido && calculo && (
-        <div className="sala-barra fixed inset-x-0 bottom-0 z-30" style={{ background: "linear-gradient(180deg, rgba(3,8,18,0.55), #030812 22%)", borderTop: "1px solid rgba(120,170,255,0.14)", paddingBottom: "env(safe-area-inset-bottom)" }}>
-          {/* En el móvil, dos filas: la línea del tiempo a todo el ancho arriba (antes se quedaba en 100 px) y los mandos debajo, con hueco para el «⋮». */}
-          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-x-3 gap-y-0.5 px-3 pb-3 pt-1 sm:flex-nowrap sm:gap-y-0 sm:pl-6 sm:pr-20 sm:pt-3">
-            <button type="button" onClick={alterna} className="grid h-11 w-11 shrink-0 place-items-center rounded-full" style={{ background: "linear-gradient(135deg, #3D8BFF, #2BE3A0)", color: "#031020", boxShadow: "0 0 24px rgba(80,170,255,0.6)" }} aria-label={reproduce ? "Pausa" : "Repetir"} title="Espacio">
-              {reproduce ? <Pause size={18} /> : <Play size={18} />}
-            </button>
-            <select value={velocidad} onChange={(e) => setVelocidad(Number(e.target.value))} aria-label="Velocidad de la repetición" className="rounded-full px-2 py-1 font-mono text-[12px]" style={{ background: "#0A1730", color: S.texto, border: `1px solid ${S.borde}` }}>
-              {VELOCIDADES.map((v) => (
-                <option key={v} value={v}>
-                  ×{v}
-                </option>
-              ))}
-            </select>
-            <div className="order-first w-full min-w-0 sm:order-none sm:w-auto sm:flex-1">
-              <Linea
-                p={partido}
-                t={t}
-                max={Math.max(partido.ultimo, 1)}
-                hitos={calculo.hitosTodos}
-                final={modo === "final"}
-                onCambia={(m) => {
-                  setSiguiendo(false);
-                  setReproduce(false);
-                  setT(m);
-                }}
-              />
-            </div>
-            {/* El mismo reloj que el marcador («45+2′», «90+3′»). */}
-            <span className="ml-auto w-16 text-right font-mono text-[14px] font-bold tabular-nums sm:ml-0">{reloj(Math.min(t, partido.ultimo - 0.01), calculo.parte)}</span>
-            {enDirecto && !siguiendo && (
-              <button
-                type="button"
-                onClick={() => {
-                  setReproduce(false);
-                  setSiguiendo(true);
-                }}
-                className="inline-flex shrink-0 items-center gap-1 rounded-full px-3 py-1.5 text-[12px] font-bold"
-                style={{ background: "rgba(255,60,90,0.18)", color: "#FF6B86", border: "1px solid rgba(255,80,110,0.5)" }}
-              >
-                <SkipForward size={13} aria-hidden /> Al directo
-              </button>
-            )}
-            <span aria-hidden className="w-11 shrink-0 sm:hidden" />
-          </div>
-        </div>
-      )}
     </div>
   );
 }

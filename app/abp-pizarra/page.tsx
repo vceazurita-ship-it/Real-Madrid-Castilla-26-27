@@ -3095,6 +3095,7 @@ export default function PizarraAbpPage() {
                 rivalId={jornada?.id ?? (partido.id.startsWith("riv-") ? partido.id.slice(4) : "")}
                 /* 27/11/2026 (jueces, ronda 11): también el microciclo de ABP y, si hay córner defensivo, «Quién marca a quién» (la propuesta de marcas de esa lámina). */
                 incluye={["abp", "goles", "encaja", "plan", "microciclo"]}
+                golesComoChip
                 rotulo={`${rivalCorto(tablero?.rival || partido.opponent)} ·`}
                 className="mt-3"
                 extra={

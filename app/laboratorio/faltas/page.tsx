@@ -1090,7 +1090,7 @@ export default function FaltasPage() {
 
             {enVisual && bloqueCampo}
             {/* 22/11/2026: el Castilla frente al rival o rivales que se elijan (Opta). */}
-            {enVisual && <FrenteAlRival area="faltas" rivalPartido={partido?.rival ?? ""} className="mt-5" />}
+            {enVisual && <FrenteAlRival area="faltas" rivalPartido={partido?.rival ?? ""} className="mt-5" radarPlegado />}
 
             {/* ---------------- frente a los anteriores ---------------- */}
 

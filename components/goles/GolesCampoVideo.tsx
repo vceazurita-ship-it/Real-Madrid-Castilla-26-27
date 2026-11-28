@@ -25,7 +25,7 @@ import { MapaRemates } from "@/app/opta/_piezas/Remates";
 import { useOpta, type DatosOpta } from "@/app/opta/_piezas/useOpta";
 import { Lamina, TituloConclusion } from "@/components/ui/VistaVisual";
 import { CASTILLA_OPTA } from "@/lib/opta";
-import { casaEquipo, type Remate } from "@/lib/opta-eventos";
+import { casaEquipo, minutoTexto, SITUACION, type Remate } from "@/lib/opta-eventos";
 import type { LadoGoles } from "@/lib/rivals/goles-en-video";
 
 type Tipo = "todos" | "jugada" | "abp";
@@ -162,12 +162,63 @@ function Cuerpo({ datos, equipo, esCastilla, nombre, ladoInicial }: { datos: Dat
         <div className="min-w-0">
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-white/55">En vídeo · pincha un gol en el campo o en la lista</p>
           {goles.length ? (
-            <GolesDeSeguido key={`seguido-${teamId}-${lado}-${tipo}-${ultimos}`} goles={goles} titulo={tituloVideo} conLista pedido={pedido} />
+            <GolesDeSeguido
+              key={`seguido-${teamId}-${lado}-${tipo}-${ultimos}`}
+              goles={goles}
+              titulo={tituloVideo}
+              conLista
+              pedido={pedido}
+              /* 28/11/2026 (estilo, los tres jueces): mientras llegan los vídeos (o si no llegan en 12 s), la columna
+                 ya no queda en blanco: la lista de goles con minuto, rival y cómo fue, del más reciente al más antiguo. */
+              mientras={<ListaGoles goles={goles} />}
+              alAgotar={(reintentar) => <ListaGoles goles={goles} reintentar={reintentar} />}
+            />
           ) : (
             <p className="text-[13px] text-white/60">{titular}.</p>
           )}
         </div>
       </div>
     </Lamina>
+  );
+}
+
+/*
+| 28/11/2026 (estilo): la lista de goles que llena la columna del vídeo mientras
+| llegan los cortes (o si no llegan): minuto, quién, contra quién y cómo, del
+| más reciente al más antiguo. Pinchar un gol en el campo sigue abriéndolo en
+| cuanto el vídeo está.
+*/
+function ListaGoles({ goles, reintentar }: { goles: Remate[]; reintentar?: () => void }) {
+  const orden = [...goles].sort((a, b) => b.fecha.localeCompare(a.fecha) || b.segundo - a.segundo).slice(0, 12);
+  const fecha = (f: string) => (/^\d{4}-\d{2}-\d{2}/.test(f) ? `${f.slice(8, 10)}/${f.slice(5, 7)}` : "");
+
+  return (
+    <div className="min-w-0">
+      <ol className="grid min-w-0 gap-1" aria-label="Los goles, uno a uno">
+        {orden.map((g, k) => (
+          <li key={`${g.partido}-${g.segundo}-${k}`} className="flex min-w-0 items-baseline gap-2 rounded-xl border border-white/10 bg-white/[0.02] px-3 py-2">
+            <span className="shrink-0 text-[13px] font-bold tabular-nums text-[var(--rmcf-gold-ink)]">{minutoTexto(g.minuto, g.parte)}</span>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[13px] font-semibold text-white/85">{g.tirador}</span>
+              <span className="block break-words text-[11.5px] text-white/55">
+                {g.equipo} – {g.rival}
+                {fecha(g.fecha) ? ` · ${fecha(g.fecha)}` : ""}
+                {SITUACION[g.situacion] ? ` · ${SITUACION[g.situacion]}` : ""}
+              </span>
+            </span>
+          </li>
+        ))}
+      </ol>
+      {goles.length > orden.length && <p className="mt-1 text-[11px] text-white/50">Y {goles.length - orden.length} más en el campo.</p>}
+      {reintentar && (
+        <button
+          type="button"
+          onClick={reintentar}
+          className="mt-2 rounded-xl border border-[#C8A96B]/40 bg-[#C8A96B]/10 px-3 py-1.5 text-[12px] font-semibold text-[var(--rmcf-gold-ink)] transition hover:bg-[#C8A96B]/20"
+        >
+          Volver a pedir los vídeos
+        </button>
+      )}
+    </div>
   );
 }

@@ -210,7 +210,8 @@ export function BarraDibujo({
                   />
                 )}
                 {/* 16/11/2026 (jueces): a 390 px, icono y color; el nombre sólo de la elegida. */}
-                <span className={activa ? "" : "max-sm:sr-only"}>{item.label}</span>
+                {/* 28/11/2026 (jueces, estilo): el nombre siempre a la vista, también a 390 px (con sólo el icono no se sabía qué era cada uno); la fila se parte si no cabe. */}
+                <span className="max-sm:text-[11px]">{item.label}</span>
                 <Tecla>{TECLA_HERRAMIENTA[item.key]}</Tecla>
               </button>
             );
