@@ -53,7 +53,10 @@ const TOQUE = ["Interception", "Clearance", "Shot block", "Head pass", "Save"];
 /* Lo que es tener el balón y jugarlo. */
 const CON_BALON = ["Pass", "Carry", "Progressive run", "Dribble", "Cross", "Touch", "Acceleration", "Offensive duel"];
 
-const sinDorsal = (j) => String(j).replace(/^\d+\.\s*/, "");
+/* 28/11/2026: los del Castilla con un nombre que no es de la plantilla («4. Cisse» en la J13) se resuelven por su dorsal (nombres-castilla.cjs). */
+const { nombreCastilla } = require("./nombres-castilla.cjs");
+const CASTILLA = new Set();
+const sinDorsal = (j) => (CASTILLA.has(j) ? nombreCastilla(j) : String(j).replace(/^\d+\.\s*/, ""));
 const es = (e, ...ts) => ts.some((t) => e.tipos.includes(t));
 
 function cargaPartido(slug) {
@@ -78,6 +81,7 @@ function cargaPartido(slug) {
     if (!/ - /.test(c)) continue;
     const nuestro = c.startsWith("Real Madrid Castilla");
     for (const p of tag(m, "09 - Players")) equipo[p] ??= nuestro ? "RMC" : "RIV";
+    if (nuestro) for (const p of tag(m, "09 - Players")) CASTILLA.add(p);
   }
 
   /* Arranque de cada parte en segundos de Hudl. */

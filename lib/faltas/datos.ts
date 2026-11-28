@@ -4823,13 +4823,13 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 3,
-        "nota": "A las 10:06 Cisse (4) derriba a Álvaro Bustos (11), que había recibido el balón largo de Palmberg pegado a la banda, unos 3-4 m fuera de la esquina de nuestra área por el lado izquierdo del ataque del Murcia (nuestra banda derecha), sin ángulo de tiro claro, y Bustos queda en el suelo hasta las 10:12 (no se ve el saque en las imágenes). En la táctica (s 616 el choque, 618 Bustos en el suelo, desfase ≈ +12) sólo cuento 3 del Castilla más cerca de nuestra línea de fondo que el balón, Mestre y los dos centrales (Joan y Aguado) en la línea del área, sólo unos 3 m más atrás que el balón, y dejo fuera a Cisse y a los que estaban a la altura del balón o por delante.",
+        "nota": "A las 10:06 Mario Rivas (4) derriba a Álvaro Bustos (11), que había recibido el balón largo de Palmberg pegado a la banda, unos 3-4 m fuera de la esquina de nuestra área por el lado izquierdo del ataque del Murcia (nuestra banda derecha), sin ángulo de tiro claro, y Bustos queda en el suelo hasta las 10:12 (no se ve el saque en las imágenes). En la táctica (s 616 el choque, 618 Bustos en el suelo, desfase ≈ +12) sólo cuento 3 del Castilla más cerca de nuestra línea de fondo que el balón, Mestre y los dos centrales (Joan y Aguado) en la línea del área, sólo unos 3 m más atrás que el balón, y dejo fuera a Mario Rivas y a los que estaban a la altura del balón o por delante.",
         "minuto": "10'06\" (táctica 10:17)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
           "seg": 604
         },
-        "jugador": "Cisse",
+        "jugador": "Mario Rivas",
         "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j13-real-murcia-def-604.mp4"
       },
       {
@@ -4855,7 +4855,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "lejana",
         "entre": 6,
-        "nota": "A las 20:57 Flakus Bosilj (23) derriba a Jorge Cestero (6), que había recibido de Cisse, justo pasado el medio campo junto al círculo central, algo escorado a nuestra derecha. Según Hudl la saca Cestero 18 s después (no se ve en las imágenes, la TV se queda con el árbitro y Flakus). En la táctica cuento 6 del Murcia por delante del balón con el portero, dudo del 8 Javi Mier, que está a la altura del balón, y quedan detrás el infractor y otros tres que habían ido a presionar.",
+        "nota": "A las 20:57 Flakus Bosilj (23) derriba a Jorge Cestero (6), que había recibido de Mario Rivas, justo pasado el medio campo junto al círculo central, algo escorado a nuestra derecha. Según Hudl la saca Cestero 18 s después (no se ve en las imágenes, la TV se queda con el árbitro y Flakus). En la táctica cuento 6 del Murcia por delante del balón con el portero, dudo del 8 Javi Mier, que está a la altura del balón, y quedan detrás el infractor y otros tres que habían ido a presionar.",
         "minuto": "20'56\" (táctica 21:07)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -4934,7 +4934,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 5,
-        "nota": "A las 28:13-28:15 Jorge Mier (2) agarra por detrás a Álvaro Leiva (11), que acababa de recibir de Aguado tras el saque con la mano de Mestre, pegado a nuestra banda izquierda y unos 5 m dentro de nuestro campo (en la TV parece más atrás). Se saca rápido y en corto hacia atrás (Martínez y luego Cisse) y seguimos la posesión. En la táctica (s 1662, v_03 arriba izq.) cuento 5 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón junto al infractor y quedan detrás el infractor y dos más que presionaban.",
+        "nota": "A las 28:13-28:15 Jorge Mier (2) agarra por detrás a Álvaro Leiva (11), que acababa de recibir de Aguado tras el saque con la mano de Mestre, pegado a nuestra banda izquierda y unos 5 m dentro de nuestro campo (en la TV parece más atrás). Se saca rápido y en corto hacia atrás (Martínez y luego Mario Rivas) y seguimos la posesión. En la táctica (s 1662, v_03 arriba izq.) cuento 5 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón junto al infractor y quedan detrás el infractor y dos más que presionaban.",
         "minuto": "28'14\" (táctica 27:44)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -4950,7 +4950,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "centro",
         "distancia": "media",
         "entre": 4,
-        "nota": "A las 28:43 Javi Moreno (17) derriba a Diego Aguado (3) lejos del balón (Cisse lo tenía en el círculo central), a unos 25 m de la portería del Murcia, algo escorado a la izquierda pero dentro de la anchura del área (no es borde del área: media, no frontal). La táctica (s 1690 el choque, 1691 Aguado en el suelo) cuenta 4 del Murcia claramente más cerca de su portería con el portero y dudo de dos a la altura de la falta. Se saca en la táctica hacia el s 1739 con un balón al costado izquierdo del área con el Murcia en línea en su frontal y la jugada sigue por la izquierda sin remate claro.",
+        "nota": "A las 28:43 Javi Moreno (17) derriba a Diego Aguado (3) lejos del balón (Mario Rivas lo tenía en el círculo central), a unos 25 m de la portería del Murcia, algo escorado a la izquierda pero dentro de la anchura del área (no es borde del área: media, no frontal). La táctica (s 1690 el choque, 1691 Aguado en el suelo) cuenta 4 del Murcia claramente más cerca de su portería con el portero y dudo de dos a la altura de la falta. Se saca en la táctica hacia el s 1739 con un balón al costado izquierdo del área con el Murcia en línea en su frontal y la jugada sigue por la izquierda sin remate claro.",
         "minuto": "28'43\" (táctica 28:14)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -4966,7 +4966,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 7,
-        "nota": "A las 33:10-33:12 Cristo Romero (3) derriba a Joan Martínez (5) pegado a nuestra banda derecha, unos 8-10 m ya en campo del Murcia, tras la pared de Joan con Yáñez, y el árbitro la señala a las 33:13. Joan la saca en corto hacia dentro (táctica s 1966-1967) y seguimos la posesión con Martínez y Cisse. En la táctica (s 1959, Joan con los brazos en alto) cuento 7 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón junto a la banda y quedan detrás el infractor y uno más.",
+        "nota": "A las 33:10-33:12 Cristo Romero (3) derriba a Joan Martínez (5) pegado a nuestra banda derecha, unos 8-10 m ya en campo del Murcia, tras la pared de Joan con Yáñez, y el árbitro la señala a las 33:13. Joan la saca en corto hacia dentro (táctica s 1966-1967) y seguimos la posesión con Martínez y Mario Rivas. En la táctica (s 1959, Joan con los brazos en alto) cuento 7 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón junto a la banda y quedan detrás el infractor y uno más.",
         "minuto": "33'11\" (táctica 32:41)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -4982,7 +4982,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 7,
-        "nota": "A las 35:33 Cristo Romero (3) derriba a Daniel Yáñez (7) pegado a nuestra banda derecha, unos 12-15 m dentro del campo del Murcia, tras el pase de Fortea. Se saca en corto desde la banda hacia dentro (táctica s 2103-2104, Fortea según Hudl) y seguimos la posesión con Joan y Cisse. En la táctica (s 2100 la entrada, 2101 Yáñez en el suelo) cuento 7 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón y quedan detrás el infractor y los que habían basculado a la banda.",
+        "nota": "A las 35:33 Cristo Romero (3) derriba a Daniel Yáñez (7) pegado a nuestra banda derecha, unos 12-15 m dentro del campo del Murcia, tras el pase de Fortea. Se saca en corto desde la banda hacia dentro (táctica s 2103-2104, Fortea según Hudl) y seguimos la posesión con Joan y Mario Rivas. En la táctica (s 2100 la entrada, 2101 Yáñez en el suelo) cuento 7 del Murcia más cerca de su portería con el portero, dudo de uno a la altura del balón y quedan detrás el infractor y los que habían basculado a la banda.",
         "minuto": "35'32\" (táctica 35:03)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -4998,7 +4998,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 5,
-        "nota": "A las 39:05-39:06 Héctor (4) comete falta sobre Pol Fortuny (10), que había recogido el balón dividido tras el duelo aéreo de Carvajal, en nuestro campo a unos 10 m del medio campo y escorado a nuestra derecha (ya con 0-2). Según Hudl la saca Cestero en corto y seguimos con Aguado y Cisse (no se ve el saque en las imágenes de TV). En la táctica (s 2313, 2314 el jugador en el suelo) el Murcia presionaba alto: cuento 5 más cerca de su portería con el portero, dudo de dos a la altura del balón y quedan detrás el infractor y varios que presionaban en nuestro campo.",
+        "nota": "A las 39:05-39:06 Héctor (4) comete falta sobre Pol Fortuny (10), que había recogido el balón dividido tras el duelo aéreo de Carvajal, en nuestro campo a unos 10 m del medio campo y escorado a nuestra derecha (ya con 0-2). Según Hudl la saca Cestero en corto y seguimos con Aguado y Mario Rivas (no se ve el saque en las imágenes de TV). En la táctica (s 2313, 2314 el jugador en el suelo) el Murcia presionaba alto: cuento 5 más cerca de su portería con el portero, dudo de dos a la altura del balón y quedan detrás el infractor y varios que presionaban en nuestro campo.",
         "minuto": "39'06\" (táctica 38:37)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -5062,7 +5062,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 5,
-        "nota": "A las 44:23-44:24 Héctor (4) entra por detrás a Ángel Carvajal (19), que conducía por nuestro carril izquierdo unos 10-15 m pasado el medio campo tras el pase de Cisse, el Murcia se queda el balón un par de segundos hasta que el árbitro para el juego (44:27) y según Hudl la saca Cestero en corto hacia Cisse (no se ve el saque en las imágenes). En la táctica (s 2631, desfase ≈ -31) cuento 5 del Murcia por delante del balón con el portero, dejo fuera al infractor y a los que estaban a la altura del balón o ya en nuestro campo, y dudo de uno a la altura del árbitro que se ve mal.",
+        "nota": "A las 44:23-44:24 Héctor (4) entra por detrás a Ángel Carvajal (19), que conducía por nuestro carril izquierdo unos 10-15 m pasado el medio campo tras el pase de Mario Rivas, el Murcia se queda el balón un par de segundos hasta que el árbitro para el juego (44:27) y según Hudl la saca Cestero en corto hacia Mario Rivas (no se ve el saque en las imágenes). En la táctica (s 2631, desfase ≈ -31) cuento 5 del Murcia por delante del balón con el portero, dejo fuera al infractor y a los que estaban a la altura del balón o ya en nuestro campo, y dudo de uno a la altura del árbitro que se ve mal.",
         "minuto": "44'24\" (táctica 43:54)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -5206,13 +5206,13 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 9,
-        "nota": "A las 77:51-77:52 un jugador del Murcia (Jorge Mier según Hudl, el 23 está al lado) derriba a un jugador del Castilla (Cisse según Hudl, no se lee el dorsal) en un balón dividido pegado a la banda izquierda unos 12-15 m dentro de nuestro campo, que queda en el suelo a las 77:53 frente a los banquillos. En la táctica (s 4787 la disputa, 4788 el choque, 4789 en el suelo, desfase ≈ −19 sobre la marca de Hudl) cuento 9 del Murcia más cerca de su portería que el balón con el portero, dejo fuera al infractor y al que está a su altura, y dudo de uno que se ve muy pequeño junto al medio campo.",
+        "nota": "A las 77:51-77:52 un jugador del Murcia (Jorge Mier según Hudl, el 23 está al lado) derriba a un jugador del Castilla (Mario Rivas según Hudl, no se lee el dorsal) en un balón dividido pegado a la banda izquierda unos 12-15 m dentro de nuestro campo, que queda en el suelo a las 77:53 frente a los banquillos. En la táctica (s 4787 la disputa, 4788 el choque, 4789 en el suelo, desfase ≈ −19 sobre la marca de Hudl) cuento 9 del Murcia más cerca de su portería que el balón con el portero, dejo fuera al infractor y al que está a su altura, y dudo de uno que se ve muy pequeño junto al medio campo.",
         "minuto": "77'54\" (táctica 79:51)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
           "seg": 4803
         },
-        "jugador": "Cisse",
+        "jugador": "Mario Rivas",
         "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j13-real-murcia-of-4803.mp4"
       },
       {
@@ -5232,13 +5232,13 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "derecha",
         "distancia": "lejana",
         "entre": 4,
-        "nota": "A las 81:45-81:46 Cisse (4, en la camiseta MARIO RIVAS) derriba a Álvaro Giménez (20) junto a la banda derecha del Murcia (la lejana de la TV) a unos 8-10 m de la banda y justo dentro del campo del Murcia, sobre la línea de medio campo (en la táctica la caída en el s 5022 junto a la banda izquierda de la imagen y Giménez en el suelo hasta el 5027, desfase ≈ −14 sobre la marca de Hudl), y el Murcia la saca en corto hacia atrás a los 23 s (abp-def-07). Entre cuento 4 con Mestre (tres blancos claramente por debajo de la línea de medio campo más el portero), dejo fuera a Cisse y dudo de otro blanco que estaba casi a la altura del balón junto a la jugada.",
+        "nota": "A las 81:45-81:46 Mario Rivas (4, en la camiseta MARIO RIVAS) derriba a Álvaro Giménez (20) junto a la banda derecha del Murcia (la lejana de la TV) a unos 8-10 m de la banda y justo dentro del campo del Murcia, sobre la línea de medio campo (en la táctica la caída en el s 5022 junto a la banda izquierda de la imagen y Giménez en el suelo hasta el 5027, desfase ≈ −14 sobre la marca de Hudl), y el Murcia la saca en corto hacia atrás a los 23 s (abp-def-07). Entre cuento 4 con Mestre (tres blancos claramente por debajo de la línea de medio campo más el portero), dejo fuera a Mario Rivas y dudo de otro blanco que estaba casi a la altura del balón junto a la jugada.",
         "minuto": "81'47\" (táctica 83:44)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
           "seg": 5036
         },
-        "jugador": "Cisse",
+        "jugador": "Mario Rivas",
         "video": "https://rmcf-castilla.onrender.com/api/video/2026/faltas/clips/j13-real-murcia-def-5036.mp4"
       },
       {
@@ -5264,7 +5264,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "lejana",
         "entre": 7,
-        "nota": "Sin TV (tramo de Hudl roto), sólo táctica y ficha: tras un balón largo del Murcia y un duelo aéreo en nuestro carril izquierdo, Álvaro Giménez (20) comete falta sobre Jorge Cestero (6) según Hudl unos 5-10 m dentro de nuestro campo pegado a la izquierda, y la saca Cisse hacia el centro. En la táctica se ve el duelo en ese sitio en s 5206-5208 (tomo s 5207 por el desfase ≈ −15 medido en of-c17, of-c18 y of-c20, no se ve con claridad a nadie en el suelo), el balón se coloca en el centro-izquierda hacia s 5214-5216, y cuento 7 del Murcia más cerca de su portería con el portero, sin el infractor ni los dos a su altura, con dudas por lo pequeño que se ve.",
+        "nota": "Sin TV (tramo de Hudl roto), sólo táctica y ficha: tras un balón largo del Murcia y un duelo aéreo en nuestro carril izquierdo, Álvaro Giménez (20) comete falta sobre Jorge Cestero (6) según Hudl unos 5-10 m dentro de nuestro campo pegado a la izquierda, y la saca Mario Rivas hacia el centro. En la táctica se ve el duelo en ese sitio en s 5206-5208 (tomo s 5207 por el desfase ≈ −15 medido en of-c17, of-c18 y of-c20, no se ve con claridad a nadie en el suelo), el balón se coloca en el centro-izquierda hacia s 5214-5216, y cuento 7 del Murcia más cerca de su portería con el portero, sin el infractor ni los dos a su altura, con dudas por lo pequeño que se ve.",
         "minuto": "84'53\" (táctica 86:51)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",
@@ -5280,7 +5280,7 @@ export const PARTIDOS: PartidoFaltas[] = [
         "carril": "izquierda",
         "distancia": "media",
         "entre": 6,
-        "nota": "A las 86:42 Óscar Gil (15, según Hudl) derriba a Alexis Ciria (17) tras la combinación Joan-Cisse-Aguado-Leiva, en nuestro carril izquierdo unos 5 m por fuera del área del Murcia a la altura de su línea frontal y por fuera de su lado izquierdo (falta lateral, sin tiro claro), y Ciria queda en el suelo a las 86:43. En la táctica (s 5317 el choque, 5318 en el suelo, desfase ≈ −14 sobre la marca de Hudl) cuento 6 del Murcia más cerca de su línea de fondo que el balón con el portero, sin el infractor ni los dos que están a la altura del balón, y dudo de uno que está casi a esa altura.",
+        "nota": "A las 86:42 Óscar Gil (15, según Hudl) derriba a Alexis Ciria (17) tras la combinación Joan-Mario Rivas-Aguado-Leiva, en nuestro carril izquierdo unos 5 m por fuera del área del Murcia a la altura de su línea frontal y por fuera de su lado izquierdo (falta lateral, sin tiro claro), y Ciria queda en el suelo a las 86:43. En la táctica (s 5317 el choque, 5318 en el suelo, desfase ≈ −14 sobre la marca de Hudl) cuento 6 del Murcia más cerca de su línea de fondo que el balón con el portero, sin el infractor ni los dos que están a la altura del balón, y dudo de uno que está casi a esa altura.",
         "minuto": "86'42\" (táctica 88:39)",
         "hudl": {
           "url": "https://www.hudl.com/watch/video/VmlkZW82YjAxNTY2M2JkM2M0NGE3MjI1Yzc0Njg=",

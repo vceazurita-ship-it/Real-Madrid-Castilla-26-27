@@ -207,6 +207,7 @@ function leeTimeline(carpeta) {
     if (!pre) continue;
 
     for (const p of tag(m, "09 - Players")) equipoDe[p] ??= pre;
+    if (pre === NOSOTROS) for (const p of tag(m, "09 - Players")) CASTILLA.add(p);
   }
 
   const periodos = momentosEq
@@ -268,7 +269,10 @@ function leeTimeline(carpeta) {
 /** «55:17» del vídeo de Hudl, para ir a la jugada. */
 const reloj = (ms) => `${Math.floor(ms / 60000)}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 
-const sinDorsal = (jug) => String(jug).replace(/^\d+\.\s*/, "");
+/* 28/11/2026: los del Castilla con un nombre que no es de la plantilla («4. Cisse» en la J13) se resuelven por su dorsal (nombres-castilla.cjs). */
+const { nombreCastilla } = require("./nombres-castilla.cjs");
+const CASTILLA = new Set();
+const sinDorsal = (jug) => (CASTILLA.has(jug) ? nombreCastilla(jug) : String(jug).replace(/^\d+\.\s*/, ""));
 
 /* ------------------------------------------------------------------ */
 /*  FICHEROS                                                           */

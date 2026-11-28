@@ -5342,6 +5342,12 @@ export const AYUDAS: AyudaDePagina[] = [
     origen: "El canal de YouTube del club, con una lista por rival, y los clips de Hudl de cada jugador (hudl:clips-rival). La plantilla, el puesto y las etiquetas (campo IMPACTO) salen de la hoja de plantillas rivales; partidos y minutos, de BeSoccer; las cifras contra su puesto, de Wyscout; el once probable, de Plantillas rivales (Supabase) o, sin marcar, su último once de BeSoccer.",
     bloques: [
       {
+        titulo: "Lo nuevo (28/11/2026): a quién va cada vídeo del canal",
+        filas: [
+          { que: "A quién va cada vídeo del canal", es: "Por el título: primero el nombre de pantalla exacto y, si no sale nadie, el de la hoja; un nombre de tres letras sólo si es el nombre entero del jugador («PAU»). Si no hay nombre exacto, vale el nombre entero con una letra cambiada («ALE DIAZ» es Ale Díez, «YEREMY» es Jeremy José) cuando sólo encaja uno. El dorsal cuenta delante del nombre o tras el guion del equipo («MAJADAHONDA - 10 …»); si la hoja repite un dorsal, decide el nombre. Lo que no nombra a nadie va a «Del equipo»." },
+        ],
+      },
+      {
         titulo: "Lo nuevo (27/11/2026): repaso de los expertos",
         filas: [
           { que: "Aperturas desde la app", es: "Titular con cuántas aperturas, desde cuándo, de cuántos clips y de qué rival; barras de puestos y rivales sólo con 15 o más; cada clip con quién lo vio, la última fecha y enlace a la ficha." },
@@ -5441,7 +5447,7 @@ export const AYUDAS: AyudaDePagina[] = [
       "Un dorsal repetido dentro del mismo rival en la hoja no se pinta en ninguno de los dos hasta corregirlo.",
       "/visionados lleva a esta pantalla, en la pestaña «Visionados».",
     ],
-    revisada: "2026-11-27",
+    revisada: "2026-11-28",
   },
 
   /* ==================== IDENTIDAD POSICIONAL (12/11/2026) ==================== */

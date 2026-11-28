@@ -107,6 +107,8 @@ const APODOS: Record<string, string[]> = {
   blanquiazul: ["hercules"],
   hercules: ["hercules"],
   cartagenero: ["cartagena"],
+  /* 28/11/2026: la lista se llama «Atlético de Madrid B» y el rival, «Atlético Madrileño». */
+  madrileno: ["atletico", "madrid"],
 };
 
 const conApodos = (palabras: string[]) => [...new Set(palabras.flatMap((palabra) => APODOS[palabra] ?? [palabra]))];
@@ -420,7 +422,55 @@ export function dorsalDelTitulo(titulo: string) {
 
   const delante = /^\s*(\d{1,2})(?=\s|$)/.exec(titulo);
 
-  return delante ? String(Number(delante[1])) : "";
+  if (delante) return String(Number(delante[1]));
+
+  /* 28/11/2026: «MAJADAHONDA - 10 YEREMY»: el equipo, un guion y el dorsal. */
+  const trasGuion = /^[^\d]{2,40}?\s[-–·]\s*(\d{1,2})(?=\s)/.exec(titulo);
+
+  return trasGuion ? String(Number(trasGuion[1])) : "";
+}
+
+/* Distancia de edición, con tope: ¿se escriben igual salvo una letra? («diaz» / «diez», «yeremy» / «jeremy»). */
+function casiIgual(a: string, b: string) {
+  if (a === b) return true;
+  if (Math.abs(a.length - b.length) > 1 || Math.min(a.length, b.length) < 4) return false;
+
+  let i = 0;
+  while (i < a.length && i < b.length && a[i] === b[i]) i++;
+
+  /* Una sustitución, una letra de más o una de menos, a partir de la primera diferencia. */
+  return a.slice(i + 1) === b.slice(i + 1) || a.slice(i + 1) === b.slice(i) || a.slice(i) === b.slice(i + 1);
+}
+
+/*
+| El nombre con una letra cambiada (28/11/2026). «3 ALE DIAZ» es Ale Díez y
+| «10 YEREMY» es Jeremy José: el título se escribe a mano y la hoja también.
+| Sólo cuando el nombre exacto no ha dado con nadie, y con condiciones: el
+| nombre (o el de la hoja) entero y en orden, cada palabra igual o con una
+| letra de diferencia (las de menos de 4 letras, iguales), y un único jugador.
+*/
+function casiDelTitulo(titulo: string, plantilla: JugadorPlantilla[]) {
+  const palabras = desnuda(titulo).split(" ").filter(Boolean);
+  const hallados = new Set<JugadorPlantilla>();
+
+  for (const jugador of plantilla) {
+    for (const nombre of [jugador.nombre, jugador.hoja]) {
+      const suyas = desnuda(nombre ?? "").split(" ").filter(Boolean);
+
+      if (!suyas.length) continue;
+      /* Un nombre de una sola palabra sólo con 5 letras o más («Yeremy» sí; «Pau» no). */
+      if (suyas.length === 1 && suyas[0].length < 5) continue;
+
+      for (let i = 0; i + suyas.length <= palabras.length; i++) {
+        if (suyas.every((p, k) => casiIgual(p, palabras[i + k]))) {
+          hallados.add(jugador);
+          break;
+        }
+      }
+    }
+  }
+
+  return hallados.size === 1 ? [...hallados][0] : null;
 }
 
 /**
@@ -453,23 +503,35 @@ export function jugadorDelTitulo(
     completo: boolean;
   }[] = [];
 
+  /*
+  | 28/11/2026: primero el nombre de pantalla; sólo si con él no sale nadie, el
+  | de la hoja («ALEJANDRO DÍEZ SALOMÓN»). Juntos, «Ribeiro» lo llevaban dos
+  | (Iban Ribeiro y Marcelo, que en la hoja es «Marcelo Ribeiro») y el vídeo
+  | «10 RIBEIRO» se quedaba sin dueño.
+  */
+  for (const deLaHoja of [false, true]) {
+    if (deLaHoja && encontrados.length) break;
+
   for (const jugador of plantilla) {
-    const nombre = desnuda(jugador.nombre);
+    const nombres = [desnuda((deLaHoja ? jugador.hoja : jugador.nombre) ?? "")].filter(Boolean);
 
-    if (!nombre) continue;
-
-    const partes = nombre.split(" ").filter(Boolean);
+    if (!nombres.length) continue;
 
     /* El nombre entero, y si no, cada palabra suya que sea distintiva. */
-    const candidatos = [
-      { texto: nombre, completo: true },
-      ...partes.map((parte) => ({ texto: parte, completo: partes.length === 1 })),
-    ];
+    const candidatos = nombres.flatMap((nombre) => {
+      const partes = nombre.split(" ").filter(Boolean);
+
+      return [
+        { texto: nombre, completo: true },
+        ...partes.map((parte) => ({ texto: parte, completo: partes.length === 1 })),
+      ];
+    });
 
     let mejor: { texto: string; completo: boolean } | null = null;
 
     for (const candidato of candidatos) {
-      if (candidato.texto.length < 4) continue;
+      /* Menos de 4 letras, sólo si es su nombre entero (el jugador se llama «Pau» en la hoja): un trozo corto da falsos positivos. */
+      if (candidato.texto.length < 4 && !(candidato.completo && candidato.texto.length === 3)) continue;
 
       if (!limpio.includes(` ${candidato.texto} `)) continue;
 
@@ -483,6 +545,7 @@ export function jugadorDelTitulo(
     }
 
     if (mejor) encontrados.push({ jugador, ...mejor });
+  }
   }
 
   /*
@@ -499,7 +562,14 @@ export function jugadorDelTitulo(
 
   const porDorsal = delDorsal.length === 1 ? delDorsal[0] : null;
 
-  if (encontrados.length === 0) return porDorsal;
+  if (encontrados.length === 0) {
+    /* 28/11/2026: sin nombre exacto, el nombre con una letra cambiada; si no, el dorsal. Con el dorsal repetido en la hoja (el 3 de Sotillos y Ale Díez), decide el nombre. */
+    const casi = casiDelTitulo(titulo, plantilla);
+
+    if (casi && (!porDorsal || casi === porDorsal || delDorsal.length !== 1)) return casi;
+
+    return porDorsal ?? casi;
+  }
 
   if (porDorsal) {
     const esDelDorsal = encontrados.some((item) => item.jugador === porDorsal);
