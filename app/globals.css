@@ -2711,3 +2711,12 @@ body:has(.sala-raiz) [data-menu-flotante] { bottom: 12px; right: 10px; }
    en el móvil; la sala es pantalla de partido y lleva sus propios mandos. La franja sigue en el resto de la app. */
 body:has(.sala-raiz) .boton-subir,
 body:has(.sala-raiz) .aviso-tareas { display: none; }
+/* 28/11/2026 (jueces de estilo): en el móvil el «⋮» tapaba leyendas al pasar por encima; en la sala va
+   translúcido hasta que se toca. Y el aviso «en oscuro a propósito» sólo sale con el modo día. */
+@media (max-width: 639px) {
+  body:has(.sala-raiz) [data-menu-flotante] { opacity: 0.5; transition: opacity 0.2s ease; }
+  body:has(.sala-raiz) [data-menu-flotante]:hover,
+  body:has(.sala-raiz) [data-menu-flotante]:focus-within { opacity: 1; }
+}
+.sala-aviso-dia { display: none; }
+:root[data-theme="light"] .sala-aviso-dia { display: inline-flex; }

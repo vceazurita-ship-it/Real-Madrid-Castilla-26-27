@@ -448,6 +448,7 @@ async function main() {
       analisis: ["experto-futbol", "experto-analisis", "experto-marketing"],
       cinco: ["experto-futbol", "experto-analisis", "experto-marketing", "guionista"],
       estilo: ["experto-analisis", "experto-marketing", "experto-futbol"],
+      sala: ["experto-futbol", "experto-analisis", "experto-marketing"],
     };
     /* 28/11/2026: --enfoque «texto» pide una revisión dirigida (p. ej. visualización, usabilidad, estilo y tecnología) y la guarda aparte (critica-<juez>-enfoque.json): no pisa las notas de las rondas. */
     const enfoque = valor("enfoque");

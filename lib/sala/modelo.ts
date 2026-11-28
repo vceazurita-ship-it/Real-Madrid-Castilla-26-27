@@ -938,7 +938,7 @@ export function transiciones(p: Partido, desde: number, hasta: number, parte?: n
   return { perdidas, robos };
 }
 
-export type Tramo15 = { etiqueta: string; L: { xg: number; tiros: number; goles: number }; V: { xg: number; tiros: number; goles: number }; dominio: { L: number; V: number } | null };
+export type Tramo15 = { etiqueta: string; L: { xg: number; tiros: number; goles: number }; V: { xg: number; tiros: number; goles: number }; dominio: { L: number; V: number; pases?: number } | null };
 
 /** El partido por tramos de 15′ hasta t (el descuento va con el último tramo de su parte): xG, remates, goles y dominio territorial. */
 export function tramos15(p: Partido, t: number): Tramo15[] {
@@ -960,7 +960,7 @@ export function tramos15(p: Partido, t: number): Tramo15[] {
     .filter((c) => c.hay)
     .map((c) => {
       const tt = c.L.tercio + c.V.tercio;
-      return { etiqueta: c.etiqueta, L: { xg: c.L.xg, tiros: c.L.tiros, goles: c.L.goles }, V: { xg: c.V.xg, tiros: c.V.tiros, goles: c.V.goles }, dominio: tt ? { L: c.L.tercio / tt, V: c.V.tercio / tt } : null };
+      return { etiqueta: c.etiqueta, L: { xg: c.L.xg, tiros: c.L.tiros, goles: c.L.goles }, V: { xg: c.V.xg, tiros: c.V.tiros, goles: c.V.goles }, dominio: tt ? { L: c.L.tercio / tt, V: c.V.tercio / tt, pases: tt } : null };
     });
 }
 
@@ -1094,7 +1094,7 @@ export function golesHasta(p: Partido, t: number) {
 /*  SEGUNDA RONDA DE LOS EXPERTOS (26/11/2026)                         */
 /* ------------------------------------------------------------------ */
 
-export type FichaGol = { lado: Lado; min: number; parte: number; marcador: string; goleador: string; asistente: string; origen: string; pases: number; segundos: number; zona: string; xG: number | null; jugada: string };
+export type FichaGol = { lado: Lado; min: number; parte: number; marcador: string; goleador: string; asistente: string; origen: string; pases: number; segundos: number; zona: string; xG: number | null; jugada: string; /** El id de Opta del goleador (28/11/2026: su nombre enlaza a su ficha). */ goleadorId?: string };
 
 const zonaRemate = (x: number, y: number) => (x >= 94.2 && y >= 36.8 && y <= 63.2 ? "en el área pequeña" : enArea(x, y) ? "en el área" : "desde fuera del área");
 const carrilDe = (y: number) => (y < 33.3 ? "derecha" : y < 66.7 ? "centro" : "izquierda");
@@ -1167,6 +1167,7 @@ export function fichasDeGol(p: Partido, t: number): FichaGol[] {
       parte: g.parte,
       marcador: `${gL}-${gV}`,
       goleador: nombre(g.jugador),
+      goleadorId: g.jugador,
       asistente,
       origen,
       pases,

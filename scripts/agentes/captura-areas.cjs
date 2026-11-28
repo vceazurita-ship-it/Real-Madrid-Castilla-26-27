@@ -31,6 +31,7 @@ const GRUPOS = {
   /* Ronda dirigida (29/10/2026): portada, coding de clips del ABP rival y plantillas rivales. */
   foco: ["/", "/scout-rival-abp?vista=coding", "/rivals"],
   /* 28/11/2026 (analista): visualización, usabilidad, estilo y tecnología de las pantallas de trabajo más usadas. */
+  sala: ["/directo"],
   estilo: ["/directo", "/coding", "/jugadores-sesion", "/laboratorio/microciclo", "/rivals"],
   /* Segunda ronda dirigida (29/10/2026): plan de partido, scout del rival y quiniela. */
   foco2: ["/match-preparation", "/scout-rival-collective", "/scout-rival-individual", "/quiniela"],

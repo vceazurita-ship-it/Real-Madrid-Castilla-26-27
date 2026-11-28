@@ -30,7 +30,8 @@ const nombreDe = (p: Partido, l: Lado) => {
   return n === "Real Madrid Castilla" ? "Castilla" : n.replace(/^(Real|Club|CD|UD|SD|CF|FC|RCD|RC|AD|CE|SCR|Atlético)\s+(?=\S{4,})/i, "");
 };
 
-type Ritmo = { xg: number; toques: number; tiros: number; pos: number | null };
+/** Por 90′ (xg, toques, tiros) y, al lado, lo contado de verdad en la ventana (n), para dar la base (28/11/2026). */
+type Ritmo = { xg: number; toques: number; tiros: number; pos: number | null; n: { xg: number; toques: number; tiros: number } };
 
 /** Por 90 minutos, en una ventana: oficial (tramos de Opta) si los hay; si no, el evento a evento. */
 function ritmoEntre(p: Partido, desde: number, hasta: number): { L: Ritmo; V: Ritmo; min: number } | null {
@@ -42,7 +43,8 @@ function ritmoEntre(p: Partido, desde: number, hasta: number): { L: Ritmo; V: Ri
     if (o.tramos || o.entero) {
       const r = (l: Lado): Ritmo => {
         const m = l === "L" ? o.L : o.V;
-        return { xg: por90(m.ExpG ?? 0), toques: por90(m.TouchOpBox ?? 0), tiros: por90(m.ShtIncBl ?? 0), pos: m["Poss%"] ?? null };
+        const n = { xg: m.ExpG ?? 0, toques: m.TouchOpBox ?? 0, tiros: m.ShtIncBl ?? 0 };
+        return { xg: por90(n.xg), toques: por90(n.toques), tiros: por90(n.tiros), pos: m["Poss%"] ?? null, n };
       };
       return { L: r("L"), V: r("V"), min };
     }
@@ -51,7 +53,8 @@ function ritmoEntre(p: Partido, desde: number, hasta: number): { L: Ritmo; V: Ri
   const pos = posesion(c);
   const r = (l: Lado): Ritmo => {
     const y = l === "L" ? c.L : c.V;
-    return { xg: por90(y.xg), toques: por90(y.toquesArea), tiros: por90(y.tiros), pos: l === "L" ? pos.L : pos.V };
+    const n = { xg: y.xg, toques: y.toquesArea, tiros: y.tiros };
+    return { xg: por90(n.xg), toques: por90(n.toques), tiros: por90(n.tiros), pos: l === "L" ? pos.L : pos.V, n };
   };
   return { L: r("L"), V: r("V"), min };
 }
@@ -101,10 +104,23 @@ export function rumbo(p: Partido, t: number): Rumbo {
     if (pre && post) {
       const quienes = juntos.map((m) => `${p.jugadores.get(m.entra ?? "")?.corto ?? "?"} (${nom(m.lado)})`).join(", ");
       const frases: string[] = [];
+      /*
+       * Con menos de 15′ desde el cambio (28/11/2026, jueces de fútbol y análisis), primero lo contado
+       * de verdad y sus minutos («1 remate · 0,10 de xG · 2 toques en el área en 10′») y después el
+       * ritmo por 90′, marcado como tendencia: antes se extrapolaba sin decirlo.
+       */
+      const corto = post.min < 15;
+      const minPost = Math.max(1, Math.round(post.min));
       for (const l of ["L", "V"] as Lado[]) {
         const a = pre[l], b = post[l];
         const dx = b.xg - a.xg;
-        frases.push(`${nom(l)}: ${coma(a.xg, 1)} → ${coma(b.xg, 1)} xG por 90′${Math.abs(dx) >= 0.4 ? (dx > 0 ? " (a más)" : " (a menos)") : " (igual)"}, ${Math.round(a.toques)} → ${Math.round(b.toques)} toques en el área por 90′.`);
+        const sentido = Math.abs(dx) >= 0.4 ? (dx > 0 ? " (a más)" : " (a menos)") : " (igual)";
+        if (corto) {
+          const rem = Math.round(b.n.tiros), toq = Math.round(b.n.toques);
+          frases.push(
+            `${nom(l)}: ${rem} ${rem === 1 ? "remate" : "remates"} · ${coma(b.n.xg, 2)} de xG · ${toq} ${toq === 1 ? "toque" : "toques"} en el área en ${minPost}′. Tendencia: ${coma(a.xg, 1)} → ${coma(b.xg, 1)} xG por 90′${sentido}.`,
+          );
+        } else frases.push(`${nom(l)}: ${coma(a.xg, 1)} → ${coma(b.xg, 1)} xG por 90′${sentido}, ${Math.round(a.toques)} → ${Math.round(b.toques)} toques en el área por 90′.`);
       }
       if (pre.L.pos != null && post.L.pos != null) frases.push(`Posesión de ${nom("L")}: ${Math.round(pre.L.pos * 100)} % → ${Math.round(post.L.pos * 100)} %.`);
       cambio = { titulo: `Desde ${juntos.length > 1 ? "los cambios" : "el cambio"} del ${Math.floor(desde) + 1}′: ${quienes}`, frases };
